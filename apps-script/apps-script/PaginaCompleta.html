@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+  :root {
+    --bg: #f3f4f8;
+    --card-bg: #ffffff;
+    --borda: #e5e7eb;
+    --texto: #111827;
+    --texto-suave: #6b7280;
+    --primario: #4f46e5;
+    --primario-escuro: #4338ca;
+    --verde: #16a34a;
+    --vermelho: #ef4444;
+
+    --laranja-bg: #ffedd5; --laranja-fg: #f97316;
+    --azul-bg: #dbeafe; --azul-fg: #0ea5e9;
+    --roxo-bg: #ede9fe; --roxo-fg: #8b5cf6;
+    --vermelho-bg: #fee2e2; --vermelho-fg: #ef4444;
+    --verde-bg: #dcfce7; --verde-fg: #16a34a;
+    --amarelo-bg: #fef9c3; --amarelo-fg: #ca8a04;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--texto);
+  }
+
+  header.topo {
+    background: #fff;
+    border-bottom: 1px solid var(--borda);
+    padding: 14px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .topo-marca { display: flex; align-items: center; gap: 12px; }
+  .topo-icone {
+    width: 42px; height: 42px; border-radius: 10px;
+    background: var(--primario); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .topo-marca h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  .topo-marca .subtitulo { font-size: 12px; color: var(--texto-suave); }
+  .topo-usuario { text-align: right; font-size: 13px; }
+  .topo-usuario .nome { font-weight: 700; }
+  .topo-usuario .perfil { color: var(--texto-suave); font-size: 12px; }
+
+  main { padding: 28px; max-width: 1200px; margin: 0 auto; }
+  .tela { display: none; }
+  .tela.ativa { display: block; }
+
+  .pagina-titulo { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .pagina-titulo h2 { font-size: 26px; margin: 0 0 4px; font-weight: 800; }
+  .pagina-titulo p { margin: 0; color: var(--texto-suave); font-size: 14px; }
+
+  button.primario, button.secundario, button.perigo {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  button.primario { background: var(--primario); color: #fff; }
+  button.primario:hover { background: var(--primario-escuro); }
+  button.secundario { background: #fff; color: var(--texto); border: 1px solid var(--borda); }
+  button.perigo { background: #fff; color: var(--vermelho); border: 1px solid var(--vermelho); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- Home: cards de navegação ---- */
+  .cards-menu {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 18px;
+  }
+  .card-menu {
+    background: var(--card-bg);
+    border: 1px solid var(--borda);
+    border-radius: 16px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-menu .icone {
+    width: 46px; height: 46px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+  }
+  .card-menu h3 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
+  .card-menu .legenda { margin: 0 0 12px; font-size: 12px; color: var(--texto-suave); font-weight: 600; }
+  .card-menu p.descricao { margin: 0 0 18px; font-size: 13px; color: var(--texto-suave); line-height: 1.5; flex-grow: 1; }
+  .card-menu button { width: 100%; justify-content: center; }
+
+  /* ---- Cartões genéricos ---- */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--borda);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
+
+  /* ---- Stepper ---- */
+  .stepper { display: flex; align-items: center; margin-bottom: 22px; }
+  .stepper .passo { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .stepper .bola {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: #e5e7eb; color: var(--texto-suave);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .stepper .passo.ativo .bola, .stepper .passo.concluido .bola { background: var(--primario); color: #fff; }
+  .stepper .passo .rotulo { font-size: 12px; color: var(--texto-suave); font-weight: 600; }
+  .stepper .passo.ativo .rotulo { color: var(--texto); }
+  .stepper .linha { flex: 1; height: 2px; background: var(--borda); margin: 0 8px 20px; }
+  .stepper .linha.concluida { background: var(--primario); }
+
+  .etapa-cabecalho {
+    background: #eef0ff; color: var(--primario-escuro);
+    padding: 12px 16px; border-radius: 10px 10px 0 0;
+    font-weight: 700; font-size: 14px;
+    margin: -18px -20px 18px;
+  }
+  .grid-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px 16px;
+  }
+  .campo { display: flex; flex-direction: column; gap: 5px; }
+  .campo.span-2 { grid-column: span 2; }
+  .campo label { font-size: 13px; font-weight: 600; }
+  .campo label .opcional { font-weight: 400; color: var(--texto-suave); }
+  .campo input, .campo select, .campo textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .campo textarea { resize: vertical; min-height: 60px; }
+
+  .botoes { display: flex; gap: 10px; margin-top: 18px; justify-content: space-between; }
+  .botoes .direita { display: flex; gap: 10px; margin-left: auto; }
+
+  .resumo-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .resumo-item { border: 1px solid var(--borda); border-radius: 10px; padding: 12px 14px; }
+  .resumo-item .rotulo { font-size: 11px; color: var(--texto-suave); font-weight: 700; text-transform: uppercase; }
+  .resumo-item .valor { font-size: 14px; font-weight: 600; margin-top: 3px; }
+
+  .mensagem { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; white-space: pre-wrap; }
+  .mensagem.erro { background: #fee2e2; color: var(--vermelho); }
+  .mensagem.sucesso { background: #dcfce7; color: var(--verde); }
+
+  .filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+  .filtros .campo { min-width: 150px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    background: #f9fafb;
+    padding: 10px 12px;
+    position: sticky;
+    top: 0;
+    white-space: nowrap;
+    font-weight: 700;
+    color: var(--texto-suave);
+  }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--borda); white-space: nowrap; }
+  tbody tr:hover { background: #f9fafb; }
+  tbody tr.linha-clicavel { cursor: pointer; }
+  tbody tr.linha-clicavel:hover { background: #eef0ff; }
+  .tabela-wrap { overflow-x: auto; max-height: 58vh; overflow-y: auto; border: 1px solid var(--borda); border-radius: 10px; }
+
+  .selo { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
+  .selo-nao { background: var(--amarelo-bg); color: var(--amarelo-fg); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .kpi { border-radius: 14px; padding: 18px 20px; }
+  .kpi.roxo { background: var(--roxo-bg); }
+  .kpi.verde { background: var(--verde-bg); }
+  .kpi.amarelo { background: var(--amarelo-bg); }
+  .kpi.azul { background: var(--azul-bg); }
+  .kpi .rotulo { font-size: 12px; font-weight: 700; opacity: 0.75; }
+  .kpi .valor { font-size: 28px; font-weight: 800; margin-top: 6px; }
+  .kpi.clicavel { cursor: pointer; transition: transform 0.1s; }
+  .kpi.clicavel:hover { transform: translateY(-2px); }
+
+  .dica-painel { font-size: 12px; color: var(--texto-suave); margin: -8px 0 16px; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+  }
+  .stat-grid-larga { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .stat-card {
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color 0.1s, background 0.1s;
+  }
+  .stat-card:hover { border-color: var(--primario); background: #eef0ff; }
+  .stat-card .stat-card-valor { font-size: 20px; font-weight: 800; color: var(--primario-escuro); }
+  .stat-card .stat-card-rotulo { font-size: 12px; color: var(--texto-suave); margin-top: 2px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stat-card-vazio { color: var(--texto-suave); font-size: 13px; padding: 10px 0; grid-column: 1 / -1; }
+
+  .processo-card { border: 1px solid var(--borda); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+  .processo-cabecalho {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; cursor: pointer; background: #fff;
+  }
+  .processo-cabecalho:hover { background: #f9fafb; }
+  .processo-card.processo-incompleto { border-color: var(--vermelho); }
+  .processo-card.processo-incompleto .processo-cabecalho { background: var(--vermelho-bg); }
+  .processo-card.processo-incompleto .processo-cabecalho:hover { background: #fecaca; }
+  .selo-vermelho { background: var(--vermelho-bg); color: var(--vermelho-fg); }
+  .processo-chevron { font-size: 14px; color: var(--texto-suave); width: 14px; flex-shrink: 0; }
+  .processo-info { flex: 1 1 260px; min-width: 0; }
+  .processo-titulo { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .processo-sub { font-size: 12px; color: var(--texto-suave); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .processo-progresso { width: 160px; flex-shrink: 0; }
+  .processo-fracao { font-size: 12px; font-weight: 600; color: var(--texto-suave); margin-bottom: 5px; text-align: right; }
+  .barra-progresso { height: 6px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
+  .barra-progresso-fill { height: 100%; background: var(--verde-fg); border-radius: 999px; }
+  .selo-pendente { background: #f3f4f6; color: var(--texto-suave); }
+  .processo-veiculos { border-top: 1px solid var(--borda); padding: 14px 16px; background: #fafbfc; }
+  .processo-endereco { font-size: 12px; color: var(--texto-suave); margin-bottom: 10px; }
+  .selo-toggle { border: none; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .selo-toggle.selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
+  .selo-toggle.selo-nao { background: var(--amarelo-bg); color: var(--amarelo-fg); }
+
+  .modal-fundo {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(17,24,39,0.45);
+    align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .modal-fundo.ativo { display: flex; }
+  #modalErroCadastroFundo { z-index: 80; }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    padding: 22px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  .modal h2 { margin-top: 0; font-size: 16px; }
+
+  .carregando { text-align: center; color: var(--texto-suave); padding: 30px; font-size: 13px; }
+  .rodape-tabela { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: var(--texto-suave); }
+
+  svg.icone-linha { width: 22px; height: 22px; }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-marca">
+      <div class="topo-icone">
+        <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+      </div>
+      <div>
+        <h1>Base de Veículos Doados</h1>
+        <div class="subtitulo">Sistema de Gestão Veicular</div>
+      </div>
+    </div>
+    <div class="topo-usuario">
+      <div class="nome" id="infoUsuarioNome">carregando…</div>
+      <div class="perfil" id="infoUsuarioPerfil"></div>
+    </div>
+  </header>
+
+  <main>
+    <div id="mensagemGlobal"></div>
+
+    <section id="tela-inicio" class="tela ativa">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Bem-vindo ao Sistema</h2>
+          <p>Escolha uma opção abaixo para começar</p>
+        </div>
+      </div>
+      <div class="cards-menu">
+        <div class="card-menu" id="cardCadastro" style="display:none;">
+          <div class="icone" style="background:var(--laranja-bg); color:var(--laranja-fg);">
+            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6"/><path d="M9 11h6"/></svg>
+          </div>
+          <h3>Cadastrar Veículo</h3>
+          <div class="legenda">Nova doação</div>
+          <p class="descricao">Registre uma nova operação de doação veicular com todos os dados necessários em um formulário guiado por etapas.</p>
+          <button class="secundario" onclick="abrirModalNumeroProcesso_()">Novo Cadastro</button>
+        </div>
+
+        <div class="card-menu">
+          <div class="icone" style="background:var(--azul-bg); color:var(--azul-fg);">
+            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+          </div>
+          <h3>Veículos Cadastrados</h3>
+          <div class="legenda">Listagem completa</div>
+          <p class="descricao">Visualize todos os veículos doados já cadastrados, com filtros por UF, ente, ano e status de transferência.</p>
+          <button class="secundario" onclick="irParaTela('listagem')">Ver Veículos</button>
+        </div>
+
+        <div class="card-menu">
+          <div class="icone" style="background:var(--roxo-bg); color:var(--roxo-fg);">
+            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          </div>
+          <h3>Estatísticas</h3>
+          <div class="legenda">Análise de dados</div>
+          <p class="descricao">Visualize painéis interativos com análises completas das doações por UF, ente, marca e evolução no tempo.</p>
+          <button class="secundario" onclick="irParaTela('painel')">Ver Estatísticas</button>
+        </div>
+
+        <div class="card-menu" id="cardNovoUsuario" style="display:none;">
+          <div class="icone" style="background:var(--verde-bg); color:var(--verde-fg);">
+            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+          </div>
+          <h3>Cadastrar Usuário</h3>
+          <div class="legenda">Acesso ao sistema</div>
+          <p class="descricao">Dê acesso a um novo colega, definindo se ele é administrador ou responsável por uma UF específica.</p>
+          <button class="secundario" onclick="abrirModalNovoUsuario_()">Novo Usuário</button>
+        </div>
+      </div>
+
+      <div class="modal-fundo" id="modalNovoUsuarioFundo">
+        <div class="modal" style="max-width:480px;">
+          <h2>Cadastrar novo usuário</h2>
+          <p style="font-size:14px; color:var(--texto-suave);">
+            A pessoa passará a acessar o sistema com a conta Google do e-mail informado abaixo.
+          </p>
+          <div id="mensagemNovoUsuario"></div>
+          <div class="grid-form">
+            <div class="campo span-2">
+              <label for="nu_Email">E-mail do Google da pessoa *</label>
+              <input type="email" id="nu_Email" required maxlength="200" placeholder="nome@gmail.com">
+            </div>
+            <div class="campo span-2">
+              <label for="nu_Nome">Nome *</label>
+              <input type="text" id="nu_Nome" required maxlength="120">
+            </div>
+            <div class="campo span-2">
+              <label for="nu_Perfil">Perfil de acesso *</label>
+              <select id="nu_Perfil" required>
+                <option value="admin">Administrador (irrestrito — cadastra, edita, exclui e cadastra usuários)</option>
+                <option value="usuario">Usuário (pode cadastrar e editar operações)</option>
+                <option value="visitante">Visitante (apenas visualizar)</option>
+              </select>
+            </div>
+          </div>
+          <div class="botoes">
+            <button class="secundario" id="botaoNovoUsuarioCancelar">Cancelar</button>
+            <button class="primario" id="botaoNovoUsuarioSalvar" style="margin-left:auto;">Salvar usuário</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-fundo" id="modalNumeroProcessoFundo">
+        <div class="modal" style="max-width:440px;">
+          <h2>Novo cadastro</h2>
+          <p style="font-size:14px; color:var(--texto-suave);">
+            Informe o número do processo desta operação. A Listagem irá agrupar os veículos cadastrados a seguir por esse número.
+          </p>
+          <div class="grid-form">
+            <div class="campo span-2">
+              <label for="np_NumeroProcesso">Número do Processo *</label>
+              <input type="text" id="np_NumeroProcesso" maxlength="60" placeholder="Ex: 00001.000123/2026-45">
+            </div>
+          </div>
+          <div id="mensagemNumeroProcesso"></div>
+          <div class="botoes">
+            <button class="secundario" id="botaoNumeroProcessoCancelar">Cancelar</button>
+            <button class="primario" id="botaoNumeroProcessoConfirmar" style="margin-left:auto;">Continuar para o cadastro</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tela-cadastro" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Cadastro de Veículo</h2>
+          <p>Processo nº <strong id="exibicaoNumeroProcesso"></strong></p>
+        </div>
+        <button class="secundario" onclick="irParaTela('inicio')">‹ Voltar</button>
+      </div>
+
+      <div class="stepper" id="stepperCadastro">
+        <div class="passo ativo" data-passo="1"><div class="bola">1</div><div class="rotulo">Operação</div></div>
+        <div class="linha"></div>
+        <div class="passo" data-passo="2"><div class="bola">2</div><div class="rotulo">Localização</div></div>
+        <div class="linha"></div>
+        <div class="passo" data-passo="3"><div class="bola">3</div><div class="rotulo">Veículo</div></div>
+        <div class="linha"></div>
+        <div class="passo" data-passo="4"><div class="bola">4</div><div class="rotulo">Confirmação</div></div>
+      </div>
+
+      <div class="card">
+        <div id="mensagemCadastro"></div>
+
+        <form id="formCadastro">
+          <input type="hidden" id="c_ID" value="">
+
+          <div class="etapa" data-etapa="1">
+            <div class="etapa-cabecalho">Dados da Operação</div>
+            <div class="grid-form">
+              <div class="campo">
+                <label for="c_Ano">Ano *</label>
+                <input type="number" id="c_Ano" required min="2000" max="2100">
+              </div>
+              <div class="campo">
+                <label for="c_Mes">Mês *</label>
+                <select id="c_Mes" required></select>
+              </div>
+              <div class="campo span-2">
+                <label for="c_TermoDoacao">Número do Termo de Doação *</label>
+                <input type="text" id="c_TermoDoacao" required maxlength="200" placeholder="Ex: Termo de Doação nº 123/2024">
+              </div>
+            </div>
+
+            <div class="etapa-cabecalho" style="margin-top:18px;">Contrato</div>
+            <div class="grid-form">
+              <div class="campo">
+                <label for="c_Contrato">Contrato *</label>
+                <input type="text" id="c_Contrato" required maxlength="20" placeholder="Ex: 123/2024"
+                  pattern="[1-9][0-9]*/[0-9]{4}" title="Use o formato NÚMERO/ANO, sem zero à esquerda no número. Ex: 123/2024">
+              </div>
+              <div class="campo">
+                <label for="c_QtdContrato">Quantidade de veículos deste contrato *</label>
+                <input type="number" id="c_QtdContrato" required min="1" step="1">
+              </div>
+              <div class="campo">
+                <label for="c_TemAditivo">Houve aditivo de contrato? *</label>
+                <select id="c_TemAditivo" required>
+                  <option value="">Selecione...</option>
+                  <option value="NÃO">Não</option>
+                  <option value="SIM">Sim</option>
+                </select>
+              </div>
+              <div class="campo" id="grupoNumeroAditivo" style="display:none;">
+                <label for="c_NumeroAditivo">Número do aditivo *</label>
+                <input type="text" id="c_NumeroAditivo" maxlength="60">
+              </div>
+              <div class="campo" id="grupoQtdAditivo" style="display:none;">
+                <label for="c_QtdAditivo">Quantidade adicional de veículos no aditivo *</label>
+                <input type="number" id="c_QtdAditivo" min="1" step="1">
+              </div>
+            </div>
+          </div>
+
+          <div class="etapa" data-etapa="2" style="display:none;">
+            <div class="etapa-cabecalho">Localização e Entidade</div>
+            <div class="grid-form">
+              <div class="campo">
+                <label for="c_UF">UF *</label>
+                <select id="c_UF" required></select>
+              </div>
+              <div class="campo">
+                <label for="c_Ente">Ente *</label>
+                <select id="c_Ente" required></select>
+              </div>
+              <div class="campo span-2">
+                <label for="c_Donataria">Donatária (órgão/entidade recebedora) *</label>
+                <input type="text" id="c_Donataria" required maxlength="200" placeholder="Ex: Secretaria de Segurança Pública do Estado de...">
+                <select id="c_DonatariaSelect" style="display:none;"></select>
+                <div id="infoCNPJDonataria" style="display:none; font-size:12px; color:var(--texto-suave); margin-top:4px;">CNPJ: <strong id="c_CNPJExibicao">–</strong></div>
+                <input type="hidden" id="c_CNPJDonataria" value="">
+              </div>
+            </div>
+
+            <div class="etapa-cabecalho" style="margin-top:18px;">Endereço para envio (usado depois no ATPVe)</div>
+            <div class="grid-form">
+              <div class="campo">
+                <label for="c_CEP">CEP *</label>
+                <input type="text" id="c_CEP" required maxlength="9" placeholder="00000-000" inputmode="numeric">
+                <div id="statusCep" style="font-size:12px; color:var(--texto-suave); margin-top:4px;"></div>
+              </div>
+              <div class="campo span-2">
+                <label for="c_Logradouro">Logradouro *</label>
+                <input type="text" id="c_Logradouro" required maxlength="200">
+              </div>
+              <div class="campo">
+                <label for="c_Numero">Número *</label>
+                <input type="text" id="c_Numero" required maxlength="20" placeholder="Ex: 123 ou S/N">
+              </div>
+              <div class="campo">
+                <label for="c_Complemento">Complemento <span class="opcional">(opcional)</span></label>
+                <input type="text" id="c_Complemento" maxlength="100">
+              </div>
+              <div class="campo">
+                <label for="c_Bairro">Bairro *</label>
+                <input type="text" id="c_Bairro" required maxlength="100">
+              </div>
+              <div class="campo">
+                <label for="c_Municipio">Município *</label>
+                <input type="text" id="c_Municipio" required maxlength="100">
+              </div>
+            </div>
+          </div>
+
+          <div class="etapa" data-etapa="3" style="display:none;">
+            <div class="etapa-cabecalho">Dados dos Veículos</div>
+            <p class="dica-painel" id="dicaQuantidadeVeiculos" style="margin-top:-6px;"></p>
+            <div id="listaVeiculosColetados"></div>
+            <div class="grid-form" style="margin-top:18px;">
+              <div class="campo span-2">
+                <label for="c_Observacoes">Observações <span class="opcional">(opcional, aplicada a todos os veículos deste lote)</span></label>
+                <textarea id="c_Observacoes" maxlength="500"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="etapa" data-etapa="4" style="display:none;">
+            <div class="etapa-cabecalho">Confirme os dados antes de salvar</div>
+            <div class="resumo-lista" id="resumoConfirmacao"></div>
+          </div>
+
+          <div class="botoes">
+            <button type="button" class="secundario" id="botaoEtapaVoltar">‹ Voltar</button>
+            <div class="direita">
+              <button type="button" class="secundario" id="botaoLimparCadastro">Limpar</button>
+              <button type="button" class="primario" id="botaoEtapaProximo">Próximo ›</button>
+              <button type="submit" class="primario" id="botaoSalvarCadastro" style="display:none;">Salvar veículo</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-fundo" id="modalConfirmarQtdFundo">
+        <div class="modal" style="max-width:440px;">
+          <h2>Confirmar quantidade de veículos</h2>
+          <p style="font-size:14px; color:var(--texto-suave);">
+            Serão cadastrados <strong id="resumoQtdTotal">0</strong> veículo(s) nesta operação:
+          </p>
+          <div class="resumo-lista">
+            <div class="resumo-item">
+              <div class="rotulo">Do contrato</div>
+              <div class="valor" id="resumoQtdContrato">0</div>
+            </div>
+            <div class="resumo-item" id="linhaQtdAditivo" style="display:none;">
+              <div class="rotulo">Do aditivo</div>
+              <div class="valor" id="resumoQtdAditivo">0</div>
+            </div>
+          </div>
+          <div class="botoes">
+            <button class="secundario" id="botaoConfirmarQtdNao">Revisar</button>
+            <button class="primario" id="botaoConfirmarQtdSim" style="margin-left:auto;">Confirmar e continuar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-fundo" id="modalVeiculoFundo">
+        <div class="modal" id="modalVeiculo">
+          <h2>Veículo <span id="mvContador">1</span> de <span id="mvTotal">0</span></h2>
+          <div id="mensagemModalVeiculo"></div>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="mv_Marca">Marca *</label>
+              <input type="text" id="mv_Marca" required maxlength="60">
+            </div>
+            <div class="campo">
+              <label for="mv_Descricao">Descrição / modelo *</label>
+              <input type="text" id="mv_Descricao" required maxlength="120">
+            </div>
+            <div class="campo">
+              <label for="mv_Chassi">Chassi (VIN, 17 caracteres) *</label>
+              <input type="text" id="mv_Chassi" required maxlength="17" style="text-transform:uppercase">
+            </div>
+            <div class="campo">
+              <label for="mv_Placa">Placa *</label>
+              <input type="text" id="mv_Placa" required maxlength="8" style="text-transform:uppercase">
+            </div>
+            <div class="campo">
+              <label for="mv_Renavam">Renavam *</label>
+              <input type="text" id="mv_Renavam" required maxlength="11">
+            </div>
+          </div>
+          <div class="botoes">
+            <button class="secundario" id="botaoVeiculoVoltar">‹ Voltar</button>
+            <button class="primario" id="botaoVeiculoConcluir" style="margin-left:auto;">Concluir e continuar ›</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <section id="tela-listagem" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Veículos Cadastrados</h2>
+          <p>Listagem completa com filtros avançados</p>
+        </div>
+        <button class="secundario" onclick="irParaTela('inicio')">‹ Voltar</button>
+      </div>
+
+      <div class="card">
+        <h2>Filtros</h2>
+        <div class="filtros">
+          <div class="campo">
+            <label for="f_UF">UF</label>
+            <select id="f_UF"><option value="">Todas</option></select>
+          </div>
+          <div class="campo">
+            <label for="f_Ente">Ente</label>
+            <select id="f_Ente"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label for="f_Ano">Ano</label>
+            <select id="f_Ano"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label for="f_Transferido">Transferido</label>
+            <select id="f_Transferido"><option value="">Todos</option></select>
+          </div>
+          <div class="campo" style="min-width:220px;">
+            <label for="f_busca">Buscar (donatária, chassi, placa, renavam...)</label>
+            <input type="text" id="f_busca" placeholder="Digite para buscar...">
+          </div>
+          <div class="botoes" style="margin-top:0;">
+            <button class="primario" id="botaoFiltrar">Filtrar</button>
+            <button class="secundario" id="botaoLimparFiltro">Limpar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Processos (<span id="contadorProcessos">0</span>) — <span id="contadorVeiculos">0</span> veículo(s)</h2>
+        <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar.</p>
+        <div id="mensagemListagem"></div>
+        <div id="listaProcessos"><div class="carregando">Carregando...</div></div>
+        <div class="rodape-tabela" id="rodapePaginacaoProcessos" style="display:none;">
+          <button type="button" class="secundario" id="botaoPaginaAnterior">‹ Página anterior</button>
+          <span id="infoPaginaProcessos"></span>
+          <button type="button" class="secundario" id="botaoPaginaProxima">Próxima página ›</button>
+        </div>
+      </div>
+
+      <div class="modal-fundo" id="modalEditarProcessoFundo">
+        <div class="modal" style="max-width:900px;">
+          <h2>Editar processo <span id="peNumeroProcessoTitulo"></span></h2>
+          <div id="mensagemModalProcesso"></div>
+          <div id="peAvisoFaltantes" class="mensagem erro" style="display:none;"></div>
+
+          <div class="etapa-cabecalho">Dados da Operação</div>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="pe_NumeroProcesso">Número do Processo *</label>
+              <input type="text" id="pe_NumeroProcesso" required maxlength="60">
+            </div>
+            <div class="campo">
+              <label for="pe_Ano">Ano *</label>
+              <input type="number" id="pe_Ano" required min="2000" max="2100">
+            </div>
+            <div class="campo">
+              <label for="pe_Mes">Mês *</label>
+              <select id="pe_Mes" required></select>
+            </div>
+            <div class="campo span-2">
+              <label for="pe_TermoDoacao">Número do Termo de Doação *</label>
+              <input type="text" id="pe_TermoDoacao" required maxlength="200">
+            </div>
+            <div class="campo">
+              <label for="pe_Contrato">Contrato *</label>
+              <input type="text" id="pe_Contrato" required maxlength="20" pattern="[1-9][0-9]*/[0-9]{4}"
+                title="Use o formato NÚMERO/ANO, sem zero à esquerda no número. Ex: 123/2024">
+            </div>
+            <div class="campo">
+              <label for="pe_QtdContrato">Quantidade de veículos do contrato *</label>
+              <input type="number" id="pe_QtdContrato" required min="1" step="1">
+            </div>
+            <div class="campo">
+              <label for="pe_TemAditivo">Houve aditivo de contrato? *</label>
+              <select id="pe_TemAditivo" required>
+                <option value="NÃO">Não</option>
+                <option value="SIM">Sim</option>
+              </select>
+            </div>
+            <div class="campo" id="peGrupoNumeroAditivo" style="display:none;">
+              <label for="pe_NumeroAditivo">Número do aditivo</label>
+              <input type="text" id="pe_NumeroAditivo" maxlength="60">
+            </div>
+            <div class="campo" id="peGrupoQtdAditivo" style="display:none;">
+              <label for="pe_QtdAditivo">Quantidade adicional de veículos no aditivo</label>
+              <input type="number" id="pe_QtdAditivo" min="1" step="1">
+            </div>
+          </div>
+
+          <div class="etapa-cabecalho" style="margin-top:18px;">Localização e Entidade</div>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="pe_UF">UF *</label>
+              <select id="pe_UF" required></select>
+            </div>
+            <div class="campo">
+              <label for="pe_Ente">Ente *</label>
+              <select id="pe_Ente" required></select>
+            </div>
+            <div class="campo span-2">
+              <label for="pe_Donataria">Donatária *</label>
+              <input type="text" id="pe_Donataria" required maxlength="200">
+            </div>
+            <div class="campo">
+              <label for="pe_CNPJDonataria">CNPJ da Donatária <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_CNPJDonataria" maxlength="20">
+            </div>
+          </div>
+
+          <div class="etapa-cabecalho" style="margin-top:18px;">Endereço para envio</div>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="pe_CEP">CEP *</label>
+              <input type="text" id="pe_CEP" required maxlength="9" placeholder="00000-000" inputmode="numeric">
+              <div id="peStatusCep" style="font-size:12px; color:var(--texto-suave); margin-top:4px;"></div>
+            </div>
+            <div class="campo span-2">
+              <label for="pe_Logradouro">Logradouro *</label>
+              <input type="text" id="pe_Logradouro" required maxlength="200">
+            </div>
+            <div class="campo">
+              <label for="pe_Numero">Número *</label>
+              <input type="text" id="pe_Numero" required maxlength="20">
+            </div>
+            <div class="campo">
+              <label for="pe_Complemento">Complemento <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_Complemento" maxlength="100">
+            </div>
+            <div class="campo">
+              <label for="pe_Bairro">Bairro *</label>
+              <input type="text" id="pe_Bairro" required maxlength="100">
+            </div>
+            <div class="campo">
+              <label for="pe_Municipio">Município *</label>
+              <input type="text" id="pe_Municipio" required maxlength="100">
+            </div>
+          </div>
+
+          <div class="etapa-cabecalho" style="margin-top:18px;">Veículos deste processo</div>
+          <div id="peListaVeiculos"></div>
+          <div class="botoes" style="margin-top:4px;">
+            <button type="button" class="secundario" id="botaoPeAdicionarVeiculo">+ Adicionar veículo</button>
+          </div>
+
+          <div class="botoes" style="margin-top:18px;">
+            <button class="secundario" id="botaoPeFechar">Cancelar</button>
+            <button class="primario" id="botaoPeSalvar" style="margin-left:auto;">Salvar processo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tela-painel" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Estatísticas</h2>
+          <p>Análise completa de doações veiculares</p>
+        </div>
+        <button class="secundario" onclick="irParaTela('inicio')">‹ Voltar</button>
+      </div>
+
+      <div class="kpis" id="kpis">
+        <div class="kpi roxo"><div class="rotulo">TOTAL DE VEÍCULOS</div><div class="valor" id="kpiTotal">–</div></div>
+        <div class="kpi verde clicavel" onclick="irParaListagemComFiltro('transferido', 'SIM')"><div class="rotulo">TRANSFERIDOS</div><div class="valor" id="kpiTransferidos">–</div></div>
+        <div class="kpi amarelo clicavel" onclick="irParaListagemComFiltro('transferido', 'NÃO')"><div class="rotulo">PENDENTES</div><div class="valor" id="kpiPendentes">–</div></div>
+        <div class="kpi azul"><div class="rotulo">% CONCLUÍDO</div><div class="valor" id="kpiPercentual">–</div></div>
+      </div>
+
+      <p class="dica-painel">Clique em qualquer card abaixo para ver a lista de veículos correspondente.</p>
+
+      <div class="card">
+        <h2>Veículos por UF</h2>
+        <div class="stat-grid" id="cardsUF"></div>
+      </div>
+
+      <div class="card">
+        <h2>Por tipo de ente</h2>
+        <div class="stat-grid" id="cardsEnte"></div>
+      </div>
+
+      <div class="card">
+        <h2>Top 10 marcas</h2>
+        <div class="stat-grid" id="cardsMarca"></div>
+      </div>
+
+      <div class="card">
+        <h2>Top 10 donatárias</h2>
+        <div class="stat-grid stat-grid-larga" id="cardsDonataria"></div>
+      </div>
+
+      <div class="card">
+        <h2>Evolução mensal de doações</h2>
+        <div class="stat-grid" id="cardsPeriodo"></div>
+      </div>
+
+      <div class="card">
+        <h2>Pendências mais antigas (não transferidos)</h2>
+        <div class="tabela-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Donatária</th><th>UF</th><th>Placa</th><th>Chassi</th><th>Dias em aberto</th></tr></thead>
+            <tbody id="corpoTabelaPendentes"><tr><td colspan="6" class="carregando">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-fundo" id="modalErroCadastroFundo">
+    <div class="modal" style="max-width:480px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+        <h2 style="margin:0;">Não foi possível salvar</h2>
+        <button type="button" id="botaoErroCadastroX" aria-label="Fechar"
+          style="background:none; border:none; font-size:22px; line-height:1; cursor:pointer; color:var(--texto-suave); padding:0;">&times;</button>
+      </div>
+      <p id="textoErroCadastro" style="font-size:14px; color:var(--texto-suave); margin-top:10px; white-space:pre-line;"></p>
+      <div class="botoes">
+        <button class="primario" id="botaoErroCadastroFechar" style="margin-left:auto;">Entendi</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  var CONTEXTO = null;
+  var USUARIO_E_ADMIN = false;
+  var USUARIO_PODE_EDITAR = false;
+  var CACHE_REGISTROS = {};
+  var ETAPA_ATUAL = 1;
+  var TOTAL_ETAPAS = 4;
+  var QUANTIDADE_TOTAL_VEICULOS = 0;
+  var NUMERO_PROCESSO_ATUAL = '';
+  var VEICULOS_COLETADOS = [];
+  var INDICE_VEICULO_MODAL = 0;
+  var DADOS_CATEGORIA = {};
+  var DADOS_PENDENTES = [];
+  var MAPA_FILTRO_CATEGORIA = { uf: 'uf', ente: 'ente', marca: 'busca', donataria: 'busca', periodo: 'ano' };
+  var ORGAOS_POR_UF = {};
+
+  document.addEventListener('DOMContentLoaded', function () {
+    google.script.run.withSuccessHandler(aoCarregarContexto).withFailureHandler(mostrarErroGlobal).getContextoInicial();
+    configurarFormularioCadastro();
+    configurarListagem();
+    configurarModalEditarProcesso_();
+    configurarStepper();
+    configurarDonatariaDinamica_();
+    configurarBuscaCep_();
+    configurarModalNumeroProcesso_();
+    configurarModalVeiculo_();
+    configurarModalErroCadastro_();
+    configurarModalNovoUsuario_();
+  });
+
+  // ---------- Navegação entre telas ----------
+  function irParaTela(nome) {
+    document.querySelectorAll('.tela').forEach(function (t) { t.classList.remove('ativa'); });
+    document.getElementById('tela-' + nome).classList.add('ativa');
+
+    if (nome === 'cadastro') irParaEtapa(1);
+    if (nome === 'listagem') carregarListagem();
+    if (nome === 'painel') carregarPainel();
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- Contexto / listas ----------
+  var tentativasContexto = 0;
+  function aoCarregarContexto(ctx) {
+    if (!ctx) {
+      tentativasContexto++;
+      if (tentativasContexto > 5) {
+        mostrarErroGlobal({ message: 'Não foi possível carregar o sistema. Atualize a página (F5) e tente novamente.' });
+        return;
+      }
+      setTimeout(function () {
+        google.script.run.withSuccessHandler(aoCarregarContexto).withFailureHandler(mostrarErroGlobal).getContextoInicial();
+      }, 1500);
+      return;
+    }
+    tentativasContexto = 0;
+    CONTEXTO = ctx;
+    ORGAOS_POR_UF = ctx.orgaosPorUF || {};
+    document.getElementById('infoUsuarioNome').textContent = ctx.usuario.nome || ctx.usuario.email;
+    var rotulosPerfil = { admin: 'Administrador', usuario: 'Usuário', visitante: 'Visitante', sem_acesso: 'Sem acesso' };
+    document.getElementById('infoUsuarioPerfil').textContent =
+      'Perfil: ' + (rotulosPerfil[ctx.usuario.perfil] || ctx.usuario.perfil);
+
+    var ehAdmin = ctx.usuario.perfil === 'admin';
+    USUARIO_E_ADMIN = ehAdmin;
+    USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
+    document.getElementById('cardCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
+    document.getElementById('cardNovoUsuario').style.display = ehAdmin ? '' : 'none';
+
+    preencherSelect('c_Mes', ctx.listas.mes, true);
+    preencherSelect('c_UF', ctx.listas.uf, true);
+    preencherSelect('c_Ente', ctx.listas.ente, true);
+    preencherSelect('f_UF', ctx.listas.uf, false, 'Todas');
+    preencherSelect('f_Ente', ctx.listas.ente, false, 'Todos');
+    preencherSelect('f_Transferido', ctx.listas.transferido, false, 'Todos');
+    preencherSelect('pe_Mes', ctx.listas.mes, true);
+    preencherSelect('pe_UF', ctx.listas.uf, true);
+    preencherSelect('pe_Ente', ctx.listas.ente, true);
+  }
+
+  function preencherSelect(idSelect, opcoes, comPlaceholderVazio, rotuloPlaceholder) {
+    var select = document.getElementById(idSelect);
+    if (comPlaceholderVazio && !rotuloPlaceholder) {
+      select.innerHTML = '<option value="">Selecione...</option>';
+    } else if (rotuloPlaceholder) {
+      select.innerHTML = '<option value="">' + rotuloPlaceholder + '</option>';
+    }
+    opcoes.forEach(function (opcao) {
+      var el = document.createElement('option');
+      el.value = opcao;
+      el.textContent = opcao;
+      select.appendChild(el);
+    });
+  }
+
+  function mostrarErroGlobal(erro) {
+    var div = document.getElementById('mensagemGlobal');
+    div.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    setTimeout(function () { div.innerHTML = ''; }, 8000);
+  }
+
+  function escaparHtml(texto) {
+    var div = document.createElement('div');
+    div.textContent = texto == null ? '' : String(texto);
+    return div.innerHTML;
+  }
+
+  // ---------- Cadastro (stepper) ----------
+  function configurarStepper() {
+    document.getElementById('botaoEtapaProximo').addEventListener('click', function () {
+      if (!validarEtapaAtual_()) return;
+
+      if (ETAPA_ATUAL === 1) {
+        abrirModalConfirmarQuantidade_();
+        return; // só avança depois de confirmar no modal
+      }
+      if (ETAPA_ATUAL === 2) {
+        iniciarColetaVeiculos_();
+        irParaEtapa(3);
+        abrirModalVeiculo_(0);
+        return; // a partir daqui quem avança de etapa é o modal de veículo, um de cada vez
+      }
+      irParaEtapa(ETAPA_ATUAL + 1);
+    });
+    document.getElementById('botaoEtapaVoltar').addEventListener('click', function () {
+      if (ETAPA_ATUAL === 1) { irParaTela('inicio'); return; }
+      irParaEtapa(ETAPA_ATUAL - 1);
+    });
+
+    document.getElementById('c_Contrato').addEventListener('input', function () {
+      var valor = this.value.replace(/[^\d/]/g, '');
+      var partes = valor.split('/');
+      var numero = partes[0].replace(/^0+(?=\d)/, '');
+      this.value = partes.length > 1 ? (numero + '/' + partes.slice(1).join('').slice(0, 4)) : numero;
+    });
+    document.getElementById('c_TemAditivo').addEventListener('change', atualizarVisibilidadeAditivo_);
+
+    document.getElementById('botaoConfirmarQtdNao').addEventListener('click', fecharModalConfirmarQtd_);
+    document.getElementById('botaoConfirmarQtdSim').addEventListener('click', function () {
+      fecharModalConfirmarQtd_();
+      irParaEtapa(2);
+    });
+  }
+
+  function atualizarVisibilidadeAditivo_() {
+    var tem = document.getElementById('c_TemAditivo').value === 'SIM';
+    document.getElementById('grupoNumeroAditivo').style.display = tem ? '' : 'none';
+    document.getElementById('grupoQtdAditivo').style.display = tem ? '' : 'none';
+    document.getElementById('c_NumeroAditivo').required = tem;
+    document.getElementById('c_QtdAditivo').required = tem;
+    if (!tem) {
+      document.getElementById('c_NumeroAditivo').value = '';
+      document.getElementById('c_QtdAditivo').value = '';
+    }
+  }
+
+  function abrirModalConfirmarQuantidade_() {
+    var qtdContrato = parseInt(document.getElementById('c_QtdContrato').value, 10) || 0;
+    var temAditivo = document.getElementById('c_TemAditivo').value === 'SIM';
+    var qtdAditivo = temAditivo ? (parseInt(document.getElementById('c_QtdAditivo').value, 10) || 0) : 0;
+    QUANTIDADE_TOTAL_VEICULOS = qtdContrato + qtdAditivo;
+
+    document.getElementById('resumoQtdContrato').textContent = qtdContrato;
+    document.getElementById('linhaQtdAditivo').style.display = temAditivo ? '' : 'none';
+    document.getElementById('resumoQtdAditivo').textContent = qtdAditivo;
+    document.getElementById('resumoQtdTotal').textContent = QUANTIDADE_TOTAL_VEICULOS;
+
+    document.getElementById('modalConfirmarQtdFundo').classList.add('ativo');
+  }
+
+  function fecharModalConfirmarQtd_() {
+    document.getElementById('modalConfirmarQtdFundo').classList.remove('ativo');
+  }
+
+  // ---------- Modal: número do processo (aberto antes de entrar no cadastro) ----------
+  function configurarModalNumeroProcesso_() {
+    document.getElementById('botaoNumeroProcessoCancelar').addEventListener('click', fecharModalNumeroProcesso_);
+    document.getElementById('botaoNumeroProcessoConfirmar').addEventListener('click', function () {
+      var valor = document.getElementById('np_NumeroProcesso').value.trim();
+      if (!valor) {
+        document.getElementById('mensagemNumeroProcesso').innerHTML =
+          '<div class="mensagem erro">Informe o número do processo para continuar.</div>';
+        return;
+      }
+      NUMERO_PROCESSO_ATUAL = valor;
+      document.getElementById('exibicaoNumeroProcesso').textContent = NUMERO_PROCESSO_ATUAL;
+      fecharModalNumeroProcesso_();
+      irParaTela('cadastro');
+    });
+  }
+
+  function abrirModalNumeroProcesso_() {
+    document.getElementById('np_NumeroProcesso').value = '';
+    document.getElementById('mensagemNumeroProcesso').innerHTML = '';
+    document.getElementById('modalNumeroProcessoFundo').classList.add('ativo');
+  }
+
+  function fecharModalNumeroProcesso_() {
+    document.getElementById('modalNumeroProcessoFundo').classList.remove('ativo');
+  }
+
+  // ---------- Modal: cadastrar novo usuário do sistema ----------
+  function configurarModalNovoUsuario_() {
+    document.getElementById('botaoNovoUsuarioCancelar').addEventListener('click', fecharModalNovoUsuario_);
+    document.getElementById('botaoNovoUsuarioSalvar').addEventListener('click', salvarNovoUsuario_);
+  }
+
+  function abrirModalNovoUsuario_() {
+    document.getElementById('nu_Email').value = '';
+    document.getElementById('nu_Nome').value = '';
+    document.getElementById('nu_Perfil').value = 'admin';
+    document.getElementById('mensagemNovoUsuario').innerHTML = '';
+    document.getElementById('modalNovoUsuarioFundo').classList.add('ativo');
+  }
+
+  function fecharModalNovoUsuario_() {
+    document.getElementById('modalNovoUsuarioFundo').classList.remove('ativo');
+  }
+
+  function salvarNovoUsuario_() {
+    var campos = document.querySelectorAll('#nu_Email, #nu_Nome, #nu_Perfil');
+    for (var i = 0; i < campos.length; i++) {
+      if (!campos[i].checkValidity()) { campos[i].reportValidity(); return; }
+    }
+
+    var dados = {
+      Email: document.getElementById('nu_Email').value,
+      Nome: document.getElementById('nu_Nome').value,
+      Perfil: document.getElementById('nu_Perfil').value
+    };
+
+    var botao = document.getElementById('botaoNovoUsuarioSalvar');
+    botao.disabled = true;
+    google.script.run
+      .withSuccessHandler(function (resp) {
+        botao.disabled = false;
+        fecharModalNovoUsuario_();
+        mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
+      })
+      .withFailureHandler(function (erro) {
+        botao.disabled = false;
+        document.getElementById('mensagemNovoUsuario').innerHTML =
+          '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+      })
+      .cadastrarUsuario(dados);
+  }
+
+  // ---------- Etapa 3: um veículo de cada vez, em caixa modal sequencial ----------
+  function iniciarColetaVeiculos_() {
+    VEICULOS_COLETADOS = [];
+    for (var i = 0; i < QUANTIDADE_TOTAL_VEICULOS; i++) VEICULOS_COLETADOS.push(null);
+    INDICE_VEICULO_MODAL = 0;
+    document.getElementById('dicaQuantidadeVeiculos').textContent =
+      'Preencha os dados de cada um dos ' + QUANTIDADE_TOTAL_VEICULOS + ' veículo(s) confirmados na etapa anterior — um de cada vez, na caixa que vai abrir a seguir. Depois, você pode clicar em qualquer veículo da lista abaixo para revisar ou corrigir os dados dele.';
+    atualizarListaVeiculosColetados_();
+  }
+
+  function abrirModalVeiculo_(indice) {
+    INDICE_VEICULO_MODAL = indice;
+    var dados = VEICULOS_COLETADOS[indice] || {};
+    document.getElementById('mvContador').textContent = indice + 1;
+    document.getElementById('mvTotal').textContent = QUANTIDADE_TOTAL_VEICULOS;
+    document.getElementById('mv_Marca').value = dados.Marca || '';
+    document.getElementById('mv_Descricao').value = dados.Descricao || '';
+    document.getElementById('mv_Chassi').value = dados.Chassi || '';
+    document.getElementById('mv_Placa').value = dados.Placa || '';
+    document.getElementById('mv_Renavam').value = dados.Renavam || '';
+    document.getElementById('mensagemModalVeiculo').innerHTML = '';
+    document.getElementById('botaoVeiculoVoltar').textContent = indice === 0 ? '‹ Voltar' : '‹ Veículo anterior';
+    document.getElementById('botaoVeiculoConcluir').textContent =
+      (indice === QUANTIDADE_TOTAL_VEICULOS - 1) ? 'Concluir e ir para confirmação ›' : 'Concluir e ir para o próximo ›';
+    document.getElementById('modalVeiculoFundo').classList.add('ativo');
+  }
+
+  function fecharModalVeiculo_() {
+    document.getElementById('modalVeiculoFundo').classList.remove('ativo');
+  }
+
+  function salvarVeiculoModalAtual_() {
+    VEICULOS_COLETADOS[INDICE_VEICULO_MODAL] = {
+      Marca: document.getElementById('mv_Marca').value,
+      Descricao: document.getElementById('mv_Descricao').value,
+      Chassi: document.getElementById('mv_Chassi').value,
+      Placa: document.getElementById('mv_Placa').value,
+      Renavam: document.getElementById('mv_Renavam').value
+    };
+  }
+
+  function configurarModalVeiculo_() {
+    document.getElementById('botaoVeiculoVoltar').addEventListener('click', function () {
+      salvarVeiculoModalAtual_();
+      atualizarListaVeiculosColetados_();
+      if (INDICE_VEICULO_MODAL === 0) {
+        fecharModalVeiculo_();
+        irParaEtapa(2);
+        return;
+      }
+      abrirModalVeiculo_(INDICE_VEICULO_MODAL - 1);
+    });
+
+    document.getElementById('botaoVeiculoConcluir').addEventListener('click', function () {
+      var painel = document.getElementById('modalVeiculo');
+      var campos = painel.querySelectorAll('input, select, textarea');
+      for (var i = 0; i < campos.length; i++) {
+        if (!campos[i].checkValidity()) { campos[i].reportValidity(); return; }
+      }
+      salvarVeiculoModalAtual_();
+      atualizarListaVeiculosColetados_();
+      if (INDICE_VEICULO_MODAL < QUANTIDADE_TOTAL_VEICULOS - 1) {
+        abrirModalVeiculo_(INDICE_VEICULO_MODAL + 1);
+      } else {
+        fecharModalVeiculo_();
+        montarResumoConfirmacao_();
+        irParaEtapa(4);
+      }
+    });
+  }
+
+  function atualizarListaVeiculosColetados_() {
+    var container = document.getElementById('listaVeiculosColetados');
+    var html = '';
+    for (var i = 0; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
+      var v = VEICULOS_COLETADOS[i];
+      var completo = v && v.Marca && v.Chassi && v.Placa;
+      html += '<div class="resumo-item" style="cursor:pointer;" onclick="abrirModalVeiculo_(' + i + ')" title="Clique para preencher ou corrigir este veículo">' +
+        '<div class="rotulo">Veículo ' + (i + 1) + '</div><div class="valor">' +
+        (completo
+          ? escaparHtml(v.Marca) + ' — ' + escaparHtml(v.Chassi) + ' — placa ' + escaparHtml(v.Placa)
+          : '<span style="color:var(--texto-suave);">Clique para preencher</span>') +
+        '</div></div>';
+    }
+    container.innerHTML = html;
+  }
+
+  function validarEtapaAtual_() {
+    var painel = document.querySelector('.etapa[data-etapa="' + ETAPA_ATUAL + '"]');
+    var campos = painel.querySelectorAll('input, select, textarea');
+    for (var i = 0; i < campos.length; i++) {
+      if (!campos[i].checkValidity()) {
+        campos[i].reportValidity();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function irParaEtapa(numero) {
+    ETAPA_ATUAL = numero;
+    document.querySelectorAll('.etapa').forEach(function (el) {
+      el.style.display = (Number(el.dataset.etapa) === numero) ? '' : 'none';
+    });
+    document.querySelectorAll('#stepperCadastro .passo').forEach(function (el) {
+      var n = Number(el.dataset.passo);
+      el.classList.toggle('ativo', n === numero);
+      el.classList.toggle('concluido', n < numero);
+    });
+    document.querySelectorAll('#stepperCadastro .linha').forEach(function (el, i) {
+      el.classList.toggle('concluida', (i + 1) < numero);
+    });
+
+    document.getElementById('botaoEtapaProximo').style.display = (numero === TOTAL_ETAPAS || numero === 3) ? 'none' : '';
+    document.getElementById('botaoSalvarCadastro').style.display = numero === TOTAL_ETAPAS ? '' : 'none';
+    document.getElementById('botaoEtapaVoltar').textContent = numero === 1 ? '‹ Voltar' : '‹ Anterior';
+  }
+
+  function montarResumoConfirmacao_() {
+    var itens = [
+      ['Número do Processo', NUMERO_PROCESSO_ATUAL],
+      ['Ano / Mês', document.getElementById('c_Ano').value + ' / ' + document.getElementById('c_Mes').value],
+      ['Termo de doação', document.getElementById('c_TermoDoacao').value],
+      ['Contrato', document.getElementById('c_Contrato').value],
+      ['UF / Ente', document.getElementById('c_UF').value + ' / ' + document.getElementById('c_Ente').value],
+      ['Donatária', document.getElementById('c_Donataria').value],
+      ['CNPJ da Donatária', document.getElementById('c_CNPJDonataria').value || '(não informado)'],
+      ['Endereço', document.getElementById('c_Logradouro').value + ', ' + document.getElementById('c_Numero').value +
+        (document.getElementById('c_Complemento').value ? ' — ' + document.getElementById('c_Complemento').value : '')],
+      ['Bairro / Município / CEP', document.getElementById('c_Bairro').value + ' — ' + document.getElementById('c_Municipio').value + ' — ' + document.getElementById('c_CEP').value],
+      ['Quantidade de veículos', String(QUANTIDADE_TOTAL_VEICULOS)]
+    ];
+    var html = itens.map(function (par) {
+      return '<div class="resumo-item"><div class="rotulo">' + escaparHtml(par[0]) + '</div><div class="valor">' + escaparHtml(par[1]) + '</div></div>';
+    }).join('');
+
+    for (var i = 0; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
+      var v = VEICULOS_COLETADOS[i] || {};
+      html += '<div class="resumo-item"><div class="rotulo">Veículo ' + (i + 1) + '</div><div class="valor">' +
+        escaparHtml(v.Marca) + ' — ' +
+        escaparHtml(v.Chassi) + ' — placa ' +
+        escaparHtml(v.Placa) + '</div></div>';
+    }
+
+    document.getElementById('resumoConfirmacao').innerHTML = html;
+  }
+
+  // ---------- Donatária dinâmica (lista de órgãos com CNPJ por UF) ----------
+  function configurarDonatariaDinamica_() {
+    document.getElementById('c_UF').addEventListener('change', atualizarModoDonataria_);
+    document.getElementById('c_Ente').addEventListener('change', atualizarModoDonataria_);
+    document.getElementById('c_DonatariaSelect').addEventListener('change', function () {
+      var opt = this.options[this.selectedIndex];
+      var cnpj = opt ? (opt.dataset.cnpj || '') : '';
+      document.getElementById('c_Donataria').value = this.value;
+      document.getElementById('c_CNPJDonataria').value = cnpj;
+      document.getElementById('c_CNPJExibicao').textContent = cnpj || '–';
+    });
+  }
+
+  function atualizarModoDonataria_() {
+    var uf = document.getElementById('c_UF').value;
+    var ente = document.getElementById('c_Ente').value;
+    var inputTexto = document.getElementById('c_Donataria');
+    var select = document.getElementById('c_DonatariaSelect');
+    var infoCnpj = document.getElementById('infoCNPJDonataria');
+    var lista = (ente === 'Estado') ? ORGAOS_POR_UF[uf] : null;
+
+    if (lista && lista.length) {
+      inputTexto.style.display = 'none';
+      inputTexto.required = false;
+      inputTexto.value = '';
+      select.style.display = '';
+      select.required = true;
+      infoCnpj.style.display = '';
+
+      select.innerHTML = '';
+      var optPlaceholder = document.createElement('option');
+      optPlaceholder.value = '';
+      optPlaceholder.textContent = 'Selecione o órgão...';
+      select.appendChild(optPlaceholder);
+      lista.forEach(function (org) {
+        var opt = document.createElement('option');
+        opt.value = org.orgao;
+        opt.textContent = org.orgao;
+        opt.dataset.cnpj = org.cnpj;
+        select.appendChild(opt);
+      });
+      document.getElementById('c_CNPJDonataria').value = '';
+      document.getElementById('c_CNPJExibicao').textContent = '–';
+    } else {
+      select.style.display = 'none';
+      select.required = false;
+      infoCnpj.style.display = 'none';
+      inputTexto.style.display = '';
+      inputTexto.required = true;
+      document.getElementById('c_CNPJDonataria').value = '';
+    }
+  }
+
+  // ---------- Endereço para envio (busca automática de CEP via ViaCEP) ----------
+  function configurarBuscaCep_() {
+    var campoCep = document.getElementById('c_CEP');
+    campoCep.addEventListener('input', function () {
+      var digitos = this.value.replace(/\D/g, '').slice(0, 8);
+      this.value = digitos.length > 5 ? (digitos.slice(0, 5) + '-' + digitos.slice(5)) : digitos;
+    });
+    campoCep.addEventListener('blur', function () {
+      var cep = this.value.replace(/\D/g, '');
+      if (cep.length === 8) buscarEnderecoPorCep_(cep);
+    });
+  }
+
+  function buscarEnderecoPorCep_(cep) {
+    var status = document.getElementById('statusCep');
+    status.style.color = 'var(--texto-suave)';
+    status.textContent = 'Buscando endereço...';
+
+    fetch('https://viacep.com.br/ws/' + cep + '/json/')
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.erro) {
+          status.style.color = 'var(--vermelho)';
+          status.textContent = 'CEP não encontrado — preencha o endereço manualmente.';
+          return;
+        }
+        document.getElementById('c_Logradouro').value = dados.logradouro || document.getElementById('c_Logradouro').value;
+        document.getElementById('c_Bairro').value = dados.bairro || document.getElementById('c_Bairro').value;
+        document.getElementById('c_Municipio').value = dados.localidade || document.getElementById('c_Municipio').value;
+
+        var ufSelecionada = document.getElementById('c_UF').value;
+        if (ufSelecionada && dados.uf && dados.uf !== ufSelecionada) {
+          status.style.color = 'var(--vermelho)';
+          status.textContent = 'Atenção: este CEP é de ' + dados.uf + ', mas a UF selecionada acima é ' + ufSelecionada + '. Confira antes de continuar.';
+        } else {
+          status.style.color = 'var(--verde)';
+          status.textContent = 'Endereço encontrado.';
+        }
+      })
+      .catch(function () {
+        status.style.color = 'var(--vermelho)';
+        status.textContent = 'Não foi possível buscar o CEP agora — preencha o endereço manualmente.';
+      });
+  }
+
+  // Promessa fina sobre o google.script.run, para poder usar async/await
+  // no cadastro sequencial de vários veículos da mesma operação.
+  function chamarServidor_(nomeFuncao) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var executor = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      executor[nomeFuncao].apply(executor, args);
+    });
+  }
+
+  var INDICE_RETOMADA_CADASTRO = 0;
+  var IDS_GERADOS_CADASTRO = [];
+
+  function reiniciarFormularioCadastro_() {
+    document.getElementById('formCadastro').reset();
+    document.getElementById('c_ID').value = '';
+    document.getElementById('statusCep').textContent = '';
+    document.getElementById('listaVeiculosColetados').innerHTML = '';
+    document.getElementById('dicaQuantidadeVeiculos').textContent = '';
+    document.getElementById('exibicaoNumeroProcesso').textContent = '';
+    QUANTIDADE_TOTAL_VEICULOS = 0;
+    NUMERO_PROCESSO_ATUAL = '';
+    VEICULOS_COLETADOS = [];
+    INDICE_VEICULO_MODAL = 0;
+    INDICE_RETOMADA_CADASTRO = 0;
+    IDS_GERADOS_CADASTRO = [];
+    atualizarModoDonataria_();
+    atualizarVisibilidadeAditivo_();
+    irParaEtapa(1);
+  }
+
+  function configurarFormularioCadastro() {
+    document.getElementById('formCadastro').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      var comuns = {
+        NumeroProcesso: NUMERO_PROCESSO_ATUAL,
+        Ano: document.getElementById('c_Ano').value,
+        Mes: document.getElementById('c_Mes').value,
+        UF: document.getElementById('c_UF').value,
+        Ente: document.getElementById('c_Ente').value,
+        Donataria: document.getElementById('c_Donataria').value,
+        TermoDoacao: document.getElementById('c_TermoDoacao').value,
+        Observacoes: document.getElementById('c_Observacoes').value,
+        CNPJDonataria: document.getElementById('c_CNPJDonataria').value,
+        CEP: document.getElementById('c_CEP').value,
+        Logradouro: document.getElementById('c_Logradouro').value,
+        Numero: document.getElementById('c_Numero').value,
+        Complemento: document.getElementById('c_Complemento').value,
+        Bairro: document.getElementById('c_Bairro').value,
+        Municipio: document.getElementById('c_Municipio').value,
+        Contrato: document.getElementById('c_Contrato').value,
+        Aditivo: document.getElementById('c_TemAditivo').value,
+        NumeroAditivo: document.getElementById('c_NumeroAditivo').value,
+        QtdVeiculosContrato: document.getElementById('c_QtdContrato').value,
+        QtdVeiculosAditivo: document.getElementById('c_QtdAditivo').value
+      };
+
+      var botao = document.getElementById('botaoSalvarCadastro');
+      botao.disabled = true;
+      mostrarMensagem('mensagemCadastro', 'sucesso',
+        'Cadastrando veículo ' + (INDICE_RETOMADA_CADASTRO + 1) + ' de ' + QUANTIDADE_TOTAL_VEICULOS + ', aguarde...');
+
+      try {
+        for (var i = INDICE_RETOMADA_CADASTRO; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
+          var veiculoColetado = VEICULOS_COLETADOS[i] || {};
+          var dadosVeiculo = Object.assign({}, comuns, {
+            Marca: veiculoColetado.Marca,
+            Descricao: veiculoColetado.Descricao,
+            Chassi: veiculoColetado.Chassi,
+            Placa: veiculoColetado.Placa,
+            Renavam: veiculoColetado.Renavam
+          });
+          var resp = await chamarServidor_('salvarVeiculo', dadosVeiculo);
+          IDS_GERADOS_CADASTRO.push(resp.ID);
+          INDICE_RETOMADA_CADASTRO = i + 1;
+        }
+        botao.disabled = false;
+        mostrarMensagem('mensagemCadastro', 'sucesso',
+          IDS_GERADOS_CADASTRO.length + ' veículo(s) cadastrado(s) com sucesso (' + IDS_GERADOS_CADASTRO.join(', ') + ').');
+        reiniciarFormularioCadastro_();
+      } catch (erro) {
+        botao.disabled = false;
+        document.getElementById('mensagemCadastro').innerHTML = '';
+        mostrarErroCadastro_(
+          'Cadastrados ' + IDS_GERADOS_CADASTRO.length + ' de ' + QUANTIDADE_TOTAL_VEICULOS +
+          ' veículo(s) antes deste erro (veículo ' + (INDICE_RETOMADA_CADASTRO + 1) + '):\n' + (erro.message || String(erro)) +
+          '\n\nPara corrigir: clique em "‹ Anterior" até voltar à etapa "Veículo", depois clique no veículo ' +
+          (INDICE_RETOMADA_CADASTRO + 1) + ' na lista para editar os dados dele. Depois é só avançar de novo até "Salvar veículo" para continuar de onde parou.');
+      }
+    });
+
+    document.getElementById('botaoLimparCadastro').addEventListener('click', function () {
+      document.getElementById('mensagemCadastro').innerHTML = '';
+      reiniciarFormularioCadastro_();
+    });
+  }
+
+  function mostrarMensagem(idContainer, tipo, texto) {
+    var div = document.getElementById(idContainer);
+    div.innerHTML = '<div class="mensagem ' + tipo + '">' + escaparHtml(texto) + '</div>';
+    setTimeout(function () { div.innerHTML = ''; }, 8000);
+  }
+
+  // ---------- Modal de erro no cadastro (fica na tela até o usuário fechar) ----------
+  function configurarModalErroCadastro_() {
+    document.getElementById('botaoErroCadastroX').addEventListener('click', fecharErroCadastro_);
+    document.getElementById('botaoErroCadastroFechar').addEventListener('click', fecharErroCadastro_);
+  }
+
+  function mostrarErroCadastro_(mensagem) {
+    document.getElementById('textoErroCadastro').textContent = mensagem;
+    document.getElementById('modalErroCadastroFundo').classList.add('ativo');
+  }
+
+  function fecharErroCadastro_() {
+    document.getElementById('modalErroCadastroFundo').classList.remove('ativo');
+  }
+
+  // ---------- Listagem ----------
+  function configurarListagem() {
+    document.getElementById('botaoFiltrar').addEventListener('click', function () {
+      PAGINA_ATUAL_LISTAGEM = 1;
+      carregarListagem();
+    });
+    document.getElementById('botaoLimparFiltro').addEventListener('click', function () {
+      ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido'].forEach(function (id) { document.getElementById(id).value = ''; });
+      document.getElementById('f_busca').value = '';
+      PAGINA_ATUAL_LISTAGEM = 1;
+      carregarListagem();
+    });
+    document.getElementById('f_busca').addEventListener('keyup', function (e) {
+      if (e.key === 'Enter') { PAGINA_ATUAL_LISTAGEM = 1; carregarListagem(); }
+    });
+    document.getElementById('botaoPaginaAnterior').addEventListener('click', function () {
+      if (PAGINA_ATUAL_LISTAGEM <= 1) return;
+      PAGINA_ATUAL_LISTAGEM--;
+      carregarListagem();
+    });
+    document.getElementById('botaoPaginaProxima').addEventListener('click', function () {
+      PAGINA_ATUAL_LISTAGEM++;
+      carregarListagem();
+    });
+  }
+
+  var PAGINA_ATUAL_LISTAGEM = 1;
+
+  function obterFiltrosAtuais() {
+    return {
+      uf: document.getElementById('f_UF').value,
+      ente: document.getElementById('f_Ente').value,
+      ano: document.getElementById('f_Ano').value,
+      transferido: document.getElementById('f_Transferido').value,
+      busca: document.getElementById('f_busca').value,
+      pagina: PAGINA_ATUAL_LISTAGEM
+    };
+  }
+
+  var DADOS_PROCESSOS = [];
+  var TERMOS_EXPANDIDOS = {};
+
+  function carregarListagem() {
+    var container = document.getElementById('listaProcessos');
+    container.innerHTML = '<div class="carregando">Carregando...</div>';
+    google.script.run
+      .withSuccessHandler(renderizarListagem)
+      .withFailureHandler(function (erro) {
+        container.innerHTML = '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
+      })
+      .listarProcessos(obterFiltrosAtuais());
+  }
+
+  var tentativasListagem = 0;
+  function renderizarListagem(resposta) {
+    var container = document.getElementById('listaProcessos');
+    if (!resposta || !resposta.processos) {
+      tentativasListagem++;
+      if (tentativasListagem > 4) {
+        tentativasListagem = 0;
+        container.innerHTML = '<div class="carregando">Não foi possível carregar agora. Clique em "Filtrar" para tentar de novo.</div>';
+        return;
+      }
+      container.innerHTML = '<div class="carregando">Tentando novamente...</div>';
+      setTimeout(carregarListagem, 1200);
+      return;
+    }
+    tentativasListagem = 0;
+
+    var processos = resposta.processos;
+    DADOS_PROCESSOS = processos;
+    PAGINA_ATUAL_LISTAGEM = resposta.pagina || 1;
+    document.getElementById('contadorProcessos').textContent = resposta.totalProcessos;
+    document.getElementById('contadorVeiculos').textContent = resposta.totalVeiculos;
+
+    CACHE_REGISTROS = {};
+    var todosVeiculos = [];
+    processos.forEach(function (p) {
+      p.veiculos.forEach(function (v) {
+        CACHE_REGISTROS[v.ID] = v;
+        todosVeiculos.push(v);
+      });
+    });
+    popularAnosFiltro_(todosVeiculos);
+
+    var rodape = document.getElementById('rodapePaginacaoProcessos');
+    if (resposta.totalProcessos > 0 && resposta.totalPaginas > 1) {
+      rodape.style.display = 'flex';
+      document.getElementById('infoPaginaProcessos').textContent =
+        'Página ' + resposta.pagina + ' de ' + resposta.totalPaginas + ' (' + resposta.totalProcessos + ' processos no total)';
+      document.getElementById('botaoPaginaAnterior').disabled = resposta.pagina <= 1;
+      document.getElementById('botaoPaginaProxima').disabled = resposta.pagina >= resposta.totalPaginas;
+    } else {
+      rodape.style.display = 'none';
+    }
+
+    if (!processos.length) {
+      container.innerHTML = '<div class="carregando">Nenhum processo encontrado.</div>';
+      return;
+    }
+
+    renderizarCardsProcessos_();
+  }
+
+  function renderizarCardsProcessos_() {
+    var container = document.getElementById('listaProcessos');
+    container.innerHTML = DADOS_PROCESSOS.map(function (p, indice) { return montarCardProcesso_(p, indice); }).join('');
+  }
+
+  function faltamVeiculosProcesso_(p) {
+    return Math.max(0, (p.qtdEsperada || 0) - p.totalVeiculos);
+  }
+
+  function obterStatusProcesso_(p) {
+    if (faltamVeiculosProcesso_(p) > 0) {
+      return { texto: 'Faltam veículos', classe: 'selo-vermelho' };
+    }
+    if (p.totalVeiculos > 0 && p.totalEnviados === p.totalVeiculos) {
+      return { texto: 'Concluído', classe: 'selo-sim' };
+    }
+    if (p.totalEmitidos > 0 || p.totalEnviados > 0) {
+      return { texto: 'Incompleto', classe: 'selo-nao' };
+    }
+    return { texto: 'Não iniciado', classe: 'selo-pendente' };
+  }
+
+  function chaveProcesso_(p) {
+    return p.numeroProcesso || p.termoDoacao || '';
+  }
+
+  function montarCardProcesso_(p, indice) {
+    var pct = p.totalVeiculos ? Math.round((p.totalEnviados / p.totalVeiculos) * 100) : 0;
+    var status = obterStatusProcesso_(p);
+    var expandido = !!TERMOS_EXPANDIDOS[chaveProcesso_(p)];
+    var temEndereco = p.logradouro || p.cep;
+    var faltam = faltamVeiculosProcesso_(p);
+
+    var enderecoHtml = temEndereco
+      ? '<div class="processo-endereco">Endereço: ' + escaparHtml(p.logradouro) + ', ' + escaparHtml(p.numero) +
+        (p.complemento ? ' — ' + escaparHtml(p.complemento) : '') + ' — ' + escaparHtml(p.bairro) + ', ' +
+        escaparHtml(p.municipio) + (p.cep ? ' — CEP ' + escaparHtml(p.cep) : '') + '</div>'
+      : '<div class="processo-endereco">Endereço não informado.</div>';
+
+    var avisoFaltantesHtml = faltam > 0
+      ? '<div class="mensagem erro">Faltam ' + faltam + ' veículo(s) para completar esta operação (eram esperados ' +
+        p.qtdEsperada + ', apenas ' + p.totalVeiculos + ' cadastrado(s) até agora' +
+        (USUARIO_PODE_EDITAR ? ' — clique em "Editar processo" para adicionar' : '') + ').</div>'
+      : '';
+
+    var linhasVeiculos = p.veiculos.map(function (v) {
+      return '<tr>' +
+        '<td>' + escaparHtml(v.Marca) + ' — ' + escaparHtml(v.Descricao) + '</td>' +
+        '<td>' + escaparHtml(v.Chassi) + '</td>' +
+        '<td>' + escaparHtml(v.Placa) + '</td>' +
+        '<td>' + escaparHtml(v.Renavam) + '</td>' +
+        '<td>' + montarBotaoToggle_(v, 'ATPVeEmitido', 'Emitido') + '</td>' +
+        '<td>' + montarBotaoToggle_(v, 'ATPVeEnviado', 'Enviado') + '</td>' +
+        (USUARIO_PODE_EDITAR ? '<td><button class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar</button></td>' : '') +
+        '</tr>';
+    }).join('');
+
+    return '<div class="processo-card' + (faltam > 0 ? ' processo-incompleto' : '') + '">' +
+      '<div class="processo-cabecalho" onclick="alternarProcesso_(' + indice + ')">' +
+        '<span class="processo-chevron">' + (expandido ? '▾' : '▸') + '</span>' +
+        '<div class="processo-info">' +
+          '<div class="processo-titulo">' + (p.numeroProcesso
+            ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
+            : escaparHtml(p.termoDoacao || '(sem identificação)')) + '</div>' +
+          '<div class="processo-sub">' + (p.numeroProcesso && p.termoDoacao ? 'Termo: ' + escaparHtml(p.termoDoacao) + ' • ' : '') +
+            escaparHtml(p.donataria) + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ente) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + '</div>' +
+        '</div>' +
+        '<div class="processo-progresso">' +
+          '<div class="processo-fracao">' + p.totalEnviados + '/' + p.totalVeiculos + ' enviados</div>' +
+          '<div class="barra-progresso"><div class="barra-progresso-fill" style="width:' + pct + '%"></div></div>' +
+        '</div>' +
+        (USUARIO_PODE_EDITAR ? '<button type="button" class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar processo</button>' : '') +
+        '<button type="button" class="perigo" onclick="event.stopPropagation(); excluirProcesso_(' + indice + ')">Excluir processo</button>' +
+        '<span class="selo ' + status.classe + '">' + status.texto + '</span>' +
+      '</div>' +
+      '<div class="processo-veiculos" style="' + (expandido ? '' : 'display:none;') + '">' +
+        avisoFaltantesHtml +
+        enderecoHtml +
+        '<div class="tabela-wrap"><table><thead><tr>' +
+          '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>ATPVe Emitido</th><th>ATPVe Enviado</th>' +
+          (USUARIO_PODE_EDITAR ? '<th>Ações</th>' : '') +
+        '</tr></thead><tbody>' + linhasVeiculos + '</tbody>' +
+        (USUARIO_PODE_EDITAR
+          ? '<tfoot><tr>' +
+            '<td colspan="4"></td>' +
+            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">Marcar todos</button></td>' +
+            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">Marcar todos</button></td>' +
+            '<td></td>' +
+            '</tr></tfoot>'
+          : '') +
+        '</table></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function montarBotaoToggle_(v, campo, rotulo) {
+    var valor = v[campo] === 'SIM' ? 'SIM' : 'NÃO';
+    var classe = valor === 'SIM' ? 'selo-sim' : 'selo-nao';
+    if (!USUARIO_PODE_EDITAR) {
+      return '<span class="selo ' + classe + '">' + rotulo + ': ' + valor + '</span>';
+    }
+    return '<button type="button" class="selo-toggle ' + classe + '" onclick="alternarStatusAtpve_(\'' + v.ID + '\', \'' + campo + '\', \'' + valor + '\')">' +
+      rotulo + ': ' + valor + '</button>';
+  }
+
+  function alternarProcesso_(indice) {
+    var p = DADOS_PROCESSOS[indice];
+    if (!p) return;
+    var chave = chaveProcesso_(p);
+    TERMOS_EXPANDIDOS[chave] = !TERMOS_EXPANDIDOS[chave];
+    renderizarCardsProcessos_();
+  }
+
+  function alternarStatusAtpve_(id, campo, valorAtual) {
+    var novoValor = valorAtual === 'SIM' ? 'NÃO' : 'SIM';
+    google.script.run
+      .withSuccessHandler(function () {
+        DADOS_PROCESSOS.forEach(function (p) {
+          var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : 'totalEnviados';
+          for (var i = 0; i < p.veiculos.length; i++) {
+            if (p.veiculos[i].ID === id) {
+              if (p.veiculos[i][campo] !== novoValor) {
+                p[totalCampo] += (novoValor === 'SIM' ? 1 : -1);
+              }
+              p.veiculos[i][campo] = novoValor;
+              break;
+            }
+          }
+        });
+        if (CACHE_REGISTROS[id]) CACHE_REGISTROS[id][campo] = novoValor;
+        renderizarCardsProcessos_();
+      })
+      .withFailureHandler(function (erro) {
+        mostrarMensagem('mensagemListagem', 'erro', erro.message || String(erro));
+      })
+      .atualizarStatusAtpve(id, campo, novoValor);
+  }
+
+  async function marcarTodosAtpve_(indiceProcesso, campo) {
+    var p = DADOS_PROCESSOS[indiceProcesso];
+    if (!p) return;
+    var rotulo = campo === 'ATPVeEmitido' ? 'ATPVe Emitido' : 'ATPVe Enviado';
+    var pendentes = p.veiculos.filter(function (v) { return v[campo] !== 'SIM'; });
+    if (!pendentes.length) {
+      mostrarMensagem('mensagemListagem', 'sucesso', 'Todos os veículos deste processo já estão marcados como "' + rotulo + ': SIM".');
+      return;
+    }
+    if (!confirm('Marcar os ' + pendentes.length + ' veículo(s) pendente(s) deste processo como "' + rotulo + ': SIM"?')) return;
+
+    var erros = [];
+    for (var i = 0; i < pendentes.length; i++) {
+      try {
+        await chamarServidor_('atualizarStatusAtpve', pendentes[i].ID, campo, 'SIM');
+      } catch (erro) {
+        erros.push(pendentes[i].ID + ': ' + (erro.message || String(erro)));
+      }
+    }
+    carregarListagem();
+    if (erros.length) {
+      mostrarErroCadastro_('Alguns veículos não puderam ser atualizados:\n' + erros.join('\n'));
+    } else {
+      mostrarMensagem('mensagemListagem', 'sucesso', rotulo + ' marcado como SIM para todos os veículos deste processo.');
+    }
+  }
+
+  async function excluirProcesso_(indiceProcesso) {
+    var p = DADOS_PROCESSOS[indiceProcesso];
+    if (!p) return;
+    if (!USUARIO_E_ADMIN) {
+      mostrarErroCadastro_('Ação restrita a administradores. Apenas administradores podem excluir um processo.');
+      return;
+    }
+    var titulo = p.numeroProcesso ? ('o processo nº ' + p.numeroProcesso) : ('o processo "' + (p.termoDoacao || '(sem identificação)') + '"');
+    if (!confirm('Excluir definitivamente ' + titulo + ' e TODOS os ' + p.totalVeiculos + ' veículo(s) cadastrados nele? Esta ação não pode ser desfeita.')) return;
+
+    var erros = [];
+    for (var i = 0; i < p.veiculos.length; i++) {
+      try {
+        await chamarServidor_('excluirVeiculo', p.veiculos[i].ID);
+      } catch (erro) {
+        erros.push(p.veiculos[i].ID + ': ' + (erro.message || String(erro)));
+      }
+    }
+    carregarListagem();
+    if (erros.length) {
+      mostrarErroCadastro_('Alguns veículos deste processo não puderam ser excluídos:\n' + erros.join('\n'));
+    } else {
+      mostrarMensagem('mensagemListagem', 'sucesso', 'Processo excluído com sucesso.');
+    }
+  }
+
+  function popularAnosFiltro_(registros) {
+    var select = document.getElementById('f_Ano');
+    if (select.dataset.populado) return;
+    var anos = Array.from(new Set(registros.map(function (r) { return String(r.Ano); }))).sort();
+    anos.forEach(function (ano) {
+      var el = document.createElement('option');
+      el.value = ano; el.textContent = ano;
+      select.appendChild(el);
+    });
+    if (anos.length) select.dataset.populado = '1';
+  }
+
+  // ---------- Modal: editar processo inteiro (dados da operação + veículos) ----------
+  var PROCESSO_EM_EDICAO = null;
+  var VEICULOS_PROCESSO_EDICAO = [];
+
+  function configurarModalEditarProcesso_() {
+    document.getElementById('botaoPeFechar').addEventListener('click', fecharModalEditarProcesso_);
+    document.getElementById('botaoPeSalvar').addEventListener('click', salvarProcessoEditado_);
+    document.getElementById('botaoPeAdicionarVeiculo').addEventListener('click', function () {
+      var limite = obterQtdEsperadaAtualProcesso_();
+      if (limite > 0 && VEICULOS_PROCESSO_EDICAO.length >= limite) {
+        mostrarErroCadastro_('Não é possível adicionar mais veículos: o limite deste processo é de ' + limite +
+          ' veículo(s) (contrato + aditivo). Se precisar de mais, aumente a quantidade do contrato/aditivo acima antes de adicionar.');
+        return;
+      }
+      VEICULOS_PROCESSO_EDICAO.push({
+        ID: '', Marca: '', Descricao: '', Chassi: '', Placa: '', Renavam: '', Motivo: '',
+        ATPVeEmitido: 'NÃO', ATPVeEnviado: 'NÃO', Transferido: 'NÃO', Observacoes: '', novo: true
+      });
+      renderizarLinhasVeiculoEdicao_();
+    });
+    document.getElementById('pe_TemAditivo').addEventListener('change', atualizarVisibilidadeAditivoProcesso_);
+    document.getElementById('pe_Contrato').addEventListener('input', function () {
+      var valor = this.value.replace(/[^\d/]/g, '');
+      var partes = valor.split('/');
+      var numero = partes[0].replace(/^0+(?=\d)/, '');
+      this.value = partes.length > 1 ? (numero + '/' + partes.slice(1).join('').slice(0, 4)) : numero;
+    });
+
+    var campoCep = document.getElementById('pe_CEP');
+    campoCep.addEventListener('input', function () {
+      var digitos = this.value.replace(/\D/g, '').slice(0, 8);
+      this.value = digitos.length > 5 ? (digitos.slice(0, 5) + '-' + digitos.slice(5)) : digitos;
+    });
+    campoCep.addEventListener('blur', function () {
+      var cep = this.value.replace(/\D/g, '');
+      if (cep.length === 8) buscarEnderecoPorCepProcesso_(cep);
+    });
+  }
+
+  function atualizarVisibilidadeAditivoProcesso_() {
+    var tem = document.getElementById('pe_TemAditivo').value === 'SIM';
+    document.getElementById('peGrupoNumeroAditivo').style.display = tem ? '' : 'none';
+    document.getElementById('peGrupoQtdAditivo').style.display = tem ? '' : 'none';
+  }
+
+  function obterQtdEsperadaAtualProcesso_() {
+    var qtdContrato = parseInt(document.getElementById('pe_QtdContrato').value, 10) || 0;
+    var temAditivo = document.getElementById('pe_TemAditivo').value === 'SIM';
+    var qtdAditivo = temAditivo ? (parseInt(document.getElementById('pe_QtdAditivo').value, 10) || 0) : 0;
+    return qtdContrato + qtdAditivo;
+  }
+
+  function buscarEnderecoPorCepProcesso_(cep) {
+    var status = document.getElementById('peStatusCep');
+    status.style.color = 'var(--texto-suave)';
+    status.textContent = 'Buscando endereço...';
+
+    fetch('https://viacep.com.br/ws/' + cep + '/json/')
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.erro) {
+          status.style.color = 'var(--vermelho)';
+          status.textContent = 'CEP não encontrado — preencha o endereço manualmente.';
+          return;
+        }
+        document.getElementById('pe_Logradouro').value = dados.logradouro || document.getElementById('pe_Logradouro').value;
+        document.getElementById('pe_Bairro').value = dados.bairro || document.getElementById('pe_Bairro').value;
+        document.getElementById('pe_Municipio').value = dados.localidade || document.getElementById('pe_Municipio').value;
+
+        var ufSelecionada = document.getElementById('pe_UF').value;
+        if (ufSelecionada && dados.uf && dados.uf !== ufSelecionada) {
+          status.style.color = 'var(--vermelho)';
+          status.textContent = 'Atenção: este CEP é de ' + dados.uf + ', mas a UF selecionada acima é ' + ufSelecionada + '. Confira antes de salvar.';
+        } else {
+          status.style.color = 'var(--verde)';
+          status.textContent = 'Endereço encontrado.';
+        }
+      })
+      .catch(function () {
+        status.style.color = 'var(--vermelho)';
+        status.textContent = 'Não foi possível buscar o CEP agora — preencha o endereço manualmente.';
+      });
+  }
+
+  function abrirModalEditarProcesso_(indiceProcesso) {
+    var p = DADOS_PROCESSOS[indiceProcesso];
+    if (!p) return;
+    PROCESSO_EM_EDICAO = p;
+
+    document.getElementById('peNumeroProcessoTitulo').textContent = p.numeroProcesso ? ('nº ' + p.numeroProcesso) : '';
+    document.getElementById('mensagemModalProcesso').innerHTML = '';
+
+    document.getElementById('pe_NumeroProcesso').value = p.numeroProcesso || '';
+    document.getElementById('pe_Ano').value = p.ano || '';
+    document.getElementById('pe_Mes').value = p.mes || '';
+    document.getElementById('pe_TermoDoacao').value = p.termoDoacao || '';
+    document.getElementById('pe_Contrato').value = p.contrato || '';
+    document.getElementById('pe_QtdContrato').value = p.qtdVeiculosContrato || '';
+    document.getElementById('pe_TemAditivo').value = p.aditivo === 'SIM' ? 'SIM' : 'NÃO';
+    document.getElementById('pe_NumeroAditivo').value = p.numeroAditivo || '';
+    document.getElementById('pe_QtdAditivo').value = p.qtdVeiculosAditivo || '';
+    atualizarVisibilidadeAditivoProcesso_();
+
+    document.getElementById('pe_UF').value = p.uf || '';
+    document.getElementById('pe_Ente').value = p.ente || '';
+    document.getElementById('pe_Donataria').value = p.donataria || '';
+    document.getElementById('pe_CNPJDonataria').value = p.cnpjDonataria || '';
+
+    document.getElementById('pe_CEP').value = p.cep || '';
+    document.getElementById('pe_Logradouro').value = p.logradouro || '';
+    document.getElementById('pe_Numero').value = p.numero || '';
+    document.getElementById('pe_Complemento').value = p.complemento || '';
+    document.getElementById('pe_Bairro').value = p.bairro || '';
+    document.getElementById('pe_Municipio').value = p.municipio || '';
+    document.getElementById('peStatusCep').textContent = '';
+
+    var faltam = faltamVeiculosProcesso_(p);
+    var aviso = document.getElementById('peAvisoFaltantes');
+    if (faltam > 0) {
+      aviso.style.display = '';
+      aviso.textContent = 'Faltam ' + faltam + ' veículo(s) para completar esta operação (eram esperados ' +
+        p.qtdEsperada + ', apenas ' + p.totalVeiculos + ' cadastrado(s) até agora). Preencha os veículos em branco abaixo.';
+    } else {
+      aviso.style.display = 'none';
+    }
+
+    VEICULOS_PROCESSO_EDICAO = p.veiculos.map(function (v) {
+      return {
+        ID: v.ID, Marca: v.Marca, Descricao: v.Descricao, Chassi: v.Chassi, Placa: v.Placa, Renavam: v.Renavam,
+        ATPVeEmitido: v.ATPVeEmitido, ATPVeEnviado: v.ATPVeEnviado, Transferido: v.Transferido, Observacoes: v.Observacoes,
+        novo: false
+      };
+    });
+    for (var i = 0; i < faltam; i++) {
+      VEICULOS_PROCESSO_EDICAO.push({
+        ID: '', Marca: '', Descricao: '', Chassi: '', Placa: '', Renavam: '', Motivo: '',
+        ATPVeEmitido: 'NÃO', ATPVeEnviado: 'NÃO', Transferido: 'NÃO', Observacoes: '', novo: true
+      });
+    }
+    renderizarLinhasVeiculoEdicao_();
+
+    document.getElementById('modalEditarProcessoFundo').classList.add('ativo');
+  }
+
+  function fecharModalEditarProcesso_() {
+    document.getElementById('modalEditarProcessoFundo').classList.remove('ativo');
+  }
+
+  function renderizarLinhasVeiculoEdicao_() {
+    var container = document.getElementById('peListaVeiculos');
+    var html = '';
+    VEICULOS_PROCESSO_EDICAO.forEach(function (v, i) {
+      html += '<div style="border:1px solid var(--borda); border-radius:10px; padding:14px; margin-bottom:12px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+          '<strong>Veículo ' + (i + 1) + (v.ID ? ' (' + escaparHtml(v.ID) + ')' : ' (novo)') + '</strong>' +
+          (v.novo
+            ? '<button type="button" class="secundario" onclick="removerLinhaVeiculoEdicao_(' + i + ')">Remover</button>'
+            : '<button type="button" class="perigo" onclick="excluirVeiculoDaEdicao_(' + i + ')">Excluir</button>') +
+        '</div>' +
+        '<div class="grid-form">' +
+          '<div class="campo"><label>Marca *</label><input type="text" required maxlength="60" data-campo="Marca" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Descrição / modelo *</label><input type="text" required maxlength="120" data-campo="Descricao" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Chassi (VIN, 17 caracteres) *</label><input type="text" required maxlength="17" style="text-transform:uppercase" data-campo="Chassi" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Placa *</label><input type="text" required maxlength="8" style="text-transform:uppercase" data-campo="Placa" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Renavam *</label><input type="text" required maxlength="11" data-campo="Renavam" data-indice="' + i + '"></div>' +
+          (v.novo
+            ? '<div class="campo span-2"><label>Motivo da inclusão deste veículo *</label><input type="text" required maxlength="300" placeholder="Ex: veículo do aditivo incluído posteriormente" data-campo="Motivo" data-indice="' + i + '"></div>'
+            : '') +
+        '</div>' +
+      '</div>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('input[data-campo]').forEach(function (input) {
+      var indice = Number(input.dataset.indice);
+      var campo = input.dataset.campo;
+      input.value = VEICULOS_PROCESSO_EDICAO[indice][campo] || '';
+      input.addEventListener('input', function () {
+        VEICULOS_PROCESSO_EDICAO[indice][campo] = input.value;
+      });
+    });
+  }
+
+  function removerLinhaVeiculoEdicao_(indice) {
+    VEICULOS_PROCESSO_EDICAO.splice(indice, 1);
+    renderizarLinhasVeiculoEdicao_();
+  }
+
+  function excluirVeiculoDaEdicao_(indice) {
+    var v = VEICULOS_PROCESSO_EDICAO[indice];
+    if (!v || !v.ID) return;
+    if (!confirm('Excluir definitivamente o veículo ' + v.ID + ' (' + v.Marca + ' — ' + v.Chassi + ')? Esta ação não pode ser desfeita.')) return;
+
+    google.script.run
+      .withSuccessHandler(function () {
+        VEICULOS_PROCESSO_EDICAO.splice(indice, 1);
+        renderizarLinhasVeiculoEdicao_();
+        mostrarMensagem('mensagemModalProcesso', 'sucesso', 'Veículo ' + v.ID + ' excluído.');
+      })
+      .withFailureHandler(function (erro) {
+        mostrarErroCadastro_(erro.message || String(erro));
+      })
+      .excluirVeiculo(v.ID);
+  }
+
+  async function salvarProcessoEditado_() {
+    var camposComuns = document.querySelectorAll(
+      '#pe_NumeroProcesso, #pe_Ano, #pe_Mes, #pe_TermoDoacao, #pe_Contrato, #pe_QtdContrato, #pe_TemAditivo, ' +
+      '#pe_UF, #pe_Ente, #pe_Donataria, #pe_CEP, #pe_Logradouro, #pe_Numero, #pe_Bairro, #pe_Municipio'
+    );
+    for (var i = 0; i < camposComuns.length; i++) {
+      if (!camposComuns[i].checkValidity()) { camposComuns[i].reportValidity(); return; }
+    }
+    if (!VEICULOS_PROCESSO_EDICAO.length) {
+      mostrarErroCadastro_('Este processo precisa ter ao menos um veículo.');
+      return;
+    }
+    var limiteAtual = obterQtdEsperadaAtualProcesso_();
+    if (limiteAtual > 0 && VEICULOS_PROCESSO_EDICAO.length > limiteAtual) {
+      mostrarErroCadastro_('Este processo ficaria com ' + VEICULOS_PROCESSO_EDICAO.length +
+        ' veículo(s), mas o limite combinado (contrato + aditivo) é de ' + limiteAtual +
+        '. Ajuste a quantidade do contrato/aditivo acima ou remova algum veículo antes de salvar.');
+      return;
+    }
+    for (var j = 0; j < VEICULOS_PROCESSO_EDICAO.length; j++) {
+      var vv = VEICULOS_PROCESSO_EDICAO[j];
+      if (!vv.Marca || !vv.Descricao || !vv.Chassi || !vv.Placa || !vv.Renavam) {
+        mostrarErroCadastro_('Preencha todos os campos do veículo ' + (j + 1) + ' antes de salvar.');
+        return;
+      }
+      if (vv.novo && !vv.Motivo) {
+        mostrarErroCadastro_('Informe o motivo da inclusão do veículo ' + (j + 1) + ' antes de salvar.');
+        return;
+      }
+    }
+
+    var comuns = {
+      NumeroProcesso: document.getElementById('pe_NumeroProcesso').value,
+      Ano: document.getElementById('pe_Ano').value,
+      Mes: document.getElementById('pe_Mes').value,
+      TermoDoacao: document.getElementById('pe_TermoDoacao').value,
+      Contrato: document.getElementById('pe_Contrato').value,
+      QtdVeiculosContrato: document.getElementById('pe_QtdContrato').value,
+      Aditivo: document.getElementById('pe_TemAditivo').value,
+      NumeroAditivo: document.getElementById('pe_NumeroAditivo').value,
+      QtdVeiculosAditivo: document.getElementById('pe_QtdAditivo').value,
+      UF: document.getElementById('pe_UF').value,
+      Ente: document.getElementById('pe_Ente').value,
+      Donataria: document.getElementById('pe_Donataria').value,
+      CNPJDonataria: document.getElementById('pe_CNPJDonataria').value,
+      CEP: document.getElementById('pe_CEP').value,
+      Logradouro: document.getElementById('pe_Logradouro').value,
+      Numero: document.getElementById('pe_Numero').value,
+      Complemento: document.getElementById('pe_Complemento').value,
+      Bairro: document.getElementById('pe_Bairro').value,
+      Municipio: document.getElementById('pe_Municipio').value
+    };
+
+    var botao = document.getElementById('botaoPeSalvar');
+    botao.disabled = true;
+    mostrarMensagem('mensagemModalProcesso', 'sucesso', 'Salvando processo (' + VEICULOS_PROCESSO_EDICAO.length + ' veículo(s))...');
+
+    try {
+      for (var k = 0; k < VEICULOS_PROCESSO_EDICAO.length; k++) {
+        var veiculo = VEICULOS_PROCESSO_EDICAO[k];
+        var dados = Object.assign({}, comuns, {
+          ID: veiculo.ID || undefined,
+          Marca: veiculo.Marca,
+          Descricao: veiculo.Descricao,
+          Chassi: veiculo.Chassi,
+          Placa: veiculo.Placa,
+          Renavam: veiculo.Renavam,
+          ATPVeEmitido: veiculo.ATPVeEmitido,
+          ATPVeEnviado: veiculo.ATPVeEnviado,
+          Transferido: veiculo.Transferido,
+          Observacoes: veiculo.Observacoes,
+          MotivoInclusaoPosterior: veiculo.novo ? (veiculo.Motivo || '') : undefined
+        });
+        var resp = await chamarServidor_('salvarVeiculo', dados);
+        if (!veiculo.ID) { veiculo.ID = resp.ID; veiculo.novo = false; }
+      }
+      botao.disabled = false;
+      fecharModalEditarProcesso_();
+      mostrarMensagem('mensagemListagem', 'sucesso', 'Processo atualizado com sucesso.');
+      carregarListagem();
+    } catch (erro) {
+      botao.disabled = false;
+      mostrarErroCadastro_('Erro ao salvar o veículo ' + (k + 1) + ':\n' + (erro.message || String(erro)));
+    }
+  }
+
+  // ---------- Painel / Estatísticas ----------
+  function carregarPainel() {
+    google.script.run.withSuccessHandler(renderizarPainelSeguro_).withFailureHandler(mostrarErroGlobal).getEstatisticas();
+  }
+
+  var tentativasPainel = 0;
+  function renderizarPainelSeguro_(stats) {
+    if (!stats) {
+      tentativasPainel++;
+      if (tentativasPainel > 4) {
+        tentativasPainel = 0;
+        mostrarErroGlobal({ message: 'Não foi possível carregar o painel agora. Troque de aba e volte para tentar de novo.' });
+        return;
+      }
+      setTimeout(carregarPainel, 1200);
+      return;
+    }
+    tentativasPainel = 0;
+    renderizarPainel(stats);
+  }
+
+  function renderizarPainel(stats) {
+    document.getElementById('kpiTotal').textContent = stats.total;
+    document.getElementById('kpiTransferidos').textContent = stats.transferidos;
+    document.getElementById('kpiPendentes').textContent = stats.pendentes;
+    document.getElementById('kpiPercentual').textContent = stats.percentualTransferido + '%';
+
+    renderizarCardsCategoria('cardsUF', 'uf', stats.porUF);
+    renderizarCardsCategoria('cardsEnte', 'ente', stats.porEnte);
+    renderizarCardsCategoria('cardsMarca', 'marca', stats.porMarcaTop10);
+    renderizarCardsCategoria('cardsDonataria', 'donataria', stats.donatariasTop10);
+    renderizarCardsCategoria('cardsPeriodo', 'periodo', stats.porAnoMes);
+
+    DADOS_PENDENTES = stats.pendentesMaisAntigos;
+    renderizarTabelaSimples('corpoTabelaPendentes', stats.pendentesMaisAntigos, function (p, i) {
+      return '<tr class="linha-clicavel" onclick="cliquePendencia(' + i + ')"><td>' + escaparHtml(p.ID) + '</td><td>' + escaparHtml(p.Donataria) + '</td><td>' + escaparHtml(p.UF) +
+        '</td><td>' + escaparHtml(p.Placa) + '</td><td>' + escaparHtml(p.Chassi) + '</td><td>' + (p.DiasEmAberto != null ? p.DiasEmAberto : '-') + '</td></tr>';
+    }, 6, 'Nenhuma pendência — tudo transferido.');
+  }
+
+  function renderizarTabelaSimples(idCorpo, itens, montarLinha, colspan, msgVazio) {
+    var corpo = document.getElementById(idCorpo);
+    if (!itens.length) {
+      corpo.innerHTML = '<tr><td colspan="' + colspan + '" class="carregando">' + msgVazio + '</td></tr>';
+      return;
+    }
+    corpo.innerHTML = itens.map(montarLinha).join('');
+  }
+
+  function renderizarCardsCategoria(idContainer, campo, itens) {
+    var container = document.getElementById(idContainer);
+    DADOS_CATEGORIA[campo] = itens;
+    if (!itens.length) {
+      container.innerHTML = '<div class="stat-card-vazio">Sem dados.</div>';
+      return;
+    }
+    container.innerHTML = itens.map(function (item, i) {
+      return '<div class="stat-card" onclick="cliqueCardCategoria(\'' + campo + '\', ' + i + ')">' +
+        '<div class="stat-card-valor">' + item.total + '</div>' +
+        '<div class="stat-card-rotulo" title="' + escaparHtml(item.chave) + '">' + escaparHtml(item.chave) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function cliqueCardCategoria(campo, indice) {
+    var item = DADOS_CATEGORIA[campo] && DADOS_CATEGORIA[campo][indice];
+    if (!item) return;
+    var valor = item.chave;
+    if (campo === 'periodo') valor = item.chave.split('-')[0];
+    irParaListagemComFiltro(MAPA_FILTRO_CATEGORIA[campo], valor);
+  }
+
+  function cliquePendencia(indice) {
+    var p = DADOS_PENDENTES[indice];
+    if (!p) return;
+    irParaListagemComFiltro('busca', p.Placa);
+  }
+
+  // ---------- Navegação de Painel/KPI para Listagem já filtrada ----------
+  function irParaListagemComFiltro(campo, valor) {
+    ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido'].forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('f_busca').value = '';
+
+    if (campo === 'uf') {
+      document.getElementById('f_UF').value = valor;
+    } else if (campo === 'ente') {
+      document.getElementById('f_Ente').value = valor;
+    } else if (campo === 'transferido') {
+      document.getElementById('f_Transferido').value = valor;
+    } else if (campo === 'busca') {
+      document.getElementById('f_busca').value = valor;
+    } else if (campo === 'ano') {
+      var selectAno = document.getElementById('f_Ano');
+      var existe = Array.prototype.some.call(selectAno.options, function (o) { return o.value === valor; });
+      if (!existe) {
+        var opt = document.createElement('option');
+        opt.value = valor; opt.textContent = valor;
+        selectAno.appendChild(opt);
+        selectAno.dataset.populado = '1';
+      }
+      selectAno.value = valor;
+    }
+
+    irParaTela('listagem');
+  }
+  </script>
+</body>
+</html>
