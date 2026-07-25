@@ -432,6 +432,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
+    .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
     .addToUi();
 }
 
@@ -542,6 +543,56 @@ function corrigirTamanhoDaAba() {
 
   var mensagem = 'Última linha com dado: ' + ultimaComDado + '. Aba ajustada para ' + novaUltima + ' linhas.';
   SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Ajuste de desempenho', 8);
+  return mensagem;
+}
+
+// Casa "Termo de Doação SENASP 144/2023 (24452932)" capturando em [1] o texto
+// antes do parêntese e em [2] só os dígitos do Número SEI.
+var REGEX_SEI_NO_TERMO = /^(.*?)\s*\((\d+)\)\s*$/;
+
+/**
+ * Corrige registros antigos em que o Número SEI foi digitado junto do Termo
+ * de Doação, entre parênteses no final (ex.: "Termo de Doação SENASP
+ * 144/2023 (24452932)"), de antes da coluna NumeroSei existir. Extrai o
+ * número para a coluna NumeroSei e remove o parêntese do Termo de Doação.
+ * Só mexe em linhas cujo NumeroSei ainda está vazio — não sobrescreve o que
+ * já tiver sido preenchido (pela tela ou por uma execução anterior desta
+ * mesma correção). Idempotente: pode ser rodada quantas vezes quiser.
+ */
+function corrigirNumeroSeiDoTermo() {
+  exigirPerfilAdmin_();
+  garantirColunasVeiculos_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var totalLinhas = sheet.getLastRow() - 1;
+  if (totalLinhas < 1) {
+    return 'Nenhum veículo cadastrado.';
+  }
+
+  var termoCol = colunaParaIndice_('TermoDoacao') + 1;
+  var seiCol = colunaParaIndice_('NumeroSei') + 1;
+
+  var termos = sheet.getRange(2, termoCol, totalLinhas, 1).getValues();
+  var seis = sheet.getRange(2, seiCol, totalLinhas, 1).getValues();
+
+  var corrigidos = 0;
+  for (var i = 0; i < totalLinhas; i++) {
+    if (normalizarTexto_(seis[i][0])) continue; // já tem Número SEI — não mexe
+
+    var match = REGEX_SEI_NO_TERMO.exec(String(termos[i][0] || '').trim());
+    if (!match) continue;
+
+    termos[i][0] = match[1].trim();
+    seis[i][0] = match[2];
+    corrigidos++;
+  }
+
+  if (corrigidos > 0) {
+    sheet.getRange(2, termoCol, totalLinhas, 1).setValues(termos);
+    sheet.getRange(2, seiCol, totalLinhas, 1).setValues(seis);
+  }
+
+  var mensagem = corrigidos + ' registro(s) corrigido(s): Número SEI extraído do Termo de Doação.';
+  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Correção Número SEI', 8);
   return mensagem;
 }
 
