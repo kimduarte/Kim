@@ -1069,6 +1069,7 @@ function migrarBaseOriginal() {
   garantirColunasVeiculos_();
 
   var chassisExistentes = carregarChassisExistentes_(sheetVeiculos);
+  var origensExistentes = carregarOrigensExistentes_(sheetVeiculos);
   var linhasNovas = [];
   var logEntradas = [];
   var agora = new Date();
@@ -1095,13 +1096,14 @@ function migrarBaseOriginal() {
       if (linhaVazia_(linha)) continue;
       resumo.lidas++;
 
-      var resultado = processarLinhaOrigem_(linha, nomeAba, i + 1, chassisExistentes, agora, perfil.email, modoTolerante);
+      var resultado = processarLinhaOrigem_(linha, nomeAba, i + 1, chassisExistentes, origensExistentes, agora, perfil.email, modoTolerante);
 
       if (resultado.status === 'OK') {
         proximoId++;
         resultado.linha[0] = 'VC-' + ('000000' + proximoId).slice(-6);
         linhasNovas.push(resultado.linha);
         chassisExistentes[resultado.chassi] = true;
+        origensExistentes[nomeAba + '|' + (i + 1)] = true;
         resumo.importadas++;
       } else if (resultado.status === 'DUPLICADO') {
         resumo.duplicadas++;
@@ -1153,8 +1155,18 @@ function gravarNovosVeiculos_(sheetVeiculos, linhasNovas, logEntradas, agora) {
   }
 }
 
+// Verifica só as colunas de dados que a migração realmente usa (COL_ORIGEM).
+// Checar a linha inteira falha em planilhas ligadas ao PowerApps: elas
+// preenchem um __PowerAppsId__ (e às vezes um "\n" perdido) em linhas que
+// no restante estão totalmente em branco, então a linha nunca era
+// reconhecida como vazia e seguia para validação completa, virando um
+// "Ente desconhecido" (ou similar) só por ruído de linhas de template sem
+// nenhum dado de veículo.
 function linhaVazia_(linha) {
-  return linha.every(function (v) { return v === '' || v === null || v === undefined; });
+  return Object.keys(COL_ORIGEM).every(function (campo) {
+    var v = linha[COL_ORIGEM[campo]];
+    return v === '' || v === null || v === undefined || String(v).trim() === '';
+  });
 }
 
 function carregarChassisExistentes_(sheet) {
@@ -1168,7 +1180,37 @@ function carregarChassisExistentes_(sheet) {
   return mapa;
 }
 
-function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, agora, usuario, modoTolerante) {
+// Identifica quais linhas das abas de origem (aba + número da linha) já
+// foram migradas antes, lendo o padrão 'Migrado de "aba", linha N.' gravado
+// em Observacoes por processarLinhaOrigem_. Sem isso, rodar a migração mais
+// de uma vez faz cada linha antiga colidir com o próprio chassi que ela
+// mesma gerou na vez anterior — e como esse tipo de colisão é tratado como
+// "chassi repetido no lote original" (ver o bloco de chassisExistentes
+// abaixo), a linha seria reimportada como um veículo "novo" (com sufixo
+// -DUP) em vez de ser reconhecida como já migrada, duplicando a base
+// inteira a cada nova execução.
+var REGEX_ORIGEM_OBSERVACOES = /^Migrado de "(.+)", linha (\d+)\.$/;
+
+function carregarOrigensExistentes_(sheet) {
+  var mapa = {};
+  if (sheet.getLastRow() < 2) return mapa;
+  var obsCol = colunaParaIndice_('Observacoes') + 1;
+  var valores = sheet.getRange(2, obsCol, sheet.getLastRow() - 1, 1).getValues();
+  valores.forEach(function (linha) {
+    var match = REGEX_ORIGEM_OBSERVACOES.exec(String(linha[0] || ''));
+    if (match) mapa[match[1] + '|' + match[2]] = true;
+  });
+  return mapa;
+}
+
+function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensExistentes, agora, usuario, modoTolerante) {
+  if (origensExistentes[aba + '|' + numLinha]) {
+    return {
+      status: 'DUPLICADO',
+      log: [agora, aba, numLinha, 'AVISO', 'Esta linha já havia sido migrada em uma execução anterior — ignorada para não duplicar.', '', '']
+    };
+  }
+
   var chassi = normalizarChassi_(linha[COL_ORIGEM.CHASSI]);
   var placaOriginal = normalizarPlaca_(linha[COL_ORIGEM.PLACA]);
   var avisos = [];
