@@ -431,6 +431,14 @@
                 <label for="c_TermoDoacao">Número do Termo de Doação *</label>
                 <input type="text" id="c_TermoDoacao" required maxlength="200" placeholder="Ex: Termo de Doação nº 123/2024">
               </div>
+              <div class="campo span-2">
+                <label>Número SEI do Termo *</label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span id="c_NumeroSeiExibicao" style="font-size:13px; color:var(--texto-suave);">Não informado — clique para informar</span>
+                  <button type="button" class="secundario" id="botaoInformarNumeroSeiCadastro" style="padding:4px 10px; font-size:12px;">Informar</button>
+                </div>
+                <input type="hidden" id="c_NumeroSei" value="">
+              </div>
             </div>
 
             <div class="etapa-cabecalho" style="margin-top:18px;">Contrato</div>
@@ -674,6 +682,14 @@
               <label for="pe_TermoDoacao">Número do Termo de Doação *</label>
               <input type="text" id="pe_TermoDoacao" required maxlength="200">
             </div>
+            <div class="campo span-2">
+              <label>Número SEI do Termo *</label>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span id="pe_NumeroSeiExibicao" style="font-size:13px; color:var(--texto-suave);">Não informado — clique para informar</span>
+                <button type="button" class="secundario" id="botaoInformarNumeroSeiProcesso" style="padding:4px 10px; font-size:12px;">Informar</button>
+              </div>
+              <input type="hidden" id="pe_NumeroSei" value="">
+            </div>
             <div class="campo">
               <label for="pe_Contrato">Contrato *</label>
               <input type="text" id="pe_Contrato" required maxlength="20" pattern="[1-9][0-9]*/[0-9]{4}"
@@ -818,6 +834,26 @@
     </section>
   </main>
 
+  <div class="modal-fundo" id="modalNumeroSeiFundo">
+    <div class="modal" style="max-width:420px;">
+      <h2>Número SEI do Termo</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">
+        Informe o número SEI do Termo de Doação. Este campo é obrigatório.
+      </p>
+      <div id="mensagemNumeroSei"></div>
+      <div class="grid-form">
+        <div class="campo span-2">
+          <label for="ns_NumeroSei">Número SEI *</label>
+          <input type="text" id="ns_NumeroSei" maxlength="60" placeholder="Ex: 00000.000000/2026-00">
+        </div>
+      </div>
+      <div class="botoes">
+        <button class="secundario" id="botaoNumeroSeiCancelar">Cancelar</button>
+        <button class="primario" id="botaoNumeroSeiConfirmar" style="margin-left:auto;">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="modalErroCadastroFundo">
     <div class="modal" style="max-width:480px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
@@ -847,6 +883,7 @@
   var DADOS_PENDENTES = [];
   var MAPA_FILTRO_CATEGORIA = { uf: 'uf', ente: 'ente', marca: 'busca', donataria: 'busca', periodo: 'ano' };
   var ORGAOS_POR_UF = {};
+  var NUMERO_SEI_CONTEXTO = 'c';
 
   document.addEventListener('DOMContentLoaded', function () {
     google.script.run.withSuccessHandler(aoCarregarContexto).withFailureHandler(mostrarErroGlobal).getContextoInicial();
@@ -860,6 +897,7 @@
     configurarModalVeiculo_();
     configurarModalErroCadastro_();
     configurarModalNovoUsuario_();
+    configurarModalNumeroSei_();
   });
 
   // ---------- Navegação entre telas ----------
@@ -1033,6 +1071,51 @@
     document.getElementById('modalNumeroProcessoFundo').classList.remove('ativo');
   }
 
+  // ---------- Modal: número SEI do Termo de Doação (obrigatório) ----------
+  // Usado tanto no cadastro (prefixo "c_") quanto na edição de processo
+  // (prefixo "pe_") — NUMERO_SEI_CONTEXTO guarda qual dos dois abriu o modal
+  // por último, para o Confirmar gravar no par de campos certo.
+  function configurarModalNumeroSei_() {
+    document.getElementById('botaoNumeroSeiCancelar').addEventListener('click', fecharModalNumeroSei_);
+    document.getElementById('botaoNumeroSeiConfirmar').addEventListener('click', function () {
+      var valor = document.getElementById('ns_NumeroSei').value.trim();
+      if (!valor) {
+        document.getElementById('mensagemNumeroSei').innerHTML =
+          '<div class="mensagem erro">Informe o número SEI para continuar.</div>';
+        return;
+      }
+      definirNumeroSei_(NUMERO_SEI_CONTEXTO, valor);
+      fecharModalNumeroSei_();
+    });
+
+    document.getElementById('c_TermoDoacao').addEventListener('blur', function () {
+      if (this.value.trim() && !document.getElementById('c_NumeroSei').value) abrirModalNumeroSei_('c');
+    });
+    document.getElementById('botaoInformarNumeroSeiCadastro').addEventListener('click', function () { abrirModalNumeroSei_('c'); });
+
+    document.getElementById('pe_TermoDoacao').addEventListener('blur', function () {
+      if (this.value.trim() && !document.getElementById('pe_NumeroSei').value) abrirModalNumeroSei_('pe');
+    });
+    document.getElementById('botaoInformarNumeroSeiProcesso').addEventListener('click', function () { abrirModalNumeroSei_('pe'); });
+  }
+
+  function abrirModalNumeroSei_(contexto) {
+    NUMERO_SEI_CONTEXTO = contexto;
+    document.getElementById('ns_NumeroSei').value = document.getElementById(contexto + '_NumeroSei').value || '';
+    document.getElementById('mensagemNumeroSei').innerHTML = '';
+    document.getElementById('modalNumeroSeiFundo').classList.add('ativo');
+    setTimeout(function () { document.getElementById('ns_NumeroSei').focus(); }, 0);
+  }
+
+  function fecharModalNumeroSei_() {
+    document.getElementById('modalNumeroSeiFundo').classList.remove('ativo');
+  }
+
+  function definirNumeroSei_(contexto, valor) {
+    document.getElementById(contexto + '_NumeroSei').value = valor;
+    document.getElementById(contexto + '_NumeroSeiExibicao').textContent = valor;
+  }
+
   // ---------- Modal: cadastrar novo usuário do sistema ----------
   function configurarModalNovoUsuario_() {
     document.getElementById('botaoNovoUsuarioCancelar').addEventListener('click', fecharModalNovoUsuario_);
@@ -1175,6 +1258,10 @@
         return false;
       }
     }
+    if (ETAPA_ATUAL === 1 && !document.getElementById('c_NumeroSei').value) {
+      abrirModalNumeroSei_('c');
+      return false;
+    }
     return true;
   }
 
@@ -1202,6 +1289,7 @@
       ['Número do Processo', NUMERO_PROCESSO_ATUAL],
       ['Ano / Mês', document.getElementById('c_Ano').value + ' / ' + document.getElementById('c_Mes').value],
       ['Termo de doação', document.getElementById('c_TermoDoacao').value],
+      ['Número SEI do Termo', document.getElementById('c_NumeroSei').value],
       ['Contrato', document.getElementById('c_Contrato').value],
       ['UF / Ente', document.getElementById('c_UF').value + ' / ' + document.getElementById('c_Ente').value],
       ['Donatária', document.getElementById('c_Donataria').value],
@@ -1344,6 +1432,7 @@
     document.getElementById('listaVeiculosColetados').innerHTML = '';
     document.getElementById('dicaQuantidadeVeiculos').textContent = '';
     document.getElementById('exibicaoNumeroProcesso').textContent = '';
+    document.getElementById('c_NumeroSeiExibicao').textContent = 'Não informado — clique para informar';
     QUANTIDADE_TOTAL_VEICULOS = 0;
     NUMERO_PROCESSO_ATUAL = '';
     VEICULOS_COLETADOS = [];
@@ -1367,6 +1456,7 @@
         Ente: document.getElementById('c_Ente').value,
         Donataria: document.getElementById('c_Donataria').value,
         TermoDoacao: document.getElementById('c_TermoDoacao').value,
+        NumeroSei: document.getElementById('c_NumeroSei').value,
         Observacoes: document.getElementById('c_Observacoes').value,
         CNPJDonataria: document.getElementById('c_CNPJDonataria').value,
         CEP: document.getElementById('c_CEP').value,
@@ -1846,6 +1936,8 @@
     document.getElementById('pe_Ano').value = p.ano || '';
     document.getElementById('pe_Mes').value = p.mes || '';
     document.getElementById('pe_TermoDoacao').value = p.termoDoacao || '';
+    document.getElementById('pe_NumeroSei').value = p.numeroSei || '';
+    document.getElementById('pe_NumeroSeiExibicao').textContent = p.numeroSei || 'Não informado — clique para informar';
     document.getElementById('pe_Contrato').value = p.contrato || '';
     document.getElementById('pe_QtdContrato').value = p.qtdVeiculosContrato || '';
     document.getElementById('pe_TemAditivo').value = p.aditivo === 'SIM' ? 'SIM' : 'NÃO';
@@ -1962,6 +2054,10 @@
     for (var i = 0; i < camposComuns.length; i++) {
       if (!camposComuns[i].checkValidity()) { camposComuns[i].reportValidity(); return; }
     }
+    if (!document.getElementById('pe_NumeroSei').value) {
+      abrirModalNumeroSei_('pe');
+      return;
+    }
     if (!VEICULOS_PROCESSO_EDICAO.length) {
       mostrarErroCadastro_('Este processo precisa ter ao menos um veículo.');
       return;
@@ -1990,6 +2086,7 @@
       Ano: document.getElementById('pe_Ano').value,
       Mes: document.getElementById('pe_Mes').value,
       TermoDoacao: document.getElementById('pe_TermoDoacao').value,
+      NumeroSei: document.getElementById('pe_NumeroSei').value,
       Contrato: document.getElementById('pe_Contrato').value,
       QtdVeiculosContrato: document.getElementById('pe_QtdContrato').value,
       Aditivo: document.getElementById('pe_TemAditivo').value,

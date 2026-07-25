@@ -38,7 +38,12 @@ var CABECALHO_VEICULOS = [
   'CEP', 'Logradouro', 'Numero', 'Complemento', 'Bairro', 'Municipio',
   'ATPVeEmitido', 'ATPVeEnviado',
   'Contrato', 'Aditivo', 'NumeroAditivo', 'QtdVeiculosContrato', 'QtdVeiculosAditivo',
-  'NumeroProcesso', 'MotivoInclusaoPosterior'
+  'NumeroProcesso', 'MotivoInclusaoPosterior',
+  // Sempre adicione campos novos aqui no final: garantirColunasVeiculos_ só
+  // ANEXA colunas ausentes ao final da planilha física — inserir um campo no
+  // meio deste array desalinharia todas as colunas seguintes em planilhas
+  // já existentes (com dados nas posições antigas).
+  'NumeroSei'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -691,6 +696,7 @@ function paraDtoListagem_(r) {
     Ente: r.Ente,
     Donataria: r.Donataria,
     TermoDoacao: r.TermoDoacao,
+    NumeroSei: r.NumeroSei,
     Descricao: r.Descricao,
     Marca: r.Marca,
     Chassi: r.Chassi,
@@ -743,6 +749,7 @@ function listarProcessos(filtros) {
       grupos[chave] = {
         numeroProcesso: v.NumeroProcesso || '',
         termoDoacao: v.TermoDoacao,
+        numeroSei: v.NumeroSei || '',
         contrato: v.Contrato || '',
         aditivo: v.Aditivo || 'NÃO',
         numeroAditivo: v.NumeroAditivo || '',
@@ -880,6 +887,7 @@ function validarESanitizarVeiculo_(dados) {
   if (!validarRenavam_(renavam)) erros.push('Renavam inválido: ' + renavam);
   if (!normalizarTexto_(dados.Donataria)) erros.push('Donatária é obrigatória.');
   if (!normalizarTexto_(dados.TermoDoacao)) erros.push('Termo de doação é obrigatório.');
+  if (!normalizarTexto_(dados.NumeroSei)) erros.push('Número SEI do Termo é obrigatório.');
   // CEP só é validado no formato quando informado — não é exigido aqui para
   // não travar a edição de veículos antigos (migrados sem endereço).
   if (cep && cep.length !== 8) erros.push('CEP inválido: ' + dados.CEP);
@@ -895,6 +903,7 @@ function validarESanitizarVeiculo_(dados) {
     Ente: ente,
     Donataria: normalizarTexto_(dados.Donataria),
     TermoDoacao: normalizarTexto_(dados.TermoDoacao),
+    NumeroSei: normalizarTexto_(dados.NumeroSei),
     Descricao: normalizarTexto_(dados.Descricao),
     Marca: normalizarMarca_(dados.Marca),
     Chassi: chassi,
