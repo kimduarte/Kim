@@ -223,6 +223,36 @@
   .stat-card .stat-card-rotulo { font-size: 12px; color: var(--texto-suave); margin-top: 2px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stat-card-vazio { color: var(--texto-suave); font-size: 13px; padding: 10px 0; grid-column: 1 / -1; }
 
+  /* ---- Cards clicáveis de Estatísticas (expandir/recolher) ---- */
+  .card-clicavel-cabecalho { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .card-clicavel-chevron { font-size: 13px; color: var(--texto-suave); }
+
+  /* Veículos por UF: lista ranqueada, do maior para o menor */
+  .rank-lista { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; }
+  .rank-linha { display: grid; grid-template-columns: 40px 1fr 50px; align-items: center; gap: 8px; height: 24px; cursor: pointer; border-radius: 4px; }
+  .rank-linha:hover { background: var(--azul-bg); }
+  .rank-uf { font-weight: 700; font-size: 12.5px; }
+  .rank-trilha { background: #f3f4f6; border-radius: 3px; height: 15px; overflow: hidden; }
+  .rank-barra { background: var(--primario); height: 100%; border-radius: 3px 0 0 3px; }
+  .rank-valor { font-size: 12px; color: var(--texto-suave); text-align: right; }
+
+  /* Veículos por Região/Estado: agrupado pelas 5 regiões + órgãos federais,
+     com intensidade de cor (mesma tonalidade institucional, mais escura
+     quanto maior o valor) em vez de mapa geográfico de verdade. */
+  .regiao-bloco { margin-top: 14px; }
+  .regiao-bloco:first-child { margin-top: 0; }
+  .regiao-titulo { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--texto-suave); margin-bottom: 6px; }
+  .regiao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 5px; }
+  .heat-celula { border-radius: 6px; padding: 8px 10px; cursor: pointer; transition: transform 0.1s; }
+  .heat-celula:hover { transform: translateY(-2px); }
+  .heat-celula .v { font-size: 15px; font-weight: 800; }
+  .heat-celula .l { font-size: 10px; opacity: 0.85; }
+  .heat-h1 { background: #EAF1FB; color: var(--primario-escuro); }
+  .heat-h2 { background: #C3D7F3; color: var(--primario-escuro); }
+  .heat-h3 { background: #8FB2E7; color: #fff; }
+  .heat-h4 { background: #4F86D1; color: #fff; }
+  .heat-h5 { background: var(--primario-escuro); color: #fff; }
+
   .processo-card { border: 1px solid var(--borda); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
   .processo-cabecalho {
     display: flex; align-items: center; gap: 14px;
@@ -811,8 +841,23 @@
       <p class="dica-painel">Clique em qualquer card abaixo para ver a lista de veículos correspondente.</p>
 
       <div class="card">
-        <h2>Veículos por UF</h2>
-        <div class="stat-grid" id="cardsUF"></div>
+        <h2 class="card-clicavel-cabecalho" onclick="alternarStatUF_()">
+          Veículos por UF
+          <span class="card-clicavel-chevron" id="chevronStatUF">▸</span>
+        </h2>
+        <div id="corpoStatUF" style="display:none;">
+          <div class="rank-lista" id="rankUF"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-clicavel-cabecalho" onclick="alternarStatRegiaoEstado_()">
+          Veículos por Região/Estado
+          <span class="card-clicavel-chevron" id="chevronStatRegiaoEstado">▸</span>
+        </h2>
+        <div id="corpoStatRegiaoEstado" style="display:none;">
+          <div id="mapaRegional"></div>
+        </div>
       </div>
 
       <div class="card">
@@ -2267,7 +2312,8 @@
     document.getElementById('kpiPendentes').textContent = stats.pendentes;
     document.getElementById('kpiPercentual').textContent = stats.percentualTransferido + '%';
 
-    renderizarCardsCategoria('cardsUF', 'uf', stats.porUF);
+    renderizarRankUF_(stats.porUF);
+    renderizarMapaRegional_(stats.porUF);
     renderizarCardsCategoria('cardsEnte', 'ente', stats.porEnte);
     renderizarCardsCategoria('cardsMarca', 'marca', stats.porMarcaTop10);
     renderizarCardsCategoria('cardsDonataria', 'donataria', stats.donatariasTop10);
@@ -2287,6 +2333,96 @@
       return;
     }
     corpo.innerHTML = itens.map(montarLinha).join('');
+  }
+
+  // ---------- Cards clicáveis de "Veículos por UF" (expandir/recolher) ----------
+  var STAT_UF_EXPANDIDO = false;
+  var STAT_REGIAO_EXPANDIDO = false;
+
+  function alternarStatUF_() {
+    STAT_UF_EXPANDIDO = !STAT_UF_EXPANDIDO;
+    document.getElementById('corpoStatUF').style.display = STAT_UF_EXPANDIDO ? '' : 'none';
+    document.getElementById('chevronStatUF').textContent = STAT_UF_EXPANDIDO ? '▾' : '▸';
+  }
+
+  function alternarStatRegiaoEstado_() {
+    STAT_REGIAO_EXPANDIDO = !STAT_REGIAO_EXPANDIDO;
+    document.getElementById('corpoStatRegiaoEstado').style.display = STAT_REGIAO_EXPANDIDO ? '' : 'none';
+    document.getElementById('chevronStatRegiaoEstado').textContent = STAT_REGIAO_EXPANDIDO ? '▾' : '▸';
+  }
+
+  // "Veículos por UF" — lista ranqueada, maior primeiro (stats.porUF já vem
+  // ordenado assim do servidor). Clicar numa linha filtra a Listagem por
+  // aquela UF, igual ao comportamento antigo do grid de cards.
+  function renderizarRankUF_(itens) {
+    DADOS_CATEGORIA.uf = itens;
+    var container = document.getElementById('rankUF');
+    if (!itens.length) {
+      container.innerHTML = '<div class="stat-card-vazio">Sem dados.</div>';
+      return;
+    }
+    var max = itens[0].total || 0;
+    container.innerHTML = itens.map(function (item, i) {
+      var pct = max ? Math.round((item.total / max) * 100) : 0;
+      return '<div class="rank-linha" onclick="cliqueCardCategoria(\'uf\', ' + i + ')">' +
+        '<span class="rank-uf">' + escaparHtml(item.chave) + '</span>' +
+        '<div class="rank-trilha"><div class="rank-barra" style="width:' + pct + '%;"></div></div>' +
+        '<span class="rank-valor mono">' + item.total + '</span></div>';
+    }).join('');
+  }
+
+  // "Veículos por Região/Estado" — as mesmas UFs de stats.porUF, agrupadas
+  // pelas 5 regiões oficiais (+ órgãos federais como PF/PRF, que não são UF)
+  // e coloridas por intensidade: mais escuro quanto maior o total.
+  var REGIOES_UF_ = {
+    Norte: ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO'],
+    Nordeste: ['AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'],
+    'Centro-Oeste': ['DF', 'GO', 'MS', 'MT'],
+    Sudeste: ['ES', 'MG', 'RJ', 'SP'],
+    Sul: ['PR', 'RS', 'SC']
+  };
+
+  function classeCalorUF_(valor, max) {
+    var r = max ? valor / max : 0;
+    if (r >= 0.75) return 'heat-h5';
+    if (r >= 0.5) return 'heat-h4';
+    if (r >= 0.3) return 'heat-h3';
+    if (r >= 0.15) return 'heat-h2';
+    return 'heat-h1';
+  }
+
+  function renderizarMapaRegional_(itens) {
+    DADOS_CATEGORIA.uf = itens;
+    var container = document.getElementById('mapaRegional');
+    if (!itens.length) {
+      container.innerHTML = '<div class="stat-card-vazio">Sem dados.</div>';
+      return;
+    }
+    var max = itens.reduce(function (m, item) { return Math.max(m, item.total); }, 0);
+    var indicePorUf = {};
+    itens.forEach(function (item, i) { indicePorUf[item.chave] = i; });
+
+    var nomesRegiao = Object.keys(REGIOES_UF_).concat(['Órgãos federais']);
+    var ufsUsadas = {};
+
+    var html = nomesRegiao.map(function (nomeRegiao) {
+      var ufsDaRegiao = REGIOES_UF_[nomeRegiao];
+      var itensDaRegiao = ufsDaRegiao
+        ? ufsDaRegiao.filter(function (uf) { return indicePorUf.hasOwnProperty(uf); }).map(function (uf) { ufsUsadas[uf] = true; return itens[indicePorUf[uf]]; })
+        : itens.filter(function (item) { return !ufsUsadas[item.chave] && !algumaRegiaoTem_(item.chave); });
+      if (!itensDaRegiao.length) return '';
+      return '<div class="regiao-bloco"><div class="regiao-titulo">' + escaparHtml(nomeRegiao) + '</div><div class="regiao-grade">' +
+        itensDaRegiao.map(function (item) {
+          return '<div class="heat-celula ' + classeCalorUF_(item.total, max) + '" onclick="cliqueCardCategoria(\'uf\', ' + indicePorUf[item.chave] + ')">' +
+            '<div class="v mono">' + item.total + '</div><div class="l">' + escaparHtml(item.chave) + '</div></div>';
+        }).join('') + '</div></div>';
+    }).join('');
+
+    container.innerHTML = html;
+  }
+
+  function algumaRegiaoTem_(uf) {
+    return Object.keys(REGIOES_UF_).some(function (r) { return REGIOES_UF_[r].indexOf(uf) !== -1; });
   }
 
   function renderizarCardsCategoria(idContainer, campo, itens) {
