@@ -1442,6 +1442,18 @@ function getEstatisticas() {
   return stats;
 }
 
+/**
+ * Distribuição de veículos por UF, opcionalmente restrita a um ano — usada
+ * pelo seletor de ano dos cards "Veículos por UF" e "Veículos por
+ * Região/Estado" na tela de Estatísticas. Sem cache: é uma consulta pontual
+ * (só quando o usuário troca o ano), diferente do painel geral que é
+ * recalculado toda hora que alguém abre a tela.
+ */
+function getVeiculosPorUFAno(ano) {
+  var registros = listarVeiculos(ano ? { ano: ano } : {});
+  return paraArrayOrdenado_(contarPor_(registros, 'UF'));
+}
+
 function calcularEstatisticas_(registros) {
   var total = registros.length;
   var porTransferido = contarPor_(registros, 'Transferido');

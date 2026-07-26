@@ -224,6 +224,9 @@
   .stat-card-vazio { color: var(--texto-suave); font-size: 13px; padding: 10px 0; grid-column: 1 / -1; }
 
   /* ---- Cards clicáveis de Estatísticas (expandir/recolher) ---- */
+  .estatisticas-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; margin-bottom: 18px; }
+  .estatisticas-duas-colunas .card { margin-bottom: 0; }
+  @media (max-width: 860px) { .estatisticas-duas-colunas { grid-template-columns: 1fr; } }
   .card-clicavel-cabecalho { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
   .card-clicavel-chevron { font-size: 13px; color: var(--texto-suave); }
 
@@ -840,23 +843,37 @@
 
       <p class="dica-painel">Clique em qualquer card abaixo para ver a lista de veículos correspondente.</p>
 
-      <div class="card">
-        <h2 class="card-clicavel-cabecalho" onclick="alternarStatUF_()">
-          Veículos por UF
-          <span class="card-clicavel-chevron" id="chevronStatUF">▸</span>
-        </h2>
-        <div id="corpoStatUF" style="display:none;">
-          <div class="rank-lista" id="rankUF"></div>
+      <div class="estatisticas-duas-colunas">
+        <div class="card">
+          <h2 class="card-clicavel-cabecalho" onclick="alternarStatUF_()">
+            Veículos por UF
+            <span class="card-clicavel-chevron" id="chevronStatUF">▸</span>
+          </h2>
+          <div id="corpoStatUF" style="display:none;">
+            <div class="filtros" style="margin-bottom:4px;">
+              <div class="campo">
+                <label for="anoStatUF">Ano</label>
+                <select id="anoStatUF" onchange="alterarAnoStatUF_(this.value)"><option value="">Todos os anos</option></select>
+              </div>
+            </div>
+            <div class="rank-lista" id="rankUF"></div>
+          </div>
         </div>
-      </div>
 
-      <div class="card">
-        <h2 class="card-clicavel-cabecalho" onclick="alternarStatRegiaoEstado_()">
-          Veículos por Região/Estado
-          <span class="card-clicavel-chevron" id="chevronStatRegiaoEstado">▸</span>
-        </h2>
-        <div id="corpoStatRegiaoEstado" style="display:none;">
-          <div id="mapaRegional"></div>
+        <div class="card">
+          <h2 class="card-clicavel-cabecalho" onclick="alternarStatRegiaoEstado_()">
+            Veículos por Região/Estado
+            <span class="card-clicavel-chevron" id="chevronStatRegiaoEstado">▸</span>
+          </h2>
+          <div id="corpoStatRegiaoEstado" style="display:none;">
+            <div class="filtros" style="margin-bottom:4px;">
+              <div class="campo">
+                <label for="anoStatRegiao">Ano</label>
+                <select id="anoStatRegiao" onchange="alterarAnoStatRegiao_(this.value)"><option value="">Todos os anos</option></select>
+              </div>
+            </div>
+            <div id="mapaRegional"></div>
+          </div>
         </div>
       </div>
 
@@ -868,16 +885,6 @@
       <div class="card">
         <h2>Top 10 marcas</h2>
         <div class="stat-grid" id="cardsMarca"></div>
-      </div>
-
-      <div class="card">
-        <h2>Top 10 donatárias</h2>
-        <div class="stat-grid stat-grid-larga" id="cardsDonataria"></div>
-      </div>
-
-      <div class="card">
-        <h2>Evolução mensal de doações</h2>
-        <div class="stat-grid" id="cardsPeriodo"></div>
       </div>
 
       <div class="card">
@@ -941,8 +948,8 @@
   var DADOS_CATEGORIA = {};
   var DADOS_PENDENTES = [];
   var MAPA_FILTRO_CATEGORIA = {
-    uf: { campo: 'uf' }, ente: { campo: 'ente' }, periodo: { campo: 'ano' },
-    marca: { campo: 'busca', buscaCampo: 'marca' }, donataria: { campo: 'busca', buscaCampo: 'donataria' }
+    uf: { campo: 'uf' }, ente: { campo: 'ente' },
+    marca: { campo: 'busca', buscaCampo: 'marca' }
   };
   var ORGAOS_POR_UF = {};
   var NUMERO_SEI_CONTEXTO = 'c';
@@ -2316,8 +2323,8 @@
     renderizarMapaRegional_(stats.porUF);
     renderizarCardsCategoria('cardsEnte', 'ente', stats.porEnte);
     renderizarCardsCategoria('cardsMarca', 'marca', stats.porMarcaTop10);
-    renderizarCardsCategoria('cardsDonataria', 'donataria', stats.donatariasTop10);
-    renderizarCardsCategoria('cardsPeriodo', 'periodo', stats.porAnoMes);
+    popularAnosStat_('anoStatUF', stats.porAnoMes);
+    popularAnosStat_('anoStatRegiao', stats.porAnoMes);
 
     DADOS_PENDENTES = stats.pendentesMaisAntigos;
     renderizarTabelaSimples('corpoTabelaPendentes', stats.pendentesMaisAntigos, function (p, i) {
@@ -2349,6 +2356,36 @@
     STAT_REGIAO_EXPANDIDO = !STAT_REGIAO_EXPANDIDO;
     document.getElementById('corpoStatRegiaoEstado').style.display = STAT_REGIAO_EXPANDIDO ? '' : 'none';
     document.getElementById('chevronStatRegiaoEstado').textContent = STAT_REGIAO_EXPANDIDO ? '▾' : '▸';
+  }
+
+  // Preenche o seletor de ano dos dois cards a partir dos anos que já
+  // aparecem em stats.porAnoMes (chaves no formato "AAAA-MES") — sem
+  // precisar de uma chamada própria ao servidor só para isso.
+  function popularAnosStat_(idSelect, porAnoMes) {
+    var anos = {};
+    porAnoMes.forEach(function (item) { anos[item.chave.split('-')[0]] = true; });
+    var anosOrdenados = Object.keys(anos).sort(function (a, b) { return b - a; });
+    var select = document.getElementById(idSelect);
+    var selecionado = select.value;
+    select.innerHTML = '<option value="">Todos os anos</option>' +
+      anosOrdenados.map(function (ano) { return '<option value="' + ano + '">' + ano + '</option>'; }).join('');
+    select.value = selecionado;
+  }
+
+  async function alterarAnoStatUF_(ano) {
+    try {
+      renderizarRankUF_(await chamarServidor_('getVeiculosPorUFAno', ano));
+    } catch (erro) {
+      mostrarErroGlobal(erro);
+    }
+  }
+
+  async function alterarAnoStatRegiao_(ano) {
+    try {
+      renderizarMapaRegional_(await chamarServidor_('getVeiculosPorUFAno', ano));
+    } catch (erro) {
+      mostrarErroGlobal(erro);
+    }
   }
 
   // "Veículos por UF" — lista ranqueada, maior primeiro (stats.porUF já vem
@@ -2443,10 +2480,8 @@
   function cliqueCardCategoria(campo, indice) {
     var item = DADOS_CATEGORIA[campo] && DADOS_CATEGORIA[campo][indice];
     if (!item) return;
-    var valor = item.chave;
-    if (campo === 'periodo') valor = item.chave.split('-')[0];
     var alvo = MAPA_FILTRO_CATEGORIA[campo];
-    irParaListagemComFiltro(alvo.campo, valor, alvo.buscaCampo);
+    irParaListagemComFiltro(alvo.campo, item.chave, alvo.buscaCampo);
   }
 
   function cliquePendencia(indice) {
