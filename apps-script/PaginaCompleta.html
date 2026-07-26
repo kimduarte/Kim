@@ -1005,16 +1005,19 @@
     }
   }
 
+  var INICIO_PROCESSOS_RECENTES = [];
+
   function renderizarUltimosProcessosInicio_(processos) {
+    INICIO_PROCESSOS_RECENTES = processos;
     var container = document.getElementById('inicioUltimosProcessos');
     if (!processos.length) {
       container.innerHTML = '<div class="carregando">Nenhum processo cadastrado ainda.</div>';
       return;
     }
-    container.innerHTML = processos.map(function (p) {
+    container.innerHTML = processos.map(function (p, i) {
       var status = obterStatusProcesso_(p);
       return '<div class="processo-card">' +
-        '<div class="processo-cabecalho" style="cursor:pointer;" onclick="irParaTela(\'listagem\')">' +
+        '<div class="processo-cabecalho" style="cursor:pointer;" onclick="abrirProcessoDaInicio_(' + i + ')">' +
           '<div class="processo-info">' +
             '<div class="processo-titulo">' + (p.numeroProcesso
               ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
@@ -1025,6 +1028,16 @@
         '</div>' +
       '</div>';
     }).join('');
+  }
+
+  // Abre a Listagem já filtrada e com este processo expandido, em vez de
+  // largar o servidor numa tela de Processos genérica sem contexto nenhum.
+  function abrirProcessoDaInicio_(indice) {
+    var p = INICIO_PROCESSOS_RECENTES[indice];
+    if (!p) return;
+    var chave = p.numeroProcesso || p.termoDoacao || '';
+    if (chave) TERMOS_EXPANDIDOS[chave] = true;
+    irParaListagemComFiltro('busca', p.termoDoacao);
   }
 
   // ---------- Cadastro (stepper) ----------
