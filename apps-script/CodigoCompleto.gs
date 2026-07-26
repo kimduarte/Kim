@@ -682,6 +682,16 @@ function getContextoInicial() {
   };
 }
 
+// Mapeia o seletor "Buscar em" da tela de Listagem para o campo real do
+// registro. Vazio ('') continua buscando em todos os campos de uma vez —
+// é o que fazia "222" (ou qualquer trecho curto) achar chassis, placas e
+// renavams sem relação nenhuma entre si, então o seletor existe para
+// restringir a busca a um único campo quando isso importa.
+var MAPA_CAMPOS_BUSCA = {
+  donataria: 'Donataria', chassi: 'Chassi', placa: 'Placa',
+  renavam: 'Renavam', termo: 'TermoDoacao', marca: 'Marca', descricao: 'Descricao'
+};
+
 function listarVeiculos(filtros) {
   filtros = filtros || {};
   var perfil = getPerfilUsuarioAtual_();
@@ -691,6 +701,7 @@ function listarVeiculos(filtros) {
   var idxUF = cabecalho.indexOf('UF');
 
   var busca = filtros.busca ? normalizarTexto_(filtros.busca).toUpperCase() : '';
+  var campoBusca = MAPA_CAMPOS_BUSCA[filtros.buscaCampo] || '';
   var resultado = [];
 
   for (var i = 1; i < valores.length; i++) {
@@ -706,8 +717,10 @@ function listarVeiculos(filtros) {
     if (filtros.ano && String(registro.Ano) !== String(filtros.ano)) continue;
     if (filtros.transferido && registro.Transferido !== filtros.transferido) continue;
     if (busca) {
-      var alvo = [registro.Donataria, registro.Chassi, registro.Placa, String(registro.Renavam), registro.Descricao, registro.TermoDoacao, registro.Marca]
-        .join(' ').toUpperCase();
+      var camposAlvo = campoBusca
+        ? [registro[campoBusca]]
+        : [registro.Donataria, registro.Chassi, registro.Placa, String(registro.Renavam), registro.Descricao, registro.TermoDoacao, registro.Marca];
+      var alvo = camposAlvo.join(' ').toUpperCase();
       if (alvo.indexOf(busca) === -1) continue;
     }
 

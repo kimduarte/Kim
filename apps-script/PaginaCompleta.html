@@ -273,6 +273,8 @@
 
   svg.icone-linha { width: 22px; height: 22px; }
 
+  mark { background: var(--amarelo-bg); color: var(--amarelo-fg); padding: 0 2px; border-radius: 2px; }
+
   @media (max-width: 720px) {
     .app-shell { flex-direction: column; }
     .app-lateral { width: 100%; min-height: 0; display: flex; overflow-x: auto; position: static; padding: 6px 0; }
@@ -634,8 +636,21 @@
             <label for="f_Transferido">Transferido</label>
             <select id="f_Transferido"><option value="">Todos</option></select>
           </div>
+          <div class="campo">
+            <label for="f_buscaCampo">Buscar em</label>
+            <select id="f_buscaCampo">
+              <option value="">Todos os campos</option>
+              <option value="donataria">Donatária</option>
+              <option value="chassi">Chassi</option>
+              <option value="placa">Placa</option>
+              <option value="renavam">Renavam</option>
+              <option value="termo">Termo de Doação</option>
+              <option value="marca">Marca</option>
+              <option value="descricao">Descrição</option>
+            </select>
+          </div>
           <div class="campo" style="min-width:220px;">
-            <label for="f_busca">Buscar (donatária, chassi, placa, renavam...)</label>
+            <label for="f_busca">Buscar</label>
             <input type="text" id="f_busca" placeholder="Digite para buscar...">
           </div>
           <div class="botoes" style="margin-top:0;">
@@ -880,7 +895,10 @@
   var INDICE_VEICULO_MODAL = 0;
   var DADOS_CATEGORIA = {};
   var DADOS_PENDENTES = [];
-  var MAPA_FILTRO_CATEGORIA = { uf: 'uf', ente: 'ente', marca: 'busca', donataria: 'busca', periodo: 'ano' };
+  var MAPA_FILTRO_CATEGORIA = {
+    uf: { campo: 'uf' }, ente: { campo: 'ente' }, periodo: { campo: 'ano' },
+    marca: { campo: 'busca', buscaCampo: 'marca' }, donataria: { campo: 'busca', buscaCampo: 'donataria' }
+  };
   var ORGAOS_POR_UF = {};
   var NUMERO_SEI_CONTEXTO = 'c';
 
@@ -985,6 +1003,23 @@
     return div.innerHTML;
   }
 
+  // Realça o trecho que bateu com a busca ativa, para deixar claro por que
+  // aquele processo apareceu no resultado — em vez de só confiar que o
+  // usuário vai adivinhar onde "222" apareceu num chassi de 17 caracteres.
+  // Quando "Buscar em" restringe a um campo específico, só realça nele.
+  function destacarBusca_(texto, campo) {
+    var textoStr = texto == null ? '' : String(texto);
+    var termo = document.getElementById('f_busca').value.trim();
+    if (!termo) return escaparHtml(textoStr);
+    var buscaCampo = document.getElementById('f_buscaCampo').value;
+    if (buscaCampo && buscaCampo !== campo) return escaparHtml(textoStr);
+    var indice = textoStr.toUpperCase().indexOf(termo.toUpperCase());
+    if (indice === -1) return escaparHtml(textoStr);
+    return escaparHtml(textoStr.slice(0, indice)) +
+      '<mark>' + escaparHtml(textoStr.slice(indice, indice + termo.length)) + '</mark>' +
+      escaparHtml(textoStr.slice(indice + termo.length));
+  }
+
   // ---------- Início (resumo do dia) ----------
   async function carregarInicio() {
     try {
@@ -1037,7 +1072,7 @@
     if (!p) return;
     var chave = p.numeroProcesso || p.termoDoacao || '';
     if (chave) TERMOS_EXPANDIDOS[chave] = true;
-    irParaListagemComFiltro('busca', p.termoDoacao);
+    irParaListagemComFiltro('busca', p.termoDoacao, 'termo');
   }
 
   // ---------- Cadastro (stepper) ----------
@@ -1603,13 +1638,17 @@
       carregarListagem();
     });
     document.getElementById('botaoLimparFiltro').addEventListener('click', function () {
-      ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido'].forEach(function (id) { document.getElementById(id).value = ''; });
+      ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
       document.getElementById('f_busca').value = '';
       PAGINA_ATUAL_LISTAGEM = 1;
       carregarListagem();
     });
     document.getElementById('f_busca').addEventListener('keyup', function (e) {
       if (e.key === 'Enter') { PAGINA_ATUAL_LISTAGEM = 1; carregarListagem(); }
+    });
+    document.getElementById('f_buscaCampo').addEventListener('change', function () {
+      PAGINA_ATUAL_LISTAGEM = 1;
+      carregarListagem();
     });
     document.getElementById('botaoPaginaAnterior').addEventListener('click', function () {
       if (PAGINA_ATUAL_LISTAGEM <= 1) return;
@@ -1631,6 +1670,7 @@
       ano: document.getElementById('f_Ano').value,
       transferido: document.getElementById('f_Transferido').value,
       busca: document.getElementById('f_busca').value,
+      buscaCampo: document.getElementById('f_buscaCampo').value,
       pagina: PAGINA_ATUAL_LISTAGEM
     };
   }
@@ -1747,10 +1787,10 @@
 
     var linhasVeiculos = p.veiculos.map(function (v) {
       return '<tr>' +
-        '<td>' + escaparHtml(v.Marca) + ' — ' + escaparHtml(v.Descricao) + '</td>' +
-        '<td>' + escaparHtml(v.Chassi) + '</td>' +
-        '<td>' + escaparHtml(v.Placa) + '</td>' +
-        '<td>' + escaparHtml(v.Renavam) + '</td>' +
+        '<td>' + destacarBusca_(v.Marca, 'marca') + ' — ' + destacarBusca_(v.Descricao, 'descricao') + '</td>' +
+        '<td>' + destacarBusca_(v.Chassi, 'chassi') + '</td>' +
+        '<td>' + destacarBusca_(v.Placa, 'placa') + '</td>' +
+        '<td>' + destacarBusca_(v.Renavam, 'renavam') + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEmitido', 'Emitido') + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEnviado', 'Enviado') + '</td>' +
         (USUARIO_PODE_EDITAR ? '<td><button class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar</button></td>' : '') +
@@ -1764,8 +1804,8 @@
           '<div class="processo-titulo">' + (p.numeroProcesso
             ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
             : escaparHtml(p.termoDoacao || '(sem identificação)')) + '</div>' +
-          '<div class="processo-sub">' + (p.numeroProcesso && p.termoDoacao ? 'Termo: ' + escaparHtml(p.termoDoacao) + ' • ' : '') +
-            escaparHtml(p.donataria) + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ente) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + '</div>' +
+          '<div class="processo-sub">' + (p.numeroProcesso && p.termoDoacao ? 'Termo: ' + destacarBusca_(p.termoDoacao, 'termo') + ' • ' : '') +
+            destacarBusca_(p.donataria, 'donataria') + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ente) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + '</div>' +
         '</div>' +
         '<div class="processo-progresso">' +
           '<div class="processo-fracao">' + p.totalEnviados + '/' + p.totalVeiculos + ' enviados</div>' +
@@ -2269,18 +2309,19 @@
     if (!item) return;
     var valor = item.chave;
     if (campo === 'periodo') valor = item.chave.split('-')[0];
-    irParaListagemComFiltro(MAPA_FILTRO_CATEGORIA[campo], valor);
+    var alvo = MAPA_FILTRO_CATEGORIA[campo];
+    irParaListagemComFiltro(alvo.campo, valor, alvo.buscaCampo);
   }
 
   function cliquePendencia(indice) {
     var p = DADOS_PENDENTES[indice];
     if (!p) return;
-    irParaListagemComFiltro('busca', p.Placa);
+    irParaListagemComFiltro('busca', p.Placa, 'placa');
   }
 
   // ---------- Navegação de Painel/KPI para Listagem já filtrada ----------
-  function irParaListagemComFiltro(campo, valor) {
-    ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido'].forEach(function (id) { document.getElementById(id).value = ''; });
+  function irParaListagemComFiltro(campo, valor, campoBusca) {
+    ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
     document.getElementById('f_busca').value = '';
 
     if (campo === 'uf') {
@@ -2291,6 +2332,7 @@
       document.getElementById('f_Transferido').value = valor;
     } else if (campo === 'busca') {
       document.getElementById('f_busca').value = valor;
+      document.getElementById('f_buscaCampo').value = campoBusca || '';
     } else if (campo === 'ano') {
       var selectAno = document.getElementById('f_Ano');
       var existe = Array.prototype.some.call(selectAno.options, function (o) { return o.value === valor; });
