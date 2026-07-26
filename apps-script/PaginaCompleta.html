@@ -5,34 +5,42 @@
   <meta charset="utf-8">
   <style>
   :root {
-    --bg: #f3f4f8;
+    --bg: #F8F8F8;
     --card-bg: #ffffff;
-    --borda: #e5e7eb;
-    --texto: #111827;
-    --texto-suave: #6b7280;
-    --primario: #4f46e5;
-    --primario-escuro: #4338ca;
-    --verde: #16a34a;
-    --vermelho: #ef4444;
+    --borda: #E1E1E1;
+    --texto: #1B1B1B;
+    --texto-suave: #5A5A5A;
+    --primario: #1451B4;
+    --primario-escuro: #0B2D57;
+    --amarelo-destaque: #FFCD07;
+    --verde: #1E7A34;
+    --vermelho: #B3261E;
 
-    --laranja-bg: #ffedd5; --laranja-fg: #f97316;
-    --azul-bg: #dbeafe; --azul-fg: #0ea5e9;
-    --roxo-bg: #ede9fe; --roxo-fg: #8b5cf6;
-    --vermelho-bg: #fee2e2; --vermelho-fg: #ef4444;
-    --verde-bg: #dcfce7; --verde-fg: #16a34a;
-    --amarelo-bg: #fef9c3; --amarelo-fg: #ca8a04;
+    --laranja-bg: #ffedd5; --laranja-fg: #c2540a;
+    --azul-bg: #EAF1FB; --azul-fg: #1451B4;
+    --roxo-bg: #ede9fe; --roxo-fg: #6d4fc7;
+    --vermelho-bg: #FDEBEA; --vermelho-fg: #B3261E;
+    --verde-bg: #E3F3E1; --verde-fg: #1E5B25;
+    --amarelo-bg: #FFF3CD; --amarelo-fg: #7A5B00;
   }
   * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-family: Verdana, "Segoe UI", Tahoma, Arial, sans-serif;
     margin: 0;
     background: var(--bg);
     color: var(--texto);
   }
 
+  .topo-utilitario {
+    background: #071D41;
+    color: #C9D6E8;
+    font-size: 11px;
+    padding: 5px 28px;
+    text-align: right;
+  }
   header.topo {
     background: #fff;
-    border-bottom: 1px solid var(--borda);
+    border-bottom: 3px solid var(--amarelo-destaque);
     padding: 14px 28px;
     display: flex;
     justify-content: space-between;
@@ -42,7 +50,7 @@
   }
   .topo-marca { display: flex; align-items: center; gap: 12px; }
   .topo-icone {
-    width: 42px; height: 42px; border-radius: 10px;
+    width: 42px; height: 42px; border-radius: 50%;
     background: var(--primario); color: #fff;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
@@ -53,7 +61,28 @@
   .topo-usuario .nome { font-weight: 700; }
   .topo-usuario .perfil { color: var(--texto-suave); font-size: 12px; }
 
-  main { padding: 28px; max-width: 1200px; margin: 0 auto; }
+  /* ---- Corpo do app: barra lateral fixa + conteúdo ---- */
+  .app-shell { display: flex; align-items: flex-start; }
+  .app-lateral {
+    width: 210px; flex-shrink: 0;
+    background: var(--primario-escuro);
+    min-height: calc(100vh - 78px);
+    padding: 14px 0;
+    position: sticky; top: 0;
+  }
+  .app-nav-item {
+    padding: 11px 20px;
+    font-size: 13px;
+    color: #C9D6E8;
+    display: flex; align-items: center; gap: 9px;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    user-select: none;
+  }
+  .app-nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .app-nav-item.ativo { background: rgba(255,255,255,0.1); color: #fff; border-left-color: var(--amarelo-destaque); font-weight: 700; }
+
+  main { flex: 1; min-width: 0; padding: 28px; max-width: 1200px; margin: 0; }
   .tela { display: none; }
   .tela.ativa { display: block; }
 
@@ -77,30 +106,6 @@
   button.secundario { background: #fff; color: var(--texto); border: 1px solid var(--borda); }
   button.perigo { background: #fff; color: var(--vermelho); border: 1px solid var(--vermelho); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  /* ---- Home: cards de navegação ---- */
-  .cards-menu {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 18px;
-  }
-  .card-menu {
-    background: var(--card-bg);
-    border: 1px solid var(--borda);
-    border-radius: 16px;
-    padding: 22px;
-    display: flex;
-    flex-direction: column;
-  }
-  .card-menu .icone {
-    width: 46px; height: 46px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 14px;
-  }
-  .card-menu h3 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
-  .card-menu .legenda { margin: 0 0 12px; font-size: 12px; color: var(--texto-suave); font-weight: 600; }
-  .card-menu p.descricao { margin: 0 0 18px; font-size: 13px; color: var(--texto-suave); line-height: 1.5; flex-grow: 1; }
-  .card-menu button { width: 100%; justify-content: center; }
 
   /* ---- Cartões genéricos ---- */
   .card {
@@ -128,7 +133,7 @@
   .stepper .linha.concluida { background: var(--primario); }
 
   .etapa-cabecalho {
-    background: #eef0ff; color: var(--primario-escuro);
+    background: var(--azul-bg); color: var(--primario-escuro);
     padding: 12px 16px; border-radius: 10px 10px 0 0;
     font-weight: 700; font-size: 14px;
     margin: -18px -20px 18px;
@@ -180,7 +185,7 @@
   tbody td { padding: 9px 12px; border-bottom: 1px solid var(--borda); white-space: nowrap; }
   tbody tr:hover { background: #f9fafb; }
   tbody tr.linha-clicavel { cursor: pointer; }
-  tbody tr.linha-clicavel:hover { background: #eef0ff; }
+  tbody tr.linha-clicavel:hover { background: var(--azul-bg); }
   .tabela-wrap { overflow-x: auto; max-height: 58vh; overflow-y: auto; border: 1px solid var(--borda); border-radius: 10px; }
 
   .selo { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
@@ -213,7 +218,7 @@
     cursor: pointer;
     transition: border-color 0.1s, background 0.1s;
   }
-  .stat-card:hover { border-color: var(--primario); background: #eef0ff; }
+  .stat-card:hover { border-color: var(--primario); background: var(--azul-bg); }
   .stat-card .stat-card-valor { font-size: 20px; font-weight: 800; color: var(--primario-escuro); }
   .stat-card .stat-card-rotulo { font-size: 12px; color: var(--texto-suave); margin-top: 2px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stat-card-vazio { color: var(--texto-suave); font-size: 13px; padding: 10px 0; grid-column: 1 / -1; }
@@ -267,9 +272,17 @@
   .rodape-tabela { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: var(--texto-suave); }
 
   svg.icone-linha { width: 22px; height: 22px; }
+
+  @media (max-width: 720px) {
+    .app-shell { flex-direction: column; }
+    .app-lateral { width: 100%; min-height: 0; display: flex; overflow-x: auto; position: static; padding: 6px 0; }
+    .app-nav-item { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+    .app-nav-item.ativo { border-left: none; border-bottom-color: var(--amarelo-destaque); }
+  }
   </style>
 </head>
 <body>
+  <div class="topo-utilitario">Ministério da Justiça e Segurança Pública</div>
   <header class="topo">
     <div class="topo-marca">
       <div class="topo-icone">
@@ -277,7 +290,7 @@
       </div>
       <div>
         <h1>Base de Veículos Doados</h1>
-        <div class="subtitulo">Sistema de Gestão Veicular</div>
+        <div class="subtitulo">SENASP · Secretaria Nacional de Segurança Pública</div>
       </div>
     </div>
     <div class="topo-usuario">
@@ -286,56 +299,44 @@
     </div>
   </header>
 
-  <main>
+  <div class="app-shell">
+    <nav class="app-lateral">
+      <div class="app-nav-item ativo" data-tela="inicio" onclick="irParaTela('inicio')">▤ Início</div>
+      <div class="app-nav-item" id="navCadastro" data-tela="cadastro" style="display:none;" onclick="abrirModalNumeroProcesso_()">＋ Cadastrar veículo</div>
+      <div class="app-nav-item" data-tela="listagem" onclick="irParaTela('listagem')">☰ Processos</div>
+      <div class="app-nav-item" data-tela="painel" onclick="irParaTela('painel')">📊 Estatísticas</div>
+      <div class="app-nav-item" id="navNovoUsuario" style="display:none;" onclick="abrirModalNovoUsuario_()">👤 Cadastrar usuário</div>
+    </nav>
+    <main>
     <div id="mensagemGlobal"></div>
 
     <section id="tela-inicio" class="tela ativa">
       <div class="pagina-titulo">
         <div>
-          <h2>Bem-vindo ao Sistema</h2>
-          <p>Escolha uma opção abaixo para começar</p>
+          <h2 id="inicioSaudacao">Bem-vindo</h2>
+          <p id="inicioData">Resumo de hoje</p>
         </div>
       </div>
-      <div class="cards-menu">
-        <div class="card-menu" id="cardCadastro" style="display:none;">
-          <div class="icone" style="background:var(--laranja-bg); color:var(--laranja-fg);">
-            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6"/><path d="M9 11h6"/></svg>
-          </div>
-          <h3>Cadastrar Veículo</h3>
-          <div class="legenda">Nova doação</div>
-          <p class="descricao">Registre uma nova operação de doação veicular com todos os dados necessários em um formulário guiado por etapas.</p>
-          <button class="secundario" onclick="abrirModalNumeroProcesso_()">Novo Cadastro</button>
-        </div>
 
-        <div class="card-menu">
-          <div class="icone" style="background:var(--azul-bg); color:var(--azul-fg);">
-            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-          </div>
-          <h3>Veículos Cadastrados</h3>
-          <div class="legenda">Listagem completa</div>
-          <p class="descricao">Visualize todos os veículos doados já cadastrados, com filtros por UF, ente, ano e status de transferência.</p>
-          <button class="secundario" onclick="irParaTela('listagem')">Ver Veículos</button>
-        </div>
+      <div class="kpis" id="inicioKpis">
+        <div class="kpi roxo"><div class="rotulo">TOTAL DE VEÍCULOS</div><div class="valor" id="inicioKpiTotal">–</div></div>
+        <div class="kpi verde"><div class="rotulo">TRANSFERIDOS</div><div class="valor" id="inicioKpiTransferidos">–</div></div>
+        <div class="kpi amarelo"><div class="rotulo">PENDENTES</div><div class="valor" id="inicioKpiPendentes">–</div></div>
+        <div class="kpi azul"><div class="rotulo">% CONCLUÍDO</div><div class="valor" id="inicioKpiPercentual">–</div></div>
+      </div>
 
-        <div class="card-menu">
-          <div class="icone" style="background:var(--roxo-bg); color:var(--roxo-fg);">
-            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-          </div>
-          <h3>Estatísticas</h3>
-          <div class="legenda">Análise de dados</div>
-          <p class="descricao">Visualize painéis interativos com análises completas das doações por UF, ente, marca e evolução no tempo.</p>
-          <button class="secundario" onclick="irParaTela('painel')">Ver Estatísticas</button>
+      <div class="card">
+        <h2>Atalhos</h2>
+        <div class="botoes" style="margin-top:0;">
+          <button class="primario" id="botaoAtalhoCadastrar" style="display:none;" onclick="abrirModalNumeroProcesso_()">Cadastrar veículo</button>
+          <button class="secundario" onclick="irParaTela('listagem')">Ver processos</button>
+          <button class="secundario" id="botaoAtalhoUsuario" style="display:none;" onclick="abrirModalNovoUsuario_()">Cadastrar usuário</button>
         </div>
+      </div>
 
-        <div class="card-menu" id="cardNovoUsuario" style="display:none;">
-          <div class="icone" style="background:var(--verde-bg); color:var(--verde-fg);">
-            <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
-          </div>
-          <h3>Cadastrar Usuário</h3>
-          <div class="legenda">Acesso ao sistema</div>
-          <p class="descricao">Dê acesso a um novo colega, definindo se ele é administrador ou responsável por uma UF específica.</p>
-          <button class="secundario" onclick="abrirModalNovoUsuario_()">Novo Usuário</button>
-        </div>
+      <div class="card">
+        <h2>Últimos processos cadastrados</h2>
+        <div id="inicioUltimosProcessos"><div class="carregando">Carregando...</div></div>
       </div>
 
       <div class="modal-fundo" id="modalNovoUsuarioFundo">
@@ -397,7 +398,6 @@
           <h2>Cadastro de Veículo</h2>
           <p>Processo nº <strong id="exibicaoNumeroProcesso"></strong></p>
         </div>
-        <button class="secundario" onclick="irParaTela('inicio')">‹ Voltar</button>
       </div>
 
       <div class="stepper" id="stepperCadastro">
@@ -613,7 +613,6 @@
           <h2>Veículos Cadastrados</h2>
           <p>Listagem completa com filtros avançados</p>
         </div>
-        <button class="secundario" onclick="irParaTela('inicio')">‹ Voltar</button>
       </div>
 
       <div class="card">
@@ -785,7 +784,6 @@
           <h2>Estatísticas</h2>
           <p>Análise completa de doações veiculares</p>
         </div>
-        <button class="secundario" onclick="irParaTela('inicio')">‹ Voltar</button>
       </div>
 
       <div class="kpis" id="kpis">
@@ -832,7 +830,8 @@
         </div>
       </div>
     </section>
-  </main>
+    </main>
+  </div>
 
   <div class="modal-fundo" id="modalNumeroSeiFundo">
     <div class="modal" style="max-width:420px;">
@@ -904,7 +903,11 @@
   function irParaTela(nome) {
     document.querySelectorAll('.tela').forEach(function (t) { t.classList.remove('ativa'); });
     document.getElementById('tela-' + nome).classList.add('ativa');
+    document.querySelectorAll('.app-nav-item[data-tela]').forEach(function (el) {
+      el.classList.toggle('ativo', el.dataset.tela === nome);
+    });
 
+    if (nome === 'inicio') carregarInicio();
     if (nome === 'cadastro') irParaEtapa(1);
     if (nome === 'listagem') carregarListagem();
     if (nome === 'painel') carregarPainel();
@@ -936,8 +939,13 @@
     var ehAdmin = ctx.usuario.perfil === 'admin';
     USUARIO_E_ADMIN = ehAdmin;
     USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
-    document.getElementById('cardCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
-    document.getElementById('cardNovoUsuario').style.display = ehAdmin ? '' : 'none';
+    document.getElementById('navCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
+    document.getElementById('navNovoUsuario').style.display = ehAdmin ? '' : 'none';
+    document.getElementById('botaoAtalhoCadastrar').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
+    document.getElementById('botaoAtalhoUsuario').style.display = ehAdmin ? '' : 'none';
+
+    document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
+    carregarInicio();
 
     preencherSelect('c_Mes', ctx.listas.mes, true);
     preencherSelect('c_UF', ctx.listas.uf, true);
@@ -975,6 +983,48 @@
     var div = document.createElement('div');
     div.textContent = texto == null ? '' : String(texto);
     return div.innerHTML;
+  }
+
+  // ---------- Início (resumo do dia) ----------
+  async function carregarInicio() {
+    try {
+      var stats = await chamarServidor_('getEstatisticas');
+      document.getElementById('inicioKpiTotal').textContent = stats.total;
+      document.getElementById('inicioKpiTransferidos').textContent = stats.transferidos;
+      document.getElementById('inicioKpiPendentes').textContent = stats.pendentes;
+      document.getElementById('inicioKpiPercentual').textContent = stats.percentualTransferido + '%';
+    } catch (erro) {
+      mostrarErroGlobal(erro);
+    }
+
+    try {
+      var resp = await chamarServidor_('listarProcessos', { pagina: 1 });
+      renderizarUltimosProcessosInicio_(resp.processos.slice(0, 5));
+    } catch (erro) {
+      mostrarErroGlobal(erro);
+    }
+  }
+
+  function renderizarUltimosProcessosInicio_(processos) {
+    var container = document.getElementById('inicioUltimosProcessos');
+    if (!processos.length) {
+      container.innerHTML = '<div class="carregando">Nenhum processo cadastrado ainda.</div>';
+      return;
+    }
+    container.innerHTML = processos.map(function (p) {
+      var status = obterStatusProcesso_(p);
+      return '<div class="processo-card">' +
+        '<div class="processo-cabecalho" style="cursor:pointer;" onclick="irParaTela(\'listagem\')">' +
+          '<div class="processo-info">' +
+            '<div class="processo-titulo">' + (p.numeroProcesso
+              ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
+              : escaparHtml(p.termoDoacao || '(sem identificação)')) + '</div>' +
+            '<div class="processo-sub">' + escaparHtml(p.donataria) + ' • ' + escaparHtml(p.uf) + ' • ' + p.totalVeiculos + ' veículo(s)</div>' +
+          '</div>' +
+          '<span class="selo ' + status.classe + '">' + status.texto + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
   }
 
   // ---------- Cadastro (stepper) ----------
