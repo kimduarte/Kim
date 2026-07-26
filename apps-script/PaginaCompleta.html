@@ -853,7 +853,7 @@
             <div class="filtros" style="margin-bottom:4px;">
               <div class="campo">
                 <label for="anoStatUF">Ano</label>
-                <select id="anoStatUF" onchange="alterarAnoStatUF_(this.value)"><option value="">Todos os anos</option></select>
+                <select id="anoStatUF" onchange="this.blur(); alterarAnoStatUF_(this.value)"><option value="">Todos os anos</option></select>
               </div>
             </div>
             <div class="rank-lista" id="rankUF"></div>
@@ -869,7 +869,7 @@
             <div class="filtros" style="margin-bottom:4px;">
               <div class="campo">
                 <label for="anoStatRegiao">Ano</label>
-                <select id="anoStatRegiao" onchange="alterarAnoStatRegiao_(this.value)"><option value="">Todos os anos</option></select>
+                <select id="anoStatRegiao" onchange="this.blur(); alterarAnoStatRegiao_(this.value)"><option value="">Todos os anos</option></select>
               </div>
             </div>
             <div id="mapaRegional"></div>
@@ -2373,6 +2373,7 @@
   }
 
   async function alterarAnoStatUF_(ano) {
+    document.getElementById('rankUF').innerHTML = '<div class="carregando">Carregando...</div>';
     try {
       renderizarRankUF_(await chamarServidor_('getVeiculosPorUFAno', ano));
     } catch (erro) {
@@ -2381,6 +2382,7 @@
   }
 
   async function alterarAnoStatRegiao_(ano) {
+    document.getElementById('mapaRegional').innerHTML = '<div class="carregando">Carregando...</div>';
     try {
       renderizarMapaRegional_(await chamarServidor_('getVeiculosPorUFAno', ano));
     } catch (erro) {
