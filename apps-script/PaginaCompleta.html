@@ -1109,7 +1109,7 @@
             '<div class="processo-titulo">' + (p.numeroProcesso
               ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
               : escaparHtml(p.termoDoacao || '(sem identificação)')) + '</div>' +
-            '<div class="processo-sub">' + escaparHtml(p.donataria) + ' • ' + escaparHtml(p.uf) + ' • ' + p.totalVeiculos + ' veículo(s)</div>' +
+            '<div class="processo-sub">' + escaparHtml(p.donataria) + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + ' • ' + p.totalVeiculos + ' veículo(s)</div>' +
           '</div>' +
           '<span class="selo ' + status.classe + '">' + status.texto + '</span>' +
         '</div>' +
@@ -1685,6 +1685,7 @@
 
   // ---------- Listagem ----------
   function configurarListagem() {
+    carregarAnosFiltro_();
     document.getElementById('botaoFiltrar').addEventListener('click', function () {
       PAGINA_ATUAL_LISTAGEM = 1;
       carregarListagem();
@@ -1764,14 +1765,11 @@
     document.getElementById('contadorVeiculos').textContent = resposta.totalVeiculos;
 
     CACHE_REGISTROS = {};
-    var todosVeiculos = [];
     processos.forEach(function (p) {
       p.veiculos.forEach(function (v) {
         CACHE_REGISTROS[v.ID] = v;
-        todosVeiculos.push(v);
       });
     });
-    popularAnosFiltro_(todosVeiculos);
 
     var rodape = document.getElementById('rodapePaginacaoProcessos');
     if (resposta.totalProcessos > 0 && resposta.totalPaginas > 1) {
@@ -1983,16 +1981,20 @@
     }
   }
 
-  function popularAnosFiltro_(registros) {
+  function carregarAnosFiltro_() {
     var select = document.getElementById('f_Ano');
     if (select.dataset.populado) return;
-    var anos = Array.from(new Set(registros.map(function (r) { return String(r.Ano); }))).sort();
-    anos.forEach(function (ano) {
-      var el = document.createElement('option');
-      el.value = ano; el.textContent = ano;
-      select.appendChild(el);
-    });
-    if (anos.length) select.dataset.populado = '1';
+    google.script.run
+      .withSuccessHandler(function (anos) {
+        (anos || []).forEach(function (ano) {
+          var el = document.createElement('option');
+          el.value = ano; el.textContent = ano;
+          select.appendChild(el);
+        });
+        if (anos && anos.length) select.dataset.populado = '1';
+      })
+      .withFailureHandler(function () {})
+      .getAnosDisponiveis();
   }
 
   // ---------- Modal: editar processo inteiro (dados da operação + veículos) ----------

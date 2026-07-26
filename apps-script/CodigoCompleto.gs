@@ -878,6 +878,20 @@ function listarProcessos(filtros) {
 }
 
 /**
+ * Anos distintos existentes em toda a base de veículos, para o filtro de Ano
+ * da tela de Listagem. Precisa varrer a base inteira (sem paginação): os
+ * processos mais antigos ficam nas últimas páginas de listarProcessos, então
+ * derivar os anos só da página carregada deixaria anos antigos de fora do
+ * filtro.
+ */
+function getAnosDisponiveis() {
+  var registros = listarVeiculos({});
+  var anos = {};
+  registros.forEach(function (r) { anos[String(r.Ano)] = true; });
+  return Object.keys(anos).sort();
+}
+
+/**
  * Alterna rapidamente o status de emissão/envio do ATPVe de um veículo,
  * sem reenviar/validar o cadastro inteiro — usado pelos toggles dentro de
  * um processo expandido na Listagem.
