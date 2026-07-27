@@ -1059,6 +1059,12 @@ function criarVeiculo_(sheet, perfil, registro) {
 }
 
 function atualizarVeiculo_(sheet, perfil, id, registro) {
+  // Garante que colunas adicionadas depois da criação original da planilha
+  // (como ValorVeiculo) já existem com o cabeçalho certo antes de gravar —
+  // sem isso, colunaParaIndice_ aponta pra uma coluna sem rótulo físico na
+  // aba, e o valor gravado nunca é reconhecido de volta como esse campo.
+  garantirColunasVeiculos_();
+
   var linhaIdx = encontrarLinhaPorId_(sheet, id);
   if (!linhaIdx) throw new Error('Veículo não encontrado: ' + id);
 
