@@ -1517,6 +1517,15 @@ function notificarPorEmail_() {
   }
 }
 
+/**
+ * Só para testar manualmente pelo editor (menu de funções > Executar):
+ * funções terminadas em "_" (como notificarPorEmail_) não aparecem nesse
+ * menu — essa função pública existe só para poder disparar o teste.
+ */
+function testarNotificacaoEmail() {
+  notificarPorEmail_();
+}
+
 // ======================================================================
 // INTEGRAÇÃO DIRETA COM O ONEDRIVE (Microsoft Graph, sem Power Automate)
 // ======================================================================
