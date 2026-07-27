@@ -1707,7 +1707,6 @@
         var numeroProcessoConcluido = NUMERO_PROCESSO_ATUAL;
         mostrarMensagem('mensagemGlobal', 'sucesso',
           IDS_GERADOS_CADASTRO.length + ' veículo(s) cadastrado(s) com sucesso (' + IDS_GERADOS_CADASTRO.join(', ') + ').');
-        chamarServidor_('notificarAtualizacaoExterna');
         reiniciarFormularioCadastro_();
         irParaProcessoRecemCriado_(numeroProcessoConcluido);
       } catch (erro) {
@@ -2017,7 +2016,6 @@
         });
         if (CACHE_REGISTROS[id]) CACHE_REGISTROS[id][campo] = novoValor;
         renderizarCardsProcessos_();
-        chamarServidor_('notificarAtualizacaoExterna');
       })
       .withFailureHandler(function (erro) {
         mostrarMensagem('mensagemListagem', 'erro', erro.message || String(erro));
@@ -2044,7 +2042,6 @@
         erros.push(pendentes[i].ID + ': ' + (erro.message || String(erro)));
       }
     }
-    chamarServidor_('notificarAtualizacaoExterna');
     carregarListagem();
     if (erros.length) {
       mostrarErroCadastro_('Alguns veículos não puderam ser atualizados:\n' + erros.join('\n'));
@@ -2071,7 +2068,6 @@
         erros.push(p.veiculos[i].ID + ': ' + (erro.message || String(erro)));
       }
     }
-    chamarServidor_('notificarAtualizacaoExterna');
     carregarListagem();
     if (erros.length) {
       mostrarErroCadastro_('Alguns veículos deste processo não puderam ser excluídos:\n' + erros.join('\n'));
@@ -2305,7 +2301,6 @@
         VEICULOS_PROCESSO_EDICAO.splice(indice, 1);
         renderizarLinhasVeiculoEdicao_();
         mostrarMensagem('mensagemModalProcesso', 'sucesso', 'Veículo ' + v.ID + ' excluído.');
-        chamarServidor_('notificarAtualizacaoExterna');
       })
       .withFailureHandler(function (erro) {
         mostrarErroCadastro_(erro.message || String(erro));
@@ -2396,7 +2391,6 @@
         if (!veiculo.ID) { veiculo.ID = resp.ID; veiculo.novo = false; }
       }
       botao.disabled = false;
-      chamarServidor_('notificarAtualizacaoExterna');
       fecharModalEditarProcesso_();
       mostrarMensagem('mensagemListagem', 'sucesso', 'Processo atualizado com sucesso.');
       carregarListagem();
