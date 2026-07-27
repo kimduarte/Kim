@@ -1474,9 +1474,18 @@ function invalidarCacheDashboard_() {
   notificarWebhookExterno_();
 }
 
+// DriveApp.getFileById(id).getAs(MimeType.MICROSOFT_EXCEL) não funciona para
+// converter um Google Sheets em .xlsx (erro "Converting from
+// application/vnd.google-apps.spreadsheet ... is not supported") — usa-se
+// em vez disso a própria URL de exportação do Google Sheets, autenticada com
+// o token OAuth do script.
 function exportarPlanilhaComoXlsx_() {
-  var arquivo = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId())
-    .getAs(MimeType.MICROSOFT_EXCEL);
+  var id = SpreadsheetApp.getActiveSpreadsheet().getId();
+  var url = 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=xlsx';
+  var resposta = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
+  });
+  var arquivo = resposta.getBlob();
   arquivo.setName('Base_Veiculos_ATUAL.xlsx');
   return arquivo;
 }
