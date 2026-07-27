@@ -844,7 +844,15 @@
             <div class="filtros" style="margin-bottom:4px;">
               <div class="campo">
                 <label for="anoStatUF">Ano</label>
-                <select id="anoStatUF" onchange="this.blur(); alterarAnoStatUF_(this.value)"><option value="">Todos os anos</option></select>
+                <select id="anoStatUF" onchange="this.blur(); alterarFiltroStatUF_()"><option value="">Todos os anos</option></select>
+              </div>
+              <div class="campo">
+                <label for="transfStatUF">Transferidos</label>
+                <select id="transfStatUF" onchange="this.blur(); alterarFiltroStatUF_()">
+                  <option value="">Todos</option>
+                  <option value="SIM">Sim</option>
+                  <option value="NÃO">Não</option>
+                </select>
               </div>
             </div>
             <div class="rank-lista" id="rankUF"></div>
@@ -860,7 +868,15 @@
             <div class="filtros" style="margin-bottom:4px;">
               <div class="campo">
                 <label for="anoStatRegiao">Ano</label>
-                <select id="anoStatRegiao" onchange="this.blur(); alterarAnoStatRegiao_(this.value)"><option value="">Todos os anos</option></select>
+                <select id="anoStatRegiao" onchange="this.blur(); alterarFiltroStatRegiao_()"><option value="">Todos os anos</option></select>
+              </div>
+              <div class="campo">
+                <label for="transfStatRegiao">Transferidos</label>
+                <select id="transfStatRegiao" onchange="this.blur(); alterarFiltroStatRegiao_()">
+                  <option value="">Todos</option>
+                  <option value="SIM">Sim</option>
+                  <option value="NÃO">Não</option>
+                </select>
               </div>
             </div>
             <div id="mapaRegional"></div>
@@ -2371,19 +2387,23 @@
     select.value = selecionado;
   }
 
-  async function alterarAnoStatUF_(ano) {
+  async function alterarFiltroStatUF_() {
     document.getElementById('rankUF').innerHTML = '<div class="carregando">Carregando...</div>';
     try {
-      renderizarRankUF_(await chamarServidor_('getVeiculosPorUFAno', ano));
+      var ano = document.getElementById('anoStatUF').value;
+      var transferido = document.getElementById('transfStatUF').value;
+      renderizarRankUF_(await chamarServidor_('getVeiculosPorUFAno', ano, transferido));
     } catch (erro) {
       mostrarErroGlobal(erro);
     }
   }
 
-  async function alterarAnoStatRegiao_(ano) {
+  async function alterarFiltroStatRegiao_() {
     document.getElementById('mapaRegional').innerHTML = '<div class="carregando">Carregando...</div>';
     try {
-      renderizarMapaRegional_(await chamarServidor_('getVeiculosPorUFAno', ano));
+      var ano = document.getElementById('anoStatRegiao').value;
+      var transferido = document.getElementById('transfStatRegiao').value;
+      renderizarMapaRegional_(await chamarServidor_('getVeiculosPorUFAno', ano, transferido));
     } catch (erro) {
       mostrarErroGlobal(erro);
     }

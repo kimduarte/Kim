@@ -1457,14 +1457,18 @@ function getEstatisticas() {
 }
 
 /**
- * Distribuição de veículos por UF, opcionalmente restrita a um ano — usada
- * pelo seletor de ano dos cards "Veículos por UF" e "Veículos por
- * Região/Estado" na tela de Estatísticas. Sem cache: é uma consulta pontual
- * (só quando o usuário troca o ano), diferente do painel geral que é
- * recalculado toda hora que alguém abre a tela.
+ * Distribuição de veículos por UF, opcionalmente restrita a um ano e/ou a um
+ * status de transferência — usada pelos seletores de Ano e Transferidos dos
+ * cards "Veículos por UF" e "Veículos por Região/Estado" na tela de
+ * Estatísticas. Sem cache: é uma consulta pontual (só quando o usuário troca
+ * um filtro), diferente do painel geral que é recalculado toda hora que
+ * alguém abre a tela.
  */
-function getVeiculosPorUFAno(ano) {
-  var registros = listarVeiculos(ano ? { ano: ano } : {});
+function getVeiculosPorUFAno(ano, transferido) {
+  var filtros = {};
+  if (ano) filtros.ano = ano;
+  if (transferido) filtros.transferido = transferido;
+  var registros = listarVeiculos(filtros);
   return paraArrayOrdenado_(contarPor_(registros, 'UF'));
 }
 
