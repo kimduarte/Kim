@@ -1468,9 +1468,16 @@ var CACHE_DASHBOARD_SEGUNDOS = 300;
 
 function invalidarCacheDashboard_() {
   CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral']);
-  // Ponto único já chamado por toda operação que muda a base (cadastro,
-  // edição, exclusão, toggle de ATPVe) — reaproveitado aqui pra avisar uma
-  // automação externa (ex.: Power Automate) de que há uma mudança nova.
+}
+
+/**
+ * Chamada pelo frontend uma única vez ao final de cada operação do usuário
+ * (cadastrar processo, editar processo, excluir processo, marcar ATPVe) —
+ * não a cada veículo salvo individualmente. Isso evita mandar um e-mail por
+ * veículo quando uma operação mexe em vários de uma vez (ex.: cadastrar um
+ * processo com 10 veículos manda 1 e-mail, não 10).
+ */
+function notificarAtualizacaoExterna() {
   notificarWebhookExterno_();
 }
 
