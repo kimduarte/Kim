@@ -1468,6 +1468,33 @@ var CACHE_DASHBOARD_SEGUNDOS = 300;
 
 function invalidarCacheDashboard_() {
   CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral']);
+  // Ponto único já chamado por toda operação que muda a base (cadastro,
+  // edição, exclusão, toggle de ATPVe) — reaproveitado aqui pra avisar uma
+  // automação externa (ex.: Power Automate) de que há uma mudança nova.
+  notificarWebhookExterno_();
+}
+
+/**
+ * Avisa uma automação externa de que a base de veículos mudou, para manter
+ * uma cópia em tempo real fora do Google (ex.: sincronizar com o OneDrive
+ * institucional via Power Automate). Só dispara se a URL do fluxo estiver
+ * configurada nas Propriedades do Script (chave URL_WEBHOOK_ONEDRIVE) — sem
+ * isso, é um no-op. Uma falha aqui (URL fora do ar, etc.) nunca deve impedir
+ * o cadastro/edição do veículo em si, por isso o try/catch silencioso.
+ */
+function notificarWebhookExterno_() {
+  var url = PropertiesService.getScriptProperties().getProperty('URL_WEBHOOK_ONEDRIVE');
+  if (!url) return;
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ evento: 'base_atualizada', quando: new Date().toISOString() }),
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    // Intencional: notificação é best-effort, não deve travar a operação principal.
+  }
 }
 
 function getEstatisticas() {
