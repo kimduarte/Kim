@@ -364,58 +364,6 @@
         <h2>Últimos processos cadastrados</h2>
         <div id="inicioUltimosProcessos"><div class="carregando">Carregando...</div></div>
       </div>
-
-      <div class="modal-fundo" id="modalNovoUsuarioFundo">
-        <div class="modal" style="max-width:480px;">
-          <h2>Cadastrar novo usuário</h2>
-          <p style="font-size:14px; color:var(--texto-suave);">
-            A pessoa passará a acessar o sistema com a conta Google do e-mail informado abaixo.
-          </p>
-          <div id="mensagemNovoUsuario"></div>
-          <div class="grid-form">
-            <div class="campo span-2">
-              <label for="nu_Email">E-mail do Google da pessoa *</label>
-              <input type="email" id="nu_Email" required maxlength="200" placeholder="nome@gmail.com">
-            </div>
-            <div class="campo span-2">
-              <label for="nu_Nome">Nome *</label>
-              <input type="text" id="nu_Nome" required maxlength="120">
-            </div>
-            <div class="campo span-2">
-              <label for="nu_Perfil">Perfil de acesso *</label>
-              <select id="nu_Perfil" required>
-                <option value="admin">Administrador (irrestrito — cadastra, edita, exclui e cadastra usuários)</option>
-                <option value="usuario">Usuário (pode cadastrar e editar operações)</option>
-                <option value="visitante">Visitante (apenas visualizar)</option>
-              </select>
-            </div>
-          </div>
-          <div class="botoes">
-            <button class="secundario" id="botaoNovoUsuarioCancelar">Cancelar</button>
-            <button class="primario" id="botaoNovoUsuarioSalvar" style="margin-left:auto;">Salvar usuário</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-fundo" id="modalNumeroProcessoFundo">
-        <div class="modal" style="max-width:440px;">
-          <h2>Novo cadastro</h2>
-          <p style="font-size:14px; color:var(--texto-suave);">
-            Informe o número do processo desta operação. A Listagem irá agrupar os veículos cadastrados a seguir por esse número.
-          </p>
-          <div class="grid-form">
-            <div class="campo span-2">
-              <label for="np_NumeroProcesso">Número do Processo *</label>
-              <input type="text" id="np_NumeroProcesso" maxlength="60" placeholder="Ex: 00001.000123/2026-45">
-            </div>
-          </div>
-          <div id="mensagemNumeroProcesso"></div>
-          <div class="botoes">
-            <button class="secundario" id="botaoNumeroProcessoCancelar">Cancelar</button>
-            <button class="primario" id="botaoNumeroProcessoConfirmar" style="margin-left:auto;">Continuar para o cadastro</button>
-          </div>
-        </div>
-      </div>
     </section>
 
     <section id="tela-cadastro" class="tela">
@@ -904,6 +852,58 @@
       </div>
     </section>
     </main>
+  </div>
+
+  <div class="modal-fundo" id="modalNovoUsuarioFundo">
+    <div class="modal" style="max-width:480px;">
+      <h2>Cadastrar novo usuário</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">
+        A pessoa passará a acessar o sistema com a conta Google do e-mail informado abaixo.
+      </p>
+      <div id="mensagemNovoUsuario"></div>
+      <div class="grid-form">
+        <div class="campo span-2">
+          <label for="nu_Email">E-mail do Google da pessoa *</label>
+          <input type="email" id="nu_Email" required maxlength="200" placeholder="nome@gmail.com">
+        </div>
+        <div class="campo span-2">
+          <label for="nu_Nome">Nome *</label>
+          <input type="text" id="nu_Nome" required maxlength="120">
+        </div>
+        <div class="campo span-2">
+          <label for="nu_Perfil">Perfil de acesso *</label>
+          <select id="nu_Perfil" required>
+            <option value="admin">Administrador (irrestrito — cadastra, edita, exclui e cadastra usuários)</option>
+            <option value="usuario">Usuário (pode cadastrar e editar operações)</option>
+            <option value="visitante">Visitante (apenas visualizar)</option>
+          </select>
+        </div>
+      </div>
+      <div class="botoes">
+        <button class="secundario" id="botaoNovoUsuarioCancelar">Cancelar</button>
+        <button class="primario" id="botaoNovoUsuarioSalvar" style="margin-left:auto;">Salvar usuário</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalNumeroProcessoFundo">
+    <div class="modal" style="max-width:440px;">
+      <h2>Novo cadastro</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">
+        Informe o número do processo desta operação. A Listagem irá agrupar os veículos cadastrados a seguir por esse número.
+      </p>
+      <div class="grid-form">
+        <div class="campo span-2">
+          <label for="np_NumeroProcesso">Número do Processo *</label>
+          <input type="text" id="np_NumeroProcesso" maxlength="60" placeholder="Ex: 00001.000123/2026-45">
+        </div>
+      </div>
+      <div id="mensagemNumeroProcesso"></div>
+      <div class="botoes">
+        <button class="secundario" id="botaoNumeroProcessoCancelar">Cancelar</button>
+        <button class="primario" id="botaoNumeroProcessoConfirmar" style="margin-left:auto;">Continuar para o cadastro</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal-fundo" id="modalNumeroSeiFundo">
