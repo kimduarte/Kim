@@ -1473,7 +1473,6 @@ function calcularEstatisticas_(registros) {
   var porTransferido = contarPor_(registros, 'Transferido');
   var porUF = contarPor_(registros, 'UF');
   var porEnte = contarPor_(registros, 'Ente');
-  var porMarca = contarPor_(registros, 'Marca');
   var porAnoMes = {};
   var porDonataria = {};
   var pendentesAntigos = [];
@@ -1488,7 +1487,7 @@ function calcularEstatisticas_(registros) {
     if (r.Transferido === 'NÃO') {
       var dias = r.DataCadastro ? Math.floor((agora - new Date(r.DataCadastro)) / 86400000) : null;
       pendentesAntigos.push({
-        ID: r.ID, Donataria: r.Donataria, UF: r.UF, Placa: r.Placa,
+        TermoDoacao: r.TermoDoacao, Donataria: r.Donataria, UF: r.UF, Placa: r.Placa,
         Chassi: r.Chassi, DiasEmAberto: dias
       });
     }
@@ -1503,7 +1502,6 @@ function calcularEstatisticas_(registros) {
     percentualTransferido: total ? Math.round(((porTransferido['SIM'] || 0) / total) * 1000) / 10 : 0,
     porUF: paraArrayOrdenado_(porUF),
     porEnte: paraArrayOrdenado_(porEnte),
-    porMarcaTop10: paraArrayOrdenado_(porMarca).slice(0, 10),
     porAnoMes: ordenarSerieTemporal_(porAnoMes),
     donatariasTop10: paraArrayOrdenado_(porDonataria).slice(0, 10),
     pendentesMaisAntigos: pendentesAntigos.slice(0, 15)

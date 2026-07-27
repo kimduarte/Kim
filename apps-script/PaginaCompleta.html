@@ -337,7 +337,7 @@
   <div class="app-shell">
     <nav class="app-lateral">
       <div class="app-nav-item ativo" data-tela="inicio" onclick="irParaTela('inicio')">▤ Início</div>
-      <div class="app-nav-item" id="navCadastro" data-tela="cadastro" style="display:none;" onclick="abrirModalNumeroProcesso_()">＋ Cadastrar veículo</div>
+      <div class="app-nav-item" id="navCadastro" data-tela="cadastro" style="display:none;" onclick="abrirModalNumeroProcesso_()">🚓 Cadastrar veículo</div>
       <div class="app-nav-item" data-tela="listagem" onclick="irParaTela('listagem')">☰ Processos</div>
       <div class="app-nav-item" data-tela="painel" onclick="irParaTela('painel')">📊 Estatísticas</div>
       <div class="app-nav-item" id="navNovoUsuario" style="display:none;" onclick="abrirModalNovoUsuario_()">👤 Cadastrar usuário</div>
@@ -358,15 +358,6 @@
         <div class="kpi verde"><div class="rotulo">TRANSFERIDOS</div><div class="valor" id="inicioKpiTransferidos">–</div></div>
         <div class="kpi amarelo"><div class="rotulo">PENDENTES</div><div class="valor" id="inicioKpiPendentes">–</div></div>
         <div class="kpi azul"><div class="rotulo">% CONCLUÍDO</div><div class="valor" id="inicioKpiPercentual">–</div></div>
-      </div>
-
-      <div class="card">
-        <h2>Atalhos</h2>
-        <div class="botoes" style="margin-top:0;">
-          <button class="primario" id="botaoAtalhoCadastrar" style="display:none;" onclick="abrirModalNumeroProcesso_()">Cadastrar veículo</button>
-          <button class="secundario" onclick="irParaTela('listagem')">Ver processos</button>
-          <button class="secundario" id="botaoAtalhoUsuario" style="display:none;" onclick="abrirModalNovoUsuario_()">Cadastrar usuário</button>
-        </div>
       </div>
 
       <div class="card">
@@ -883,15 +874,10 @@
       </div>
 
       <div class="card">
-        <h2>Top 10 marcas</h2>
-        <div class="stat-grid" id="cardsMarca"></div>
-      </div>
-
-      <div class="card">
         <h2>Pendências mais antigas (não transferidos)</h2>
         <div class="tabela-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Donatária</th><th>UF</th><th>Placa</th><th>Chassi</th><th>Dias em aberto</th></tr></thead>
+            <thead><tr><th>Termo de Doação</th><th>Donatária</th><th>UF</th><th>Placa</th><th>Chassi</th><th>Dias em aberto</th></tr></thead>
             <tbody id="corpoTabelaPendentes"><tr><td colspan="6" class="carregando">Carregando...</td></tr></tbody>
           </table>
         </div>
@@ -1011,8 +997,6 @@
     USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
     document.getElementById('navCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
     document.getElementById('navNovoUsuario').style.display = ehAdmin ? '' : 'none';
-    document.getElementById('botaoAtalhoCadastrar').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
-    document.getElementById('botaoAtalhoUsuario').style.display = ehAdmin ? '' : 'none';
 
     document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
     carregarInicio();
@@ -2338,13 +2322,12 @@
     renderizarRankUF_(stats.porUF);
     renderizarMapaRegional_(stats.porUF);
     renderizarCardsCategoria('cardsEnte', 'ente', stats.porEnte);
-    renderizarCardsCategoria('cardsMarca', 'marca', stats.porMarcaTop10);
     popularAnosStat_('anoStatUF', stats.porAnoMes);
     popularAnosStat_('anoStatRegiao', stats.porAnoMes);
 
     DADOS_PENDENTES = stats.pendentesMaisAntigos;
     renderizarTabelaSimples('corpoTabelaPendentes', stats.pendentesMaisAntigos, function (p, i) {
-      return '<tr class="linha-clicavel" onclick="cliquePendencia(' + i + ')"><td>' + escaparHtml(p.ID) + '</td><td>' + escaparHtml(p.Donataria) + '</td><td>' + escaparHtml(p.UF) +
+      return '<tr class="linha-clicavel" onclick="cliquePendencia(' + i + ')"><td>' + escaparHtml(formatarTermoDoacao_(p.TermoDoacao)) + '</td><td>' + escaparHtml(p.Donataria) + '</td><td>' + escaparHtml(p.UF) +
         '</td><td>' + escaparHtml(p.Placa) + '</td><td>' + escaparHtml(p.Chassi) + '</td><td>' + (p.DiasEmAberto != null ? p.DiasEmAberto : '-') + '</td></tr>';
     }, 6, 'Nenhuma pendência — tudo transferido.');
   }
