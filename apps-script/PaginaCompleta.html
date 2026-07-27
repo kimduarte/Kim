@@ -1073,10 +1073,17 @@
   }
 
   // Só para exibição: remove o parêntese final do Termo de Doação (ex.: "Termo
-  // de Doação SENASP 582/2023 (24452932)" → "Termo de Doação SENASP 582/2023").
-  // O valor salvo no cadastro não é alterado, só o texto mostrado na tela.
-  function formatarTermoDoacao_(texto) {
-    return String(texto || '').replace(/\s*\([^)]*\)\s*$/, '');
+  // de Doação SENASP 582/2023 (24452932)" → "Termo de Doação SENASP 582/2023")
+  // e garante o "/ano" no final, para os registros migrados cujo Termo veio
+  // sem o ano embutido (ex.: "Termo de Doação SENASP 386" + ano 2025 →
+  // "Termo de Doação SENASP 386/2025"). Não duplica quando o Termo já termina
+  // com esse ano. O valor salvo no cadastro não é alterado, só o texto exibido.
+  function formatarTermoDoacao_(texto, ano) {
+    var termo = String(texto || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    if (ano && !new RegExp('/\\s*' + ano + '\\s*$').test(termo)) {
+      termo += '/' + ano;
+    }
+    return termo;
   }
 
   // ---------- Início (resumo do dia) ----------
@@ -1115,7 +1122,7 @@
           '<div class="processo-info">' +
             '<div class="processo-titulo">' + (p.numeroProcesso
               ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
-              : escaparHtml(formatarTermoDoacao_(p.termoDoacao) || '(sem identificação)')) + '</div>' +
+              : escaparHtml(formatarTermoDoacao_(p.termoDoacao, p.ano) || '(sem identificação)')) + '</div>' +
             '<div class="processo-sub">' + escaparHtml(p.donataria) + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + ' • ' + p.totalVeiculos + ' veículo(s)</div>' +
           '</div>' +
           '<span class="selo ' + status.classe + '">' + status.texto + '</span>' +
@@ -1860,8 +1867,8 @@
         '<div class="processo-info">' +
           '<div class="processo-titulo">' + (p.numeroProcesso
             ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
-            : escaparHtml(formatarTermoDoacao_(p.termoDoacao) || '(sem identificação)')) + '</div>' +
-          '<div class="processo-sub">' + (p.numeroProcesso && p.termoDoacao ? 'Termo: ' + destacarBusca_(formatarTermoDoacao_(p.termoDoacao), 'termo') + ' • ' : '') +
+            : escaparHtml(formatarTermoDoacao_(p.termoDoacao, p.ano) || '(sem identificação)')) + '</div>' +
+          '<div class="processo-sub">' + (p.numeroProcesso && p.termoDoacao ? 'Termo: ' + destacarBusca_(formatarTermoDoacao_(p.termoDoacao, p.ano), 'termo') + ' • ' : '') +
             destacarBusca_(p.donataria, 'donataria') + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ente) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + '</div>' +
         '</div>' +
         '<div class="processo-progresso">' +
@@ -1969,7 +1976,7 @@
       mostrarErroCadastro_('Ação restrita a administradores. Apenas administradores podem excluir um processo.');
       return;
     }
-    var titulo = p.numeroProcesso ? ('o processo nº ' + p.numeroProcesso) : ('o processo "' + (formatarTermoDoacao_(p.termoDoacao) || '(sem identificação)') + '"');
+    var titulo = p.numeroProcesso ? ('o processo nº ' + p.numeroProcesso) : ('o processo "' + (formatarTermoDoacao_(p.termoDoacao, p.ano) || '(sem identificação)') + '"');
     if (!confirm('Excluir definitivamente ' + titulo + ' e TODOS os ' + p.totalVeiculos + ' veículo(s) cadastrados nele? Esta ação não pode ser desfeita.')) return;
 
     var erros = [];
