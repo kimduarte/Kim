@@ -1514,6 +1514,7 @@ function notificarPorEmail_() {
     });
   } catch (e) {
     // Intencional: notificação é best-effort, não deve travar a operação principal.
+    Logger.log('notificarPorEmail_ falhou: ' + e);
   }
 }
 
