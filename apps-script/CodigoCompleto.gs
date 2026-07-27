@@ -1475,21 +1475,32 @@ function invalidarCacheDashboard_() {
 }
 
 /**
- * Avisa uma automação externa de que a base de veículos mudou, para manter
- * uma cópia em tempo real fora do Google (ex.: sincronizar com o OneDrive
- * institucional via Power Automate). Só dispara se a URL do fluxo estiver
- * configurada nas Propriedades do Script (chave URL_WEBHOOK_ONEDRIVE) — sem
- * isso, é um no-op. Uma falha aqui (URL fora do ar, etc.) nunca deve impedir
- * o cadastro/edição do veículo em si, por isso o try/catch silencioso.
+ * Exporta a planilha inteira (todas as abas) como .xlsx e envia o conteúdo
+ * dela, em base64, para uma automação externa (ex.: Power Automate), para
+ * manter uma cópia em tempo real fora do Google (ex.: OneDrive
+ * institucional). O envio já inclui o arquivo pronto — a automação externa
+ * só precisa gravar esse conteúdo em algum lugar, sem precisar de um
+ * conector próprio do Google (evita depender de licença Premium no Power
+ * Automate). Só dispara se a URL do fluxo estiver configurada nas
+ * Propriedades do Script (chave URL_WEBHOOK_ONEDRIVE) — sem isso, é um
+ * no-op. Uma falha aqui (URL fora do ar, etc.) nunca deve impedir o
+ * cadastro/edição do veículo em si, por isso o try/catch silencioso.
  */
 function notificarWebhookExterno_() {
   var url = PropertiesService.getScriptProperties().getProperty('URL_WEBHOOK_ONEDRIVE');
   if (!url) return;
   try {
+    var arquivoXlsx = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId())
+      .getAs(MimeType.MICROSOFT_EXCEL);
     UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
-      payload: JSON.stringify({ evento: 'base_atualizada', quando: new Date().toISOString() }),
+      payload: JSON.stringify({
+        evento: 'base_atualizada',
+        quando: new Date().toISOString(),
+        nomeArquivo: 'Base_Veiculos_ATUAL.xlsx',
+        conteudoBase64: Utilities.base64Encode(arquivoXlsx.getBytes())
+      }),
       muteHttpExceptions: true
     });
   } catch (e) {
