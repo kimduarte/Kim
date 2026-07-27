@@ -43,7 +43,7 @@ var CABECALHO_VEICULOS = [
   // ANEXA colunas ausentes ao final da planilha física — inserir um campo no
   // meio deste array desalinharia todas as colunas seguintes em planilhas
   // já existentes (com dados nas posições antigas).
-  'NumeroSei'
+  'NumeroSei', 'ValorVeiculo'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -321,6 +321,16 @@ function normalizarTransferido_(valor) {
   if (texto === 'SIM' || texto === 'S') return 'SIM';
   if (texto === 'NÃO' || texto === 'NAO' || texto === 'N') return 'NÃO';
   return null;
+}
+
+// Aceita tanto um número quanto o texto digitado no formato brasileiro (ex.:
+// "1.500,00", vindo da máscara de moeda da tela) e devolve sempre um número.
+function normalizarValorMonetario_(valor) {
+  if (typeof valor === 'number') return valor;
+  var texto = normalizarTexto_(valor);
+  if (!texto) return 0;
+  var numero = parseFloat(texto.replace(/\./g, '').replace(',', '.').replace(/[^\d.\-]/g, ''));
+  return isNaN(numero) ? 0 : numero;
 }
 
 function validarChassi_(chassi) {
@@ -783,7 +793,8 @@ function paraDtoListagem_(r) {
     QtdVeiculosContrato: r.QtdVeiculosContrato,
     QtdVeiculosAditivo: r.QtdVeiculosAditivo,
     NumeroProcesso: r.NumeroProcesso,
-    MotivoInclusaoPosterior: r.MotivoInclusaoPosterior
+    MotivoInclusaoPosterior: r.MotivoInclusaoPosterior,
+    ValorVeiculo: r.ValorVeiculo
   };
 }
 
@@ -834,6 +845,7 @@ function listarProcessos(filtros) {
         totalVeiculos: 0,
         totalEmitidos: 0,
         totalEnviados: 0,
+        totalValor: 0,
         veiculos: []
       };
       ordem.push(chave);
@@ -843,6 +855,7 @@ function listarProcessos(filtros) {
     grupo.totalVeiculos++;
     if (v.ATPVeEmitido === 'SIM') grupo.totalEmitidos++;
     if (v.ATPVeEnviado === 'SIM') grupo.totalEnviados++;
+    grupo.totalValor += Number(v.ValorVeiculo) || 0;
     var idAtual = String(v.ID || '');
     if (idAtual > maiorIdPorChave[chave]) maiorIdPorChave[chave] = idAtual;
     grupo.veiculos.push(paraDtoListagem_(v));
@@ -1004,6 +1017,7 @@ function validarESanitizarVeiculo_(dados) {
     QtdVeiculosContrato: normalizarTexto_(dados.QtdVeiculosContrato).replace(/\D/g, ''),
     QtdVeiculosAditivo: normalizarTexto_(dados.QtdVeiculosAditivo).replace(/\D/g, ''),
     NumeroProcesso: normalizarTexto_(dados.NumeroProcesso),
+    ValorVeiculo: normalizarValorMonetario_(dados.ValorVeiculo),
     // Só normaliza (e assim só grava) quando o cliente realmente mandou o campo —
     // ele só é enviado ao inserir um veículo novo num processo já existente. Deixar
     // undefined nos demais casos faz atualizarVeiculo_ pular essa coluna e preservar

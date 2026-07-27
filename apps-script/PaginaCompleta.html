@@ -569,7 +569,7 @@
             <div class="direita">
               <button type="button" class="secundario" id="botaoLimparCadastro">Limpar</button>
               <button type="button" class="primario" id="botaoEtapaProximo">Próximo ›</button>
-              <button type="submit" class="primario" id="botaoSalvarCadastro" style="display:none;">Salvar veículo</button>
+              <button type="submit" class="primario" id="botaoSalvarCadastro" style="display:none;">Salvar processo</button>
             </div>
           </div>
         </form>
@@ -622,6 +622,10 @@
             <div class="campo">
               <label for="mv_Renavam">Renavam *</label>
               <input type="text" id="mv_Renavam" required maxlength="11">
+            </div>
+            <div class="campo">
+              <label for="mv_Valor">Valor do veículo (R$) *</label>
+              <input type="text" id="mv_Valor" required inputmode="numeric" placeholder="0,00">
             </div>
           </div>
           <div class="botoes">
@@ -1086,6 +1090,42 @@
     return termo;
   }
 
+  // ---------- Valor do veículo (máscara de moeda: só dígitos, 2 casas decimais) ----------
+  // Aplica a máscara num campo de texto: o usuário só digita números, e os 2
+  // últimos são sempre os centavos (ex.: digitar "150000" vira "1.500,00").
+  function configurarMascaraMoeda_(input, aoAlterar) {
+    input.addEventListener('input', function () {
+      var digitos = this.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+      if (!digitos) {
+        this.value = '';
+      } else {
+        var numero = parseInt(digitos, 10);
+        var reais = Math.floor(numero / 100);
+        var centavos = String(numero % 100).padStart(2, '0');
+        this.value = String(reais).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + centavos;
+      }
+      if (aoAlterar) aoAlterar(this.value);
+    });
+  }
+
+  // Converte o texto mascarado (ex.: "1.500,00") num número, para somas no cliente.
+  function valorParaNumero_(textoMascarado) {
+    var digitos = String(textoMascarado || '').replace(/\D/g, '');
+    return digitos ? parseInt(digitos, 10) / 100 : 0;
+  }
+
+  // Formata um número (vindo do servidor) no padrão "1.500,00", sem o "R$".
+  function formatarNumeroComVirgula_(numero) {
+    numero = Number(numero) || 0;
+    var negativo = numero < 0;
+    var partes = Math.abs(numero).toFixed(2).split('.');
+    return (negativo ? '-' : '') + partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + partes[1];
+  }
+
+  function formatarMoeda_(numero) {
+    return 'R$ ' + formatarNumeroComVirgula_(numero);
+  }
+
   // ---------- Início (resumo do dia) ----------
   async function carregarInicio() {
     try {
@@ -1346,6 +1386,7 @@
     document.getElementById('mv_Chassi').value = dados.Chassi || '';
     document.getElementById('mv_Placa').value = dados.Placa || '';
     document.getElementById('mv_Renavam').value = dados.Renavam || '';
+    document.getElementById('mv_Valor').value = dados.ValorVeiculo || '';
     document.getElementById('mensagemModalVeiculo').innerHTML = '';
     document.getElementById('botaoVeiculoVoltar').textContent = indice === 0 ? '‹ Voltar' : '‹ Veículo anterior';
     document.getElementById('botaoVeiculoConcluir').textContent =
@@ -1363,11 +1404,13 @@
       Descricao: document.getElementById('mv_Descricao').value,
       Chassi: document.getElementById('mv_Chassi').value,
       Placa: document.getElementById('mv_Placa').value,
-      Renavam: document.getElementById('mv_Renavam').value
+      Renavam: document.getElementById('mv_Renavam').value,
+      ValorVeiculo: document.getElementById('mv_Valor').value
     };
   }
 
   function configurarModalVeiculo_() {
+    configurarMascaraMoeda_(document.getElementById('mv_Valor'));
     document.getElementById('botaoVeiculoVoltar').addEventListener('click', function () {
       salvarVeiculoModalAtual_();
       atualizarListaVeiculosColetados_();
@@ -1467,13 +1510,17 @@
       return '<div class="resumo-item"><div class="rotulo">' + escaparHtml(par[0]) + '</div><div class="valor">' + escaparHtml(par[1]) + '</div></div>';
     }).join('');
 
+    var valorTotalProcesso = 0;
     for (var i = 0; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
       var v = VEICULOS_COLETADOS[i] || {};
+      valorTotalProcesso += valorParaNumero_(v.ValorVeiculo);
       html += '<div class="resumo-item"><div class="rotulo">Veículo ' + (i + 1) + '</div><div class="valor">' +
         escaparHtml(v.Marca) + ' — ' +
         escaparHtml(v.Chassi) + ' — placa ' +
-        escaparHtml(v.Placa) + '</div></div>';
+        escaparHtml(v.Placa) + ' — ' + formatarMoeda_(valorParaNumero_(v.ValorVeiculo)) + '</div></div>';
     }
+    html += '<div class="resumo-item"><div class="rotulo"><strong>Valor total do processo</strong></div><div class="valor"><strong>' +
+      formatarMoeda_(valorTotalProcesso) + '</strong></div></div>';
 
     document.getElementById('resumoConfirmacao').innerHTML = html;
   }
@@ -1649,16 +1696,19 @@
             Descricao: veiculoColetado.Descricao,
             Chassi: veiculoColetado.Chassi,
             Placa: veiculoColetado.Placa,
-            Renavam: veiculoColetado.Renavam
+            Renavam: veiculoColetado.Renavam,
+            ValorVeiculo: veiculoColetado.ValorVeiculo
           });
           var resp = await chamarServidor_('salvarVeiculo', dadosVeiculo);
           IDS_GERADOS_CADASTRO.push(resp.ID);
           INDICE_RETOMADA_CADASTRO = i + 1;
         }
         botao.disabled = false;
-        mostrarMensagem('mensagemCadastro', 'sucesso',
+        var numeroProcessoConcluido = NUMERO_PROCESSO_ATUAL;
+        mostrarMensagem('mensagemGlobal', 'sucesso',
           IDS_GERADOS_CADASTRO.length + ' veículo(s) cadastrado(s) com sucesso (' + IDS_GERADOS_CADASTRO.join(', ') + ').');
         reiniciarFormularioCadastro_();
+        irParaProcessoRecemCriado_(numeroProcessoConcluido);
       } catch (erro) {
         botao.disabled = false;
         document.getElementById('mensagemCadastro').innerHTML = '';
@@ -1666,7 +1716,7 @@
           'Cadastrados ' + IDS_GERADOS_CADASTRO.length + ' de ' + QUANTIDADE_TOTAL_VEICULOS +
           ' veículo(s) antes deste erro (veículo ' + (INDICE_RETOMADA_CADASTRO + 1) + '):\n' + (erro.message || String(erro)) +
           '\n\nPara corrigir: clique em "‹ Anterior" até voltar à etapa "Veículo", depois clique no veículo ' +
-          (INDICE_RETOMADA_CADASTRO + 1) + ' na lista para editar os dados dele. Depois é só avançar de novo até "Salvar veículo" para continuar de onde parou.');
+          (INDICE_RETOMADA_CADASTRO + 1) + ' na lista para editar os dados dele. Depois é só avançar de novo até "Salvar processo" para continuar de onde parou.');
       }
     });
 
@@ -1744,6 +1794,7 @@
 
   var DADOS_PROCESSOS = [];
   var TERMOS_EXPANDIDOS = {};
+  var PROCESSO_DESTACAR_APOS_CADASTRO = '';
 
   function carregarListagem() {
     var container = document.getElementById('listaProcessos');
@@ -1802,11 +1853,39 @@
     }
 
     renderizarCardsProcessos_();
+
+    if (PROCESSO_DESTACAR_APOS_CADASTRO) {
+      var numeroProcesso = PROCESSO_DESTACAR_APOS_CADASTRO;
+      PROCESSO_DESTACAR_APOS_CADASTRO = '';
+      destacarProcessoRecemCriado_(numeroProcesso);
+    }
   }
 
   function renderizarCardsProcessos_() {
     var container = document.getElementById('listaProcessos');
     container.innerHTML = DADOS_PROCESSOS.map(function (p, indice) { return montarCardProcesso_(p, indice); }).join('');
+  }
+
+  // Chamado depois de concluir um cadastro (etapa "Salvar processo"), para
+  // levar o usuário direto pro processo que acabou de salvar, já expandido.
+  function irParaProcessoRecemCriado_(numeroProcesso) {
+    ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('f_busca').value = '';
+    PAGINA_ATUAL_LISTAGEM = 1;
+    PROCESSO_DESTACAR_APOS_CADASTRO = numeroProcesso;
+    irParaTela('listagem');
+  }
+
+  function destacarProcessoRecemCriado_(numeroProcesso) {
+    var indice = -1;
+    for (var i = 0; i < DADOS_PROCESSOS.length; i++) {
+      if (DADOS_PROCESSOS[i].numeroProcesso === numeroProcesso) { indice = i; break; }
+    }
+    if (indice === -1) return;
+    TERMOS_EXPANDIDOS[chaveProcesso_(DADOS_PROCESSOS[indice])] = true;
+    renderizarCardsProcessos_();
+    var cartoes = document.querySelectorAll('#listaProcessos .processo-card');
+    if (cartoes[indice]) cartoes[indice].scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function faltamVeiculosProcesso_(p) {
@@ -1855,6 +1934,7 @@
         '<td>' + destacarBusca_(v.Chassi, 'chassi') + '</td>' +
         '<td>' + destacarBusca_(v.Placa, 'placa') + '</td>' +
         '<td>' + destacarBusca_(v.Renavam, 'renavam') + '</td>' +
+        '<td>' + formatarMoeda_(v.ValorVeiculo) + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEmitido', 'Emitido') + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEnviado', 'Enviado') + '</td>' +
         (USUARIO_PODE_EDITAR ? '<td><button class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar</button></td>' : '') +
@@ -1874,6 +1954,7 @@
         '<div class="processo-progresso">' +
           '<div class="processo-fracao">' + p.totalEnviados + '/' + p.totalVeiculos + ' enviados</div>' +
           '<div class="barra-progresso"><div class="barra-progresso-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="processo-fracao">' + formatarMoeda_(p.totalValor) + '</div>' +
         '</div>' +
         (USUARIO_PODE_EDITAR ? '<button type="button" class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar processo</button>' : '') +
         '<button type="button" class="perigo" onclick="event.stopPropagation(); excluirProcesso_(' + indice + ')">Excluir processo</button>' +
@@ -1883,12 +1964,12 @@
         avisoFaltantesHtml +
         enderecoHtml +
         '<div class="tabela-wrap"><table><thead><tr>' +
-          '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>ATPVe Emitido</th><th>ATPVe Enviado</th>' +
+          '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>Valor</th><th>ATPVe Emitido</th><th>ATPVe Enviado</th>' +
           (USUARIO_PODE_EDITAR ? '<th>Ações</th>' : '') +
         '</tr></thead><tbody>' + linhasVeiculos + '</tbody>' +
         (USUARIO_PODE_EDITAR
           ? '<tfoot><tr>' +
-            '<td colspan="4"></td>' +
+            '<td colspan="5"></td>' +
             '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">Marcar todos</button></td>' +
             '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">Marcar todos</button></td>' +
             '<td></td>' +
@@ -2142,13 +2223,14 @@
     VEICULOS_PROCESSO_EDICAO = p.veiculos.map(function (v) {
       return {
         ID: v.ID, Marca: v.Marca, Descricao: v.Descricao, Chassi: v.Chassi, Placa: v.Placa, Renavam: v.Renavam,
+        ValorVeiculo: v.ValorVeiculo,
         ATPVeEmitido: v.ATPVeEmitido, ATPVeEnviado: v.ATPVeEnviado, Transferido: v.Transferido, Observacoes: v.Observacoes,
         novo: false
       };
     });
     for (var i = 0; i < faltam; i++) {
       VEICULOS_PROCESSO_EDICAO.push({
-        ID: '', Marca: '', Descricao: '', Chassi: '', Placa: '', Renavam: '', Motivo: '',
+        ID: '', Marca: '', Descricao: '', Chassi: '', Placa: '', Renavam: '', ValorVeiculo: '', Motivo: '',
         ATPVeEmitido: 'NÃO', ATPVeEnviado: 'NÃO', Transferido: 'NÃO', Observacoes: '', novo: true
       });
     }
@@ -2178,6 +2260,7 @@
           '<div class="campo"><label>Chassi (VIN, 17 caracteres) *</label><input type="text" required maxlength="17" style="text-transform:uppercase" data-campo="Chassi" data-indice="' + i + '"></div>' +
           '<div class="campo"><label>Placa *</label><input type="text" required maxlength="8" style="text-transform:uppercase" data-campo="Placa" data-indice="' + i + '"></div>' +
           '<div class="campo"><label>Renavam *</label><input type="text" required maxlength="11" data-campo="Renavam" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Valor do veículo (R$)</label><input type="text" inputmode="numeric" placeholder="0,00" data-campo="ValorVeiculo" data-indice="' + i + '"></div>' +
           (v.novo
             ? '<div class="campo span-2"><label>Motivo da inclusão deste veículo *</label><input type="text" required maxlength="300" placeholder="Ex: veículo do aditivo incluído posteriormente" data-campo="Motivo" data-indice="' + i + '"></div>'
             : '') +
@@ -2188,6 +2271,14 @@
     container.querySelectorAll('input[data-campo]').forEach(function (input) {
       var indice = Number(input.dataset.indice);
       var campo = input.dataset.campo;
+      if (campo === 'ValorVeiculo') {
+        var valorAtual = VEICULOS_PROCESSO_EDICAO[indice][campo];
+        input.value = valorAtual ? formatarNumeroComVirgula_(valorAtual) : '';
+        configurarMascaraMoeda_(input, function (valor) {
+          VEICULOS_PROCESSO_EDICAO[indice][campo] = valor;
+        });
+        return;
+      }
       input.value = VEICULOS_PROCESSO_EDICAO[indice][campo] || '';
       input.addEventListener('input', function () {
         VEICULOS_PROCESSO_EDICAO[indice][campo] = input.value;
@@ -2289,6 +2380,7 @@
           Chassi: veiculo.Chassi,
           Placa: veiculo.Placa,
           Renavam: veiculo.Renavam,
+          ValorVeiculo: veiculo.ValorVeiculo,
           ATPVeEmitido: veiculo.ATPVeEmitido,
           ATPVeEnviado: veiculo.ATPVeEnviado,
           Transferido: veiculo.Transferido,
