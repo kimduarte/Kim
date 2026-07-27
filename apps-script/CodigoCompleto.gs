@@ -465,16 +465,28 @@ function criarEstruturaInicial() {
  */
 function garantirColunasVeiculos_() {
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  var ultimaCol = sheet.getLastColumn();
-  if (ultimaCol === 0) return;
-  var cabecalhoAtual = sheet.getRange(1, 1, 1, ultimaCol).getValues()[0];
+  var largura = Math.max(sheet.getLastColumn(), CABECALHO_VEICULOS.length);
+  if (largura === 0) return;
+  var linhaCabecalho = sheet.getRange(1, 1, 1, largura).getValues()[0];
+
+  // Considera só as células do cabeçalho que têm texto de fato — dados soltos
+  // gravados por engano em colunas à direita do último cabeçalho real (ex.:
+  // por um bug já corrigido) não podem ser confundidos com "coluna já
+  // existe", senão o cabeçalho novo é criado numa coluna errada, e o valor
+  // gravado nunca mais é reconhecido de volta como esse campo.
+  var ultimaColComCabecalho = 0;
+  for (var i = linhaCabecalho.length - 1; i >= 0; i--) {
+    if (linhaCabecalho[i]) { ultimaColComCabecalho = i + 1; break; }
+  }
+  var cabecalhoAtual = linhaCabecalho.slice(0, ultimaColComCabecalho);
+  var proximaCol = ultimaColComCabecalho;
 
   CABECALHO_VEICULOS.forEach(function (nomeCampo) {
     if (cabecalhoAtual.indexOf(nomeCampo) !== -1) return;
-    ultimaCol++;
-    sheet.getRange(1, ultimaCol).setValue(nomeCampo)
+    proximaCol++;
+    sheet.getRange(1, proximaCol).setValue(nomeCampo)
       .setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
-    sheet.setColumnWidth(ultimaCol, 180);
+    sheet.setColumnWidth(proximaCol, 180);
     cabecalhoAtual.push(nomeCampo);
   });
 }
