@@ -1474,31 +1474,114 @@ function invalidarCacheDashboard_() {
   notificarWebhookExterno_();
 }
 
+function exportarPlanilhaComoXlsx_() {
+  var arquivo = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId())
+    .getAs(MimeType.MICROSOFT_EXCEL);
+  arquivo.setName('Base_Veiculos_ATUAL.xlsx');
+  return arquivo;
+}
+
 /**
- * Exporta a planilha inteira (todas as abas) como .xlsx e envia por e-mail,
- * anexada, para manter uma cópia em tempo real fora do Google (ex.:
- * sincronizar com o OneDrive institucional via Power Automate). Usa e-mail
- * (em vez de um webhook HTTP) porque, no Power Automate, tanto o conector do
- * Google Drive quanto o gatilho "Quando uma solicitação HTTP é recebida"
- * exigem licença Premium — já "Quando um novo e-mail chegar" (Outlook) é
- * padrão, incluso em qualquer licença Microsoft 365. Só dispara se o
- * destinatário estiver configurado nas Propriedades do Script (chave
- * EMAIL_BACKUP_ONEDRIVE) — sem isso, é um no-op. Uma falha aqui nunca deve
- * impedir o cadastro/edição do veículo em si, por isso o try/catch
- * silencioso.
+ * Mantém uma cópia da planilha em tempo real fora do Google (ex.: OneDrive
+ * institucional), por duas vias independentes — cada uma só dispara se
+ * estiver configurada, e uma falha em qualquer uma delas nunca deve impedir
+ * o cadastro/edição do veículo em si (por isso o try/catch silencioso em
+ * cada função):
+ *
+ * 1) enviarParaOneDriveViaGraph_(): envio direto pro OneDrive via Microsoft
+ *    Graph, sem depender de nenhuma automação intermediária. Requer a
+ *    biblioteca OAuth2 for Apps Script e as Propriedades do Script
+ *    MS_CLIENT_ID, MS_CLIENT_SECRET, MS_TENANT_ID (ver autorizarMicrosoft_()).
+ * 2) notificarPorEmail_(): manda a planilha por e-mail, anexada — usado
+ *    quando a sincronização é feita por uma automação externa (Power
+ *    Automate/Make.com) reagindo ao e-mail. Requer a Propriedade do Script
+ *    EMAIL_BACKUP_ONEDRIVE com o destinatário.
  */
 function notificarWebhookExterno_() {
+  enviarParaOneDriveViaGraph_();
+  notificarPorEmail_();
+}
+
+function notificarPorEmail_() {
   var destinatario = PropertiesService.getScriptProperties().getProperty('EMAIL_BACKUP_ONEDRIVE');
   if (!destinatario) return;
   try {
-    var arquivoXlsx = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId())
-      .getAs(MimeType.MICROSOFT_EXCEL);
-    arquivoXlsx.setName('Base_Veiculos_ATUAL.xlsx');
     MailApp.sendEmail({
       to: destinatario,
       subject: 'Atualização automática da Base de Veículos',
       body: 'Cópia automática gerada pelo sistema — arquivo em anexo.',
-      attachments: [arquivoXlsx]
+      attachments: [exportarPlanilhaComoXlsx_()]
+    });
+  } catch (e) {
+    // Intencional: notificação é best-effort, não deve travar a operação principal.
+  }
+}
+
+// ======================================================================
+// INTEGRAÇÃO DIRETA COM O ONEDRIVE (Microsoft Graph, sem Power Automate)
+// ======================================================================
+//
+// Requer a biblioteca "OAuth2 for Apps Script" instalada no projeto
+// (Bibliotecas > colar o ID 1B7FSrk5Zi6L1rSxxTDgDEUsPzlukDsi4KGuTMorsTQHhGBzBkMun4iDF
+// > selecionar a versão mais recente > identificador "OAuth2") e as
+// Propriedades do Script: MS_CLIENT_ID, MS_CLIENT_SECRET, MS_TENANT_ID
+// (valores obtidos ao registrar o aplicativo no Azure/Microsoft Entra).
+// Opcionalmente, MS_ONEDRIVE_CAMINHO define o caminho do arquivo no OneDrive
+// (padrão: "/Base_Veiculos_ATUAL.xlsx").
+
+function getServicoMicrosoft_() {
+  var props = PropertiesService.getScriptProperties();
+  var tenantId = props.getProperty('MS_TENANT_ID');
+  return OAuth2.createService('microsoft')
+    .setAuthorizationBaseUrl('https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/authorize')
+    .setTokenUrl('https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token')
+    .setClientId(props.getProperty('MS_CLIENT_ID'))
+    .setClientSecret(props.getProperty('MS_CLIENT_SECRET'))
+    .setCallbackFunction('autorizarMicrosoftCallback_')
+    .setPropertyStore(props)
+    .setScope('https://graph.microsoft.com/Files.ReadWrite offline_access')
+    .setParam('response_mode', 'query');
+}
+
+/**
+ * Roda esta função manualmente pelo editor do Apps Script (selecione
+ * "autorizarMicrosoft" no menu de funções e clique em Executar) uma única
+ * vez, depois de preencher MS_CLIENT_ID/MS_CLIENT_SECRET/MS_TENANT_ID nas
+ * Propriedades do Script. Ela mostra, no log de execução (Ver > Execuções),
+ * o link para abrir e conceder a permissão de acesso ao OneDrive.
+ */
+function autorizarMicrosoft() {
+  var servico = getServicoMicrosoft_();
+  if (servico.hasAccess()) {
+    Logger.log('Já autorizado.');
+  } else {
+    Logger.log('Abra este link para autorizar o acesso ao OneDrive: ' + servico.getAuthorizationUrl());
+  }
+}
+
+function autorizarMicrosoftCallback_(request) {
+  var servico = getServicoMicrosoft_();
+  var autorizado = servico.handleCallback(request);
+  return HtmlService.createHtmlOutput(autorizado
+    ? 'Autorizado com sucesso! Pode fechar esta aba.'
+    : 'Falha na autorização. Feche esta aba e tente de novo.');
+}
+
+function enviarParaOneDriveViaGraph_() {
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('MS_CLIENT_ID')) return; // integração não configurada — no-op
+  try {
+    var servico = getServicoMicrosoft_();
+    if (!servico.hasAccess()) return; // ainda não autorizado (ver autorizarMicrosoft()) — no-op
+
+    var caminho = props.getProperty('MS_ONEDRIVE_CAMINHO') || '/Base_Veiculos_ATUAL.xlsx';
+    var url = 'https://graph.microsoft.com/v1.0/me/drive/root:' + caminho + ':/content';
+    UrlFetchApp.fetch(url, {
+      method: 'put',
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      payload: exportarPlanilhaComoXlsx_().getBytes(),
+      headers: { Authorization: 'Bearer ' + servico.getAccessToken() },
+      muteHttpExceptions: true
     });
   } catch (e) {
     // Intencional: notificação é best-effort, não deve travar a operação principal.
