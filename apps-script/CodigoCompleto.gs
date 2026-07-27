@@ -1475,33 +1475,30 @@ function invalidarCacheDashboard_() {
 }
 
 /**
- * Exporta a planilha inteira (todas as abas) como .xlsx e envia o conteúdo
- * dela, em base64, para uma automação externa (ex.: Power Automate), para
- * manter uma cópia em tempo real fora do Google (ex.: OneDrive
- * institucional). O envio já inclui o arquivo pronto — a automação externa
- * só precisa gravar esse conteúdo em algum lugar, sem precisar de um
- * conector próprio do Google (evita depender de licença Premium no Power
- * Automate). Só dispara se a URL do fluxo estiver configurada nas
- * Propriedades do Script (chave URL_WEBHOOK_ONEDRIVE) — sem isso, é um
- * no-op. Uma falha aqui (URL fora do ar, etc.) nunca deve impedir o
- * cadastro/edição do veículo em si, por isso o try/catch silencioso.
+ * Exporta a planilha inteira (todas as abas) como .xlsx e envia por e-mail,
+ * anexada, para manter uma cópia em tempo real fora do Google (ex.:
+ * sincronizar com o OneDrive institucional via Power Automate). Usa e-mail
+ * (em vez de um webhook HTTP) porque, no Power Automate, tanto o conector do
+ * Google Drive quanto o gatilho "Quando uma solicitação HTTP é recebida"
+ * exigem licença Premium — já "Quando um novo e-mail chegar" (Outlook) é
+ * padrão, incluso em qualquer licença Microsoft 365. Só dispara se o
+ * destinatário estiver configurado nas Propriedades do Script (chave
+ * EMAIL_BACKUP_ONEDRIVE) — sem isso, é um no-op. Uma falha aqui nunca deve
+ * impedir o cadastro/edição do veículo em si, por isso o try/catch
+ * silencioso.
  */
 function notificarWebhookExterno_() {
-  var url = PropertiesService.getScriptProperties().getProperty('URL_WEBHOOK_ONEDRIVE');
-  if (!url) return;
+  var destinatario = PropertiesService.getScriptProperties().getProperty('EMAIL_BACKUP_ONEDRIVE');
+  if (!destinatario) return;
   try {
     var arquivoXlsx = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId())
       .getAs(MimeType.MICROSOFT_EXCEL);
-    UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify({
-        evento: 'base_atualizada',
-        quando: new Date().toISOString(),
-        nomeArquivo: 'Base_Veiculos_ATUAL.xlsx',
-        conteudoBase64: Utilities.base64Encode(arquivoXlsx.getBytes())
-      }),
-      muteHttpExceptions: true
+    arquivoXlsx.setName('Base_Veiculos_ATUAL.xlsx');
+    MailApp.sendEmail({
+      to: destinatario,
+      subject: 'Atualização automática da Base de Veículos',
+      body: 'Cópia automática gerada pelo sistema — arquivo em anexo.',
+      attachments: [arquivoXlsx]
     });
   } catch (e) {
     // Intencional: notificação é best-effort, não deve travar a operação principal.
