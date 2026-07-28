@@ -188,30 +188,10 @@
   tbody tr.linha-clicavel:hover { background: var(--azul-bg); }
   .tabela-wrap { overflow-x: auto; max-height: 58vh; overflow-y: auto; border: 1px solid var(--borda); border-radius: 10px; }
 
-  /* Tabela do painel de detalhamento (UF/Região): tem muitas colunas, então
-     usa fonte menor e permite quebrar o texto, em vez de "nowrap" — assim
-     cabe na largura da tela sem precisar de barra de rolagem horizontal.
-     Larguras proporcionais: colunas curtas (UF, Ano, Qtd...) ganham menos
-     espaço que as de texto mais longo (Chassi, Descrição, Termo...). */
-  #painelDetalheUF table { table-layout: fixed; font-size: 12px; }
-  #painelDetalheUF th, #painelDetalheUF td { padding: 7px 8px; white-space: normal; word-break: break-word; }
-  #painelDetalheUF .tabela-wrap { overflow-x: hidden; }
+  /* Painel de detalhamento (UF/Região): cada processo é um card clicável
+     que expande e mostra os veículos dele — reaproveita as classes
+     .processo-* já usadas na tela de Processos. */
   #botoesExportarDetalheUF { margin-top: 0; margin-bottom: 4px; }
-  #painelDetalheUF th:nth-child(1) { width: 8%; }   /* Processo */
-  #painelDetalheUF th:nth-child(2) { width: 9%; }   /* Donatária */
-  #painelDetalheUF th:nth-child(3) { width: 4%; }   /* UF */
-  #painelDetalheUF th:nth-child(4) { width: 6%; }   /* Ente */
-  #painelDetalheUF th:nth-child(5) { width: 10%; }  /* Termo de Doação */
-  #painelDetalheUF th:nth-child(6) { width: 4%; }   /* Qtd */
-  #painelDetalheUF th:nth-child(7) { width: 8%; }   /* Descrição */
-  #painelDetalheUF th:nth-child(8) { width: 7%; }   /* Marca */
-  #painelDetalheUF th:nth-child(9) { width: 9%; }   /* Chassi */
-  #painelDetalheUF th:nth-child(10) { width: 8%; }  /* Renavam */
-  #painelDetalheUF th:nth-child(11) { width: 6%; }  /* Placa */
-  #painelDetalheUF th:nth-child(12) { width: 4%; }  /* Ano */
-  #painelDetalheUF th:nth-child(13) { width: 5%; }  /* Mês */
-  #painelDetalheUF th:nth-child(14) { width: 6%; }  /* Transferência */
-  #painelDetalheUF th:nth-child(15) { width: 6%; }  /* Valor */
 
   .selo { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
   .selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
@@ -905,18 +885,7 @@
           <button type="button" class="secundario" onclick="exportarDetalheUFXlsx_()">Exportar XLSX</button>
           <button type="button" class="secundario" onclick="window.print()">Exportar PDF</button>
         </div>
-        <div class="card">
-          <div class="tabela-wrap">
-            <table>
-              <thead><tr>
-                <th>Processo</th><th>Donatária</th><th>UF</th><th>Ente</th><th>Termo de Doação</th><th>Qtd</th>
-                <th>Descrição</th><th>Marca</th><th>Chassi</th><th>Renavam</th><th>Placa</th><th>Ano</th><th>Mês</th>
-                <th>Transferência</th><th>Valor</th>
-              </tr></thead>
-              <tbody id="corpoTabelaDetalheUF"><tr><td colspan="15" class="carregando">Carregando...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+        <div id="listaDetalheUF"><div class="carregando">Carregando...</div></div>
       </div>
     </section>
     </main>
@@ -2675,9 +2644,13 @@
   // ---------- Painel de detalhamento (ao clicar num card de UF/Região) ----------
   // Abre dentro da própria tela de Estatísticas — sem navegar pra outra aba —
   // usando o filtro de Ano/Transferidos já selecionado no painel de origem
-  // (UF ou Região/Estado, cada um com seu próprio filtro independente).
+  // (UF ou Região/Estado, cada um com seu próprio filtro independente). Os
+  // veículos aparecem agrupados por Processo/Termo de Doação — um card
+  // clicável por processo (igual à tela de Processos), que expande e mostra
+  // os veículos dele.
   var DADOS_DETALHE_UF = [];
   var CONTEXTO_DETALHE_UF = { uf: '', ano: '', transferido: '' };
+  var DETALHE_UF_EXPANDIDOS = {};
 
   function abrirDetalheUF_(uf, origem) {
     var idAno = origem === 'regiao' ? 'anoStatRegiao' : 'anoStatUF';
@@ -2685,10 +2658,11 @@
     var ano = document.getElementById(idAno).value;
     var transferido = document.getElementById(idTransf).value;
     CONTEXTO_DETALHE_UF = { uf: uf, ano: ano, transferido: transferido };
+    DETALHE_UF_EXPANDIDOS = {};
 
     document.getElementById('painelDetalheUFTitulo').textContent =
       'Veículos — ' + uf + ' • Ano: ' + (ano || 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
-    document.getElementById('corpoTabelaDetalheUF').innerHTML = '<tr><td colspan="15" class="carregando">Carregando...</td></tr>';
+    document.getElementById('listaDetalheUF').innerHTML = '<div class="carregando">Carregando...</div>';
     document.getElementById('painelEstatisticasConteudo').style.display = 'none';
     document.getElementById('painelDetalheUF').style.display = '';
     window.scrollTo(0, 0);
@@ -2696,8 +2670,8 @@
     google.script.run
       .withSuccessHandler(renderizarDetalheUF_)
       .withFailureHandler(function (erro) {
-        document.getElementById('corpoTabelaDetalheUF').innerHTML =
-          '<tr><td colspan="15" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+        document.getElementById('listaDetalheUF').innerHTML =
+          '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
       })
       .getVeiculosPorUFDetalhado(uf, ano, transferido);
   }
@@ -2707,35 +2681,71 @@
     document.getElementById('painelEstatisticasConteudo').style.display = '';
   }
 
-  function renderizarDetalheUF_(registros) {
-    DADOS_DETALHE_UF = registros || [];
-    var corpo = document.getElementById('corpoTabelaDetalheUF');
-    if (!registros || !registros.length) {
-      corpo.innerHTML = '<tr><td colspan="15" class="carregando">Nenhum veículo encontrado para esse filtro.</td></tr>';
+  function renderizarDetalheUF_(grupos) {
+    DADOS_DETALHE_UF = grupos || [];
+    var container = document.getElementById('listaDetalheUF');
+    if (!grupos || !grupos.length) {
+      container.innerHTML = '<div class="carregando">Nenhum veículo encontrado para esse filtro.</div>';
       return;
     }
-    corpo.innerHTML = registros.map(function (r) {
+    container.innerHTML = grupos.map(function (g, i) { return montarCardDetalheUF_(g, i); }).join('');
+  }
+
+  // Card clicável de um processo/termo, no mesmo estilo da tela de
+  // Processos — "Processo nº X", ou o Termo de Doação (com o Número SEI
+  // como referência quando não há número de processo formal).
+  function montarCardDetalheUF_(g, indice) {
+    var chave = g.processo || g.termoDoacao || String(indice);
+    var expandido = !!DETALHE_UF_EXPANDIDOS[chave];
+    var pct = g.qtdTotal ? Math.round((g.qtdTransferidos / g.qtdTotal) * 100) : 0;
+    var titulo = g.processo
+      ? 'Processo nº ' + escaparHtml(g.processo)
+      : escaparHtml(formatarTermoDoacao_(g.termoDoacao, g.ano) || '(sem identificação)');
+
+    var linhasVeiculos = g.veiculos.map(function (v) {
       return '<tr>' +
-        '<td>' + (r.Processo ? escaparHtml(r.Processo) : '(sem número)') + '</td>' +
-        '<td>' + escaparHtml(r.Donataria) + '</td>' +
-        '<td>' + escaparHtml(r.UF) + '</td>' +
-        '<td>' + escaparHtml(r.Ente) + '</td>' +
-        '<td>' + escaparHtml(formatarTermoDoacao_(r.TermoDoacao, r.Ano)) + '</td>' +
-        '<td>' + r.Qtd + '</td>' +
-        '<td>' + escaparHtml(r.Descricao) + '</td>' +
-        '<td>' + escaparHtml(r.Marca) + '</td>' +
-        '<td>' + escaparHtml(r.Chassi) + '</td>' +
-        '<td>' + escaparHtml(r.Renavam) + '</td>' +
-        '<td>' + escaparHtml(r.Placa) + '</td>' +
-        '<td>' + escaparHtml(r.Ano) + '</td>' +
-        '<td>' + escaparHtml(r.Mes) + '</td>' +
-        '<td><span class="selo ' + (r.Transferido === 'SIM' ? 'selo-sim' : 'selo-nao') + '">' + escaparHtml(r.Transferido) + '</span></td>' +
-        '<td>' + formatarMoeda_(r.ValorVeiculo) + '</td>' +
+        '<td>' + escaparHtml(v.Marca) + ' — ' + escaparHtml(v.Descricao) + '</td>' +
+        '<td>' + escaparHtml(v.Chassi) + '</td>' +
+        '<td>' + escaparHtml(v.Placa) + '</td>' +
+        '<td>' + escaparHtml(v.Renavam) + '</td>' +
+        '<td>' + formatarMoeda_(v.ValorVeiculo) + '</td>' +
+        '<td><span class="selo ' + (v.Transferido === 'SIM' ? 'selo-sim' : 'selo-nao') + '">' + escaparHtml(v.Transferido) + '</span></td>' +
         '</tr>';
     }).join('');
+
+    return '<div class="processo-card">' +
+      '<div class="processo-cabecalho" onclick="alternarGrupoDetalheUF_(' + indice + ')">' +
+        '<span class="processo-chevron">' + (expandido ? '▾' : '▸') + '</span>' +
+        '<div class="processo-info">' +
+          '<div class="processo-titulo">' + titulo + '</div>' +
+          '<div class="processo-sub">' + escaparHtml(g.donataria) + ' • ' + escaparHtml(g.uf) + ' • ' + escaparHtml(g.ente) + ' • ' + escaparHtml(g.ano) + '/' + escaparHtml(g.mes) + '</div>' +
+        '</div>' +
+        '<div class="processo-progresso">' +
+          '<div class="processo-fracao">' + g.qtdTransferidos + '/' + g.qtdTotal + ' transferidos</div>' +
+          '<div class="barra-progresso"><div class="barra-progresso-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="processo-fracao">' + formatarMoeda_(g.valorTotal) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="processo-veiculos" style="' + (expandido ? '' : 'display:none;') + '">' +
+        '<div class="tabela-wrap"><table><thead><tr>' +
+          '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>Valor</th><th>Transferência</th>' +
+        '</tr></thead><tbody>' + linhasVeiculos + '</tbody></table></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function alternarGrupoDetalheUF_(indice) {
+    var g = DADOS_DETALHE_UF[indice];
+    if (!g) return;
+    var chave = g.processo || g.termoDoacao || String(indice);
+    DETALHE_UF_EXPANDIDOS[chave] = !DETALHE_UF_EXPANDIDOS[chave];
+    renderizarDetalheUF_(DADOS_DETALHE_UF);
   }
 
   // ---------- Exportação do painel de detalhamento (CSV, XLSX, PDF) ----------
+  // CSV e XLSX usam a lista "achatada" (um veículo por linha), buscada
+  // direto do servidor no momento do clique — independente de como os
+  // dados estão agrupados/expandidos na tela.
   var COLUNAS_DETALHE_UF_ = [
     ['Processo', 'Processo'], ['Donataria', 'Donatária'], ['UF', 'UF'], ['Ente', 'Ente'],
     ['TermoDoacao', 'Termo de Doação'], ['Qtd', 'Qtd'], ['Descricao', 'Descrição'], ['Marca', 'Marca'],
@@ -2767,16 +2777,23 @@
       mostrarMensagem('mensagemGlobal', 'erro', 'Não há veículos pra exportar nesse filtro.');
       return;
     }
-    var linhas = [COLUNAS_DETALHE_UF_.map(function (c) { return c[1]; }).join(';')];
-    DADOS_DETALHE_UF.forEach(function (r) {
-      linhas.push(COLUNAS_DETALHE_UF_.map(function (c) {
-        var valor = c[0] === 'ValorVeiculo' ? formatarNumeroComVirgula_(r.ValorVeiculo) : (r[c[0]] == null ? '' : String(r[c[0]]));
-        return '"' + valor.replace(/"/g, '""') + '"';
-      }).join(';'));
-    });
-    // BOM no início: sem isso, o Excel abre o CSV com os acentos corrompidos.
-    var blob = new Blob(['\uFEFF' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-    baixarBlob_(blob, nomeArquivoDetalheUF_('csv'));
+    mostrarMensagem('mensagemGlobal', 'sucesso', 'Gerando o arquivo CSV...');
+    chamarServidor_('listarVeiculosDetalhadosUF_', CONTEXTO_DETALHE_UF.uf, CONTEXTO_DETALHE_UF.ano, CONTEXTO_DETALHE_UF.transferido)
+      .then(function (registros) {
+        var linhas = [COLUNAS_DETALHE_UF_.map(function (c) { return c[1]; }).join(';')];
+        registros.forEach(function (r) {
+          linhas.push(COLUNAS_DETALHE_UF_.map(function (c) {
+            var valor = c[0] === 'ValorVeiculo' ? formatarNumeroComVirgula_(r.ValorVeiculo) : (r[c[0]] == null ? '' : String(r[c[0]]));
+            return '"' + valor.replace(/"/g, '""') + '"';
+          }).join(';'));
+        });
+        // BOM no início: sem isso, o Excel abre o CSV com os acentos corrompidos.
+        var blob = new Blob(['\uFEFF' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        baixarBlob_(blob, nomeArquivoDetalheUF_('csv'));
+      })
+      .catch(function (erro) {
+        mostrarMensagem('mensagemGlobal', 'erro', 'Erro ao gerar CSV: ' + (erro.message || String(erro)));
+      });
   }
 
   function exportarDetalheUFXlsx_() {

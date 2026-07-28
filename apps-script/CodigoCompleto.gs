@@ -1687,7 +1687,16 @@ function getVeiculosPorUFAno(ano, transferido) {
  * Região/Estado" — usada pelo painel de detalhamento que abre ao clicar num
  * desses cards, na tela de Estatísticas.
  */
-function getVeiculosPorUFDetalhado(uf, ano, transferido) {
+/**
+ * Lista "achatada" (uma linha por veículo) de uma UF, respeitando os
+ * filtros de Ano/Transferidos — usada internamente por
+ * getVeiculosPorUFDetalhado() (que agrupa por processo) e pelas
+ * exportações CSV/XLSX do painel, que preferem o detalhe veículo a
+ * veículo. Quando o veículo não tem Número de Processo, usa o Número SEI
+ * do Termo de Doação como referência (dá pra achar o documento no SEI
+ * mesmo sem o número do processo formal).
+ */
+function listarVeiculosDetalhadosUF_(uf, ano, transferido) {
   var filtros = { uf: uf };
   if (ano) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
@@ -1704,7 +1713,7 @@ function getVeiculosPorUFDetalhado(uf, ano, transferido) {
   return registros.map(function (r) {
     var chave = r.NumeroProcesso || r.TermoDoacao || '';
     return {
-      Processo: r.NumeroProcesso || '',
+      Processo: r.NumeroProcesso || r.NumeroSei || '',
       Donataria: r.Donataria,
       UF: r.UF,
       Ente: r.Ente,
@@ -1728,13 +1737,53 @@ function getVeiculosPorUFDetalhado(uf, ano, transferido) {
 }
 
 /**
+ * Versão agrupada por Processo/Termo de Doação da lista acima, usada pelo
+ * painel de detalhamento de UF/Região na tela: cada grupo vira uma linha
+ * clicável que expande pra mostrar os veículos daquele processo. "Qtd" no
+ * grupo é o total de veículos; qtdTransferidos é quantos já estão
+ * Transferido: SIM — a tela monta o "X/Y" a partir desses dois números.
+ */
+function getVeiculosPorUFDetalhado(uf, ano, transferido) {
+  var registros = listarVeiculosDetalhadosUF_(uf, ano, transferido);
+  var grupos = {};
+  var ordem = [];
+
+  registros.forEach(function (r) {
+    var chave = r.Processo || r.TermoDoacao || '';
+    if (!grupos[chave]) {
+      grupos[chave] = {
+        processo: r.Processo,
+        termoDoacao: r.TermoDoacao,
+        donataria: r.Donataria,
+        uf: r.UF,
+        ente: r.Ente,
+        ano: r.Ano,
+        mes: r.Mes,
+        qtdTotal: 0,
+        qtdTransferidos: 0,
+        valorTotal: 0,
+        veiculos: []
+      };
+      ordem.push(chave);
+    }
+    var grupo = grupos[chave];
+    grupo.qtdTotal++;
+    if (r.Transferido === 'SIM') grupo.qtdTransferidos++;
+    grupo.valorTotal += Number(r.ValorVeiculo) || 0;
+    grupo.veiculos.push(r);
+  });
+
+  return ordem.map(function (chave) { return grupos[chave]; });
+}
+
+/**
  * Gera um .xlsx (em base64) com os mesmos dados do painel de detalhamento
  * de UF/Região — cria uma planilha temporária só pra poder usar a URL de
  * exportação do Google Sheets (mesmo truque de exportarPlanilhaComoXlsx_),
  * e apaga a planilha temporária logo em seguida.
  */
 function exportarDetalheUFXlsx(uf, ano, transferido) {
-  var registros = getVeiculosPorUFDetalhado(uf, ano, transferido);
+  var registros = listarVeiculosDetalhadosUF_(uf, ano, transferido);
   var cabecalho = ['Processo', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
     'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferência', 'Valor'];
   var linhas = registros.map(function (r) {
