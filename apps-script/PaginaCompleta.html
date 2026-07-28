@@ -188,6 +188,31 @@
   tbody tr.linha-clicavel:hover { background: var(--azul-bg); }
   .tabela-wrap { overflow-x: auto; max-height: 58vh; overflow-y: auto; border: 1px solid var(--borda); border-radius: 10px; }
 
+  /* Tabela do painel de detalhamento (UF/Região): tem muitas colunas, então
+     usa fonte menor e permite quebrar o texto, em vez de "nowrap" — assim
+     cabe na largura da tela sem precisar de barra de rolagem horizontal.
+     Larguras proporcionais: colunas curtas (UF, Ano, Qtd...) ganham menos
+     espaço que as de texto mais longo (Chassi, Descrição, Termo...). */
+  #painelDetalheUF table { table-layout: fixed; font-size: 12px; }
+  #painelDetalheUF th, #painelDetalheUF td { padding: 7px 8px; white-space: normal; word-break: break-word; }
+  #painelDetalheUF .tabela-wrap { overflow-x: hidden; }
+  #botoesExportarDetalheUF { margin-top: 0; margin-bottom: 4px; }
+  #painelDetalheUF th:nth-child(1) { width: 8%; }   /* Processo */
+  #painelDetalheUF th:nth-child(2) { width: 9%; }   /* Donatária */
+  #painelDetalheUF th:nth-child(3) { width: 4%; }   /* UF */
+  #painelDetalheUF th:nth-child(4) { width: 6%; }   /* Ente */
+  #painelDetalheUF th:nth-child(5) { width: 10%; }  /* Termo de Doação */
+  #painelDetalheUF th:nth-child(6) { width: 4%; }   /* Qtd */
+  #painelDetalheUF th:nth-child(7) { width: 8%; }   /* Descrição */
+  #painelDetalheUF th:nth-child(8) { width: 7%; }   /* Marca */
+  #painelDetalheUF th:nth-child(9) { width: 9%; }   /* Chassi */
+  #painelDetalheUF th:nth-child(10) { width: 8%; }  /* Renavam */
+  #painelDetalheUF th:nth-child(11) { width: 6%; }  /* Placa */
+  #painelDetalheUF th:nth-child(12) { width: 4%; }  /* Ano */
+  #painelDetalheUF th:nth-child(13) { width: 5%; }  /* Mês */
+  #painelDetalheUF th:nth-child(14) { width: 6%; }  /* Transferência */
+  #painelDetalheUF th:nth-child(15) { width: 6%; }  /* Valor */
+
   .selo { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
   .selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
   .selo-nao { background: var(--amarelo-bg); color: var(--amarelo-fg); }
