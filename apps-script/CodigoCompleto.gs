@@ -857,6 +857,7 @@ function listarProcessos(filtros) {
         totalVeiculos: 0,
         totalEmitidos: 0,
         totalEnviados: 0,
+        totalTransferidos: 0,
         totalValor: 0,
         veiculos: []
       };
@@ -867,6 +868,7 @@ function listarProcessos(filtros) {
     grupo.totalVeiculos++;
     if (v.ATPVeEmitido === 'SIM') grupo.totalEmitidos++;
     if (v.ATPVeEnviado === 'SIM') grupo.totalEnviados++;
+    if (v.Transferido === 'SIM') grupo.totalTransferidos++;
     grupo.totalValor += Number(v.ValorVeiculo) || 0;
     var idAtual = String(v.ID || '');
     if (idAtual > maiorIdPorChave[chave]) maiorIdPorChave[chave] = idAtual;

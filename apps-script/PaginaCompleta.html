@@ -1921,7 +1921,7 @@
   }
 
   function montarCardProcesso_(p, indice) {
-    var pct = p.totalVeiculos ? Math.round((p.totalEnviados / p.totalVeiculos) * 100) : 0;
+    var pct = p.totalVeiculos ? Math.round((p.totalTransferidos / p.totalVeiculos) * 100) : 0;
     var status = obterStatusProcesso_(p);
     var expandido = !!TERMOS_EXPANDIDOS[chaveProcesso_(p)];
     var temEndereco = p.logradouro || p.cep;
@@ -1964,7 +1964,7 @@
             destacarBusca_(p.donataria, 'donataria') + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ente) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + '</div>' +
         '</div>' +
         '<div class="processo-progresso">' +
-          '<div class="processo-fracao">' + p.totalEnviados + '/' + p.totalVeiculos + ' enviados</div>' +
+          '<div class="processo-fracao">' + p.totalTransferidos + '/' + p.totalVeiculos + ' transferidos</div>' +
           '<div class="barra-progresso"><div class="barra-progresso-fill" style="width:' + pct + '%"></div></div>' +
           '<div class="processo-fracao">' + formatarMoeda_(p.totalValor) + '</div>' +
         '</div>' +
@@ -2027,7 +2027,7 @@
           carregarListagem();
           return;
         }
-        var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : (campo === 'ATPVeEnviado' ? 'totalEnviados' : null);
+        var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : (campo === 'ATPVeEnviado' ? 'totalEnviados' : (campo === 'Transferido' ? 'totalTransferidos' : null));
         DADOS_PROCESSOS.forEach(function (p) {
           for (var i = 0; i < p.veiculos.length; i++) {
             if (p.veiculos[i].ID === id) {
