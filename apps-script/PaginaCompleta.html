@@ -82,7 +82,7 @@
   .app-nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
   .app-nav-item.ativo { background: rgba(255,255,255,0.1); color: #fff; border-left-color: var(--amarelo-destaque); font-weight: 700; }
 
-  main { flex: 1; min-width: 0; padding: 28px; max-width: 1200px; margin: 0; }
+  main { flex: 1; min-width: 0; padding: 28px; margin: 0; }
   .tela { display: none; }
   .tela.ativa { display: block; }
 
@@ -1937,6 +1937,7 @@
         '<td>' + formatarMoeda_(v.ValorVeiculo) + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEmitido', 'Emitido') + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEnviado', 'Enviado') + '</td>' +
+        '<td>' + montarBotaoToggle_(v, 'Transferido', 'Transferido') + '</td>' +
         (USUARIO_PODE_EDITAR ? '<td><button class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar</button></td>' : '') +
         '</tr>';
     }).join('');
@@ -1964,7 +1965,7 @@
         avisoFaltantesHtml +
         enderecoHtml +
         '<div class="tabela-wrap"><table><thead><tr>' +
-          '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>Valor</th><th>ATPVe Emitido</th><th>ATPVe Enviado</th>' +
+          '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>Valor</th><th>ATPVe Emitido</th><th>ATPVe Enviado</th><th>Transferido</th>' +
           (USUARIO_PODE_EDITAR ? '<th>Ações</th>' : '') +
         '</tr></thead><tbody>' + linhasVeiculos + '</tbody>' +
         (USUARIO_PODE_EDITAR
@@ -1972,6 +1973,7 @@
             '<td colspan="5"></td>' +
             '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">Marcar todos</button></td>' +
             '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">Marcar todos</button></td>' +
+            '<td></td>' +
             '<td></td>' +
             '</tr></tfoot>'
           : '') +
@@ -2002,11 +2004,11 @@
     var novoValor = valorAtual === 'SIM' ? 'NÃO' : 'SIM';
     google.script.run
       .withSuccessHandler(function () {
+        var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : (campo === 'ATPVeEnviado' ? 'totalEnviados' : null);
         DADOS_PROCESSOS.forEach(function (p) {
-          var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : 'totalEnviados';
           for (var i = 0; i < p.veiculos.length; i++) {
             if (p.veiculos[i].ID === id) {
-              if (p.veiculos[i][campo] !== novoValor) {
+              if (totalCampo && p.veiculos[i][campo] !== novoValor) {
                 p[totalCampo] += (novoValor === 'SIM' ? 1 : -1);
               }
               p.veiculos[i][campo] = novoValor;
@@ -2020,7 +2022,7 @@
       .withFailureHandler(function (erro) {
         mostrarMensagem('mensagemListagem', 'erro', erro.message || String(erro));
       })
-      .atualizarStatusAtpve(id, campo, novoValor);
+      .atualizarStatusVeiculo(id, campo, novoValor);
   }
 
   async function marcarTodosAtpve_(indiceProcesso, campo) {
@@ -2037,7 +2039,7 @@
     var erros = [];
     for (var i = 0; i < pendentes.length; i++) {
       try {
-        await chamarServidor_('atualizarStatusAtpve', pendentes[i].ID, campo, 'SIM');
+        await chamarServidor_('atualizarStatusVeiculo', pendentes[i].ID, campo, 'SIM');
       } catch (erro) {
         erros.push(pendentes[i].ID + ': ' + (erro.message || String(erro)));
       }
