@@ -774,6 +774,7 @@
     </section>
 
     <section id="tela-painel" class="tela">
+      <div id="painelEstatisticasConteudo">
       <div class="pagina-titulo">
         <div>
           <h2>Estatísticas</h2>
@@ -852,6 +853,29 @@
             <thead><tr><th>Termo de Doação</th><th>Donatária</th><th>UF</th><th>Placa</th><th>Chassi</th><th>Dias em aberto</th></tr></thead>
             <tbody id="corpoTabelaPendentes"><tr><td colspan="6" class="carregando">Carregando...</td></tr></tbody>
           </table>
+        </div>
+      </div>
+      </div>
+
+      <div id="painelDetalheUF" style="display:none;">
+        <div class="pagina-titulo">
+          <div>
+            <h2 id="painelDetalheUFTitulo">Veículos</h2>
+            <p>Lista detalhada, respeitando o filtro aplicado no momento do clique.</p>
+          </div>
+          <button type="button" class="secundario" onclick="fecharDetalheUF_()">‹ Voltar</button>
+        </div>
+        <div class="card">
+          <div class="tabela-wrap">
+            <table>
+              <thead><tr>
+                <th>Processo</th><th>Donatária</th><th>UF</th><th>Ente</th><th>Termo de Doação</th><th>Qtd</th>
+                <th>Descrição</th><th>Marca</th><th>Chassi</th><th>Renavam</th><th>Placa</th><th>Ano</th><th>Mês</th>
+                <th>Transferência</th><th>Valor</th>
+              </tr></thead>
+              <tbody id="corpoTabelaDetalheUF"><tr><td colspan="15" class="carregando">Carregando...</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -2434,6 +2458,7 @@
 
   // ---------- Painel / Estatísticas ----------
   function carregarPainel() {
+    fecharDetalheUF_();
     google.script.run.withSuccessHandler(renderizarPainelSeguro_).withFailureHandler(mostrarErroGlobal).getEstatisticas();
   }
 
@@ -2546,7 +2571,7 @@
     var max = itens[0].total || 0;
     container.innerHTML = itens.map(function (item, i) {
       var pct = max ? Math.round((item.total / max) * 100) : 0;
-      return '<div class="rank-linha" onclick="cliqueCardCategoria(\'uf\', ' + i + ')">' +
+      return '<div class="rank-linha" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'uf\')">' +
         '<span class="rank-uf">' + escaparHtml(item.chave) + '</span>' +
         '<div class="rank-trilha"><div class="rank-barra" style="width:' + pct + '%;"></div></div>' +
         '<span class="rank-valor mono">' + item.total + '</span></div>';
@@ -2595,7 +2620,7 @@
       if (!itensDaRegiao.length) return '';
       return '<div class="regiao-bloco"><div class="regiao-titulo">' + escaparHtml(nomeRegiao) + '</div><div class="regiao-grade">' +
         itensDaRegiao.map(function (item) {
-          return '<div class="heat-celula ' + classeCalorUF_(item.total, max) + '" onclick="cliqueCardCategoria(\'uf\', ' + indicePorUf[item.chave] + ')">' +
+          return '<div class="heat-celula ' + classeCalorUF_(item.total, max) + '" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'regiao\')">' +
             '<div class="v mono">' + item.total + '</div><div class="l">' + escaparHtml(item.chave) + '</div></div>';
         }).join('') + '</div></div>';
     }).join('');
@@ -2605,6 +2630,64 @@
 
   function algumaRegiaoTem_(uf) {
     return Object.keys(REGIOES_UF_).some(function (r) { return REGIOES_UF_[r].indexOf(uf) !== -1; });
+  }
+
+  // ---------- Painel de detalhamento (ao clicar num card de UF/Região) ----------
+  // Abre dentro da própria tela de Estatísticas — sem navegar pra outra aba —
+  // usando o filtro de Ano/Transferidos já selecionado no painel de origem
+  // (UF ou Região/Estado, cada um com seu próprio filtro independente).
+  function abrirDetalheUF_(uf, origem) {
+    var idAno = origem === 'regiao' ? 'anoStatRegiao' : 'anoStatUF';
+    var idTransf = origem === 'regiao' ? 'transfStatRegiao' : 'transfStatUF';
+    var ano = document.getElementById(idAno).value;
+    var transferido = document.getElementById(idTransf).value;
+
+    document.getElementById('painelDetalheUFTitulo').textContent =
+      'Veículos — ' + uf + ' • Ano: ' + (ano || 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
+    document.getElementById('corpoTabelaDetalheUF').innerHTML = '<tr><td colspan="15" class="carregando">Carregando...</td></tr>';
+    document.getElementById('painelEstatisticasConteudo').style.display = 'none';
+    document.getElementById('painelDetalheUF').style.display = '';
+    window.scrollTo(0, 0);
+
+    google.script.run
+      .withSuccessHandler(renderizarDetalheUF_)
+      .withFailureHandler(function (erro) {
+        document.getElementById('corpoTabelaDetalheUF').innerHTML =
+          '<tr><td colspan="15" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+      })
+      .getVeiculosPorUFDetalhado(uf, ano, transferido);
+  }
+
+  function fecharDetalheUF_() {
+    document.getElementById('painelDetalheUF').style.display = 'none';
+    document.getElementById('painelEstatisticasConteudo').style.display = '';
+  }
+
+  function renderizarDetalheUF_(registros) {
+    var corpo = document.getElementById('corpoTabelaDetalheUF');
+    if (!registros || !registros.length) {
+      corpo.innerHTML = '<tr><td colspan="15" class="carregando">Nenhum veículo encontrado para esse filtro.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = registros.map(function (r) {
+      return '<tr>' +
+        '<td>' + (r.Processo ? escaparHtml(r.Processo) : '(sem número)') + '</td>' +
+        '<td>' + escaparHtml(r.Donataria) + '</td>' +
+        '<td>' + escaparHtml(r.UF) + '</td>' +
+        '<td>' + escaparHtml(r.Ente) + '</td>' +
+        '<td>' + escaparHtml(formatarTermoDoacao_(r.TermoDoacao, r.Ano)) + '</td>' +
+        '<td>' + r.Qtd + '</td>' +
+        '<td>' + escaparHtml(r.Descricao) + '</td>' +
+        '<td>' + escaparHtml(r.Marca) + '</td>' +
+        '<td>' + escaparHtml(r.Chassi) + '</td>' +
+        '<td>' + escaparHtml(r.Renavam) + '</td>' +
+        '<td>' + escaparHtml(r.Placa) + '</td>' +
+        '<td>' + escaparHtml(r.Ano) + '</td>' +
+        '<td>' + escaparHtml(r.Mes) + '</td>' +
+        '<td><span class="selo ' + (r.Transferido === 'SIM' ? 'selo-sim' : 'selo-nao') + '">' + escaparHtml(r.Transferido) + '</span></td>' +
+        '<td>' + formatarMoeda_(r.ValorVeiculo) + '</td>' +
+        '</tr>';
+    }).join('');
   }
 
   function renderizarCardsCategoria(idContainer, campo, itens) {

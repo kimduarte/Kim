@@ -1681,6 +1681,52 @@ function getVeiculosPorUFAno(ano, transferido) {
   return paraArrayOrdenado_(contarPor_(registros, 'UF'));
 }
 
+/**
+ * Lista detalhada de veículos de uma UF, respeitando os mesmos filtros de
+ * Ano e Transferidos usados nos painéis "Veículos por UF" e "Veículos por
+ * Região/Estado" — usada pelo painel de detalhamento que abre ao clicar num
+ * desses cards, na tela de Estatísticas.
+ */
+function getVeiculosPorUFDetalhado(uf, ano, transferido) {
+  var filtros = { uf: uf };
+  if (ano) filtros.ano = ano;
+  if (transferido) filtros.transferido = transferido;
+  var registros = listarVeiculos(filtros);
+
+  // "Qtd" = quantos veículos do mesmo processo aparecem neste recorte (UF +
+  // Ano + Transferidos) — contexto útil ao ver cada veículo isoladamente.
+  var qtdPorProcesso = {};
+  registros.forEach(function (r) {
+    var chave = r.NumeroProcesso || r.TermoDoacao || '';
+    qtdPorProcesso[chave] = (qtdPorProcesso[chave] || 0) + 1;
+  });
+
+  return registros.map(function (r) {
+    var chave = r.NumeroProcesso || r.TermoDoacao || '';
+    return {
+      Processo: r.NumeroProcesso || '',
+      Donataria: r.Donataria,
+      UF: r.UF,
+      Ente: r.Ente,
+      TermoDoacao: r.TermoDoacao,
+      Qtd: qtdPorProcesso[chave],
+      Descricao: r.Descricao,
+      Marca: r.Marca,
+      Chassi: r.Chassi,
+      Renavam: r.Renavam,
+      Placa: r.Placa,
+      Ano: r.Ano,
+      Mes: r.Mes,
+      Transferido: r.Transferido,
+      ValorVeiculo: r.ValorVeiculo
+    };
+  }).sort(function (a, b) {
+    var chaveA = a.Processo || a.TermoDoacao || '';
+    var chaveB = b.Processo || b.TermoDoacao || '';
+    return chaveA < chaveB ? -1 : (chaveA > chaveB ? 1 : 0);
+  });
+}
+
 function calcularEstatisticas_(registros) {
   var total = registros.length;
   var porTransferido = contarPor_(registros, 'Transferido');
