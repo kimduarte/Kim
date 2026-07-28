@@ -881,7 +881,7 @@
           <div id="botoesExportarDetalheUF" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
             <button type="button" class="secundario" onclick="exportarDetalheUFCsv_()">Exportar CSV</button>
             <button type="button" class="secundario" onclick="exportarDetalheUFXlsx_()">Exportar XLSX</button>
-            <button type="button" class="secundario" onclick="window.print()">Exportar PDF</button>
+            <button type="button" class="secundario" onclick="exportarDetalheUFPdf_()">Exportar PDF</button>
             <button type="button" class="secundario" onclick="fecharDetalheUF_()">‹ Voltar</button>
           </div>
         </div>
@@ -2703,10 +2703,17 @@
     }
   }
 
-  // Alterna entre a visão "Resumida" (cards por processo, igual à tela de
-  // Processos) e a "Detalhada" (uma linha por veículo, com todas as
-  // colunas) — a mesma visão escolhida aqui é a que sai na "Exportar PDF",
-  // já que o PDF é só uma impressão do que está na tela.
+  // O PDF é sempre a versão Detalhada (uma linha por veículo, todas as
+  // colunas) — independente do que estiver selecionado na tela no
+  // momento do clique. window.print() é bloqueante até o usuário fechar
+  // a caixa de impressão, então dá pra voltar o modo anterior logo depois.
+  function exportarDetalheUFPdf_() {
+    var modoAnterior = MODO_DETALHE_UF;
+    if (modoAnterior !== 'detalhado') alternarModoDetalheUF_('detalhado');
+    window.print();
+    if (modoAnterior !== 'detalhado') alternarModoDetalheUF_(modoAnterior);
+  }
+
   function alternarModoDetalheUF_(modo) {
     MODO_DETALHE_UF = modo;
     document.getElementById('botaoModoResumido').className = modo === 'resumido' ? 'primario' : 'secundario';
