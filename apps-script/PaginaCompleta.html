@@ -1896,11 +1896,18 @@
     return Math.max(0, (p.qtdEsperada || 0) - p.totalVeiculos);
   }
 
+  // Verdadeiro só se o processo tiver veículos e todos eles tiverem esse
+  // campo marcado como SIM (usado tanto pro status "Concluído" quanto pra
+  // decidir se o botão de um campo vira "Desmarcar todos").
+  function todosComCampoSim_(p, campo) {
+    return p.veiculos.length > 0 && p.veiculos.every(function (v) { return v[campo] === 'SIM'; });
+  }
+
   function obterStatusProcesso_(p) {
     if (faltamVeiculosProcesso_(p) > 0) {
       return { texto: 'Faltam veículos', classe: 'selo-vermelho' };
     }
-    if (p.totalVeiculos > 0 && p.totalEnviados === p.totalVeiculos) {
+    if (p.totalVeiculos > 0 && p.totalEnviados === p.totalVeiculos && todosComCampoSim_(p, 'Transferido')) {
       return { texto: 'Concluído', classe: 'selo-sim' };
     }
     if (p.totalEmitidos > 0 || p.totalEnviados > 0) {
@@ -1975,9 +1982,9 @@
         (USUARIO_PODE_EDITAR
           ? '<tfoot><tr>' +
             '<td colspan="5"></td>' +
-            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">Marcar todos</button></td>' +
-            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">Marcar todos</button></td>' +
-            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'Transferido\')">Marcar todos</button></td>' +
+            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">' + (todosComCampoSim_(p, 'ATPVeEmitido') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
+            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">' + (todosComCampoSim_(p, 'ATPVeEnviado') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
+            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'Transferido\')">' + (todosComCampoSim_(p, 'Transferido') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
             '<td></td>' +
             '</tr></tfoot>'
           : '') +
@@ -2038,17 +2045,22 @@
     if (!p) return;
     var ROTULOS_CAMPO = { ATPVeEmitido: 'ATPVe Emitido', ATPVeEnviado: 'ATPVe Enviado', Transferido: 'Transferido' };
     var rotulo = ROTULOS_CAMPO[campo] || campo;
-    var pendentes = p.veiculos.filter(function (v) { return v[campo] !== 'SIM'; });
+    // Se já está tudo SIM, o botão vira "Desmarcar todos" — alterna pra NÃO
+    // em vez de marcar; senão, marca os pendentes como SIM (comportamento
+    // original).
+    var alvo = todosComCampoSim_(p, campo) ? 'NÃO' : 'SIM';
+    var pendentes = p.veiculos.filter(function (v) { return v[campo] !== alvo; });
     if (!pendentes.length) {
-      mostrarMensagem('mensagemListagem', 'sucesso', 'Todos os veículos deste processo já estão marcados como "' + rotulo + ': SIM".');
+      mostrarMensagem('mensagemListagem', 'sucesso', 'Todos os veículos deste processo já estão marcados como "' + rotulo + ': ' + alvo + '".');
       return;
     }
-    if (!confirm('Marcar os ' + pendentes.length + ' veículo(s) pendente(s) deste processo como "' + rotulo + ': SIM"?')) return;
+    var acao = alvo === 'SIM' ? 'Marcar' : 'Desmarcar';
+    if (!confirm(acao + ' os ' + pendentes.length + ' veículo(s) deste processo como "' + rotulo + ': ' + alvo + '"?')) return;
 
     var erros = [];
     for (var i = 0; i < pendentes.length; i++) {
       try {
-        await chamarServidor_('atualizarStatusVeiculo', pendentes[i].ID, campo, 'SIM');
+        await chamarServidor_('atualizarStatusVeiculo', pendentes[i].ID, campo, alvo);
       } catch (erro) {
         erros.push(pendentes[i].ID + ': ' + (erro.message || String(erro)));
       }
@@ -2057,7 +2069,7 @@
     if (erros.length) {
       mostrarErroCadastro_('Alguns veículos não puderam ser atualizados:\n' + erros.join('\n'));
     } else {
-      mostrarMensagem('mensagemListagem', 'sucesso', rotulo + ' marcado como SIM para todos os veículos deste processo.');
+      mostrarMensagem('mensagemListagem', 'sucesso', rotulo + ' ' + (alvo === 'SIM' ? 'marcado' : 'desmarcado') + ' para todos os veículos deste processo.');
     }
   }
 
