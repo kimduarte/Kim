@@ -937,12 +937,30 @@ function atualizarStatusVeiculo(id, campo, valor) {
     throw new Error('Você não tem permissão para editar este registro — visitantes só podem visualizar.');
   }
 
+  // Um veículo transferido implica que o ATPVe dele já foi emitido e
+  // enviado — por segurança/consistência da base:
+  // - Não deixa desmarcar ATPVeEmitido/ATPVeEnviado enquanto o veículo
+  //   ainda estiver marcado como Transferido (evitaria um estado
+  //   contraditório: transferido mas sem ATPVe).
+  if ((campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado') && valorNormalizado === 'NÃO') {
+    var transferidoAtual = normalizarTransferido_(sheet.getRange(linhaIdx, colunaParaIndice_('Transferido') + 1).getValue());
+    if (transferidoAtual === 'SIM') {
+      throw new Error('Não é possível desmarcar o ATPVe de um veículo já transferido. Desmarque primeiro o status "Transferido".');
+    }
+  }
+
   var agora = new Date();
+  var cascataTransferido = campo === 'Transferido' && valorNormalizado === 'SIM';
+
   sheet.getRange(linhaIdx, colunaParaIndice_(campo) + 1).setValue(valorNormalizado);
-  // Mesmo comportamento do cadastro/edição completa: registra a data da
-  // primeira vez que o veículo é marcado como transferido; não apaga essa
-  // data se depois for desmarcado.
-  if (campo === 'Transferido' && valorNormalizado === 'SIM') {
+  if (cascataTransferido) {
+    // Marcar como transferido também marca o ATPVe como emitido e enviado —
+    // não existe, na prática, veículo transferido sem isso.
+    sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEmitido') + 1).setValue('SIM');
+    sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEnviado') + 1).setValue('SIM');
+    // Mesmo comportamento do cadastro/edição completa: registra a data da
+    // primeira vez que o veículo é marcado como transferido; não apaga essa
+    // data se depois for desmarcado.
     sheet.getRange(linhaIdx, colunaParaIndice_('DataTransferencia') + 1).setValue(agora);
   }
   sheet.getRange(linhaIdx, colunaParaIndice_('UltimaAtualizacao') + 1).setValue(agora);
@@ -950,7 +968,7 @@ function atualizarStatusVeiculo(id, campo, valor) {
 
   registrarLog_('ATUALIZAR_STATUS', id, campo + '=' + valorNormalizado);
   invalidarCacheDashboard_();
-  return { mensagem: 'Atualizado com sucesso.', campo: campo, valor: valorNormalizado };
+  return { mensagem: 'Atualizado com sucesso.', campo: campo, valor: valorNormalizado, cascata: cascataTransferido };
 }
 
 function linhaParaObjeto_(cabecalho, linha) {
@@ -983,6 +1001,12 @@ function validarESanitizarVeiculo_(dados) {
   var transferido = normalizarTransferido_(dados.Transferido) || 'NÃO';
   var atpveEmitido = normalizarTransferido_(dados.ATPVeEmitido) || 'NÃO';
   var atpveEnviado = normalizarTransferido_(dados.ATPVeEnviado) || 'NÃO';
+  // Um veículo transferido implica que o ATPVe dele já foi emitido e
+  // enviado — não existe, na prática, veículo "transferido" sem isso.
+  if (transferido === 'SIM') {
+    atpveEmitido = 'SIM';
+    atpveEnviado = 'SIM';
+  }
   var ano = parseInt(dados.Ano, 10);
   var cep = normalizarTexto_(dados.CEP).replace(/\D/g, '');
 

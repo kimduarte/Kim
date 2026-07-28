@@ -1897,7 +1897,7 @@
   }
 
   // Verdadeiro só se o processo tiver veículos e todos eles tiverem esse
-  // campo marcado como SIM (usado tanto pro status "Concluído" quanto pra
+  // campo marcado como SIM (usado tanto pro status "Finalizado" quanto pra
   // decidir se o botão de um campo vira "Desmarcar todos").
   function todosComCampoSim_(p, campo) {
     return p.veiculos.length > 0 && p.veiculos.every(function (v) { return v[campo] === 'SIM'; });
@@ -1907,13 +1907,13 @@
     if (faltamVeiculosProcesso_(p) > 0) {
       return { texto: 'Faltam veículos', classe: 'selo-vermelho' };
     }
-    if (p.totalVeiculos > 0 && p.totalEnviados === p.totalVeiculos && todosComCampoSim_(p, 'Transferido')) {
-      return { texto: 'Concluído', classe: 'selo-sim' };
+    // Transferido é o estado final de um veículo (implica ATPVe emitido e
+    // enviado) — o processo só é "Finalizado" quando todos os veículos dele
+    // chegaram lá; enquanto isso, é sempre "Incompleto".
+    if (todosComCampoSim_(p, 'Transferido')) {
+      return { texto: 'Finalizado', classe: 'selo-sim' };
     }
-    if (p.totalEmitidos > 0 || p.totalEnviados > 0) {
-      return { texto: 'Incompleto', classe: 'selo-nao' };
-    }
-    return { texto: 'Não iniciado', classe: 'selo-pendente' };
+    return { texto: 'Incompleto', classe: 'selo-nao' };
   }
 
   function chaveProcesso_(p) {
@@ -2018,7 +2018,15 @@
   function alternarStatusAtpve_(id, campo, valorAtual) {
     var novoValor = valorAtual === 'SIM' ? 'NÃO' : 'SIM';
     google.script.run
-      .withSuccessHandler(function () {
+      .withSuccessHandler(function (resp) {
+        // Marcar Transferido como SIM também marca ATPVe Emitido/Enviado no
+        // servidor (cascata) — recarrega tudo do servidor nesse caso, em vez
+        // de só corrigir o campo clicado, pra tela refletir fielmente os 3
+        // campos que mudaram.
+        if (resp && resp.cascata) {
+          carregarListagem();
+          return;
+        }
         var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : (campo === 'ATPVeEnviado' ? 'totalEnviados' : null);
         DADOS_PROCESSOS.forEach(function (p) {
           for (var i = 0; i < p.veiculos.length; i++) {
