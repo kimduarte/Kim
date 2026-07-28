@@ -650,7 +650,11 @@
 
       <div class="modal-fundo" id="modalEditarProcessoFundo">
         <div class="modal" style="max-width:900px;">
-          <h2>Editar processo <span id="peNumeroProcessoTitulo"></span></h2>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <h2 style="margin:0;">Editar processo <span id="peNumeroProcessoTitulo"></span></h2>
+            <button type="button" id="botaoPeFecharX" aria-label="Fechar"
+              style="background:none; border:none; font-size:22px; line-height:1; cursor:pointer; color:var(--texto-suave); padding:0;">&times;</button>
+          </div>
           <div id="mensagemModalProcesso"></div>
           <div id="peAvisoFaltantes" class="mensagem erro" style="display:none;"></div>
 
@@ -1937,7 +1941,7 @@
         '<td>' + formatarMoeda_(v.ValorVeiculo) + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEmitido', 'Emitido') + '</td>' +
         '<td>' + montarBotaoToggle_(v, 'ATPVeEnviado', 'Enviado') + '</td>' +
-        '<td>' + montarBotaoToggle_(v, 'Transferido', 'Transferido') + '</td>' +
+        '<td>' + montarBotaoToggle_(v, 'Transferido', '') + '</td>' +
         (USUARIO_PODE_EDITAR ? '<td><button class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar</button></td>' : '') +
         '</tr>';
     }).join('');
@@ -1973,7 +1977,7 @@
             '<td colspan="5"></td>' +
             '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">Marcar todos</button></td>' +
             '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">Marcar todos</button></td>' +
-            '<td></td>' +
+            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'Transferido\')">Marcar todos</button></td>' +
             '<td></td>' +
             '</tr></tfoot>'
           : '') +
@@ -1985,11 +1989,15 @@
   function montarBotaoToggle_(v, campo, rotulo) {
     var valor = v[campo] === 'SIM' ? 'SIM' : 'NÃO';
     var classe = valor === 'SIM' ? 'selo-sim' : 'selo-nao';
+    // Sem rótulo (string vazia), mostra só o valor — usado quando o
+    // cabeçalho da coluna já diz o nome do campo, pra não repetir a
+    // palavra duas vezes (cabeçalho "Transferido" + célula "SIM"/"NÃO").
+    var texto = rotulo ? (rotulo + ': ' + valor) : valor;
     if (!USUARIO_PODE_EDITAR) {
-      return '<span class="selo ' + classe + '">' + rotulo + ': ' + valor + '</span>';
+      return '<span class="selo ' + classe + '">' + texto + '</span>';
     }
     return '<button type="button" class="selo-toggle ' + classe + '" onclick="alternarStatusAtpve_(\'' + v.ID + '\', \'' + campo + '\', \'' + valor + '\')">' +
-      rotulo + ': ' + valor + '</button>';
+      texto + '</button>';
   }
 
   function alternarProcesso_(indice) {
@@ -2028,7 +2036,8 @@
   async function marcarTodosAtpve_(indiceProcesso, campo) {
     var p = DADOS_PROCESSOS[indiceProcesso];
     if (!p) return;
-    var rotulo = campo === 'ATPVeEmitido' ? 'ATPVe Emitido' : 'ATPVe Enviado';
+    var ROTULOS_CAMPO = { ATPVeEmitido: 'ATPVe Emitido', ATPVeEnviado: 'ATPVe Enviado', Transferido: 'Transferido' };
+    var rotulo = ROTULOS_CAMPO[campo] || campo;
     var pendentes = p.veiculos.filter(function (v) { return v[campo] !== 'SIM'; });
     if (!pendentes.length) {
       mostrarMensagem('mensagemListagem', 'sucesso', 'Todos os veículos deste processo já estão marcados como "' + rotulo + ': SIM".');
@@ -2100,6 +2109,7 @@
 
   function configurarModalEditarProcesso_() {
     document.getElementById('botaoPeFechar').addEventListener('click', fecharModalEditarProcesso_);
+    document.getElementById('botaoPeFecharX').addEventListener('click', fecharModalEditarProcesso_);
     document.getElementById('botaoPeSalvar').addEventListener('click', salvarProcessoEditado_);
     document.getElementById('botaoPeAdicionarVeiculo').addEventListener('click', function () {
       var limite = obterQtdEsperadaAtualProcesso_();
