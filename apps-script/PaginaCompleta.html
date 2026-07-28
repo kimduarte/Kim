@@ -880,6 +880,10 @@
           </div>
           <button type="button" class="secundario" onclick="fecharDetalheUF_()">‹ Voltar</button>
         </div>
+        <div class="botoes" id="botoesModoDetalheUF" style="justify-content:flex-start;">
+          <button type="button" class="primario" id="botaoModoResumido" onclick="alternarModoDetalheUF_('resumido')">Resumida</button>
+          <button type="button" class="secundario" id="botaoModoDetalhado" onclick="alternarModoDetalheUF_('detalhado')">Detalhada</button>
+        </div>
         <div class="botoes" id="botoesExportarDetalheUF" style="justify-content:flex-start;">
           <button type="button" class="secundario" onclick="exportarDetalheUFCsv_()">Exportar CSV</button>
           <button type="button" class="secundario" onclick="exportarDetalheUFXlsx_()">Exportar XLSX</button>
@@ -2651,6 +2655,7 @@
   var DADOS_DETALHE_UF = [];
   var CONTEXTO_DETALHE_UF = { uf: '', ano: '', transferido: '' };
   var DETALHE_UF_EXPANDIDOS = {};
+  var MODO_DETALHE_UF = 'resumido';
 
   function abrirDetalheUF_(uf, origem) {
     var idAno = origem === 'regiao' ? 'anoStatRegiao' : 'anoStatUF';
@@ -2659,6 +2664,9 @@
     var transferido = document.getElementById(idTransf).value;
     CONTEXTO_DETALHE_UF = { uf: uf, ano: ano, transferido: transferido };
     DETALHE_UF_EXPANDIDOS = {};
+    MODO_DETALHE_UF = 'resumido';
+    document.getElementById('botaoModoResumido').className = 'primario';
+    document.getElementById('botaoModoDetalhado').className = 'secundario';
 
     document.getElementById('painelDetalheUFTitulo').textContent =
       'Veículos — ' + uf + ' • Ano: ' + (ano || 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
@@ -2688,7 +2696,56 @@
       container.innerHTML = '<div class="carregando">Nenhum veículo encontrado para esse filtro.</div>';
       return;
     }
-    container.innerHTML = grupos.map(function (g, i) { return montarCardDetalheUF_(g, i); }).join('');
+    if (MODO_DETALHE_UF === 'detalhado') {
+      container.innerHTML = montarTabelaDetalheUF_(flatDeGruposDetalheUF_(grupos));
+    } else {
+      container.innerHTML = grupos.map(function (g, i) { return montarCardDetalheUF_(g, i); }).join('');
+    }
+  }
+
+  // Alterna entre a visão "Resumida" (cards por processo, igual à tela de
+  // Processos) e a "Detalhada" (uma linha por veículo, com todas as
+  // colunas) — a mesma visão escolhida aqui é a que sai na "Exportar PDF",
+  // já que o PDF é só uma impressão do que está na tela.
+  function alternarModoDetalheUF_(modo) {
+    MODO_DETALHE_UF = modo;
+    document.getElementById('botaoModoResumido').className = modo === 'resumido' ? 'primario' : 'secundario';
+    document.getElementById('botaoModoDetalhado').className = modo === 'detalhado' ? 'primario' : 'secundario';
+    renderizarDetalheUF_(DADOS_DETALHE_UF);
+  }
+
+  // Achata os grupos de volta em uma lista de um veículo por linha — cada
+  // veículo já carrega os dados do processo/termo (Processo, Donatária,
+  // UF etc.), então não precisa buscar de novo no servidor.
+  function flatDeGruposDetalheUF_(grupos) {
+    var linhas = [];
+    grupos.forEach(function (g) {
+      g.veiculos.forEach(function (v) { linhas.push(v); });
+    });
+    return linhas;
+  }
+
+  function montarTabelaDetalheUF_(linhas) {
+    var corpo = linhas.map(function (v) {
+      return '<tr>' +
+        '<td>' + escaparHtml(v.Processo) + '</td>' +
+        '<td>' + escaparHtml(v.Donataria) + '</td>' +
+        '<td>' + escaparHtml(v.UF) + '</td>' +
+        '<td>' + escaparHtml(v.Ente) + '</td>' +
+        '<td>' + escaparHtml(formatarTermoDoacao_(v.TermoDoacao, v.Ano)) + '</td>' +
+        '<td>' + escaparHtml(v.Marca) + ' — ' + escaparHtml(v.Descricao) + '</td>' +
+        '<td>' + escaparHtml(v.Chassi) + '</td>' +
+        '<td>' + escaparHtml(v.Renavam) + '</td>' +
+        '<td>' + escaparHtml(v.Placa) + '</td>' +
+        '<td>' + escaparHtml(v.Ano) + '/' + escaparHtml(v.Mes) + '</td>' +
+        '<td>' + formatarMoeda_(v.ValorVeiculo) + '</td>' +
+        '<td><span class="selo ' + (v.Transferido === 'SIM' ? 'selo-sim' : 'selo-nao') + '">' + escaparHtml(v.Transferido) + '</span></td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="tabela-wrap"><table><thead><tr>' +
+      '<th>Processo</th><th>Donatária</th><th>UF</th><th>Ente</th><th>Termo de Doação</th><th>Veículo</th>' +
+      '<th>Chassi</th><th>Renavam</th><th>Placa</th><th>Ano/Mês</th><th>Valor</th><th>Transferência</th>' +
+      '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
   }
 
   // Card clicável de um processo/termo, no mesmo estilo da tela de
@@ -2777,23 +2834,17 @@
       mostrarMensagem('mensagemGlobal', 'erro', 'Não há veículos pra exportar nesse filtro.');
       return;
     }
-    mostrarMensagem('mensagemGlobal', 'sucesso', 'Gerando o arquivo CSV...');
-    chamarServidor_('listarVeiculosDetalhadosUF_', CONTEXTO_DETALHE_UF.uf, CONTEXTO_DETALHE_UF.ano, CONTEXTO_DETALHE_UF.transferido)
-      .then(function (registros) {
-        var linhas = [COLUNAS_DETALHE_UF_.map(function (c) { return c[1]; }).join(';')];
-        registros.forEach(function (r) {
-          linhas.push(COLUNAS_DETALHE_UF_.map(function (c) {
-            var valor = c[0] === 'ValorVeiculo' ? formatarNumeroComVirgula_(r.ValorVeiculo) : (r[c[0]] == null ? '' : String(r[c[0]]));
-            return '"' + valor.replace(/"/g, '""') + '"';
-          }).join(';'));
-        });
-        // BOM no início: sem isso, o Excel abre o CSV com os acentos corrompidos.
-        var blob = new Blob(['\uFEFF' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-        baixarBlob_(blob, nomeArquivoDetalheUF_('csv'));
-      })
-      .catch(function (erro) {
-        mostrarMensagem('mensagemGlobal', 'erro', 'Erro ao gerar CSV: ' + (erro.message || String(erro)));
-      });
+    var registros = flatDeGruposDetalheUF_(DADOS_DETALHE_UF);
+    var linhas = [COLUNAS_DETALHE_UF_.map(function (c) { return c[1]; }).join(';')];
+    registros.forEach(function (r) {
+      linhas.push(COLUNAS_DETALHE_UF_.map(function (c) {
+        var valor = c[0] === 'ValorVeiculo' ? formatarNumeroComVirgula_(r.ValorVeiculo) : (r[c[0]] == null ? '' : String(r[c[0]]));
+        return '"' + valor.replace(/"/g, '""') + '"';
+      }).join(';'));
+    });
+    // BOM no início: sem isso, o Excel abre o CSV com os acentos corrompidos.
+    var blob = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    baixarBlob_(blob, nomeArquivoDetalheUF_('csv'));
   }
 
   function exportarDetalheUFXlsx_() {
