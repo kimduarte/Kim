@@ -1727,6 +1727,38 @@ function getVeiculosPorUFDetalhado(uf, ano, transferido) {
   });
 }
 
+/**
+ * Gera um .xlsx (em base64) com os mesmos dados do painel de detalhamento
+ * de UF/Região — cria uma planilha temporária só pra poder usar a URL de
+ * exportação do Google Sheets (mesmo truque de exportarPlanilhaComoXlsx_),
+ * e apaga a planilha temporária logo em seguida.
+ */
+function exportarDetalheUFXlsx(uf, ano, transferido) {
+  var registros = getVeiculosPorUFDetalhado(uf, ano, transferido);
+  var cabecalho = ['Processo', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
+    'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferência', 'Valor'];
+  var linhas = registros.map(function (r) {
+    return [r.Processo, r.Donataria, r.UF, r.Ente, r.TermoDoacao, r.Qtd, r.Descricao,
+      r.Marca, r.Chassi, r.Renavam, r.Placa, r.Ano, r.Mes, r.Transferido, Number(r.ValorVeiculo) || 0];
+  });
+
+  var planilhaTemp = SpreadsheetApp.create('tmp_export_detalhe_uf_' + new Date().getTime());
+  try {
+    var aba = planilhaTemp.getSheets()[0];
+    aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]);
+    if (linhas.length) {
+      aba.getRange(2, 1, linhas.length, cabecalho.length).setValues(linhas);
+    }
+    SpreadsheetApp.flush();
+
+    var url = 'https://docs.google.com/spreadsheets/d/' + planilhaTemp.getId() + '/export?format=xlsx';
+    var resposta = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+    return { conteudoBase64: Utilities.base64Encode(resposta.getBlob().getBytes()) };
+  } finally {
+    DriveApp.getFileById(planilhaTemp.getId()).setTrashed(true);
+  }
+}
+
 function calcularEstatisticas_(registros) {
   var total = registros.length;
   var porTransferido = contarPor_(registros, 'Transferido');
