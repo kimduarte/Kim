@@ -878,16 +878,16 @@
             <h2 id="painelDetalheUFTitulo">Veículos</h2>
             <p>Lista detalhada, respeitando o filtro aplicado no momento do clique.</p>
           </div>
-          <button type="button" class="secundario" onclick="fecharDetalheUF_()">‹ Voltar</button>
+          <div id="botoesExportarDetalheUF" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="secundario" onclick="exportarDetalheUFCsv_()">Exportar CSV</button>
+            <button type="button" class="secundario" onclick="exportarDetalheUFXlsx_()">Exportar XLSX</button>
+            <button type="button" class="secundario" onclick="window.print()">Exportar PDF</button>
+            <button type="button" class="secundario" onclick="fecharDetalheUF_()">‹ Voltar</button>
+          </div>
         </div>
         <div class="botoes" id="botoesModoDetalheUF" style="justify-content:flex-start;">
           <button type="button" class="primario" id="botaoModoResumido" onclick="alternarModoDetalheUF_('resumido')">Resumida</button>
           <button type="button" class="secundario" id="botaoModoDetalhado" onclick="alternarModoDetalheUF_('detalhado')">Detalhada</button>
-        </div>
-        <div class="botoes" id="botoesExportarDetalheUF" style="justify-content:flex-start;">
-          <button type="button" class="secundario" onclick="exportarDetalheUFCsv_()">Exportar CSV</button>
-          <button type="button" class="secundario" onclick="exportarDetalheUFXlsx_()">Exportar XLSX</button>
-          <button type="button" class="secundario" onclick="window.print()">Exportar PDF</button>
         </div>
         <div id="listaDetalheUF"><div class="carregando">Carregando...</div></div>
       </div>
