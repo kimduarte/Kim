@@ -1131,7 +1131,11 @@
   // com esse ano. O valor salvo no cadastro não é alterado, só o texto exibido.
   function formatarTermoDoacao_(texto, ano) {
     var termo = String(texto || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
-    if (ano && !new RegExp('/\\s*' + ano + '\\s*$').test(termo)) {
+    // Só completa o ano se o texto não terminar com NENHUM ano (não só o ano
+    // deste veículo específico) — senão um termo que já tem um ano diferente
+    // embutido (ex.: "...576/2023") virava "...576/2023/2024" ao colar de
+    // novo o ano do veículo no final.
+    if (ano && !/\/\s*\d{4}\s*$/.test(termo)) {
       termo += '/' + ano;
     }
     return termo;
