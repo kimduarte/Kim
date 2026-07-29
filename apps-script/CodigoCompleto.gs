@@ -1307,15 +1307,22 @@ function gravarNovosVeiculos_(sheetVeiculos, linhasNovas, logEntradas, agora) {
   }
 }
 
-// Verifica só as colunas de dados que a migração realmente usa (COL_ORIGEM).
-// Checar a linha inteira falha em planilhas ligadas ao PowerApps: elas
-// preenchem um __PowerAppsId__ (e às vezes um "\n" perdido) em linhas que
-// no restante estão totalmente em branco, então a linha nunca era
-// reconhecida como vazia e seguia para validação completa, virando um
-// "Ente desconhecido" (ou similar) só por ruído de linhas de template sem
-// nenhum dado de veículo.
+// Considera a linha "vazia" olhando só pros campos que realmente identificam
+// um veículo/doação (Donatária, Ente, Chassi, Placa) — não pra linha inteira.
+// Duas causas já vistas de linha em branco não ser reconhecida como tal:
+// 1) planilhas ligadas ao PowerApps preenchem um __PowerAppsId__ (e às vezes
+//    um "\n" perdido) em linhas do resto totalmente em branco;
+// 2) checkbox/dropdown de formatação de tabela aplicado além da última linha
+//    realmente preenchida — ex.: um checkbox de "Transferido" desmarcado lê
+//    como "false" (não como vazio) mesmo numa linha sem nenhum dado real.
+// Em ambos os casos, se Donatária/Ente/Chassi/Placa estão todos em branco,
+// não há veículo de verdade ali, mesmo que alguma coluna auxiliar carregue
+// esse tipo de valor residual — daí checar só essas quatro, e não a linha
+// inteira, senão a linha seguia pra validação completa e virava um "Ente
+// desconhecido" (ou similar) só por ruído de linha de template sem dado.
 function linhaVazia_(linha) {
-  return Object.keys(COL_ORIGEM).every(function (campo) {
+  var CAMPOS_IDENTIFICADORES_ = ['DONATARIA', 'ENTE', 'CHASSI', 'PLACA'];
+  return CAMPOS_IDENTIFICADORES_.every(function (campo) {
     var v = linha[COL_ORIGEM[campo]];
     return v === '' || v === null || v === undefined || String(v).trim() === '';
   });
