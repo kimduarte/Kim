@@ -439,6 +439,7 @@ function onOpen() {
     .createMenu('Base de Veículos')
     .addItem('1) Criar estrutura inicial', 'criarEstruturaInicial')
     .addItem('2) Migrar dados originais (BDADOS2024/2025/2026)', 'migrarBaseOriginal')
+    .addItem('3) Corrigir quantidade de veículos por lote (campo QTD)', 'corrigirQuantidadesMigradas')
     .addSeparator()
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
@@ -1189,6 +1190,7 @@ var COL_ORIGEM = {
   UF: 2,
   ENTE: 3,
   TERMO: 4,
+  QTD: 5,
   DESCRICAO: 6,
   MARCA: 7,
   CHASSI: 8,
@@ -1234,6 +1236,7 @@ function migrarBaseOriginal() {
   var proximoId = Number(props.getProperty('SEQ_VEICULO') || '0');
 
   var resumo = { lidas: 0, importadas: 0, duplicadas: 0, invalidas: 0 };
+  var chassiColIdx_ = colunaParaIndice_('Chassi');
 
   ABAS_ORIGEM_MIGRACAO.forEach(function (nomeAba) {
     var aba = ss.getSheetByName(nomeAba);
@@ -1251,12 +1254,21 @@ function migrarBaseOriginal() {
       var resultado = processarLinhaOrigem_(linha, nomeAba, i + 1, chassisExistentes, origensExistentes, agora, perfil.email, modoTolerante);
 
       if (resultado.status === 'OK') {
-        proximoId++;
-        resultado.linha[0] = 'VC-' + ('000000' + proximoId).slice(-6);
-        linhasNovas.push(resultado.linha);
-        chassisExistentes[resultado.chassi] = true;
+        var qtdLote = resultado.qtd || 1;
+        for (var q = 0; q < qtdLote; q++) {
+          proximoId++;
+          var linhaClonada = q === 0 ? resultado.linha : resultado.linha.slice();
+          linhaClonada[0] = 'VC-' + ('000000' + proximoId).slice(-6);
+          var chassiUnidade = resultado.chassi;
+          if (q > 0) {
+            chassiUnidade = proximoChassiUnico_(resultado.chassi, chassisExistentes);
+            linhaClonada[chassiColIdx_] = chassiUnidade;
+          }
+          linhasNovas.push(linhaClonada);
+          chassisExistentes[chassiUnidade] = true;
+        }
         origensExistentes[nomeAba + '|' + (i + 1)] = true;
-        resumo.importadas++;
+        resumo.importadas += qtdLote;
       } else if (resultado.status === 'DUPLICADO') {
         resumo.duplicadas++;
       } else {
@@ -1326,6 +1338,129 @@ function linhaVazia_(linha) {
     var v = linha[COL_ORIGEM[campo]];
     return v === '' || v === null || v === undefined || String(v).trim() === '';
   });
+}
+
+// Mapeia os veículos já migrados de volta pra sua linha de origem, a partir
+// do texto gravado em Observacoes ('Migrado de "aba", linha N.') — devolve
+// {"aba|linha": [linha1, linha2, ...]} com a linha inteira (array de
+// colunas) de cada veículo já existente que veio daquela linha original.
+function mapearVeiculosPorOrigem_(sheet) {
+  var mapa = {};
+  if (sheet.getLastRow() < 2) return mapa;
+  var valores = sheet.getRange(2, 1, sheet.getLastRow() - 1, CABECALHO_VEICULOS.length).getValues();
+  var obsIdx = colunaParaIndice_('Observacoes');
+  valores.forEach(function (linha) {
+    var match = REGEX_ORIGEM_OBSERVACOES.exec(String(linha[obsIdx] || ''));
+    if (!match) return;
+    var chave = match[1] + '|' + match[2];
+    if (!mapa[chave]) mapa[chave] = [];
+    mapa[chave].push(linha);
+  });
+  return mapa;
+}
+
+/**
+ * Corrige, DEPOIS que migrarBaseOriginal já rodou, os lotes antigos que
+ * foram migrados como um único veículo quando a planilha original tinha uma
+ * QTD maior (ex.: Termo de Transferência nº 002/2024, QTD=100, migrado como
+ * só 1 veículo, porque só havia um chassi/placa registrado representando o
+ * lote inteiro — a migração antiga não lia a coluna QTD).
+ *
+ * Pra cada linha da planilha de origem cujo QTD seja maior que a quantidade
+ * de veículos já migrados dela (via Observacoes), clona o primeiro veículo
+ * já migrado como referência e completa a diferença, com o chassi de cada
+ * cópia nova diferenciado por sufixo "-DUPn". Só ADICIONA veículos — nunca
+ * apaga nem altera os que já existem — e é seguro rodar mais de uma vez:
+ * se um lote já foi corrigido (contagem já bate com o QTD), é pulado.
+ */
+function corrigirQuantidadesMigradas() {
+  exigirPerfilAdmin_();
+  var ss = getSpreadsheet_();
+  var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var logSheet = getOrCreateSheet_(SHEET_IMPORT_LOG, CABECALHO_IMPORT_LOG);
+  garantirColunasVeiculos_();
+
+  var chassisExistentes = carregarChassisExistentes_(sheetVeiculos);
+  var veiculosPorOrigem = mapearVeiculosPorOrigem_(sheetVeiculos);
+  var chassiColIdx = colunaParaIndice_('Chassi');
+  var idColIdx = colunaParaIndice_('ID');
+  var dataCadastroColIdx = colunaParaIndice_('DataCadastro');
+  var cadastradoPorColIdx = colunaParaIndice_('CadastradoPor');
+  var ultimaAtualizacaoColIdx = colunaParaIndice_('UltimaAtualizacao');
+  var atualizadoPorColIdx = colunaParaIndice_('AtualizadoPor');
+
+  var props = PropertiesService.getDocumentProperties();
+  var proximoId = Number(props.getProperty('SEQ_VEICULO') || '0');
+  var perfil = getPerfilUsuarioAtual_();
+  var agora = new Date();
+
+  var linhasNovas = [];
+  var logEntradas = [];
+  var termosCorrigidos = 0;
+  var veiculosAdicionados = 0;
+
+  ABAS_ORIGEM_MIGRACAO.forEach(function (nomeAba) {
+    var aba = ss.getSheetByName(nomeAba);
+    if (!aba) return;
+    var valores = aba.getDataRange().getValues();
+
+    for (var i = 1; i < valores.length; i++) {
+      var linha = valores[i];
+      if (linhaVazia_(linha)) continue;
+
+      var qtd = parseInt(String(linha[COL_ORIGEM.QTD]).replace(/\D/g, ''), 10);
+      if (!qtd || qtd < 2) continue;
+
+      var numLinha = i + 1;
+      var existentes = veiculosPorOrigem[nomeAba + '|' + numLinha];
+      if (!existentes || !existentes.length) continue; // ainda não migrada — rode migrarBaseOriginal primeiro
+      if (existentes.length >= qtd) continue; // já corrigido (ou nunca teve o problema)
+
+      var faltam = qtd - existentes.length;
+      var referencia = existentes[0];
+      var chassiBase = normalizarChassi_(String(referencia[chassiColIdx]));
+
+      for (var f = 0; f < faltam; f++) {
+        proximoId++;
+        var linhaClonada = referencia.slice();
+        linhaClonada[idColIdx] = 'VC-' + ('000000' + proximoId).slice(-6);
+        var chassiNovo = proximoChassiUnico_(chassiBase, chassisExistentes);
+        linhaClonada[chassiColIdx] = chassiNovo;
+        linhaClonada[dataCadastroColIdx] = agora;
+        linhaClonada[cadastradoPorColIdx] = perfil.email + ' (correção de quantidade)';
+        linhaClonada[ultimaAtualizacaoColIdx] = agora;
+        linhaClonada[atualizadoPorColIdx] = perfil.email + ' (correção de quantidade)';
+        chassisExistentes[chassiNovo] = true;
+        linhasNovas.push(linhaClonada);
+      }
+
+      veiculosAdicionados += faltam;
+      termosCorrigidos++;
+      logEntradas.push([agora, nomeAba, numLinha, 'AVISO',
+        'Correção de quantidade: a planilha original informava QTD=' + qtd + ' veículo(s) para este lote, mas só ' +
+        existentes.length + ' já tinha(m) sido migrado(s) — adicionado(s) mais ' + faltam +
+        ' veículo(s) (chassi diferenciado com sufixo "-DUPn", clonado do veículo "' + chassiBase +
+        '" como referência) para refletir a quantidade real do lote.',
+        chassiBase, '']);
+    }
+  });
+
+  props.setProperty('SEQ_VEICULO', String(proximoId));
+  gravarNovosVeiculos_(sheetVeiculos, linhasNovas, logEntradas, agora);
+
+  if (logEntradas.length) {
+    logSheet.getRange(logSheet.getLastRow() + 1, 1, logEntradas.length, CABECALHO_IMPORT_LOG.length)
+      .setValues(logEntradas);
+  }
+
+  invalidarCacheDashboard_();
+
+  var mensagem = termosCorrigidos
+    ? 'Correção concluída: ' + termosCorrigidos + ' lote(s) corrigido(s), ' + veiculosAdicionados +
+      ' veículo(s) adicionado(s). Veja detalhes em "' + SHEET_IMPORT_LOG + '".'
+    : 'Nenhuma divergência encontrada — todos os lotes já migrados batem com o QTD do original.';
+  ss.toast(mensagem, 'Correção de quantidades', 10);
+  return { termosCorrigidos: termosCorrigidos, veiculosAdicionados: veiculosAdicionados, mensagem: mensagem };
 }
 
 function carregarChassisExistentes_(sheet) {
@@ -1418,9 +1553,7 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
     // sub-contaria o total real de doações), gera um identificador próprio
     // pra não colidir, mas mantém como uma doação separada na contagem.
     var chassiOriginal = chassi;
-    var sufixo = 2;
-    while (chassisExistentes[chassiOriginal + '-DUP' + sufixo]) sufixo++;
-    chassi = chassiOriginal + '-DUP' + sufixo;
+    chassi = proximoChassiUnico_(chassiOriginal, chassisExistentes);
     avisos.push('Chassi original "' + chassiOriginal + '" repetido em mais de um veículo deste lote antigo — usado o identificador "' + chassi + '" só para diferenciar no sistema; contado como doação separada.');
   }
 
@@ -1469,6 +1602,19 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
     transferido = 'NÃO';
   }
 
+  // Lotes antigos às vezes só registraram um único chassi/placa "representando"
+  // vários veículos doados no mesmo termo (a quantidade real ficou só na
+  // coluna QTD) — sem isso, a migração criava 1 veículo por linha da planilha
+  // original, mesmo quando QTD dizia que eram, por exemplo, 100. O chamador
+  // (migrarBaseOriginal) usa esse número pra replicar a linha QTD vezes,
+  // diferenciando o chassi de cada cópia com o mesmo sufixo "-DUPn" de acima.
+  var qtd = parseInt(String(linha[COL_ORIGEM.QTD]).replace(/\D/g, ''), 10);
+  if (!qtd || qtd < 1) qtd = 1;
+  if (qtd > 1) {
+    avisos.push('QTD do lote original é ' + qtd + ', mas só havia um chassi/placa registrado representando todo o lote — replicado em ' +
+      qtd + ' veículos (identificador com sufixo "-DUPn") para refletir a quantidade real doada neste termo.');
+  }
+
   var registro = {
     DataCadastro: agora,
     Ano: parseInt(linha[COL_ORIGEM.ANO], 10) || linha[COL_ORIGEM.ANO],
@@ -1496,8 +1642,19 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
     status: 'OK',
     chassi: chassi,
     linha: linhaFinal,
+    qtd: qtd,
     log: avisos.length ? [agora, aba, numLinha, 'AVISO', avisos.join(' '), chassi, placaOriginal] : null
   };
+}
+
+// Gera um chassi único a partir de um "chassi base", usando sufixo -DUP2,
+// -DUP3... — usado tanto quando o mesmo chassi aparece em mais de uma linha
+// da planilha original quanto quando uma única linha representa várias
+// unidades do lote (campo QTD) sem ter chassi individual de cada uma.
+function proximoChassiUnico_(chassiBase, chassisExistentes) {
+  var sufixo = 2;
+  while (chassisExistentes[chassiBase + '-DUP' + sufixo]) sufixo++;
+  return chassiBase + '-DUP' + sufixo;
 }
 
 // ======================================================================
