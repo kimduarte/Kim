@@ -652,8 +652,14 @@
       </div>
 
       <div class="card">
-        <h2>Processos (<span id="contadorProcessos">0</span>) — <span id="contadorVeiculos">0</span> veículo(s)</h2>
-        <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar.</p>
+        <div class="pagina-titulo" style="margin-bottom:8px;">
+          <h2 style="margin:0;">Processos (<span id="contadorProcessos">0</span>) — <span id="contadorVeiculos">0</span> veículo(s)</h2>
+          <div class="botoes" id="botoesExportarListagem" style="margin-top:0;">
+            <button type="button" class="secundario" onclick="exportarListagemCsv_()">Exportar CSV</button>
+            <button type="button" class="secundario" onclick="exportarListagemXlsx_()">Exportar XLSX</button>
+          </div>
+        </div>
+        <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar. A exportação respeita os filtros aplicados acima (não só a página atual).</p>
         <div id="mensagemListagem"></div>
         <div id="listaProcessos"><div class="carregando">Carregando...</div></div>
         <div class="rodape-tabela" id="rodapePaginacaoProcessos" style="display:none;">
@@ -1831,6 +1837,71 @@
       buscaCampo: document.getElementById('f_buscaCampo').value,
       pagina: PAGINA_ATUAL_LISTAGEM
     };
+  }
+
+  // ---------- Exportação da tela de Processos (CSV, XLSX) ----------
+  // Usa os mesmos filtros da listagem (UF/Ente/Ano/Transferido/busca), mas
+  // sem limite de linhas — exporta tudo que bate com o filtro, não só a
+  // página atual em tela.
+  var COLUNAS_LISTAGEM_EXPORT_ = [
+    ['Processo', 'Processo'], ['Donataria', 'Donatária'], ['UF', 'UF'], ['Ente', 'Ente'],
+    ['TermoDoacao', 'Termo de Doação'], ['Descricao', 'Descrição'], ['Marca', 'Marca'],
+    ['Chassi', 'Chassi'], ['Renavam', 'Renavam'], ['Placa', 'Placa'], ['Ano', 'Ano'], ['Mes', 'Mês'],
+    ['Transferido', 'Transferência'], ['ValorVeiculo', 'Valor']
+  ];
+
+  function nomeArquivoListagem_(extensao) {
+    var f = obterFiltrosAtuais();
+    return 'Veiculos' +
+      (f.uf ? '_' + f.uf : '') +
+      (f.ente ? '_' + f.ente.replace(/\s+/g, '-') : '') +
+      (f.ano ? '_' + f.ano : '') +
+      (f.transferido ? '_Transferido-' + f.transferido : '') +
+      '.' + extensao;
+  }
+
+  function exportarListagemCsv_() {
+    mostrarMensagem('mensagemListagem', 'sucesso', 'Gerando o arquivo CSV...');
+    chamarServidor_('listarVeiculos', obterFiltrosAtuais())
+      .then(function (registros) {
+        if (!registros.length) {
+          mostrarMensagem('mensagemListagem', 'erro', 'Não há veículos pra exportar com esses filtros.');
+          return;
+        }
+        var linhas = [COLUNAS_LISTAGEM_EXPORT_.map(function (c) { return c[1]; }).join(';')];
+        registros.forEach(function (r) {
+          linhas.push(COLUNAS_LISTAGEM_EXPORT_.map(function (c) {
+            var valor;
+            if (c[0] === 'Processo') valor = r.NumeroProcesso || r.NumeroSei || '';
+            else if (c[0] === 'ValorVeiculo') valor = formatarNumeroComVirgula_(r.ValorVeiculo);
+            else valor = r[c[0]] == null ? '' : String(r[c[0]]);
+            return '"' + valor.replace(/"/g, '""') + '"';
+          }).join(';'));
+        });
+        // BOM no início: sem isso, o Excel abre o CSV com os acentos corrompidos.
+        var blob = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        baixarBlob_(blob, nomeArquivoListagem_('csv'));
+        mostrarMensagem('mensagemListagem', 'sucesso', 'CSV gerado.');
+      })
+      .catch(function (erro) {
+        mostrarMensagem('mensagemListagem', 'erro', 'Erro ao gerar CSV: ' + (erro.message || String(erro)));
+      });
+  }
+
+  function exportarListagemXlsx_() {
+    mostrarMensagem('mensagemListagem', 'sucesso', 'Gerando o arquivo XLSX, aguarde...');
+    chamarServidor_('exportarListagemXlsx', obterFiltrosAtuais())
+      .then(function (resp) {
+        var binario = atob(resp.conteudoBase64);
+        var bytes = new Uint8Array(binario.length);
+        for (var i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+        var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        baixarBlob_(blob, nomeArquivoListagem_('xlsx'));
+        mostrarMensagem('mensagemListagem', 'sucesso', 'XLSX gerado.');
+      })
+      .catch(function (erro) {
+        mostrarMensagem('mensagemListagem', 'erro', 'Erro ao gerar XLSX: ' + (erro.message || String(erro)));
+      });
   }
 
   var DADOS_PROCESSOS = [];
