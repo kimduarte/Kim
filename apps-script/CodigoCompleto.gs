@@ -441,6 +441,7 @@ function onOpen() {
     .addItem('2) Migrar dados originais (BDADOS2024/2025/2026)', 'migrarBaseOriginal')
     .addItem('3) Reconciliar Veiculos com BDADOS2024/2025/2026 atualizadas', 'reconciliarBaseOrigem')
     .addItem('4) ATENÇÃO: apagar tudo e remigrar do zero', 'zerarVeiculosERemigrar')
+    .addItem('5) Importar Contrato (coluna O) da origem', 'importarContratoDaOrigem')
     .addSeparator()
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
@@ -1198,7 +1199,10 @@ var COL_ORIGEM = {
   PLACA: 10,
   ANO: 11,
   MES: 12,
-  TRANSFERIDO: 13
+  TRANSFERIDO: 13,
+  // Coluna "O" das abas de origem — só existe nas versões mais recentes de
+  // BDADOS2024/2025/2026 (número do contrato de cada lote/termo).
+  CONTRATO: 14
 };
 
 function migrarBaseOriginal() {
@@ -1537,6 +1541,87 @@ function zerarVeiculosERemigrar() {
   ss.toast('Base de veículos zerada. Iniciando migração...', 'Zerar e remigrar', 5);
 
   return migrarBaseOriginal();
+}
+
+/**
+ * Importa o número do Contrato (coluna "O" das abas BDADOS2024/2025/2026)
+ * para o campo Contrato de cada veículo já cadastrado em Veiculos, casando
+ * por Chassi. Só preenche esse único campo — não mexe em mais nada (nem
+ * cria veículo novo, nem apaga). Linhas de origem sem Contrato preenchido,
+ * ou cujo chassi não é encontrado em Veiculos, são ignoradas.
+ */
+function importarContratoDaOrigem() {
+  exigirPerfilAdmin_();
+  var ss = getSpreadsheet_();
+  var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var logSheet = getOrCreateSheet_(SHEET_IMPORT_LOG, CABECALHO_IMPORT_LOG);
+  garantirColunasVeiculos_();
+
+  var perfil = getPerfilUsuarioAtual_();
+  var agora = new Date();
+
+  var idxChassiV = colunaParaIndice_('Chassi');
+  var idxContratoV = colunaParaIndice_('Contrato');
+  var idxAtualizacao = colunaParaIndice_('UltimaAtualizacao');
+  var idxAtualizadoPor = colunaParaIndice_('AtualizadoPor');
+
+  var ultimaLinha = sheetVeiculos.getLastRow();
+  var dadosVeiculos = ultimaLinha >= 2
+    ? sheetVeiculos.getRange(2, 1, ultimaLinha - 1, CABECALHO_VEICULOS.length).getValues()
+    : [];
+
+  var chassiParaIndice = {};
+  dadosVeiculos.forEach(function (linhaV, indice) {
+    var chassiV = normalizarChassi_(linhaV[idxChassiV]);
+    if (chassiV) chassiParaIndice[chassiV] = indice;
+  });
+
+  var preenchidos = 0, semChassiCorrespondente = 0;
+
+  ABAS_ORIGEM_MIGRACAO.forEach(function (nomeAba) {
+    var aba = ss.getSheetByName(nomeAba);
+    if (!aba) return;
+    var valores = aba.getDataRange().getValues();
+
+    for (var i = 1; i < valores.length; i++) {
+      var linha = valores[i];
+      if (linhaVazia_(linha)) continue;
+
+      var contrato = normalizarTexto_(linha[COL_ORIGEM.CONTRATO]);
+      if (!contrato) continue;
+
+      var chassi = normalizarChassi_(linha[COL_ORIGEM.CHASSI]);
+      if (!chassi) continue;
+
+      var indiceExistente = chassiParaIndice[chassi];
+      if (indiceExistente === undefined) {
+        semChassiCorrespondente++;
+        continue;
+      }
+
+      dadosVeiculos[indiceExistente][idxContratoV] = contrato;
+      dadosVeiculos[indiceExistente][idxAtualizacao] = agora;
+      dadosVeiculos[indiceExistente][idxAtualizadoPor] = perfil.email + ' (importação de Contrato)';
+      preenchidos++;
+    }
+  });
+
+  if (dadosVeiculos.length) {
+    sheetVeiculos.getRange(2, 1, dadosVeiculos.length, CABECALHO_VEICULOS.length).setValues(dadosVeiculos);
+  }
+
+  logSheet.getRange(logSheet.getLastRow() + 1, 1, 1, CABECALHO_IMPORT_LOG.length).setValues([[
+    agora, 'IMPORTAR_CONTRATO', '-', 'INFO',
+    'Contratos preenchidos: ' + preenchidos + ' | Linhas de origem com contrato mas sem chassi correspondente em Veiculos: ' + semChassiCorrespondente,
+    '', ''
+  ]]);
+
+  invalidarCacheDashboard_();
+
+  var mensagem = 'Contratos preenchidos: ' + preenchidos +
+    (semChassiCorrespondente ? '. ' + semChassiCorrespondente + ' linha(s) com contrato não encontraram o chassi em Veiculos (veja "' + SHEET_IMPORT_LOG + '").' : '.');
+  ss.toast(mensagem, 'Importar Contrato', 10);
+  return { preenchidos: preenchidos, semChassiCorrespondente: semChassiCorrespondente, mensagem: mensagem };
 }
 
 function carregarChassisExistentes_(sheet) {
