@@ -439,6 +439,7 @@ function onOpen() {
     .createMenu('Base de Veículos')
     .addItem('1) Criar estrutura inicial', 'criarEstruturaInicial')
     .addItem('2) Migrar dados originais (BDADOS2024/2025/2026)', 'migrarBaseOriginal')
+    .addItem('3) Reconciliar Veiculos com BDADOS2024/2025/2026 atualizadas', 'reconciliarBaseOrigem')
     .addSeparator()
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
@@ -1326,6 +1327,173 @@ function linhaVazia_(linha) {
     var v = linha[COL_ORIGEM[campo]];
     return v === '' || v === null || v === undefined || String(v).trim() === '';
   });
+}
+
+/**
+ * Reconcilia a aba Veiculos com uma versão atualizada/corrigida das abas de
+ * origem (BDADOS2024/2025/2026) — use depois de substituir essas 3 abas por
+ * uma base mais confiável (chassi/placa/renavam corrigidos, duplicidades
+ * entre abas removidas etc.), quando Veiculos já tem operações em andamento
+ * (Transferido, ATPVe, Valor, endereço, Processo) que não podem ser
+ * perdidas rodando a migração do zero de novo.
+ *
+ * Ao contrário de migrarBaseOriginal (que rastreia o que já foi migrado
+ * pelo par "aba+linha", e por isso trata tudo como "novo" se a planilha de
+ * origem foi reordenada), esta função casa os registros pelo CHASSI — a
+ * única forma confiável de saber que "é o mesmo veículo" depois que a
+ * planilha de origem foi limpa/reordenada. Por isso, se o chassi de um
+ * veículo foi corrigido na origem (ex.: tinha um caractere errado), ele
+ * entra como um cadastro NOVO — o registro antigo com o chassi errado
+ * continua em Veiculos e aparece no aviso de "sumiram da origem" no final,
+ * pra você decidir se apaga ou corrige manualmente.
+ *
+ * Para cada linha válida das abas de origem:
+ * - Chassi já existe em Veiculos: ATUALIZA só os campos "de origem" (Ano,
+ *   Mês, UF, Ente, Donatária, Termo de Doação, Descrição, Marca, Renavam,
+ *   Placa) — nunca mexe em ID, Transferido, DataTransferencia, ATPVe,
+ *   Valor, endereço, Processo/Contrato ou Observações: isso é trabalho
+ *   operacional já feito no site.
+ * - Chassi novo: cadastra como veículo novo (mesma validação/modo
+ *   tolerante de migrarBaseOriginal, sempre tolerante aqui porque a base já
+ *   foi revisada manualmente antes desta reconciliação).
+ *
+ * Ao final, lista em ImportacaoLog (sem apagar nada) os veículos que já
+ * estavam em Veiculos vindos de uma migração anterior, mas cujo chassi não
+ * aparece mais em nenhuma das 3 abas de origem — pode ser um duplicado
+ * removido de propósito na limpeza, ou algo que sumiu por engano.
+ */
+function reconciliarBaseOrigem() {
+  exigirPerfilAdmin_();
+  var ss = getSpreadsheet_();
+  var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var logSheet = getOrCreateSheet_(SHEET_IMPORT_LOG, CABECALHO_IMPORT_LOG);
+  garantirColunasVeiculos_();
+
+  var perfil = getPerfilUsuarioAtual_();
+  var agora = new Date();
+
+  var idxChassiV = colunaParaIndice_('Chassi');
+  var idxObsV = colunaParaIndice_('Observacoes');
+  var CAMPOS_ATUALIZAVEIS = ['Ano', 'Mes', 'UF', 'Ente', 'Donataria', 'TermoDoacao', 'Descricao', 'Marca', 'Renavam', 'Placa'];
+  var idxAtualizacao = colunaParaIndice_('UltimaAtualizacao');
+  var idxAtualizadoPor = colunaParaIndice_('AtualizadoPor');
+
+  var ultimaLinha = sheetVeiculos.getLastRow();
+  var dadosVeiculos = ultimaLinha >= 2
+    ? sheetVeiculos.getRange(2, 1, ultimaLinha - 1, CABECALHO_VEICULOS.length).getValues()
+    : [];
+
+  var chassiParaIndice = {}; // chassi normalizado -> índice em dadosVeiculos
+  var chassisMigrados = {}; // chassi normalizado -> true, se veio de uma migração anterior
+  dadosVeiculos.forEach(function (linhaV, indice) {
+    var chassiV = normalizarChassi_(linhaV[idxChassiV]);
+    if (!chassiV) return;
+    chassiParaIndice[chassiV] = indice;
+    if (REGEX_ORIGEM_OBSERVACOES.test(String(linhaV[idxObsV] || ''))) {
+      chassisMigrados[chassiV] = true;
+    }
+  });
+
+  var chassisExistentes = {}; // usado por processarLinhaOrigem_ pra evitar colisão entre linhas novas
+  Object.keys(chassiParaIndice).forEach(function (c) { chassisExistentes[c] = true; });
+  var chassisNaOrigemAtual = {};
+
+  var props = PropertiesService.getDocumentProperties();
+  var proximoId = Number(props.getProperty('SEQ_VEICULO') || '0');
+
+  var linhasNovas = [];
+  var logEntradas = [];
+  var atualizados = 0, novos = 0, invalidos = 0;
+
+  ABAS_ORIGEM_MIGRACAO.forEach(function (nomeAba) {
+    var aba = ss.getSheetByName(nomeAba);
+    if (!aba) {
+      logEntradas.push([agora, nomeAba, '-', 'AVISO', 'Aba não encontrada nesta planilha — nada reconciliado dela.', '', '']);
+      return;
+    }
+    var valores = aba.getDataRange().getValues();
+
+    for (var i = 1; i < valores.length; i++) {
+      var linha = valores[i];
+      if (linhaVazia_(linha)) continue;
+      var numLinha = i + 1;
+
+      var chassi = normalizarChassi_(linha[COL_ORIGEM.CHASSI]);
+      if (!chassi) continue; // sem chassi real na origem — não dá pra casar com segurança, revise manualmente
+      chassisNaOrigemAtual[chassi] = true;
+
+      var indiceExistente = chassiParaIndice[chassi];
+      if (indiceExistente !== undefined) {
+        var uf = normalizarUF_(linha[COL_ORIGEM.UF]) || UF_NAO_INFORMADA;
+        var mes = normalizarTexto_(linha[COL_ORIGEM.MES]).toUpperCase();
+        mes = MESES_ALIAS[mes] || mes;
+        var novosValores = {
+          Ano: parseInt(linha[COL_ORIGEM.ANO], 10) || linha[COL_ORIGEM.ANO],
+          Mes: mes,
+          UF: uf,
+          Ente: normalizarTexto_(linha[COL_ORIGEM.ENTE]),
+          Donataria: normalizarTexto_(linha[COL_ORIGEM.DONATARIA]),
+          TermoDoacao: normalizarTexto_(linha[COL_ORIGEM.TERMO]),
+          Descricao: normalizarTexto_(linha[COL_ORIGEM.DESCRICAO]),
+          Marca: normalizarMarca_(linha[COL_ORIGEM.MARCA]),
+          Renavam: normalizarTexto_(linha[COL_ORIGEM.RENAVAM]).replace(/\D/g, ''),
+          Placa: normalizarPlaca_(linha[COL_ORIGEM.PLACA])
+        };
+        var linhaV = dadosVeiculos[indiceExistente];
+        CAMPOS_ATUALIZAVEIS.forEach(function (campo) {
+          linhaV[colunaParaIndice_(campo)] = novosValores[campo];
+        });
+        linhaV[idxAtualizacao] = agora;
+        linhaV[idxAtualizadoPor] = perfil.email + ' (reconciliação com origem)';
+        atualizados++;
+      } else {
+        var resultado = processarLinhaOrigem_(linha, nomeAba, numLinha, chassisExistentes, {}, agora, perfil.email, true);
+        if (resultado.status === 'OK') {
+          proximoId++;
+          resultado.linha[0] = 'VC-' + ('000000' + proximoId).slice(-6);
+          linhasNovas.push(resultado.linha);
+          chassisExistentes[resultado.chassi] = true;
+          novos++;
+        } else {
+          invalidos++;
+        }
+        if (resultado.log) logEntradas.push(resultado.log);
+      }
+    }
+  });
+
+  if (dadosVeiculos.length) {
+    sheetVeiculos.getRange(2, 1, dadosVeiculos.length, CABECALHO_VEICULOS.length).setValues(dadosVeiculos);
+  }
+  props.setProperty('SEQ_VEICULO', String(proximoId));
+  gravarNovosVeiculos_(sheetVeiculos, linhasNovas, logEntradas, agora);
+
+  // Veículos migrados antes que sumiram da origem atual — só reporta, nunca apaga.
+  var sumidos = Object.keys(chassisMigrados).filter(function (c) { return !chassisNaOrigemAtual[c]; });
+  if (sumidos.length) {
+    logEntradas.push([agora, 'RECONCILIACAO', '-', 'AVISO',
+      'Estes ' + sumidos.length + ' chassi(s) estavam em Veiculos (de uma migração anterior) mas não aparecem mais em ' +
+      'nenhuma das 3 abas de origem — revise manualmente se devem ser removidos: ' + sumidos.join(', '),
+      '', '']);
+  }
+
+  logEntradas.push([agora, 'RESUMO', '-', 'INFO',
+    'Reconciliação: atualizados: ' + atualizados + ' | novos: ' + novos + ' | inválidos (ignorados): ' + invalidos +
+    ' | sumidos da origem (revisar): ' + sumidos.length,
+    '', '']);
+
+  if (logEntradas.length) {
+    logSheet.getRange(logSheet.getLastRow() + 1, 1, logEntradas.length, CABECALHO_IMPORT_LOG.length)
+      .setValues(logEntradas);
+  }
+
+  invalidarCacheDashboard_();
+
+  var mensagem = 'Reconciliação concluída. Atualizados: ' + atualizados + ', novos: ' + novos +
+    ', inválidos: ' + invalidos + ', sumidos da origem (revisar): ' + sumidos.length +
+    '. Veja detalhes em "' + SHEET_IMPORT_LOG + '".';
+  ss.toast(mensagem, 'Reconciliação', 10);
+  return { atualizados: atualizados, novos: novos, invalidos: invalidos, sumidos: sumidos, mensagem: mensagem };
 }
 
 function carregarChassisExistentes_(sheet) {
