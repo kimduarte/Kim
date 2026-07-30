@@ -228,6 +228,9 @@
   .stat-card .stat-card-rotulo { font-size: 12px; color: var(--texto-suave); margin-top: 2px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stat-card-vazio { color: var(--texto-suave); font-size: 13px; padding: 10px 0; grid-column: 1 / -1; }
 
+  /* Total de veículos da visualização/filtro atual (Por UF / Por Região) */
+  .stat-total-estratificado { font-size: 14px; color: var(--texto-suave); margin-top: 6px; }
+  .stat-total-estratificado strong { color: var(--texto); font-size: 20px; margin-right: 6px; }
 
   /* Veículos por UF: lista ranqueada, do maior para o menor */
   .rank-lista { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; }
@@ -811,7 +814,6 @@
         <div class="botoes" id="botoesModoVisualizacaoStat" style="justify-content:flex-start; margin-top:10px;">
           <button type="button" class="primario" id="botaoModoStatUF" onclick="alternarModoVisualizacaoStat_('uf')">Por UF</button>
           <button type="button" class="secundario" id="botaoModoStatRegiao" onclick="alternarModoVisualizacaoStat_('regiao')">Por Região</button>
-          <button type="button" class="secundario" id="botaoModoStatEnte" onclick="alternarModoVisualizacaoStat_('ente')">Por Ente</button>
         </div>
         <div class="filtros" style="margin-top:14px; margin-bottom:4px;">
           <div class="campo">
@@ -827,14 +829,12 @@
             </select>
           </div>
         </div>
+        <div class="stat-total-estratificado" id="totalEstratificado"></div>
         <div id="corpoStatUF">
           <div class="rank-lista" id="rankUF"></div>
         </div>
         <div id="corpoStatRegiao" style="display:none;">
           <div id="mapaRegional"></div>
-        </div>
-        <div id="corpoStatEnte" style="display:none;">
-          <div class="stat-grid" id="cardsEnte"></div>
         </div>
       </div>
 
@@ -2535,7 +2535,7 @@
 
     renderizarRankUF_(stats.porUF);
     renderizarMapaRegional_(stats.porUF);
-    renderizarCardsEnteClicavel_(stats.porEnte);
+    atualizarTotalEstratificado_(stats.porUF);
     popularAnosStat_('anoStatGeral', stats.porAnoMes);
 
     DADOS_PENDENTES = stats.pendentesMaisAntigos;
@@ -2554,19 +2554,17 @@
     corpo.innerHTML = itens.map(montarLinha).join('');
   }
 
-  // ---------- Seletor "Como você deseja visualizar?" (Por UF / Por Região / Por Ente) ----------
-  // Só um modo fica visível por vez, todos compartilhando o mesmo filtro de
-  // Ano/Transferidos (idAno/idTransf únicos, em vez de um par por card).
+  // ---------- Seletor "Como você deseja visualizar?" (Por UF / Por Região) ----------
+  // Só um modo fica visível por vez, os dois compartilhando o mesmo filtro
+  // de Ano/Transferidos (idAno/idTransf únicos, em vez de um par por card).
   var MODO_VISUALIZACAO_STAT = 'uf';
 
   function alternarModoVisualizacaoStat_(modo) {
     MODO_VISUALIZACAO_STAT = modo;
     document.getElementById('botaoModoStatUF').className = modo === 'uf' ? 'primario' : 'secundario';
     document.getElementById('botaoModoStatRegiao').className = modo === 'regiao' ? 'primario' : 'secundario';
-    document.getElementById('botaoModoStatEnte').className = modo === 'ente' ? 'primario' : 'secundario';
     document.getElementById('corpoStatUF').style.display = modo === 'uf' ? '' : 'none';
     document.getElementById('corpoStatRegiao').style.display = modo === 'regiao' ? '' : 'none';
-    document.getElementById('corpoStatEnte').style.display = modo === 'ente' ? '' : 'none';
   }
 
   // Preenche o seletor de ano a partir dos anos que já aparecem em
@@ -2583,19 +2581,25 @@
     select.value = selecionado;
   }
 
+  // Soma do total de veículos na estratificação atual (Por UF/Por Região
+  // usam o mesmo recorte de dados) — dá pra ver de cara quantos veículos
+  // aquele filtro de Ano/Transferidos representa, sem ter que somar as
+  // barras/células uma por uma.
+  function atualizarTotalEstratificado_(itens) {
+    var total = itens.reduce(function (soma, item) { return soma + item.total; }, 0);
+    document.getElementById('totalEstratificado').innerHTML =
+      '<strong>' + total + '</strong> veículo(s) nesse recorte';
+  }
+
   async function atualizarVisualizacaoStat_() {
     var ano = document.getElementById('anoStatGeral').value;
     var transferido = document.getElementById('transfStatGeral').value;
+    var idContainer = MODO_VISUALIZACAO_STAT === 'regiao' ? 'mapaRegional' : 'rankUF';
+    document.getElementById(idContainer).innerHTML = '<div class="carregando">Carregando...</div>';
     try {
-      if (MODO_VISUALIZACAO_STAT === 'ente') {
-        document.getElementById('cardsEnte').innerHTML = '<div class="carregando">Carregando...</div>';
-        renderizarCardsEnteClicavel_(await chamarServidor_('getVeiculosPorUFAno', ano, transferido, 'Ente'));
-      } else {
-        var idContainer = MODO_VISUALIZACAO_STAT === 'regiao' ? 'mapaRegional' : 'rankUF';
-        document.getElementById(idContainer).innerHTML = '<div class="carregando">Carregando...</div>';
-        var itens = await chamarServidor_('getVeiculosPorUFAno', ano, transferido);
-        if (MODO_VISUALIZACAO_STAT === 'regiao') renderizarMapaRegional_(itens); else renderizarRankUF_(itens);
-      }
+      var itens = await chamarServidor_('getVeiculosPorUFAno', ano, transferido);
+      if (MODO_VISUALIZACAO_STAT === 'regiao') renderizarMapaRegional_(itens); else renderizarRankUF_(itens);
+      atualizarTotalEstratificado_(itens);
     } catch (erro) {
       mostrarErroGlobal(erro);
     }
@@ -2685,22 +2689,20 @@
   var DETALHE_UF_EXPANDIDOS = {};
   var MODO_DETALHE_UF = 'resumido';
 
-  // "origem" é o modo de visualização ativo no momento do clique ('uf',
-  // 'regiao' ou 'ente') — 'uf' e 'regiao' filtram por UF (o mapa regional é
-  // só o mesmo dado por UF agrupado visualmente por região), só 'ente'
-  // filtra por Ente.
+  // "origem" é o modo de visualização ativo no momento do clique ('uf' ou
+  // 'regiao') — os dois filtram por UF (o mapa regional é só o mesmo dado
+  // por UF agrupado visualmente por região).
   function abrirDetalheUF_(valor, origem) {
-    var campoFiltro = origem === 'ente' ? 'ente' : 'uf';
     var ano = document.getElementById('anoStatGeral').value;
     var transferido = document.getElementById('transfStatGeral').value;
-    CONTEXTO_DETALHE_UF = { uf: valor, ano: ano, transferido: transferido, campoFiltro: campoFiltro };
+    CONTEXTO_DETALHE_UF = { uf: valor, ano: ano, transferido: transferido, campoFiltro: 'uf' };
     DETALHE_UF_EXPANDIDOS = {};
     MODO_DETALHE_UF = 'resumido';
     document.getElementById('botaoModoResumido').className = 'primario';
     document.getElementById('botaoModoDetalhado').className = 'secundario';
 
     document.getElementById('painelDetalheUFTitulo').textContent =
-      'Veículos — ' + (campoFiltro === 'ente' ? 'Ente: ' : '') + valor + ' • Ano: ' + (ano || 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
+      'Veículos — ' + valor + ' • Ano: ' + (ano || 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
     document.getElementById('listaDetalheUF').innerHTML = '<div class="carregando">Carregando...</div>';
     document.getElementById('painelEstatisticasConteudo').style.display = 'none';
     document.getElementById('painelDetalheUF').style.display = '';
@@ -2712,7 +2714,7 @@
         document.getElementById('listaDetalheUF').innerHTML =
           '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
       })
-      .getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro);
+      .getVeiculosPorUFDetalhado(valor, ano, transferido, 'uf');
   }
 
   function fecharDetalheUF_() {
@@ -2904,22 +2906,6 @@
       .catch(function (erro) {
         mostrarMensagem('mensagemGlobal', 'erro', 'Erro ao gerar XLSX: ' + (erro.message || String(erro)));
       });
-  }
-
-  // "Por Ente" — mesmo padrão clicável do "Por UF"/"Por Região": abre o
-  // painel de detalhamento (não navega pra outra tela).
-  function renderizarCardsEnteClicavel_(itens) {
-    var container = document.getElementById('cardsEnte');
-    if (!itens.length) {
-      container.innerHTML = '<div class="stat-card-vazio">Sem dados.</div>';
-      return;
-    }
-    container.innerHTML = itens.map(function (item) {
-      return '<div class="stat-card" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'ente\')">' +
-        '<div class="stat-card-valor">' + item.total + '</div>' +
-        '<div class="stat-card-rotulo" title="' + escaparHtml(item.chave) + '">' + escaparHtml(item.chave) + '</div>' +
-        '</div>';
-    }).join('');
   }
 
   function cliquePendencia(indice) {
