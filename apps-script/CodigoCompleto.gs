@@ -440,6 +440,7 @@ function onOpen() {
     .addItem('1) Criar estrutura inicial', 'criarEstruturaInicial')
     .addItem('2) Migrar dados originais (BDADOS2024/2025/2026)', 'migrarBaseOriginal')
     .addItem('3) Reconciliar Veiculos com BDADOS2024/2025/2026 atualizadas', 'reconciliarBaseOrigem')
+    .addItem('4) ATENÇÃO: apagar tudo e remigrar do zero', 'zerarVeiculosERemigrar')
     .addSeparator()
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
@@ -1494,6 +1495,48 @@ function reconciliarBaseOrigem() {
     '. Veja detalhes em "' + SHEET_IMPORT_LOG + '".';
   ss.toast(mensagem, 'Reconciliação', 10);
   return { atualizados: atualizados, novos: novos, invalidos: invalidos, sumidos: sumidos, mensagem: mensagem };
+}
+
+/**
+ * AÇÃO IRREVERSÍVEL: apaga TODOS os veículos já cadastrados em Veiculos —
+ * Transferido, ATPVe emitido/enviado, Valor, endereço, Número de
+ * Processo/Contrato, tudo — e migra do zero só com o que estiver nas abas
+ * BDADOS2024/2025/2026 agora. Mantém a estrutura de colunas (CABECALHO_
+ * VEICULOS) intacta, só esvazia as linhas de dado.
+ *
+ * Ao contrário de reconciliarBaseOrigem (que preserva o que já existe),
+ * esta função existe especificamente para quando a base de origem foi
+ * reconstruída do zero e não deve sobrar nenhum vestígio da base antiga.
+ * Pede confirmação explícita antes de apagar qualquer coisa.
+ */
+function zerarVeiculosERemigrar() {
+  exigirPerfilAdmin_();
+  var ss = getSpreadsheet_();
+  var ui = SpreadsheetApp.getUi();
+
+  var confirmacao = ui.alert(
+    'Apagar toda a base de veículos?',
+    'Isso vai apagar TODOS os veículos já cadastrados em "Veiculos" (Transferido, ATPVe, Valor, endereço, Processo — ' +
+    'tudo) e recriar a aba do zero só com o que estiver nas abas BDADOS2024/2025/2026 agora. Essa ação não pode ser ' +
+    'desfeita.\n\nTem certeza que quer continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmacao !== ui.Button.YES) {
+    ss.toast('Operação cancelada — nada foi apagado.', 'Cancelado', 5);
+    return { cancelado: true };
+  }
+
+  var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var ultimaLinha = sheetVeiculos.getLastRow();
+  if (ultimaLinha >= 2) {
+    sheetVeiculos.getRange(2, 1, ultimaLinha - 1, sheetVeiculos.getLastColumn()).clearContent();
+  }
+
+  PropertiesService.getDocumentProperties().setProperty('SEQ_VEICULO', '0');
+  invalidarCacheDashboard_();
+  ss.toast('Base de veículos zerada. Iniciando migração...', 'Zerar e remigrar', 5);
+
+  return migrarBaseOriginal();
 }
 
 function carregarChassisExistentes_(sheet) {
