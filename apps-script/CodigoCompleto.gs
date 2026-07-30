@@ -576,6 +576,20 @@ function corrigirTamanhoDaAba() {
 // antes do parêntese e em [2] só os dígitos do Número SEI.
 var REGEX_SEI_NO_TERMO = /^(.*?)\s*\((\d+)\)\s*$/;
 
+// Separa o Número SEI embutido entre parênteses no texto do Termo de
+// Doação (ex.: "Termo de Doação 165/2023 (24860169)") — usada tanto na
+// migração/reconciliação (pra já gravar TermoDoacao e NumeroSei em campos
+// separados, sem precisar rodar corrigirNumeroSeiDoTermo depois) quanto por
+// essa própria função de correção retroativa. Se não achar parêntese com
+// números, devolve numeroSei null (o chamador decide se troca ou preserva
+// o que já estava gravado).
+function separarNumeroSeiDoTermo_(termoBruto) {
+  var termo = String(termoBruto || '').trim();
+  var match = REGEX_SEI_NO_TERMO.exec(termo);
+  if (!match) return { termo: termo, numeroSei: null };
+  return { termo: match[1].trim(), numeroSei: match[2] };
+}
+
 /**
  * Corrige registros antigos em que o Número SEI foi digitado junto do Termo
  * de Doação, entre parênteses no final (ex.: "Termo de Doação SENASP
@@ -604,11 +618,11 @@ function corrigirNumeroSeiDoTermo() {
   for (var i = 0; i < totalLinhas; i++) {
     if (normalizarTexto_(seis[i][0])) continue; // já tem Número SEI — não mexe
 
-    var match = REGEX_SEI_NO_TERMO.exec(String(termos[i][0] || '').trim());
-    if (!match) continue;
+    var separado = separarNumeroSeiDoTermo_(termos[i][0]);
+    if (!separado.numeroSei) continue;
 
-    termos[i][0] = match[1].trim();
-    seis[i][0] = match[2];
+    termos[i][0] = separado.termo;
+    seis[i][0] = separado.numeroSei;
     corrigidos++;
   }
 
@@ -1389,6 +1403,7 @@ function reconciliarBaseOrigem() {
 
   var idxChassiV = colunaParaIndice_('Chassi');
   var idxObsV = colunaParaIndice_('Observacoes');
+  var idxNumeroSei = colunaParaIndice_('NumeroSei');
   var CAMPOS_ATUALIZAVEIS = ['Ano', 'Mes', 'UF', 'Ente', 'Donataria', 'TermoDoacao', 'Descricao', 'Marca', 'Renavam', 'Placa'];
   var idxAtualizacao = colunaParaIndice_('UltimaAtualizacao');
   var idxAtualizadoPor = colunaParaIndice_('AtualizadoPor');
@@ -1442,13 +1457,18 @@ function reconciliarBaseOrigem() {
         var uf = normalizarUF_(linha[COL_ORIGEM.UF]) || UF_NAO_INFORMADA;
         var mes = normalizarTexto_(linha[COL_ORIGEM.MES]).toUpperCase();
         mes = MESES_ALIAS[mes] || mes;
+        // O Termo de Doação na origem costuma trazer o Número SEI embutido
+        // entre parênteses (ex.: "165/2023 (24860169)") — separa aqui pra
+        // TermoDoacao e NumeroSei ficarem em campos distintos, sem precisar
+        // rodar corrigirNumeroSeiDoTermo depois de cada reconciliação.
+        var separadoSei = separarNumeroSeiDoTermo_(linha[COL_ORIGEM.TERMO]);
         var novosValores = {
           Ano: parseInt(linha[COL_ORIGEM.ANO], 10) || linha[COL_ORIGEM.ANO],
           Mes: mes,
           UF: uf,
           Ente: normalizarTexto_(linha[COL_ORIGEM.ENTE]),
           Donataria: normalizarTexto_(linha[COL_ORIGEM.DONATARIA]),
-          TermoDoacao: normalizarTexto_(linha[COL_ORIGEM.TERMO]),
+          TermoDoacao: separadoSei.termo,
           Descricao: normalizarTexto_(linha[COL_ORIGEM.DESCRICAO]),
           Marca: normalizarMarca_(linha[COL_ORIGEM.MARCA]),
           Renavam: normalizarTexto_(linha[COL_ORIGEM.RENAVAM]).replace(/\D/g, ''),
@@ -1458,6 +1478,11 @@ function reconciliarBaseOrigem() {
         CAMPOS_ATUALIZAVEIS.forEach(function (campo) {
           linhaV[colunaParaIndice_(campo)] = novosValores[campo];
         });
+        // Só grava o SEI extraído se achou algum — senão preserva o que já
+        // estava (pode ter sido informado manualmente pela tela).
+        if (separadoSei.numeroSei) {
+          linhaV[idxNumeroSei] = separadoSei.numeroSei;
+        }
         linhaV[idxAtualizacao] = agora;
         linhaV[idxAtualizadoPor] = perfil.email + ' (reconciliação com origem)';
         atualizados++;
@@ -1846,6 +1871,12 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
     transferido = 'NÃO';
   }
 
+  // O Termo de Doação na origem costuma trazer o Número SEI embutido entre
+  // parênteses (ex.: "165/2023 (24860169)") — separa aqui pra TermoDoacao e
+  // NumeroSei ficarem em campos distintos desde a migração, sem precisar
+  // rodar corrigirNumeroSeiDoTermo depois pra corrigir isso retroativamente.
+  var separadoSei = separarNumeroSeiDoTermo_(linha[COL_ORIGEM.TERMO]);
+
   var registro = {
     DataCadastro: agora,
     Ano: parseInt(linha[COL_ORIGEM.ANO], 10) || linha[COL_ORIGEM.ANO],
@@ -1853,7 +1884,8 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
     UF: uf,
     Ente: ente,
     Donataria: normalizarTexto_(linha[COL_ORIGEM.DONATARIA]),
-    TermoDoacao: normalizarTexto_(linha[COL_ORIGEM.TERMO]),
+    TermoDoacao: separadoSei.termo,
+    NumeroSei: separadoSei.numeroSei || '',
     Descricao: normalizarTexto_(linha[COL_ORIGEM.DESCRICAO]),
     Marca: normalizarMarca_(linha[COL_ORIGEM.MARCA]),
     Chassi: chassi,
