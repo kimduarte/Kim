@@ -682,23 +682,23 @@
           <div class="etapa-cabecalho">Dados da Operação</div>
           <div class="grid-form">
             <div class="campo">
-              <label for="pe_NumeroProcesso">Número do Processo *</label>
-              <input type="text" id="pe_NumeroProcesso" required maxlength="60">
+              <label for="pe_NumeroProcesso">Número do Processo <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_NumeroProcesso" maxlength="60">
             </div>
             <div class="campo">
-              <label for="pe_Ano">Ano *</label>
-              <input type="number" id="pe_Ano" required min="2000" max="2100">
+              <label for="pe_Ano">Ano <span class="opcional">(opcional)</span></label>
+              <input type="number" id="pe_Ano" min="2000" max="2100">
             </div>
             <div class="campo">
-              <label for="pe_Mes">Mês *</label>
-              <select id="pe_Mes" required></select>
+              <label for="pe_Mes">Mês <span class="opcional">(opcional)</span></label>
+              <select id="pe_Mes"></select>
             </div>
             <div class="campo span-2">
-              <label for="pe_TermoDoacao">Número do Termo de Doação *</label>
-              <input type="text" id="pe_TermoDoacao" required maxlength="200">
+              <label for="pe_TermoDoacao">Número do Termo de Doação <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_TermoDoacao" maxlength="200">
             </div>
             <div class="campo span-2">
-              <label>Número SEI do Termo *</label>
+              <label>Número SEI do Termo <span class="opcional">(opcional)</span></label>
               <div style="display:flex; align-items:center; gap:10px;">
                 <span id="pe_NumeroSeiExibicao" style="font-size:13px; color:var(--texto-suave);">Não informado — clique para informar</span>
                 <button type="button" class="secundario" id="botaoInformarNumeroSeiProcesso" style="padding:4px 10px; font-size:12px;">Informar</button>
@@ -706,17 +706,17 @@
               <input type="hidden" id="pe_NumeroSei" value="">
             </div>
             <div class="campo">
-              <label for="pe_Contrato">Contrato *</label>
-              <input type="text" id="pe_Contrato" required maxlength="20" pattern="[1-9][0-9]*/[0-9]{4}"
+              <label for="pe_Contrato">Contrato <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_Contrato" maxlength="20" pattern="[1-9][0-9]*/[0-9]{4}"
                 title="Use o formato NÚMERO/ANO, sem zero à esquerda no número. Ex: 123/2024">
             </div>
             <div class="campo">
-              <label for="pe_QtdContrato">Quantidade de veículos do contrato *</label>
-              <input type="number" id="pe_QtdContrato" required min="1" step="1">
+              <label for="pe_QtdContrato">Quantidade de veículos do contrato <span class="opcional">(opcional)</span></label>
+              <input type="number" id="pe_QtdContrato" min="1" step="1">
             </div>
             <div class="campo">
-              <label for="pe_TemAditivo">Houve aditivo de contrato? *</label>
-              <select id="pe_TemAditivo" required>
+              <label for="pe_TemAditivo">Houve aditivo de contrato?</label>
+              <select id="pe_TemAditivo">
                 <option value="NÃO">Não</option>
                 <option value="SIM">Sim</option>
               </select>
@@ -734,16 +734,16 @@
           <div class="etapa-cabecalho" style="margin-top:18px;">Localização e Entidade</div>
           <div class="grid-form">
             <div class="campo">
-              <label for="pe_UF">UF *</label>
-              <select id="pe_UF" required></select>
+              <label for="pe_UF">UF <span class="opcional">(opcional)</span></label>
+              <select id="pe_UF"></select>
             </div>
             <div class="campo">
-              <label for="pe_Ente">Ente *</label>
-              <select id="pe_Ente" required></select>
+              <label for="pe_Ente">Ente <span class="opcional">(opcional)</span></label>
+              <select id="pe_Ente"></select>
             </div>
             <div class="campo span-2">
-              <label for="pe_Donataria">Donatária *</label>
-              <input type="text" id="pe_Donataria" required maxlength="200">
+              <label for="pe_Donataria">Donatária <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_Donataria" maxlength="200">
             </div>
             <div class="campo">
               <label for="pe_CNPJDonataria">CNPJ da Donatária <span class="opcional">(opcional)</span></label>
@@ -754,29 +754,29 @@
           <div class="etapa-cabecalho" style="margin-top:18px;">Endereço para envio</div>
           <div class="grid-form">
             <div class="campo">
-              <label for="pe_CEP">CEP *</label>
-              <input type="text" id="pe_CEP" required maxlength="9" placeholder="00000-000" inputmode="numeric">
+              <label for="pe_CEP">CEP <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_CEP" maxlength="9" placeholder="00000-000" inputmode="numeric">
               <div id="peStatusCep" style="font-size:12px; color:var(--texto-suave); margin-top:4px;"></div>
             </div>
             <div class="campo span-2">
-              <label for="pe_Logradouro">Logradouro *</label>
-              <input type="text" id="pe_Logradouro" required maxlength="200">
+              <label for="pe_Logradouro">Logradouro <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_Logradouro" maxlength="200">
             </div>
             <div class="campo">
-              <label for="pe_Numero">Número *</label>
-              <input type="text" id="pe_Numero" required maxlength="20">
+              <label for="pe_Numero">Número <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_Numero" maxlength="20">
             </div>
             <div class="campo">
               <label for="pe_Complemento">Complemento <span class="opcional">(opcional)</span></label>
               <input type="text" id="pe_Complemento" maxlength="100">
             </div>
             <div class="campo">
-              <label for="pe_Bairro">Bairro *</label>
-              <input type="text" id="pe_Bairro" required maxlength="100">
+              <label for="pe_Bairro">Bairro <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_Bairro" maxlength="100">
             </div>
             <div class="campo">
-              <label for="pe_Municipio">Município *</label>
-              <input type="text" id="pe_Municipio" required maxlength="100">
+              <label for="pe_Municipio">Município <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pe_Municipio" maxlength="100">
             </div>
           </div>
 
@@ -2399,11 +2399,11 @@
             : '<button type="button" class="perigo" onclick="excluirVeiculoDaEdicao_(' + i + ')">Excluir</button>') +
         '</div>' +
         '<div class="grid-form">' +
-          '<div class="campo"><label>Marca *</label><input type="text" required maxlength="60" data-campo="Marca" data-indice="' + i + '"></div>' +
-          '<div class="campo"><label>Descrição / modelo *</label><input type="text" required maxlength="120" data-campo="Descricao" data-indice="' + i + '"></div>' +
-          '<div class="campo"><label>Chassi (VIN, 17 caracteres) *</label><input type="text" required maxlength="17" style="text-transform:uppercase" data-campo="Chassi" data-indice="' + i + '"></div>' +
-          '<div class="campo"><label>Placa *</label><input type="text" required maxlength="8" style="text-transform:uppercase" data-campo="Placa" data-indice="' + i + '"></div>' +
-          '<div class="campo"><label>Renavam *</label><input type="text" required maxlength="11" data-campo="Renavam" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Marca</label><input type="text" maxlength="60" data-campo="Marca" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Descrição / modelo</label><input type="text" maxlength="120" data-campo="Descricao" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Chassi (VIN, 17 caracteres)</label><input type="text" maxlength="17" style="text-transform:uppercase" data-campo="Chassi" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Placa</label><input type="text" maxlength="8" style="text-transform:uppercase" data-campo="Placa" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Renavam</label><input type="text" maxlength="11" data-campo="Renavam" data-indice="' + i + '"></div>' +
           '<div class="campo"><label>Valor do veículo (R$)</label><input type="text" inputmode="numeric" placeholder="0,00" data-campo="ValorVeiculo" data-indice="' + i + '"></div>' +
           (v.novo
             ? '<div class="campo span-2"><label>Motivo da inclusão deste veículo *</label><input type="text" required maxlength="300" placeholder="Ex: veículo do aditivo incluído posteriormente" data-campo="Motivo" data-indice="' + i + '"></div>'
@@ -2457,12 +2457,11 @@
       '#pe_NumeroProcesso, #pe_Ano, #pe_Mes, #pe_TermoDoacao, #pe_Contrato, #pe_QtdContrato, #pe_TemAditivo, ' +
       '#pe_UF, #pe_Ente, #pe_Donataria, #pe_CEP, #pe_Logradouro, #pe_Numero, #pe_Bairro, #pe_Municipio'
     );
+    // Só valida o FORMATO de quem foi preenchido (ex.: padrão do Contrato,
+    // faixa do Ano) — nenhum desses campos é mais obrigatório pra editar um
+    // processo já existente, só pra cadastrar um novo.
     for (var i = 0; i < camposComuns.length; i++) {
       if (!camposComuns[i].checkValidity()) { camposComuns[i].reportValidity(); return; }
-    }
-    if (!document.getElementById('pe_NumeroSei').value) {
-      abrirModalNumeroSei_('pe');
-      return;
     }
     if (!VEICULOS_PROCESSO_EDICAO.length) {
       mostrarErroCadastro_('Este processo precisa ter ao menos um veículo.');
@@ -2477,10 +2476,6 @@
     }
     for (var j = 0; j < VEICULOS_PROCESSO_EDICAO.length; j++) {
       var vv = VEICULOS_PROCESSO_EDICAO[j];
-      if (!vv.Marca || !vv.Descricao || !vv.Chassi || !vv.Placa || !vv.Renavam) {
-        mostrarErroCadastro_('Preencha todos os campos do veículo ' + (j + 1) + ' antes de salvar.');
-        return;
-      }
       if (vv.novo && !vv.Motivo) {
         mostrarErroCadastro_('Informe o motivo da inclusão do veículo ' + (j + 1) + ' antes de salvar.');
         return;

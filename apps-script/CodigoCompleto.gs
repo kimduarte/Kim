@@ -996,6 +996,13 @@ function salvarVeiculo(dados) {
 
 function validarESanitizarVeiculo_(dados) {
   var erros = [];
+  // Presença de dados.ID indica edição de um veículo já existente — muitos
+  // vieram de migração de dados antigos incompletos, com marcadores como
+  // "NI" (UF não informada) ou chassi "HIST-..." (lote sem chassi
+  // individual). Exigir esses campos completos/no formato certo pra poder
+  // salvar até uma edição que não mexe neles travava a tela sem necessidade
+  // — essa obrigatoriedade agora vale só para cadastro novo.
+  var ehEdicao = !!dados.ID;
 
   var uf = normalizarUF_(dados.UF);
   var ente = normalizarTexto_(dados.Ente);
@@ -1015,18 +1022,20 @@ function validarESanitizarVeiculo_(dados) {
   var ano = parseInt(dados.Ano, 10);
   var cep = normalizarTexto_(dados.CEP).replace(/\D/g, '');
 
-  if (UFS_VALIDAS.indexOf(uf) === -1 && CODIGOS_ORGAO_FEDERAL.indexOf(uf) === -1) {
-    erros.push('UF inválida: ' + dados.UF);
+  if (!ehEdicao) {
+    if (UFS_VALIDAS.indexOf(uf) === -1 && CODIGOS_ORGAO_FEDERAL.indexOf(uf) === -1) {
+      erros.push('UF inválida: ' + dados.UF);
+    }
+    if (ENTES_VALIDOS.indexOf(ente) === -1) erros.push('Ente inválido: ' + dados.Ente);
+    if (MESES_VALIDOS.indexOf(mes) === -1) erros.push('Mês inválido: ' + dados.Mes);
+    if (!ano || ano < 2000 || ano > 2100) erros.push('Ano inválido: ' + dados.Ano);
+    if (!validarChassi_(chassi)) erros.push('Chassi inválido (17 caracteres, sem I/O/Q): ' + chassi);
+    if (!validarPlaca_(placa)) erros.push('Placa inválida: ' + placa);
+    if (!validarRenavam_(renavam)) erros.push('Renavam inválido: ' + renavam);
+    if (!normalizarTexto_(dados.Donataria)) erros.push('Donatária é obrigatória.');
+    if (!normalizarTexto_(dados.TermoDoacao)) erros.push('Termo de doação é obrigatório.');
+    if (!normalizarTexto_(dados.NumeroSei)) erros.push('Número SEI do Termo é obrigatório.');
   }
-  if (ENTES_VALIDOS.indexOf(ente) === -1) erros.push('Ente inválido: ' + dados.Ente);
-  if (MESES_VALIDOS.indexOf(mes) === -1) erros.push('Mês inválido: ' + dados.Mes);
-  if (!ano || ano < 2000 || ano > 2100) erros.push('Ano inválido: ' + dados.Ano);
-  if (!validarChassi_(chassi)) erros.push('Chassi inválido (17 caracteres, sem I/O/Q): ' + chassi);
-  if (!validarPlaca_(placa)) erros.push('Placa inválida: ' + placa);
-  if (!validarRenavam_(renavam)) erros.push('Renavam inválido: ' + renavam);
-  if (!normalizarTexto_(dados.Donataria)) erros.push('Donatária é obrigatória.');
-  if (!normalizarTexto_(dados.TermoDoacao)) erros.push('Termo de doação é obrigatório.');
-  if (!normalizarTexto_(dados.NumeroSei)) erros.push('Número SEI do Termo é obrigatório.');
   // CEP só é validado no formato quando informado — não é exigido aqui para
   // não travar a edição de veículos antigos (migrados sem endereço).
   if (cep && cep.length !== 8) erros.push('CEP inválido: ' + dados.CEP);
@@ -1036,7 +1045,7 @@ function validarESanitizarVeiculo_(dados) {
   }
 
   return {
-    Ano: ano,
+    Ano: ano || dados.Ano,
     Mes: mes,
     UF: uf,
     Ente: ente,
