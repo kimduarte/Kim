@@ -346,7 +346,7 @@
   <div class="app-shell">
     <nav class="app-lateral">
       <div class="app-nav-item ativo" data-tela="inicio" onclick="irParaTela('inicio')">▤ Início</div>
-      <div class="app-nav-item" id="navCadastro" data-tela="cadastro" style="display:none;" onclick="abrirModalNumeroProcesso_()">🚓 Cadastrar veículo</div>
+      <div class="app-nav-item" id="navCadastro" data-tela="cadastro" style="display:none;" onclick="abrirModalEscolhaCadastro_()">🚓 Cadastrar veículo</div>
       <div class="app-nav-item" data-tela="listagem" onclick="irParaTela('listagem')">☰ Processos</div>
       <div class="app-nav-item" data-tela="painel" onclick="irParaTela('painel')">📊 Estatísticas</div>
       <div class="app-nav-item" id="navNovoUsuario" style="display:none;" onclick="abrirModalNovoUsuario_()">👤 Cadastrar usuário</div>
@@ -900,6 +900,59 @@
     </div>
   </div>
 
+  <div class="modal-fundo" id="modalEscolhaCadastroFundo">
+    <div class="modal" style="max-width:460px;">
+      <h2>Cadastrar</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">O que você deseja fazer?</p>
+      <div class="botoes" style="flex-direction:column; align-items:stretch; gap:10px; margin-top:8px;">
+        <button type="button" class="primario" id="botaoEscolhaNovoProcesso">Cadastrar um Novo Processo</button>
+        <button type="button" class="secundario" id="botaoEscolhaSegundaVia">Cadastrar Emissão de 2ª via de ATPVe</button>
+      </div>
+      <div class="botoes">
+        <button class="secundario" id="botaoEscolhaCadastroFechar" style="margin-left:auto;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalSegundaViaAtpveFundo">
+    <div class="modal" style="max-width:480px;">
+      <h2>Emissão de 2ª via de ATPVe</h2>
+      <div id="mensagemSegundaViaAtpve"></div>
+      <div id="svBuscaContainer">
+        <p style="font-size:14px; color:var(--texto-suave);">Busque o veículo já cadastrado pela Placa ou pelo Chassi.</p>
+        <div class="grid-form">
+          <div class="campo span-2">
+            <label for="sv_Busca">Placa ou Chassi *</label>
+            <input type="text" id="sv_Busca" maxlength="20" style="text-transform:uppercase" placeholder="Ex: ABC1D23 ou 9BWZZZ...">
+          </div>
+        </div>
+        <div class="botoes">
+          <button class="secundario" id="botaoSvCancelarBusca">Cancelar</button>
+          <button class="primario" id="botaoSvBuscar" style="margin-left:auto;">Buscar veículo</button>
+        </div>
+      </div>
+      <div id="svResultadoContainer" style="display:none;">
+        <div class="card" style="margin-bottom:14px;">
+          <div id="svInfoVeiculo" style="font-size:14px;"></div>
+        </div>
+        <div class="grid-form">
+          <div class="campo">
+            <label for="sv_DataEmissao">Data de emissão da 2ª via *</label>
+            <input type="date" id="sv_DataEmissao">
+          </div>
+          <div class="campo">
+            <label for="sv_DataEnvio">Data de envio da 2ª via <span class="opcional">(opcional)</span></label>
+            <input type="date" id="sv_DataEnvio">
+          </div>
+        </div>
+        <div class="botoes">
+          <button class="secundario" id="botaoSvVoltarBusca">‹ Buscar outro veículo</button>
+          <button class="primario" id="botaoSvSalvar" style="margin-left:auto;">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="modalNumeroProcessoFundo">
     <div class="modal" style="max-width:440px;">
       <h2>Novo cadastro</h2>
@@ -977,6 +1030,8 @@
     configurarStepper();
     configurarDonatariaDinamica_();
     configurarBuscaCep_();
+    configurarModalEscolhaCadastro_();
+    configurarModalSegundaViaAtpve_();
     configurarModalNumeroProcesso_();
     configurarModalVeiculo_();
     configurarModalErroCadastro_();
@@ -1259,6 +1314,120 @@
 
   function fecharModalConfirmarQtd_() {
     document.getElementById('modalConfirmarQtdFundo').classList.remove('ativo');
+  }
+
+  // ---------- Modal: escolha entre Novo Processo ou Emissão de 2ª via de ATPVe ----------
+  function configurarModalEscolhaCadastro_() {
+    document.getElementById('botaoEscolhaCadastroFechar').addEventListener('click', fecharModalEscolhaCadastro_);
+    document.getElementById('botaoEscolhaNovoProcesso').addEventListener('click', function () {
+      fecharModalEscolhaCadastro_();
+      abrirModalNumeroProcesso_();
+    });
+    document.getElementById('botaoEscolhaSegundaVia').addEventListener('click', function () {
+      fecharModalEscolhaCadastro_();
+      abrirModalSegundaViaAtpve_();
+    });
+  }
+
+  function abrirModalEscolhaCadastro_() {
+    document.getElementById('modalEscolhaCadastroFundo').classList.add('ativo');
+  }
+
+  function fecharModalEscolhaCadastro_() {
+    document.getElementById('modalEscolhaCadastroFundo').classList.remove('ativo');
+  }
+
+  // ---------- Modal: Emissão de 2ª via de ATPVe (veículo já cadastrado) ----------
+  // Só pra fins de relatório — busca o veículo por Placa/Chassi e grava a
+  // data de emissão (e opcionalmente de envio) da 2ª via, sem criar
+  // veículo novo nem mexer em ATPVeEmitido/ATPVeEnviado.
+  var VEICULO_SEGUNDA_VIA_ATUAL = null;
+
+  function configurarModalSegundaViaAtpve_() {
+    document.getElementById('botaoSvCancelarBusca').addEventListener('click', fecharModalSegundaViaAtpve_);
+    document.getElementById('botaoSvBuscar').addEventListener('click', buscarVeiculoSegundaVia_);
+    document.getElementById('sv_Busca').addEventListener('keyup', function (e) {
+      if (e.key === 'Enter') buscarVeiculoSegundaVia_();
+    });
+    document.getElementById('botaoSvVoltarBusca').addEventListener('click', voltarBuscaSegundaVia_);
+    document.getElementById('botaoSvSalvar').addEventListener('click', salvarSegundaViaAtpve_);
+  }
+
+  function abrirModalSegundaViaAtpve_() {
+    document.getElementById('sv_Busca').value = '';
+    document.getElementById('sv_DataEmissao').value = '';
+    document.getElementById('sv_DataEnvio').value = '';
+    document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
+    document.getElementById('svBuscaContainer').style.display = '';
+    document.getElementById('svResultadoContainer').style.display = 'none';
+    VEICULO_SEGUNDA_VIA_ATUAL = null;
+    document.getElementById('modalSegundaViaAtpveFundo').classList.add('ativo');
+  }
+
+  function fecharModalSegundaViaAtpve_() {
+    document.getElementById('modalSegundaViaAtpveFundo').classList.remove('ativo');
+  }
+
+  function voltarBuscaSegundaVia_() {
+    VEICULO_SEGUNDA_VIA_ATUAL = null;
+    document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
+    document.getElementById('svBuscaContainer').style.display = '';
+    document.getElementById('svResultadoContainer').style.display = 'none';
+  }
+
+  async function buscarVeiculoSegundaVia_() {
+    var busca = document.getElementById('sv_Busca').value.trim();
+    if (!busca) {
+      document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+        '<div class="mensagem erro">Digite a placa ou o chassi do veículo.</div>';
+      return;
+    }
+    document.getElementById('mensagemSegundaViaAtpve').innerHTML = '<div class="carregando">Buscando...</div>';
+    try {
+      var veiculo = await chamarServidor_('buscarVeiculoParaSegundaVia', busca);
+      if (!veiculo) {
+        document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+          '<div class="mensagem erro">Nenhum veículo encontrado com essa placa/chassi.</div>';
+        return;
+      }
+      VEICULO_SEGUNDA_VIA_ATUAL = veiculo;
+      document.getElementById('svInfoVeiculo').innerHTML =
+        '<strong>' + escaparHtml(veiculo.Marca) + ' — ' + escaparHtml(veiculo.Descricao) + '</strong><br>' +
+        'Chassi: ' + escaparHtml(veiculo.Chassi) + ' • Placa: ' + escaparHtml(veiculo.Placa) + '<br>' +
+        escaparHtml(veiculo.Donataria) + ' • ' + escaparHtml(veiculo.UF);
+      document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
+      document.getElementById('svBuscaContainer').style.display = 'none';
+      document.getElementById('svResultadoContainer').style.display = '';
+    } catch (erro) {
+      document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  async function salvarSegundaViaAtpve_() {
+    if (!VEICULO_SEGUNDA_VIA_ATUAL) return;
+    var dataEmissao = document.getElementById('sv_DataEmissao').value;
+    var dataEnvio = document.getElementById('sv_DataEnvio').value;
+    if (!dataEmissao) {
+      document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+        '<div class="mensagem erro">Informe a data de emissão da 2ª via.</div>';
+      return;
+    }
+    var botao = document.getElementById('botaoSvSalvar');
+    botao.disabled = true;
+    try {
+      await chamarServidor_('registrarSegundaViaAtpve', VEICULO_SEGUNDA_VIA_ATUAL.ID, dataEmissao, dataEnvio);
+      var idVeiculo = VEICULO_SEGUNDA_VIA_ATUAL.ID;
+      fecharModalSegundaViaAtpve_();
+      irParaTela('listagem');
+      carregarListagem();
+      mostrarMensagem('mensagemListagem', 'sucesso', '2ª via de ATPVe registrada para o veículo ' + idVeiculo + '.');
+    } catch (erro) {
+      document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    } finally {
+      botao.disabled = false;
+    }
   }
 
   // ---------- Modal: número do processo (aberto antes de entrar no cadastro) ----------

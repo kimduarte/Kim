@@ -43,7 +43,11 @@ var CABECALHO_VEICULOS = [
   // ANEXA colunas ausentes ao final da planilha física — inserir um campo no
   // meio deste array desalinharia todas as colunas seguintes em planilhas
   // já existentes (com dados nas posições antigas).
-  'NumeroSei', 'ValorVeiculo'
+  'NumeroSei', 'ValorVeiculo',
+  // Emissão de 2ª via do ATPVe de um veículo já cadastrado (documento
+  // original perdido/danificado etc.) — só pra fins de relatório, não
+  // afeta ATPVeEmitido/ATPVeEnviado nem o fluxo normal de transferência.
+  'DataEmissaoSegundaViaATPVe', 'DataEnvioSegundaViaATPVe'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -989,6 +993,71 @@ function atualizarStatusVeiculo(id, campo, valor) {
   registrarLog_('ATUALIZAR_STATUS', id, campo + '=' + valorNormalizado);
   invalidarCacheDashboard_();
   return { mensagem: 'Atualizado com sucesso.', campo: campo, valor: valorNormalizado, cascata: cascataTransferido };
+}
+
+/**
+ * Busca um veículo já cadastrado por Placa OU Chassi — usada pelo fluxo
+ * "Cadastrar Emissão de 2ª via de ATPVe" pra localizar o veículo antes de
+ * registrar a emissão. Não cria nada; devolve null se não achar (ou se a
+ * busca vier vazia). Reaproveita listarVeiculos (já filtra por UF conforme
+ * o perfil do usuário) e depois exige bater exatamente com Chassi ou
+ * Placa — busca por substring aqui poderia trazer o veículo errado.
+ */
+function buscarVeiculoParaSegundaVia(busca) {
+  var termo = normalizarTexto_(busca);
+  if (!termo) return null;
+  var chassiBusca = normalizarChassi_(termo);
+  var placaBusca = normalizarPlaca_(termo);
+
+  var candidatos = listarVeiculos({ busca: termo });
+  var encontrado = candidatos.filter(function (r) {
+    return normalizarChassi_(r.Chassi) === chassiBusca || normalizarPlaca_(r.Placa) === placaBusca;
+  })[0];
+  if (!encontrado) return null;
+
+  return {
+    ID: encontrado.ID,
+    Marca: encontrado.Marca,
+    Descricao: encontrado.Descricao,
+    Chassi: encontrado.Chassi,
+    Placa: encontrado.Placa,
+    Donataria: encontrado.Donataria,
+    UF: encontrado.UF,
+    DataEmissaoSegundaViaATPVe: encontrado.DataEmissaoSegundaViaATPVe,
+    DataEnvioSegundaViaATPVe: encontrado.DataEnvioSegundaViaATPVe
+  };
+}
+
+/**
+ * Registra a emissão de uma 2ª via do ATPVe de um veículo já cadastrado
+ * (documento original perdido/danificado etc.) — só pra fins de relatório;
+ * não mexe em ATPVeEmitido/ATPVeEnviado nem no fluxo normal de
+ * transferência, e não cria um veículo novo.
+ */
+function registrarSegundaViaAtpve(id, dataEmissao, dataEnvio) {
+  if (!dataEmissao) throw new Error('Informe a data de emissão da 2ª via.');
+
+  var perfil = getPerfilUsuarioAtual_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
+
+  var linhaIdx = encontrarLinhaPorId_(sheet, id);
+  if (!linhaIdx) throw new Error('Veículo não encontrado: ' + id);
+  if (!podeEditarLinha_(perfil)) {
+    throw new Error('Você não tem permissão para registrar isso — visitantes só podem visualizar.');
+  }
+
+  var agora = new Date();
+  sheet.getRange(linhaIdx, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1).setValue(new Date(dataEmissao));
+  if (dataEnvio) {
+    sheet.getRange(linhaIdx, colunaParaIndice_('DataEnvioSegundaViaATPVe') + 1).setValue(new Date(dataEnvio));
+  }
+  sheet.getRange(linhaIdx, colunaParaIndice_('UltimaAtualizacao') + 1).setValue(agora);
+  sheet.getRange(linhaIdx, colunaParaIndice_('AtualizadoPor') + 1).setValue(perfil.email);
+
+  registrarLog_('SEGUNDA_VIA_ATPVE', id, 'Emissão: ' + dataEmissao + (dataEnvio ? ' | Envio: ' + dataEnvio : ''));
+  invalidarCacheDashboard_();
+  return { mensagem: '2ª via de ATPVe registrada com sucesso.', ID: id };
 }
 
 function linhaParaObjeto_(cabecalho, linha) {
