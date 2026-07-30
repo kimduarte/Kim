@@ -2806,6 +2806,7 @@
     var corpo = linhas.map(function (v) {
       return '<tr>' +
         '<td>' + escaparHtml(v.Processo) + '</td>' +
+        '<td>' + escaparHtml(v.NumeroSei) + '</td>' +
         '<td>' + escaparHtml(v.Donataria) + '</td>' +
         '<td>' + escaparHtml(v.UF) + '</td>' +
         '<td>' + escaparHtml(v.Ente) + '</td>' +
@@ -2820,7 +2821,7 @@
         '</tr>';
     }).join('');
     return '<div class="tabela-wrap"><table><thead><tr>' +
-      '<th>Processo</th><th>Donatária</th><th>UF</th><th>Ente</th><th>Termo de Doação</th><th>Veículo</th>' +
+      '<th>Processo</th><th>Número SEI</th><th>Donatária</th><th>UF</th><th>Ente</th><th>Termo de Doação</th><th>Veículo</th>' +
       '<th>Chassi</th><th>Renavam</th><th>Placa</th><th>Ano/Mês</th><th>Valor</th><th>Transferência</th>' +
       '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
   }
@@ -2835,6 +2836,7 @@
     var titulo = g.processo
       ? 'Processo nº ' + escaparHtml(g.processo)
       : escaparHtml(formatarTermoDoacao_(g.termoDoacao, g.ano) || '(sem identificação)');
+    var subSei = g.numeroSei ? 'SEI: ' + escaparHtml(g.numeroSei) + ' • ' : '';
 
     var linhasVeiculos = g.veiculos.map(function (v) {
       return '<tr>' +
@@ -2852,7 +2854,7 @@
         '<span class="processo-chevron">' + (expandido ? '▾' : '▸') + '</span>' +
         '<div class="processo-info">' +
           '<div class="processo-titulo">' + titulo + '</div>' +
-          '<div class="processo-sub">' + escaparHtml(g.donataria) + ' • ' + escaparHtml(g.uf) + ' • ' + escaparHtml(g.ente) + ' • ' + escaparHtml(g.ano) + '/' + escaparHtml(g.mes) + '</div>' +
+          '<div class="processo-sub">' + subSei + escaparHtml(g.donataria) + ' • ' + escaparHtml(g.uf) + ' • ' + escaparHtml(g.ente) + ' • ' + escaparHtml(g.ano) + '/' + escaparHtml(g.mes) + '</div>' +
         '</div>' +
         '<div class="processo-progresso">' +
           '<div class="processo-fracao">' + g.qtdTransferidos + '/' + g.qtdTotal + ' transferidos</div>' +
@@ -2881,7 +2883,7 @@
   // direto do servidor no momento do clique — independente de como os
   // dados estão agrupados/expandidos na tela.
   var COLUNAS_DETALHE_UF_ = [
-    ['Processo', 'Processo'], ['Donataria', 'Donatária'], ['UF', 'UF'], ['Ente', 'Ente'],
+    ['Processo', 'Processo'], ['NumeroSei', 'Número SEI'], ['Donataria', 'Donatária'], ['UF', 'UF'], ['Ente', 'Ente'],
     ['TermoDoacao', 'Termo de Doação'], ['Qtd', 'Qtd'], ['Descricao', 'Descrição'], ['Marca', 'Marca'],
     ['Chassi', 'Chassi'], ['Renavam', 'Renavam'], ['Placa', 'Placa'], ['Ano', 'Ano'], ['Mes', 'Mês'],
     ['Transferido', 'Transferência'], ['ValorVeiculo', 'Valor']

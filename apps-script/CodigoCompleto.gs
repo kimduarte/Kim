@@ -2098,6 +2098,7 @@ function listarVeiculosDetalhadosUF_(uf, ano, transferido) {
     var chave = r.NumeroProcesso || r.TermoDoacao || '';
     return {
       Processo: r.NumeroProcesso || r.NumeroSei || '',
+      NumeroSei: r.NumeroSei,
       Donataria: r.Donataria,
       UF: r.UF,
       Ente: r.Ente,
@@ -2137,6 +2138,7 @@ function getVeiculosPorUFDetalhado(uf, ano, transferido) {
     if (!grupos[chave]) {
       grupos[chave] = {
         processo: r.Processo,
+        numeroSei: r.NumeroSei,
         termoDoacao: r.TermoDoacao,
         donataria: r.Donataria,
         uf: r.UF,
@@ -2168,10 +2170,10 @@ function getVeiculosPorUFDetalhado(uf, ano, transferido) {
  */
 function exportarDetalheUFXlsx(uf, ano, transferido) {
   var registros = listarVeiculosDetalhadosUF_(uf, ano, transferido);
-  var cabecalho = ['Processo', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
+  var cabecalho = ['Processo', 'Número SEI', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
     'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferência', 'Valor'];
   var linhas = registros.map(function (r) {
-    return [r.Processo, r.Donataria, r.UF, r.Ente, r.TermoDoacao, r.Qtd, r.Descricao,
+    return [r.Processo, r.NumeroSei, r.Donataria, r.UF, r.Ente, r.TermoDoacao, r.Qtd, r.Descricao,
       r.Marca, r.Chassi, r.Renavam, r.Placa, r.Ano, r.Mes, r.Transferido, Number(r.ValorVeiculo) || 0];
   });
 
