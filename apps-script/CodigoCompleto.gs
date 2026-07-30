@@ -2082,19 +2082,19 @@ function getEstatisticas() {
 }
 
 /**
- * Distribuição de veículos por UF, opcionalmente restrita a um ano e/ou a um
- * status de transferência — usada pelos seletores de Ano e Transferidos dos
- * cards "Veículos por UF" e "Veículos por Região/Estado" na tela de
- * Estatísticas. Sem cache: é uma consulta pontual (só quando o usuário troca
- * um filtro), diferente do painel geral que é recalculado toda hora que
- * alguém abre a tela.
+ * Distribuição de veículos por UF (ou por Ente, quando campo='Ente'),
+ * opcionalmente restrita a um ano e/ou a um status de transferência — usada
+ * pelo seletor "Como você deseja visualizar?" (Por UF / Por Região / Por
+ * Ente) na tela de Estatísticas. Sem cache: é uma consulta pontual (só
+ * quando o usuário troca um filtro), diferente do painel geral que é
+ * recalculado toda hora que alguém abre a tela.
  */
-function getVeiculosPorUFAno(ano, transferido) {
+function getVeiculosPorUFAno(ano, transferido, campo) {
   var filtros = {};
   if (ano) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   var registros = listarVeiculos(filtros);
-  return paraArrayOrdenado_(contarPor_(registros, 'UF'));
+  return paraArrayOrdenado_(contarPor_(registros, campo || 'UF'));
 }
 
 /**
@@ -2112,8 +2112,9 @@ function getVeiculosPorUFAno(ano, transferido) {
  * do Termo de Doação como referência (dá pra achar o documento no SEI
  * mesmo sem o número do processo formal).
  */
-function listarVeiculosDetalhadosUF_(uf, ano, transferido) {
-  var filtros = { uf: uf };
+function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro) {
+  var filtros = {};
+  filtros[campoFiltro || 'uf'] = valor;
   if (ano) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   var registros = listarVeiculos(filtros);
@@ -2160,8 +2161,8 @@ function listarVeiculosDetalhadosUF_(uf, ano, transferido) {
  * grupo é o total de veículos; qtdTransferidos é quantos já estão
  * Transferido: SIM — a tela monta o "X/Y" a partir desses dois números.
  */
-function getVeiculosPorUFDetalhado(uf, ano, transferido) {
-  var registros = listarVeiculosDetalhadosUF_(uf, ano, transferido);
+function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro) {
+  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro);
   var grupos = {};
   var ordem = [];
 
@@ -2200,8 +2201,8 @@ function getVeiculosPorUFDetalhado(uf, ano, transferido) {
  * exportação do Google Sheets (mesmo truque de exportarPlanilhaComoXlsx_),
  * e apaga a planilha temporária logo em seguida.
  */
-function exportarDetalheUFXlsx(uf, ano, transferido) {
-  var registros = listarVeiculosDetalhadosUF_(uf, ano, transferido);
+function exportarDetalheUFXlsx(valor, ano, transferido, campoFiltro) {
+  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro);
   var cabecalho = ['Processo', 'Número SEI', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
     'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferência', 'Valor'];
   var linhas = registros.map(function (r) {
