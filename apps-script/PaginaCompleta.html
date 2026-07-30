@@ -228,10 +228,6 @@
   .stat-card .stat-card-rotulo { font-size: 12px; color: var(--texto-suave); margin-top: 2px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stat-card-vazio { color: var(--texto-suave); font-size: 13px; padding: 10px 0; grid-column: 1 / -1; }
 
-  /* Total de veículos da visualização/filtro atual (Por UF / Por Região) */
-  .stat-total-estratificado { font-size: 14px; color: var(--texto-suave); margin-top: 6px; }
-  .stat-total-estratificado strong { color: var(--texto); font-size: 20px; margin-right: 6px; }
-
   /* Veículos por UF: lista ranqueada, do maior para o menor */
   .rank-lista { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; }
   .rank-linha { display: grid; grid-template-columns: 40px 1fr 50px; align-items: center; gap: 8px; height: 24px; cursor: pointer; border-radius: 4px; }
@@ -246,7 +242,8 @@
      quanto maior o valor) em vez de mapa geográfico de verdade. */
   .regiao-bloco { margin-top: 14px; }
   .regiao-bloco:first-child { margin-top: 0; }
-  .regiao-titulo { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--texto-suave); margin-bottom: 6px; }
+  .regiao-titulo { display: flex; align-items: baseline; justify-content: space-between; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--texto-suave); margin-bottom: 6px; }
+  .regiao-total { font-size: 12px; font-weight: 800; text-transform: none; letter-spacing: normal; color: var(--primario); }
   .regiao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 5px; }
   .heat-celula { border-radius: 6px; padding: 8px 10px; cursor: pointer; transition: transform 0.1s; }
   .heat-celula:hover { transform: translateY(-2px); }
@@ -829,7 +826,6 @@
             </select>
           </div>
         </div>
-        <div class="stat-total-estratificado" id="totalEstratificado"></div>
         <div id="corpoStatUF">
           <div class="rank-lista" id="rankUF"></div>
         </div>
@@ -2535,7 +2531,6 @@
 
     renderizarRankUF_(stats.porUF);
     renderizarMapaRegional_(stats.porUF);
-    atualizarTotalEstratificado_(stats.porUF);
     popularAnosStat_('anoStatGeral', stats.porAnoMes);
 
     DADOS_PENDENTES = stats.pendentesMaisAntigos;
@@ -2581,16 +2576,6 @@
     select.value = selecionado;
   }
 
-  // Soma do total de veículos na estratificação atual (Por UF/Por Região
-  // usam o mesmo recorte de dados) — dá pra ver de cara quantos veículos
-  // aquele filtro de Ano/Transferidos representa, sem ter que somar as
-  // barras/células uma por uma.
-  function atualizarTotalEstratificado_(itens) {
-    var total = itens.reduce(function (soma, item) { return soma + item.total; }, 0);
-    document.getElementById('totalEstratificado').innerHTML =
-      '<strong>' + total + '</strong> veículo(s) nesse recorte';
-  }
-
   async function atualizarVisualizacaoStat_() {
     var ano = document.getElementById('anoStatGeral').value;
     var transferido = document.getElementById('transfStatGeral').value;
@@ -2599,7 +2584,6 @@
     try {
       var itens = await chamarServidor_('getVeiculosPorUFAno', ano, transferido);
       if (MODO_VISUALIZACAO_STAT === 'regiao') renderizarMapaRegional_(itens); else renderizarRankUF_(itens);
-      atualizarTotalEstratificado_(itens);
     } catch (erro) {
       mostrarErroGlobal(erro);
     }
@@ -2663,7 +2647,11 @@
         ? ufsDaRegiao.filter(function (uf) { return indicePorUf.hasOwnProperty(uf); }).map(function (uf) { ufsUsadas[uf] = true; return itens[indicePorUf[uf]]; })
         : itens.filter(function (item) { return !ufsUsadas[item.chave] && !algumaRegiaoTem_(item.chave); });
       if (!itensDaRegiao.length) return '';
-      return '<div class="regiao-bloco"><div class="regiao-titulo">' + escaparHtml(nomeRegiao) + '</div><div class="regiao-grade">' +
+      var totalRegiao = itensDaRegiao.reduce(function (soma, item) { return soma + item.total; }, 0);
+      return '<div class="regiao-bloco"><div class="regiao-titulo">' +
+        '<span>' + escaparHtml(nomeRegiao) + '</span>' +
+        '<span class="regiao-total">' + totalRegiao + ' veículo(s)</span>' +
+        '</div><div class="regiao-grade">' +
         itensDaRegiao.map(function (item) {
           return '<div class="heat-celula ' + classeCalorUF_(item.total, max) + '" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'regiao\')">' +
             '<div class="v mono">' + item.total + '</div><div class="l">' + escaparHtml(item.chave) + '</div></div>';
