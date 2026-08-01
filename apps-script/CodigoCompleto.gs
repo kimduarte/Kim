@@ -47,7 +47,7 @@ var CABECALHO_VEICULOS = [
   // Emissão de 2ª via do ATPVe de um veículo já cadastrado (documento
   // original perdido/danificado etc.) — só pra fins de relatório, não
   // afeta ATPVeEmitido/ATPVeEnviado nem o fluxo normal de transferência.
-  'DataEmissaoSegundaViaATPVe', 'DataEnvioSegundaViaATPVe'
+  'DataEmissaoSegundaViaATPVe'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -1023,8 +1023,7 @@ function buscarVeiculoParaSegundaVia(busca) {
     Placa: encontrado.Placa,
     Donataria: encontrado.Donataria,
     UF: encontrado.UF,
-    DataEmissaoSegundaViaATPVe: encontrado.DataEmissaoSegundaViaATPVe,
-    DataEnvioSegundaViaATPVe: encontrado.DataEnvioSegundaViaATPVe
+    DataEmissaoSegundaViaATPVe: encontrado.DataEmissaoSegundaViaATPVe
   };
 }
 
@@ -1034,7 +1033,7 @@ function buscarVeiculoParaSegundaVia(busca) {
  * não mexe em ATPVeEmitido/ATPVeEnviado nem no fluxo normal de
  * transferência, e não cria um veículo novo.
  */
-function registrarSegundaViaAtpve(id, dataEmissao, dataEnvio) {
+function registrarSegundaViaAtpve(id, dataEmissao) {
   if (!dataEmissao) throw new Error('Informe a data de emissão da 2ª via.');
 
   var perfil = getPerfilUsuarioAtual_();
@@ -1049,13 +1048,10 @@ function registrarSegundaViaAtpve(id, dataEmissao, dataEnvio) {
 
   var agora = new Date();
   sheet.getRange(linhaIdx, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1).setValue(new Date(dataEmissao));
-  if (dataEnvio) {
-    sheet.getRange(linhaIdx, colunaParaIndice_('DataEnvioSegundaViaATPVe') + 1).setValue(new Date(dataEnvio));
-  }
   sheet.getRange(linhaIdx, colunaParaIndice_('UltimaAtualizacao') + 1).setValue(agora);
   sheet.getRange(linhaIdx, colunaParaIndice_('AtualizadoPor') + 1).setValue(perfil.email);
 
-  registrarLog_('SEGUNDA_VIA_ATPVE', id, 'Emissão: ' + dataEmissao + (dataEnvio ? ' | Envio: ' + dataEnvio : ''));
+  registrarLog_('SEGUNDA_VIA_ATPVE', id, 'Emissão: ' + dataEmissao);
   invalidarCacheDashboard_();
   return { mensagem: '2ª via de ATPVe registrada com sucesso.', ID: id };
 }

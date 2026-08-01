@@ -940,10 +940,6 @@
             <label for="sv_DataEmissao">Data de emissão da 2ª via *</label>
             <input type="date" id="sv_DataEmissao">
           </div>
-          <div class="campo">
-            <label for="sv_DataEnvio">Data de envio da 2ª via <span class="opcional">(opcional)</span></label>
-            <input type="date" id="sv_DataEnvio">
-          </div>
         </div>
         <div class="botoes">
           <button class="secundario" id="botaoSvVoltarBusca">‹ Buscar outro veículo</button>
@@ -1356,7 +1352,6 @@
   function abrirModalSegundaViaAtpve_() {
     document.getElementById('sv_Busca').value = '';
     document.getElementById('sv_DataEmissao').value = '';
-    document.getElementById('sv_DataEnvio').value = '';
     document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
     document.getElementById('svBuscaContainer').style.display = '';
     document.getElementById('svResultadoContainer').style.display = 'none';
@@ -1407,7 +1402,6 @@
   async function salvarSegundaViaAtpve_() {
     if (!VEICULO_SEGUNDA_VIA_ATUAL) return;
     var dataEmissao = document.getElementById('sv_DataEmissao').value;
-    var dataEnvio = document.getElementById('sv_DataEnvio').value;
     if (!dataEmissao) {
       document.getElementById('mensagemSegundaViaAtpve').innerHTML =
         '<div class="mensagem erro">Informe a data de emissão da 2ª via.</div>';
@@ -1416,7 +1410,7 @@
     var botao = document.getElementById('botaoSvSalvar');
     botao.disabled = true;
     try {
-      await chamarServidor_('registrarSegundaViaAtpve', VEICULO_SEGUNDA_VIA_ATUAL.ID, dataEmissao, dataEnvio);
+      await chamarServidor_('registrarSegundaViaAtpve', VEICULO_SEGUNDA_VIA_ATUAL.ID, dataEmissao);
       var idVeiculo = VEICULO_SEGUNDA_VIA_ATUAL.ID;
       fecharModalSegundaViaAtpve_();
       irParaTela('listagem');
