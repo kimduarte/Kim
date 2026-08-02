@@ -349,6 +349,7 @@
       <div class="app-nav-item" id="navCadastro" data-tela="cadastro" style="display:none;" onclick="abrirModalEscolhaCadastro_()">🚓 Cadastrar veículo</div>
       <div class="app-nav-item" data-tela="listagem" onclick="irParaTela('listagem')">☰ Processos</div>
       <div class="app-nav-item" data-tela="painel" onclick="irParaTela('painel')">📊 Estatísticas</div>
+      <div class="app-nav-item" id="navRelatorioProdutividade" data-tela="relatorioProdutividade" style="display:none;" onclick="irParaTela('relatorioProdutividade')">📈 Produtividade</div>
       <div class="app-nav-item" id="navNovoUsuario" style="display:none;" onclick="abrirModalNovoUsuario_()">👤 Cadastrar usuário</div>
     </nav>
     <main>
@@ -865,6 +866,29 @@
         <div id="listaDetalheUF"><div class="carregando">Carregando...</div></div>
       </div>
     </section>
+
+    <section id="tela-relatorioProdutividade" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Relatório de Produtividade</h2>
+          <p>Emissões de 2ª via de ATPVe registradas, por usuário e por período.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="filtros" style="margin-bottom:4px;">
+          <div class="campo">
+            <label for="rp_Periodo">Agrupar por</label>
+            <select id="rp_Periodo" onchange="this.blur(); carregarRelatorioProdutividade()">
+              <option value="semana">Semanal</option>
+              <option value="mes">Mensal</option>
+              <option value="trimestre">Trimestral</option>
+              <option value="semestre">Semestral</option>
+            </select>
+          </div>
+        </div>
+        <div id="rpConteudo"><div class="carregando">Carregando...</div></div>
+      </div>
+    </section>
     </main>
   </div>
 
@@ -1047,6 +1071,7 @@
     if (nome === 'cadastro') irParaEtapa(1);
     if (nome === 'listagem') carregarListagem();
     if (nome === 'painel') carregarPainel();
+    if (nome === 'relatorioProdutividade') carregarRelatorioProdutividade();
     window.scrollTo(0, 0);
   }
 
@@ -1076,6 +1101,7 @@
     USUARIO_E_ADMIN = ehAdmin;
     USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
     document.getElementById('navCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
+    document.getElementById('navRelatorioProdutividade').style.display = ehAdmin ? '' : 'none';
     document.getElementById('navNovoUsuario').style.display = ehAdmin ? '' : 'none';
 
     document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
@@ -2665,6 +2691,31 @@
   }
 
   // ---------- Painel / Estatísticas ----------
+  async function carregarRelatorioProdutividade() {
+    var container = document.getElementById('rpConteudo');
+    container.innerHTML = '<div class="carregando">Carregando...</div>';
+    var tipoPeriodo = document.getElementById('rp_Periodo').value;
+    try {
+      var periodos = await chamarServidor_('getRelatorioProdutividade', tipoPeriodo);
+      if (!periodos.length) {
+        container.innerHTML = '<p>Nenhuma emissão de 2ª via de ATPVe registrada ainda.</p>';
+        return;
+      }
+      var html = '';
+      periodos.forEach(function (p) {
+        html += '<h3 style="margin-top:18px;">' + escaparHtml(p.rotulo) + ' — total: ' + p.total + '</h3>';
+        html += '<div class="tabela-wrap"><table><thead><tr><th>Usuário</th><th>2ª via de ATPVe emitidas</th></tr></thead><tbody>';
+        p.usuarios.forEach(function (u) {
+          html += '<tr><td>' + escaparHtml(u.usuario) + '</td><td>' + u.quantidade + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+      });
+      container.innerHTML = html;
+    } catch (erro) {
+      container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
   function carregarPainel() {
     fecharDetalheUF_();
     google.script.run.withSuccessHandler(renderizarPainelSeguro_).withFailureHandler(mostrarErroGlobal).getEstatisticas();
