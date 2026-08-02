@@ -16,6 +16,7 @@ var SHEET_CONFIG = 'Config';
 var SHEET_USUARIOS = 'Usuarios';
 var SHEET_LOG = 'LogAlteracoes';
 var SHEET_IMPORT_LOG = 'ImportacaoLog';
+var SHEET_RELATORIO_ITENS = 'RelatorioItens';
 
 // Quantas linhas extras (além do que já tem dado) recebem validação de
 // lista suspensa — mantém espaço para novos cadastros sem inflar demais
@@ -47,12 +48,21 @@ var CABECALHO_VEICULOS = [
   // Emissão de 2ª via do ATPVe de um veículo já cadastrado (documento
   // original perdido/danificado etc.) — só pra fins de relatório, não
   // afeta ATPVeEmitido/ATPVeEnviado nem o fluxo normal de transferência.
-  'DataEmissaoSegundaViaATPVe'
+  'DataEmissaoSegundaViaATPVe',
+  // Data da primeira vez que ATPVeEmitido virou SIM (toggle direto ou
+  // cascata ao marcar Transferido) — usada só pelo relatório de
+  // produtividade, pra contar emissões de ATPVe dentro de um período.
+  'DataEmissaoATPVe'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
 
 var CABECALHO_IMPORT_LOG = ['DataHora', 'AbaOrigem', 'LinhaOrigem', 'Situacao', 'Motivo', 'Chassi', 'Placa'];
+
+// Itens digitados manualmente do Relatório de Atividades (ofícios, e-mails,
+// reconhecimentos de firma etc.) — um item livre por linha, guardados por
+// período (chave DataInicio+DataFim) pra poder editar/revisar depois.
+var CABECALHO_RELATORIO_ITENS = ['Chave', 'DataInicio', 'DataFim', 'ItensJSON', 'AtualizadoPor', 'AtualizadoEm'];
 
 var CABECALHO_USUARIOS = ['Email', 'Perfil', 'UF', 'Nome'];
 
@@ -460,6 +470,7 @@ function criarEstruturaInicial() {
   criarAbaUsuarios_();
   getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
   getOrCreateSheet_(SHEET_IMPORT_LOG, CABECALHO_IMPORT_LOG);
+  getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
   garantirColunasVeiculos_();
   SpreadsheetApp.flush();
   SpreadsheetApp.getActiveSpreadsheet().toast('Estrutura criada com sucesso.', 'Base de Veículos');
@@ -954,6 +965,7 @@ function atualizarStatusVeiculo(id, campo, valor) {
 
   var perfil = getPerfilUsuarioAtual_();
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
   var linhaIdx = encontrarLinhaPorId_(sheet, id);
   if (!linhaIdx) throw new Error('Veículo não encontrado: ' + id);
 
@@ -975,13 +987,25 @@ function atualizarStatusVeiculo(id, campo, valor) {
 
   var agora = new Date();
   var cascataTransferido = campo === 'Transferido' && valorNormalizado === 'SIM';
+  var celulaDataEmissaoAtpve = sheet.getRange(linhaIdx, colunaParaIndice_('DataEmissaoATPVe') + 1);
 
   sheet.getRange(linhaIdx, colunaParaIndice_(campo) + 1).setValue(valorNormalizado);
+  // Só grava a data de emissão do ATPVe na primeira vez que ele vira SIM —
+  // o relatório de produtividade conta pela data real da emissão, então
+  // não pode ser sobrescrita depois por uma cascata de Transferido (senão
+  // a emissão passaria a contar na semana da transferência, não na semana
+  // em que o ATPVe foi de fato emitido).
+  if (campo === 'ATPVeEmitido' && valorNormalizado === 'SIM' && !celulaDataEmissaoAtpve.getValue()) {
+    celulaDataEmissaoAtpve.setValue(agora);
+  }
   if (cascataTransferido) {
     // Marcar como transferido também marca o ATPVe como emitido e enviado —
     // não existe, na prática, veículo transferido sem isso.
     sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEmitido') + 1).setValue('SIM');
     sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEnviado') + 1).setValue('SIM');
+    if (!celulaDataEmissaoAtpve.getValue()) {
+      celulaDataEmissaoAtpve.setValue(agora);
+    }
     // Mesmo comportamento do cadastro/edição completa: registra a data da
     // primeira vez que o veículo é marcado como transferido; não apaga essa
     // data se depois for desmarcado.
@@ -1149,6 +1173,95 @@ function getRelatorioProdutividade(tipoPeriodo) {
   });
 }
 
+/**
+ * Diz se uma data (valor de célula, pode vir vazio) cai dentro de
+ * [dataInicio, dataFim] (inclusive) — inicio/fim chegam como string
+ * "AAAA-MM-DD" do <input type="date">, comparando só a parte de data.
+ */
+function dataDentroDoIntervalo_(valor, dataInicio, dataFim) {
+  if (!valor) return false;
+  var chave = Utilities.formatDate(new Date(valor), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return chave >= dataInicio && chave <= dataFim;
+}
+
+/**
+ * Resumo automático do Relatório de Atividades pra um período: emissões de
+ * ATPVe (primeira emissão + 2ª via) e veículos transferidos dentro do
+ * período, agrupados por Ano. Restrito a administradores.
+ */
+function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
+  exigirPerfilAdmin_();
+  if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
+
+  var registros = listarVeiculos({});
+  var emissoesAtpve = 0;
+  var transferenciasPorAno = {};
+
+  registros.forEach(function (r) {
+    if (dataDentroDoIntervalo_(r.DataEmissaoATPVe, dataInicio, dataFim)) emissoesAtpve++;
+    if (dataDentroDoIntervalo_(r.DataEmissaoSegundaViaATPVe, dataInicio, dataFim)) emissoesAtpve++;
+    if (dataDentroDoIntervalo_(r.DataTransferencia, dataInicio, dataFim)) {
+      var ano = String(r.Ano);
+      transferenciasPorAno[ano] = (transferenciasPorAno[ano] || 0) + 1;
+    }
+  });
+
+  var porAno = Object.keys(transferenciasPorAno).sort().map(function (ano) {
+    return { ano: ano, quantidade: transferenciasPorAno[ano] };
+  });
+
+  return { emissoesAtpve: emissoesAtpve, transferenciasPorAno: porAno };
+}
+
+function chaveRelatorioItens_(dataInicio, dataFim) {
+  return dataInicio + '|' + dataFim;
+}
+
+/**
+ * Devolve os itens manuais (ofícios, e-mails, reconhecimentos de firma
+ * etc.) já salvos pra esse período, ou [] se nunca foi salvo antes.
+ * Restrito a administradores.
+ */
+function getItensRelatorio(dataInicio, dataFim) {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
+  var chave = chaveRelatorioItens_(dataInicio, dataFim);
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    if (dados[i][0] === chave) {
+      try {
+        return JSON.parse(dados[i][3] || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+  }
+  return [];
+}
+
+/**
+ * Salva (substitui) a lista de itens manuais desse período. itens é um
+ * array de { descricao, quantidade, detalhe }. Restrito a administradores.
+ */
+function salvarItensRelatorio(dataInicio, dataFim, itens) {
+  var perfil = exigirPerfilAdmin_();
+  if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
+
+  var sheet = getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
+  var chave = chaveRelatorioItens_(dataInicio, dataFim);
+  var dados = sheet.getDataRange().getValues();
+  var linha = [chave, dataInicio, dataFim, JSON.stringify(itens || []), perfil.email, new Date()];
+
+  for (var i = 1; i < dados.length; i++) {
+    if (dados[i][0] === chave) {
+      sheet.getRange(i + 1, 1, 1, linha.length).setValues([linha]);
+      return { mensagem: 'Itens salvos com sucesso.' };
+    }
+  }
+  sheet.appendRow(linha);
+  return { mensagem: 'Itens salvos com sucesso.' };
+}
+
 function linhaParaObjeto_(cabecalho, linha) {
   var obj = {};
   cabecalho.forEach(function (campo, i) { obj[campo] = linha[i]; });
@@ -1275,6 +1388,7 @@ function criarVeiculo_(sheet, perfil, registro) {
       case 'ID': return id;
       case 'DataCadastro': return agora;
       case 'DataTransferencia': return registro.Transferido === 'SIM' ? agora : '';
+      case 'DataEmissaoATPVe': return registro.ATPVeEmitido === 'SIM' ? agora : '';
       case 'CadastradoPor': return perfil.email;
       case 'UltimaAtualizacao': return agora;
       case 'AtualizadoPor': return perfil.email;

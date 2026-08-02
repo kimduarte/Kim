@@ -888,6 +888,47 @@
         </div>
         <div id="rpConteudo"><div class="carregando">Carregando...</div></div>
       </div>
+
+      <div class="card">
+        <h2>Gerar Relatório de Atividades</h2>
+        <p style="font-size:14px; color:var(--texto-suave);">
+          Monte o relatório de um período (ex.: uma semana) com os números que o sistema já calcula
+          sozinho e os itens que você digitar (ofícios, e-mails, reconhecimentos de firma etc.).
+        </p>
+        <div class="grid-form">
+          <div class="campo">
+            <label for="ra_DataInicio">Data de início *</label>
+            <input type="date" id="ra_DataInicio">
+          </div>
+          <div class="campo">
+            <label for="ra_DataFim">Data de fim *</label>
+            <input type="date" id="ra_DataFim">
+          </div>
+        </div>
+        <div class="botoes" style="justify-content:flex-start; margin-top:10px;">
+          <button type="button" class="secundario" onclick="carregarRelatorioAtividades_()">Carregar período</button>
+        </div>
+
+        <div id="raConteudo" style="display:none; margin-top:18px;">
+          <div id="raResumoAutomatico"></div>
+
+          <h3 style="margin-top:18px;">Itens digitados manualmente</h3>
+          <div id="raItensLista"></div>
+          <div class="botoes" style="justify-content:flex-start; margin-top:10px;">
+            <button type="button" class="secundario" onclick="adicionarItemRelatorio_()">+ Adicionar item</button>
+          </div>
+
+          <div id="mensagemRelatorioAtividades" style="margin-top:10px;"></div>
+
+          <div class="botoes" style="margin-top:10px;">
+            <button type="button" class="secundario" onclick="salvarItensRelatorioAtividades_()" id="botaoRaSalvarItens">Salvar itens deste período</button>
+            <button type="button" class="primario" style="margin-left:auto;" onclick="copiarTextoRelatorioAtividades_()">Copiar texto do relatório</button>
+          </div>
+
+          <h3 style="margin-top:18px;">Prévia do texto</h3>
+          <textarea id="raTextoPreview" readonly style="width:100%; min-height:320px; font-family:monospace; font-size:13px; padding:10px; box-sizing:border-box;"></textarea>
+        </div>
+      </div>
     </section>
     </main>
   </div>
@@ -2714,6 +2755,141 @@
     } catch (erro) {
       container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     }
+  }
+
+  var RESUMO_AUTOMATICO_ATUAL = null;
+  var ITENS_RELATORIO_ATUAL = [];
+
+  async function carregarRelatorioAtividades_() {
+    var dataInicio = document.getElementById('ra_DataInicio').value;
+    var dataFim = document.getElementById('ra_DataFim').value;
+    if (!dataInicio || !dataFim) {
+      mostrarErroGlobal({ message: 'Informe a data de início e a data de fim do período.' });
+      return;
+    }
+    document.getElementById('mensagemRelatorioAtividades').innerHTML = '';
+    document.getElementById('raConteudo').style.display = 'none';
+    try {
+      RESUMO_AUTOMATICO_ATUAL = await chamarServidor_('getResumoAutomaticoPeriodo', dataInicio, dataFim);
+      ITENS_RELATORIO_ATUAL = await chamarServidor_('getItensRelatorio', dataInicio, dataFim) || [];
+      document.getElementById('raConteudo').style.display = '';
+      renderizarResumoAutomatico_();
+      renderizarItensRelatorio_();
+      atualizarPreviaRelatorio_();
+    } catch (erro) {
+      mostrarErroGlobal(erro);
+    }
+  }
+
+  function renderizarResumoAutomatico_() {
+    var r = RESUMO_AUTOMATICO_ATUAL;
+    var html = '<p><strong>Emissões de ATPVe (automático):</strong> ' + r.emissoesAtpve + '</p>';
+    if (r.transferenciasPorAno.length) {
+      html += '<p><strong>Veículos transferidos no período, por ano:</strong></p><ul>';
+      r.transferenciasPorAno.forEach(function (a) {
+        html += '<li>Ano de ' + escaparHtml(a.ano) + ': ' + a.quantidade + ' veículo(s) transferido(s)</li>';
+      });
+      html += '</ul>';
+    } else {
+      html += '<p>Nenhum veículo transferido neste período.</p>';
+    }
+    document.getElementById('raResumoAutomatico').innerHTML = html;
+  }
+
+  function renderizarItensRelatorio_() {
+    var container = document.getElementById('raItensLista');
+    if (!ITENS_RELATORIO_ATUAL.length) {
+      container.innerHTML = '<p style="font-size:13px; color:var(--texto-suave);">Nenhum item adicionado ainda.</p>';
+      return;
+    }
+    var html = '';
+    ITENS_RELATORIO_ATUAL.forEach(function (item, i) {
+      html += '<div class="grid-form" style="grid-template-columns: 2fr 100px 2fr 40px; align-items:end; margin-bottom:8px;">' +
+        '<div class="campo"><label>Descrição</label><input type="text" value="' + escaparHtml(item.descricao || '') + '" oninput="atualizarItemRelatorio_(' + i + ', \'descricao\', this.value)"></div>' +
+        '<div class="campo"><label>Quantidade</label><input type="number" min="0" value="' + (item.quantidade || item.quantidade === 0 ? item.quantidade : '') + '" oninput="atualizarItemRelatorio_(' + i + ', \'quantidade\', this.value)"></div>' +
+        '<div class="campo"><label>Detalhe (opcional)</label><input type="text" value="' + escaparHtml(item.detalhe || '') + '" oninput="atualizarItemRelatorio_(' + i + ', \'detalhe\', this.value)"></div>' +
+        '<button type="button" class="secundario" title="Remover item" onclick="removerItemRelatorio_(' + i + ')">✕</button>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  function adicionarItemRelatorio_() {
+    ITENS_RELATORIO_ATUAL.push({ descricao: '', quantidade: '', detalhe: '' });
+    renderizarItensRelatorio_();
+    atualizarPreviaRelatorio_();
+  }
+
+  function atualizarItemRelatorio_(indice, campo, valor) {
+    ITENS_RELATORIO_ATUAL[indice][campo] = valor;
+    atualizarPreviaRelatorio_();
+  }
+
+  function removerItemRelatorio_(indice) {
+    ITENS_RELATORIO_ATUAL.splice(indice, 1);
+    renderizarItensRelatorio_();
+    atualizarPreviaRelatorio_();
+  }
+
+  function formatarPeriodoTitulo_(dataInicio, dataFim) {
+    function formatarData(iso) {
+      var partes = iso.split('-');
+      return partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+    return formatarData(dataInicio) + ' a ' + formatarData(dataFim);
+  }
+
+  function atualizarPreviaRelatorio_() {
+    var dataInicio = document.getElementById('ra_DataInicio').value;
+    var dataFim = document.getElementById('ra_DataFim').value;
+    var linhas = [];
+    linhas.push('RELATÓRIO DE ATIVIDADES DESENVOLVIDAS: ' + formatarPeriodoTitulo_(dataInicio, dataFim));
+    linhas.push('');
+    linhas.push('* Emissões de ATPVe\'s: ' + RESUMO_AUTOMATICO_ATUAL.emissoesAtpve + ';');
+    RESUMO_AUTOMATICO_ATUAL.transferenciasPorAno.forEach(function (a) {
+      linhas.push('* Ano de ' + a.ano + ': ' + a.quantidade + ' veículo(s) transferido(s) no período;');
+    });
+    ITENS_RELATORIO_ATUAL.forEach(function (item) {
+      if (!item.descricao) return;
+      var linha = '* ' + item.descricao;
+      if (item.quantidade !== '' && item.quantidade != null) linha += ': ' + item.quantidade;
+      if (item.detalhe) linha += ' — ' + item.detalhe;
+      linhas.push(linha + ';');
+    });
+    document.getElementById('raTextoPreview').value = linhas.join('\n');
+  }
+
+  async function salvarItensRelatorioAtividades_() {
+    var dataInicio = document.getElementById('ra_DataInicio').value;
+    var dataFim = document.getElementById('ra_DataFim').value;
+    var botao = document.getElementById('botaoRaSalvarItens');
+    botao.disabled = true;
+    try {
+      await chamarServidor_('salvarItensRelatorio', dataInicio, dataFim, ITENS_RELATORIO_ATUAL);
+      mostrarMensagem('mensagemRelatorioAtividades', 'sucesso', 'Itens salvos. Na próxima vez que carregar esse período, eles já aparecem prontos.');
+    } catch (erro) {
+      mostrarMensagem('mensagemRelatorioAtividades', 'erro', erro.message || String(erro));
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
+  function copiarTextoRelatorioAtividades_() {
+    var textarea = document.getElementById('raTextoPreview');
+    textarea.select();
+    textarea.setSelectionRange(0, 999999);
+    var copiado = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textarea.value);
+        copiado = true;
+      }
+    } catch (e) { /* cai no fallback abaixo */ }
+    if (!copiado) {
+      try { copiado = document.execCommand('copy'); } catch (e2) { /* segue sem copiar */ }
+    }
+    mostrarMensagem('mensagemRelatorioAtividades', copiado ? 'sucesso' : 'erro',
+      copiado ? 'Texto copiado! Já pode colar onde precisar.' : 'Não consegui copiar automaticamente — o texto já está selecionado, use Ctrl+C.');
   }
 
   function carregarPainel() {
