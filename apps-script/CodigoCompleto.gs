@@ -1411,8 +1411,11 @@ function getTepNovosParaEmail_(email) {
 }
 
 /**
- * Busca a data/hora em que esse e-mail visualizou a aba TEP pela última
- * vez, ou null se nunca visualizou.
+ * Busca a data/hora gravada como corte de "última visualização" desse
+ * e-mail (usada só pra saber o que conta como "novo"), ou null se nunca
+ * teve uma gravada. Hoje nada mais escreve nessa aba automaticamente — o
+ * aviso de TEP precisa ficar aceso até o processo ser finalizado, não só
+ * até a aba ser aberta uma vez.
  */
 function getUltimaVisualizacaoTep_(email) {
   var sheet = getOrCreateSheet_(SHEET_TEP_VISUALIZACOES, CABECALHO_TEP_VISUALIZACOES);
@@ -1426,42 +1429,15 @@ function getUltimaVisualizacaoTep_(email) {
 }
 
 /**
- * Quantos processos pendentes de TEP são "novos" (concluíram depois da
- * última vez que esse e-mail visualizou a aba) — usado só pro aviso
- * vermelho do menu; a aba TEP em si sempre lista todos os pendentes.
+ * Quantos processos pendentes de TEP são "novos" (concluíram depois do
+ * corte de última visualização gravado pra esse e-mail) — usado pro aviso
+ * vermelho do menu e pela visão padrão da aba TEP. Fica assim até o
+ * processo ser finalizado (não só até a aba ser aberta).
  */
 function contarTepNovos_(email) {
   return getTepNovosParaEmail_(email).length;
 }
 
-/**
- * Registra que o usuário atual acabou de visualizar a aba TEP — some com
- * o aviso vermelho do menu (os processos continuam pendentes até alguém
- * clicar em "TEP Finalizado", só param de contar como "novos" pra essa
- * pessoa). Chamada toda vez que a aba TEP é aberta.
- */
-function marcarTepVisualizado() {
-  var perfil = getPerfilUsuarioAtual_();
-  var sheet = getOrCreateSheet_(SHEET_TEP_VISUALIZACOES, CABECALHO_TEP_VISUALIZACOES);
-  var dados = sheet.getDataRange().getValues();
-  var agora = new Date();
-  for (var i = 1; i < dados.length; i++) {
-    if (String(dados[i][0]).trim().toLowerCase() === perfil.email.toLowerCase()) {
-      sheet.getRange(i + 1, 2).setValue(agora);
-      return { ok: true };
-    }
-  }
-  sheet.appendRow([perfil.email, agora]);
-  return { ok: true };
-}
-
-/**
- * SÓ PRA DIAGNÓSTICO — diferente de testarTepDebug (que só roda pelo
- * editor), esta é chamada pelo PRÓPRIO NAVEGADOR ao abrir a aba TEP, pra
- * revelar exatamente qual identidade/perfil o site enxerga na sessão real
- * de quem está usando (pode ser diferente do que aparece rodando pelo
- * editor, dependendo de como o app foi implantado).
- */
 /**
  * Marca o Termo de Encerramento de Processo (TEP) de um processo como
  * finalizado — some da lista de pendentes e passa a contar

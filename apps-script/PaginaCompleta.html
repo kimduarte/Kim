@@ -1141,7 +1141,7 @@
       <div class="pagina-titulo">
         <div>
           <h2>TEP — Termo de Encerramento de Processo</h2>
-          <p>Por padrão mostra só os processos concluídos desde sua última visita — use "Ver todos os pendentes" para o histórico completo.</p>
+          <p>Mostra os processos recém-concluídos, que ficam aqui até você clicar em "TEP Finalizado" — use "Ver todos os pendentes" para o histórico completo.</p>
         </div>
       </div>
       <div id="tepLista"><div class="carregando">Carregando...</div></div>
@@ -1862,12 +1862,12 @@
     container.innerHTML = '<div class="carregando">Carregando...</div>';
     try {
       TEP_PENDENTES_ATUAL = (await chamarServidor_('listarTepPendentes', !TEP_MOSTRANDO_TODOS)) || [];
-      // Abrir a aba já conta como "visualizado" — o aviso vermelho do menu
-      // some agora, e a lista (no modo padrão) passa a mostrar só o que
-      // concluir depois disso. "Ver todos os pendentes" ainda mostra o
-      // histórico completo, pra nenhum processo antigo ficar esquecido.
-      chamarServidor_('marcarTepVisualizado').catch(function () { /* best-effort */ });
-      atualizarContagemTep_(0);
+      // O aviso vermelho do menu fica aceso até os processos serem
+      // finalizados — abrir a aba não marca nada como "visto" nem some com
+      // o aviso sozinho. "Ver todos os pendentes" mostra o histórico
+      // completo, pra nenhum processo antigo ficar esquecido.
+      var totalNovos = TEP_PENDENTES_ATUAL.filter(function (p) { return p.novo; }).length;
+      atualizarContagemTep_(totalNovos);
 
       var linkAlternarHtml = '<div class="botoes" style="justify-content:flex-start; margin-bottom:14px;">' +
         (TEP_MOSTRANDO_TODOS
