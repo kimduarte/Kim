@@ -899,18 +899,21 @@
         </div>
       </div>
       <div class="card">
-        <div class="filtros" style="margin-bottom:4px;">
+        <div class="grid-form">
           <div class="campo">
-            <label for="rp_Periodo">Agrupar por</label>
-            <select id="rp_Periodo" onchange="this.blur(); carregarRelatorioProdutividade()">
-              <option value="semana">Semanal</option>
-              <option value="mes">Mensal</option>
-              <option value="trimestre">Trimestral</option>
-              <option value="semestre">Semestral</option>
-            </select>
+            <label for="rp_DataInicio">Data de início</label>
+            <input type="date" id="rp_DataInicio">
+          </div>
+          <div class="campo">
+            <label for="rp_DataFim">Data de fim</label>
+            <input type="date" id="rp_DataFim">
           </div>
         </div>
-        <div id="rpConteudo"><div class="carregando">Carregando...</div></div>
+        <div class="botoes" style="justify-content:flex-start; margin-top:10px;">
+          <button type="button" class="secundario" onclick="definirPeriodoProdutividade_(7)">Últimos 7 dias</button>
+          <button type="button" class="primario" onclick="carregarRelatorioProdutividade()">Buscar</button>
+        </div>
+        <div id="rpConteudo" style="margin-top:18px;"><div class="carregando">Carregando...</div></div>
       </div>
 
       <div class="card">
@@ -1257,7 +1260,7 @@
     if (nome === 'cadastro') irParaEtapa(1);
     if (nome === 'listagem') carregarListagem();
     if (nome === 'painel') carregarPainel();
-    if (nome === 'relatorioProdutividade') carregarRelatorioProdutividade();
+    if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
     window.scrollTo(0, 0);
   }
 
@@ -2877,25 +2880,58 @@
   }
 
   // ---------- Painel / Estatísticas ----------
+  function abrirTelaRelatorioProdutividade_() {
+    if (!document.getElementById('rp_DataInicio').value || !document.getElementById('rp_DataFim').value) {
+      definirPeriodoProdutividade_(7);
+    } else {
+      carregarRelatorioProdutividade();
+    }
+  }
+
+  function definirPeriodoProdutividade_(dias) {
+    var hoje = new Date();
+    var inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - (dias - 1));
+    document.getElementById('rp_DataFim').value = formatarDataISO_(hoje);
+    document.getElementById('rp_DataInicio').value = formatarDataISO_(inicio);
+    carregarRelatorioProdutividade();
+  }
+
+  function formatarDataISO_(data) {
+    var mes = String(data.getMonth() + 1).padStart(2, '0');
+    var dia = String(data.getDate()).padStart(2, '0');
+    return data.getFullYear() + '-' + mes + '-' + dia;
+  }
+
   async function carregarRelatorioProdutividade() {
     var container = document.getElementById('rpConteudo');
+    var dataInicio = document.getElementById('rp_DataInicio').value;
+    var dataFim = document.getElementById('rp_DataFim').value;
+    if (!dataInicio || !dataFim) {
+      container.innerHTML = '<p>Escolha o período (ou clique em "Últimos 7 dias").</p>';
+      return;
+    }
     container.innerHTML = '<div class="carregando">Carregando...</div>';
-    var tipoPeriodo = document.getElementById('rp_Periodo').value;
     try {
-      var periodos = await chamarServidor_('getRelatorioProdutividade', tipoPeriodo);
-      if (!periodos.length) {
-        container.innerHTML = '<p>Nenhuma emissão de 2ª via de ATPVe registrada ainda.</p>';
+      var r = await chamarServidor_('getRelatorioProdutividade', dataInicio, dataFim);
+      if (!r.total) {
+        container.innerHTML = '<p>Nenhuma emissão de 2ª via de ATPVe registrada nesse período.</p>';
         return;
       }
-      var html = '';
-      periodos.forEach(function (p) {
-        html += '<h3 style="margin-top:18px;">' + escaparHtml(p.rotulo) + ' — total: ' + p.total + '</h3>';
-        html += '<div class="tabela-wrap"><table><thead><tr><th>Usuário</th><th>2ª via de ATPVe emitidas</th></tr></thead><tbody>';
-        p.usuarios.forEach(function (u) {
-          html += '<tr><td>' + escaparHtml(u.usuario) + '</td><td>' + u.quantidade + '</td></tr>';
-        });
-        html += '</tbody></table></div>';
+      var html = '<h3>' + formatarPeriodoTitulo_(dataInicio, dataFim) + ' — total: ' + r.total + '</h3>';
+      html += '<div class="tabela-wrap"><table><thead><tr><th>Usuário</th><th>2ª via de ATPVe emitidas</th></tr></thead><tbody>';
+      r.usuarios.forEach(function (u) {
+        html += '<tr><td>' + escaparHtml(u.usuario) + '</td><td>' + u.quantidade + '</td></tr>';
       });
+      html += '</tbody></table></div>';
+
+      html += '<h3 style="margin-top:18px;">ATPVe\'s emitidos</h3>';
+      html += '<div class="tabela-wrap"><table><thead><tr><th>Placa</th><th>Marca / Descrição</th><th>Data/hora</th><th>Usuário</th></tr></thead><tbody>';
+      r.emissoes.forEach(function (e) {
+        var veiculoTexto = [e.marca, e.descricao].filter(Boolean).join(' — ');
+        html += '<tr><td>' + escaparHtml(e.placa) + '</td><td>' + escaparHtml(veiculoTexto) + '</td><td>' + escaparHtml(e.dataHora) + '</td><td>' + escaparHtml(e.usuario) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
       container.innerHTML = html;
     } catch (erro) {
       container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';

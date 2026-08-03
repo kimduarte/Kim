@@ -1081,60 +1081,15 @@ function registrarSegundaViaAtpve(id, dataEmissao) {
 }
 
 /**
- * Calcula a chave (pra ordenar) e o rótulo (pra exibir) do período em que
- * uma data cai, conforme o agrupamento escolhido. A chave usa sempre o
- * mesmo formato ordenável (ano primeiro) pra permitir ordenar os períodos
- * cronologicamente como texto.
- */
-function calcularPeriodo_(data, tipoPeriodo) {
-  var fuso = Session.getScriptTimeZone();
-  var d = new Date(data);
-  if (tipoPeriodo === 'semana') {
-    var segunda = new Date(d);
-    var diaSemana = (segunda.getDay() + 6) % 7; // 0 = segunda-feira
-    segunda.setDate(segunda.getDate() - diaSemana);
-    segunda.setHours(0, 0, 0, 0);
-    var domingo = new Date(segunda);
-    domingo.setDate(domingo.getDate() + 6);
-    return {
-      chave: Utilities.formatDate(segunda, fuso, 'yyyy-MM-dd'),
-      rotulo: 'Semana de ' + Utilities.formatDate(segunda, fuso, 'dd/MM/yyyy') + ' a ' + Utilities.formatDate(domingo, fuso, 'dd/MM/yyyy')
-    };
-  }
-  if (tipoPeriodo === 'mes') {
-    return {
-      chave: Utilities.formatDate(d, fuso, 'yyyy-MM'),
-      rotulo: Utilities.formatDate(d, fuso, 'MM/yyyy')
-    };
-  }
-  if (tipoPeriodo === 'trimestre') {
-    var trimestre = Math.floor(d.getMonth() / 3) + 1;
-    return {
-      chave: d.getFullYear() + '-T' + trimestre,
-      rotulo: trimestre + 'º trimestre de ' + d.getFullYear()
-    };
-  }
-  if (tipoPeriodo === 'semestre') {
-    var semestre = d.getMonth() < 6 ? 1 : 2;
-    return {
-      chave: d.getFullYear() + '-S' + semestre,
-      rotulo: semestre + 'º semestre de ' + d.getFullYear()
-    };
-  }
-  throw new Error('Período inválido: ' + tipoPeriodo);
-}
-
-/**
  * Relatório de produtividade — conta quantas emissões de 2ª via de ATPVe
- * cada usuário registrou, agrupadas pelo período escolhido. Fonte dos
- * dados é a aba de log (append-only, nunca é apagada), então dá pra
- * recalcular qualquer período (semanal, mensal, trimestral, semestral) a
- * qualquer momento sem precisar guardar nada além do que já é gravado em
- * registrarSegundaViaAtpve. Restrito a administradores.
+ * cada usuário registrou num período escolhido (data início/fim, ambas
+ * "AAAA-MM-DD"), e lista quais veículos (placa) tiveram 2ª via emitida.
+ * Fonte dos dados é a aba de log (append-only, nunca é apagada). Restrito
+ * a administradores.
  */
-function getRelatorioProdutividade(tipoPeriodo) {
+function getRelatorioProdutividade(dataInicio, dataFim) {
   exigirPerfilAdmin_();
-  var tipo = tipoPeriodo || 'semana';
+  if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
 
   var sheetUsuarios = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
   var nomesPorEmail = {};
@@ -1142,35 +1097,46 @@ function getRelatorioProdutividade(tipoPeriodo) {
     if (linha[0]) nomesPorEmail[String(linha[0]).trim().toLowerCase()] = linha[3] || linha[0];
   });
 
+  var veiculoPorId = {};
+  listarVeiculos({}).forEach(function (v) { veiculoPorId[v.ID] = v; });
+
   var sheetLog = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
   var dadosLog = sheetLog.getDataRange().getValues().slice(1);
+  var fuso = Session.getScriptTimeZone();
 
-  var periodos = {};
+  var porUsuario = {};
+  var emissoes = [];
+
   dadosLog.forEach(function (linha) {
-    var acao = linha[2];
-    if (acao !== 'SEGUNDA_VIA_ATPVE') return;
-
+    if (linha[2] !== 'SEGUNDA_VIA_ATPVE') return;
     var dataHora = linha[0];
+    if (!dataDentroDoIntervalo_(dataHora, dataInicio, dataFim)) return;
+
     var email = String(linha[1] || '').trim().toLowerCase();
-    var periodo = calcularPeriodo_(dataHora, tipo);
-
-    if (!periodos[periodo.chave]) {
-      periodos[periodo.chave] = { chave: periodo.chave, rotulo: periodo.rotulo, usuarios: {}, total: 0 };
-    }
     var nome = nomesPorEmail[email] || email || 'Desconhecido';
-    periodos[periodo.chave].usuarios[nome] = (periodos[periodo.chave].usuarios[nome] || 0) + 1;
-    periodos[periodo.chave].total++;
+    var veiculo = veiculoPorId[linha[3]];
+
+    porUsuario[nome] = (porUsuario[nome] || 0) + 1;
+    emissoes.push({
+      dataHoraOrdenacao: new Date(dataHora).getTime(),
+      dataHora: Utilities.formatDate(new Date(dataHora), fuso, 'dd/MM/yyyy HH:mm'),
+      placa: veiculo ? veiculo.Placa : '(veículo excluído)',
+      marca: veiculo ? veiculo.Marca : '',
+      descricao: veiculo ? veiculo.Descricao : '',
+      usuario: nome
+    });
   });
 
-  return Object.keys(periodos).sort().reverse().map(function (chave) {
-    var p = periodos[chave];
-    var usuarios = Object.keys(p.usuarios).map(function (nome) {
-      return { usuario: nome, quantidade: p.usuarios[nome] };
-    }).sort(function (a, b) {
-      return b.quantidade - a.quantidade || a.usuario.localeCompare(b.usuario);
-    });
-    return { rotulo: p.rotulo, total: p.total, usuarios: usuarios };
+  var usuarios = Object.keys(porUsuario).map(function (nome) {
+    return { usuario: nome, quantidade: porUsuario[nome] };
+  }).sort(function (a, b) {
+    return b.quantidade - a.quantidade || a.usuario.localeCompare(b.usuario);
   });
+
+  emissoes.sort(function (a, b) { return b.dataHoraOrdenacao - a.dataHoraOrdenacao; });
+  emissoes.forEach(function (e) { delete e.dataHoraOrdenacao; });
+
+  return { total: emissoes.length, usuarios: usuarios, emissoes: emissoes };
 }
 
 /**
