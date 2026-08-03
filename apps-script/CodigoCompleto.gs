@@ -17,6 +17,7 @@ var SHEET_USUARIOS = 'Usuarios';
 var SHEET_LOG = 'LogAlteracoes';
 var SHEET_IMPORT_LOG = 'ImportacaoLog';
 var SHEET_RELATORIO_ITENS = 'RelatorioItens';
+var SHEET_TEP_FINALIZADOS = 'TepFinalizados';
 
 // Quantas linhas extras (além do que já tem dado) recebem validação de
 // lista suspensa — mantém espaço para novos cadastros sem inflar demais
@@ -63,6 +64,12 @@ var CABECALHO_IMPORT_LOG = ['DataHora', 'AbaOrigem', 'LinhaOrigem', 'Situacao', 
 // reconhecimentos de firma etc.) — um registro por período (chave
 // DataInicio+DataFim) pra poder editar/revisar depois.
 var CABECALHO_RELATORIO_ITENS = ['Chave', 'DataInicio', 'DataFim', 'ItensJSON', 'AtualizadoPor', 'AtualizadoEm'];
+
+// Processos (chave = NumeroProcesso ou TermoDoacao) que já tiveram o Termo
+// de Encerramento de Processo (TEP) registrado como finalizado — usado só
+// pra tirar da lista de pendentes (getProcessosPendentesTep_) um processo
+// 100% transferido que já foi encerrado.
+var CABECALHO_TEP_FINALIZADOS = ['Chave', 'DataFinalizacao', 'FinalizadoPor'];
 
 // AcessoProdutividade ('SIM'/'NÃO'): libera o uso da aba Produtividade pra
 // esse usuário específico, independente do Perfil — admins sempre têm
@@ -488,6 +495,7 @@ function criarEstruturaInicial() {
   getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
   getOrCreateSheet_(SHEET_IMPORT_LOG, CABECALHO_IMPORT_LOG);
   getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
+  getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
   garantirColunasVeiculos_();
   SpreadsheetApp.flush();
   SpreadsheetApp.getActiveSpreadsheet().toast('Estrutura criada com sucesso.', 'Base de Veículos');
@@ -829,7 +837,8 @@ function getContextoInicial() {
       mes: MESES_VALIDOS,
       transferido: STATUS_TRANSFERIDO
     },
-    orgaosPorUF: ORGAOS_POR_UF
+    orgaosPorUF: ORGAOS_POR_UF,
+    tepPendentes: getProcessosPendentesTep_().length
   };
 }
 
@@ -1278,7 +1287,95 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
     return { ano: ano, quantidade: transferenciasPorAno[ano] };
   });
 
-  return { emissoesAtpve: emissoesAtpve, transferenciasPorAno: porAno };
+  var tepFinalizados = 0;
+  getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG).getDataRange().getValues().slice(1).forEach(function (linha) {
+    if (linha[2] === 'TEP_FINALIZADO' && dataDentroDoIntervalo_(linha[0], dataInicio, dataFim)) tepFinalizados++;
+  });
+
+  return { emissoesAtpve: emissoesAtpve, transferenciasPorAno: porAno, tepFinalizados: tepFinalizados };
+}
+
+/**
+ * Identidade de um processo pra fins de TEP/relatórios — mesmo padrão
+ * usado em getVeiculosPorUFDetalhado: NumeroProcesso quando existe, senão
+ * o Termo de Doação.
+ */
+function chaveProcesso_(registro) {
+  return registro.NumeroProcesso || registro.TermoDoacao || '';
+}
+
+/**
+ * Processos com todos os veículos já transferidos (100%) que ainda não
+ * tiveram o Termo de Encerramento de Processo (TEP) registrado como
+ * finalizado — recalculado na hora a partir da base atual, sem guardar
+ * nenhum estado além de "quais chaves já foram finalizadas"
+ * (SHEET_TEP_FINALIZADOS). Se novos veículos entrarem depois num processo
+ * já concluído (deixando de ser 100%), ele some sozinho dessa lista.
+ */
+function getProcessosPendentesTep_() {
+  var registros = listarVeiculos({});
+  var grupos = {};
+  var ordem = [];
+
+  registros.forEach(function (r) {
+    var chave = chaveProcesso_(r);
+    if (!chave) return; // sem Processo nem Termo de Doação — não dá pra rastrear TEP
+    if (!grupos[chave]) {
+      grupos[chave] = {
+        chave: chave, processo: r.NumeroProcesso, termoDoacao: r.TermoDoacao,
+        donataria: r.Donataria, uf: r.UF, ente: r.Ente, ano: r.Ano, mes: r.Mes,
+        qtdTotal: 0, qtdTransferidos: 0
+      };
+      ordem.push(chave);
+    }
+    var grupo = grupos[chave];
+    grupo.qtdTotal++;
+    if (r.Transferido === 'SIM') grupo.qtdTransferidos++;
+  });
+
+  var concluidos = ordem
+    .map(function (chave) { return grupos[chave]; })
+    .filter(function (g) { return g.qtdTotal > 0 && g.qtdTotal === g.qtdTransferidos; });
+
+  var finalizados = {};
+  getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS).getDataRange().getValues().slice(1)
+    .forEach(function (l) { if (l[0]) finalizados[l[0]] = true; });
+
+  return concluidos.filter(function (g) { return !finalizados[g.chave]; });
+}
+
+/**
+ * Lista os processos pendentes de TEP — usada pela tela "TEP" pra mostrar
+ * o aviso e permitir finalizar. Visível a qualquer usuário logado (só
+ * marcar como finalizado exige permissão de edição).
+ */
+function listarTepPendentes() {
+  getPerfilUsuarioAtual_();
+  return getProcessosPendentesTep_();
+}
+
+/**
+ * Marca o Termo de Encerramento de Processo (TEP) de um processo como
+ * finalizado — some da lista de pendentes e passa a contar
+ * automaticamente na produtividade (Relatório de Atividades soma junto
+ * com o que for digitado manualmente na linha de "Termo de encerramento
+ * de processo administrativo").
+ */
+function marcarTepFinalizado(chaveProcesso) {
+  var perfil = exigirPerfilEditor_();
+  chaveProcesso = normalizarTexto_(chaveProcesso);
+  if (!chaveProcesso) throw new Error('Processo inválido.');
+
+  var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    if (dados[i][0] === chaveProcesso) {
+      return { mensagem: 'Esse processo já tinha o TEP finalizado.' };
+    }
+  }
+  sheet.appendRow([chaveProcesso, new Date(), perfil.email]);
+  registrarLog_('TEP_FINALIZADO', chaveProcesso, 'Termo de Encerramento de Processo finalizado');
+  return { mensagem: 'TEP finalizado com sucesso — já computado na produtividade.' };
 }
 
 function chaveRelatorioItens_(dataInicio, dataFim) {

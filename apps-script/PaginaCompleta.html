@@ -376,6 +376,7 @@
       <div class="app-nav-item" data-tela="atpve" onclick="irParaTela('atpve')">📄 2ª Via ATPVe</div>
       <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="irParaTela('relatorioProdutividade')">📈 Produtividade</div>
       <div class="app-nav-item" data-tela="usuarios" onclick="irParaTela('usuarios')">👤 Usuários</div>
+      <div class="app-nav-item" id="navTep" data-tela="tep" style="display:none; background:#dc2626; color:#fff;" onclick="irParaTela('tep')">🔴 TEP <span id="navTepContagem"></span></div>
     </nav>
     <main>
     <div id="mensagemGlobal"></div>
@@ -1135,6 +1136,16 @@
         </div>
       </div>
     </section>
+
+    <section id="tela-tep" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>TEP — Termo de Encerramento de Processo</h2>
+          <p>Processos com todos os veículos já transferidos, aguardando o Termo de Encerramento de Processo.</p>
+        </div>
+      </div>
+      <div id="tepLista"><div class="carregando">Carregando...</div></div>
+    </section>
     </main>
   </div>
 
@@ -1331,6 +1342,7 @@
     if (nome === 'painel') carregarPainel();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
     if (nome === 'usuarios') irParaTelaUsuarios_();
+    if (nome === 'tep') carregarListaTep_();
     window.scrollTo(0, 0);
   }
 
@@ -1364,6 +1376,7 @@
     // todo mundo — quem não tem permissão só recebe um aviso ao tentar usar
     // (ver abrirModalEscolhaCadastro_, abrirTelaRelatorioProdutividade_ e
     // irParaTelaUsuarios_), em vez de a opção simplesmente desaparecer.
+    atualizarContagemTep_(ctx.tepPendentes || 0);
 
     document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
     carregarInicio();
@@ -1825,6 +1838,60 @@
       }).join('');
     } catch (erro) {
       corpo.innerHTML = '<tr><td colspan="6" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+    }
+  }
+
+  // ---------- TEP — Termo de Encerramento de Processo ----------
+  var TEP_PENDENTES_ATUAL = [];
+
+  function atualizarContagemTep_(total) {
+    var nav = document.getElementById('navTep');
+    if (total > 0) {
+      nav.style.display = '';
+      document.getElementById('navTepContagem').textContent = '(' + total + ')';
+    } else {
+      nav.style.display = 'none';
+    }
+  }
+
+  async function carregarListaTep_() {
+    var container = document.getElementById('tepLista');
+    container.innerHTML = '<div class="carregando">Carregando...</div>';
+    try {
+      TEP_PENDENTES_ATUAL = await chamarServidor_('listarTepPendentes');
+      atualizarContagemTep_(TEP_PENDENTES_ATUAL.length);
+      if (!TEP_PENDENTES_ATUAL.length) {
+        container.innerHTML = '<div class="card"><p>Nenhum processo pendente de Termo de Encerramento no momento.</p></div>';
+        return;
+      }
+      container.innerHTML = TEP_PENDENTES_ATUAL.map(function (p, i) {
+        return '<div class="card" style="border:2px solid #dc2626; background:#fef2f2; margin-bottom:14px;">' +
+          '<p style="color:#991b1b; font-weight:700; margin:0 0 8px;">⚠️ Processo concluído (todos os veículos transferidos) — faça o Termo de Encerramento de Processo.</p>' +
+          '<p style="margin:0;"><strong>' + escaparHtml(p.processo || p.termoDoacao || p.chave) + '</strong></p>' +
+          '<p style="margin:4px 0 0; color:var(--texto-suave); font-size:13px;">' +
+          escaparHtml(p.donataria || '') + ' • ' + escaparHtml(p.uf || '') + ' • Ano ' + escaparHtml(String(p.ano || '')) +
+          ' • ' + p.qtdTotal + ' veículo(s)</p>' +
+          '<div class="botoes" style="justify-content:flex-start; margin-top:12px;">' +
+          '<button type="button" class="secundario" onclick="irParaListagemComFiltro(\'busca\', ' + JSON.stringify(p.termoDoacao || p.processo || '') + ', \'termo\')">Ver processo</button>' +
+          (USUARIO_PODE_EDITAR
+            ? '<button type="button" class="primario" onclick="finalizarTep_(' + i + ')">TEP Finalizado</button>'
+            : '<span style="font-size:13px; color:var(--texto-suave);">Só administradores/usuários podem finalizar o TEP.</span>') +
+          '</div></div>';
+      }).join('');
+    } catch (erro) {
+      container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  async function finalizarTep_(indice) {
+    var p = TEP_PENDENTES_ATUAL[indice];
+    if (!p) return;
+    try {
+      var resp = await chamarServidor_('marcarTepFinalizado', p.chave);
+      mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
+      carregarListaTep_();
+    } catch (erro) {
+      mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
     }
   }
 
@@ -3238,6 +3305,8 @@
   function renderizarResumoAutomatico_() {
     var r = RESUMO_AUTOMATICO_ATUAL;
     var html = '<p><strong>Emissões de ATPVe (automático):</strong> ' + r.emissoesAtpve + '</p>';
+    html += '<p><strong>TEP finalizados no período (automático):</strong> ' + (r.tepFinalizados || 0) +
+      ' — some ao número digitado abaixo em "Termo de encerramento", se houver.</p>';
     if (r.transferenciasPorAno.length) {
       html += '<p><strong>Veículos transferidos no período, por ano:</strong></p><ul>';
       r.transferenciasPorAno.forEach(function (a) {
@@ -3300,8 +3369,9 @@
       linhas.push('* Solicitações de Exclusão de Débitos de IPVA\'s' + (d.ipvaNumeros ? ' via ' + d.ipvaNumeros : '') + ', E-mail - Secretaria de Economia do DF: ' +
         raNumeroComExtenso_(d.ipvaOficiosQtd) + ', referente à ' + raNumeroComExtenso_(d.ipvaVeiculosQtd) + ' veículos;');
     }
-    if (d.termoEncerramentoQtd > 0) {
-      linhas.push('* Termo de encerramento de processo administrativo: ' + raNumeroComExtenso_(d.termoEncerramentoQtd) + ';');
+    var totalTermoEncerramento = (d.termoEncerramentoQtd || 0) + (RESUMO_AUTOMATICO_ATUAL.tepFinalizados || 0);
+    if (totalTermoEncerramento > 0) {
+      linhas.push('* Termo de encerramento de processo administrativo: ' + raNumeroComExtenso_(totalTermoEncerramento) + ';');
     }
 
     RESUMO_AUTOMATICO_ATUAL.transferenciasPorAno.forEach(function (a) {
