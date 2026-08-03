@@ -1263,6 +1263,53 @@ function salvarDadosManuaisRelatorio(dataInicio, dataFim, dadosManuais) {
   return { mensagem: 'Dados salvos com sucesso.' };
 }
 
+function normalizarPlacaParaArquivo_(texto) {
+  return String(texto || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Procura, na pasta do Drive configurada na Script Property
+ * ATPVE_DRIVE_PASTA_ID (Editor do Apps Script → Configurações do projeto →
+ * Propriedades do script), arquivo(s) cujo nome (sem extensão, ignorando
+ * espaços/hífens/maiúsculas) bata com a placa informada. Serve pra recuperar
+ * o ATPVe escaneado de veículos antigos que só existem como arquivo solto no
+ * Drive (nome do arquivo = placa), sem depender de nenhum campo na planilha.
+ */
+function buscarAtpvePorPlaca(placa) {
+  getPerfilUsuarioAtual_(); // só exige estar logado no sistema — sem restrição por perfil/UF
+  var placaNormalizada = normalizarPlacaParaArquivo_(placa);
+  if (!placaNormalizada) throw new Error('Informe a placa do veículo.');
+
+  var pastaId = PropertiesService.getScriptProperties().getProperty('ATPVE_DRIVE_PASTA_ID');
+  if (!pastaId) {
+    throw new Error('A pasta do Drive com os ATPVe escaneados ainda não foi configurada. Peça para um administrador definir a Script Property ATPVE_DRIVE_PASTA_ID (ID da pasta do Drive) no Editor do Apps Script.');
+  }
+
+  var pasta;
+  try {
+    pasta = DriveApp.getFolderById(pastaId);
+  } catch (e) {
+    throw new Error('Não encontrei a pasta configurada no Drive — confira o ID salvo em ATPVE_DRIVE_PASTA_ID.');
+  }
+
+  var encontrados = [];
+  var arquivos = pasta.getFiles();
+  while (arquivos.hasNext()) {
+    var arquivo = arquivos.next();
+    var nomeSemExtensao = arquivo.getName().replace(/\.[^.]+$/, '');
+    if (normalizarPlacaParaArquivo_(nomeSemExtensao) === placaNormalizada) {
+      encontrados.push({
+        id: arquivo.getId(),
+        nome: arquivo.getName(),
+        urlVisualizacao: 'https://drive.google.com/file/d/' + arquivo.getId() + '/preview',
+        urlAbrir: 'https://drive.google.com/file/d/' + arquivo.getId() + '/view'
+      });
+    }
+  }
+
+  return encontrados;
+}
+
 function linhaParaObjeto_(cabecalho, linha) {
   var obj = {};
   cabecalho.forEach(function (campo, i) { obj[campo] = linha[i]; });
