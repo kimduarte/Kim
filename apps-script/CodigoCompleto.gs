@@ -1488,8 +1488,24 @@ function testarTepDebug() {
       ' | Ano=' + r.Ano);
   });
 
-  Logger.log('=== getProcessosPendentesTep_() — todos os processos pendentes de TEP ===');
-  Logger.log(JSON.stringify(getProcessosPendentesTep_(), null, 2));
+  var todosPendentes = getProcessosPendentesTep_();
+  Logger.log('=== getProcessosPendentesTep_(): ' + todosPendentes.length + ' processo(s) pendente(s) de TEP no total ===');
+  Logger.log('Primeiros 5: ' + JSON.stringify(todosPendentes.slice(0, 5).map(function (p) { return p.chave; })));
+
+  var email = getEmailUsuarioAtual_();
+  var perfil = getPerfilUsuarioAtual_();
+  Logger.log('=== Usuário atual (o mesmo que roda esta função) ===');
+  Logger.log('email=' + email + ' | perfil=' + perfil.perfil + ' | acessoProdutividade=' + perfil.acessoProdutividade);
+
+  var listaWeb = listarTepPendentes();
+  Logger.log('=== listarTepPendentes() (a mesma função que o site chama): ' + listaWeb.length + ' processo(s) ===');
+
+  var ctx = getContextoInicial();
+  Logger.log('=== getContextoInicial().tepPendentes (número que vira o aviso "TEP (N)"): ' + ctx.tepPendentes + ' ===');
+
+  Logger.log('Se os números acima batem com o esperado mas o SITE mostra "Nenhum processo pendente", ' +
+    'o site publicado ainda está numa versão antiga do código — precisa implantar uma NOVA VERSÃO ' +
+    '(Implantar > Gerenciar implantações > editar > Versão: Nova versão > Implantar).');
 }
 
 function chaveRelatorioItens_(dataInicio, dataFim) {
