@@ -18,6 +18,7 @@ var SHEET_LOG = 'LogAlteracoes';
 var SHEET_IMPORT_LOG = 'ImportacaoLog';
 var SHEET_RELATORIO_ITENS = 'RelatorioItens';
 var SHEET_TEP_FINALIZADOS = 'TepFinalizados';
+var SHEET_TEP_VISUALIZACOES = 'TepVisualizacoes';
 
 // Quantas linhas extras (além do que já tem dado) recebem validação de
 // lista suspensa — mantém espaço para novos cadastros sem inflar demais
@@ -70,6 +71,12 @@ var CABECALHO_RELATORIO_ITENS = ['Chave', 'DataInicio', 'DataFim', 'ItensJSON', 
 // pra tirar da lista de pendentes (getProcessosPendentesTep_) um processo
 // 100% transferido que já foi encerrado.
 var CABECALHO_TEP_FINALIZADOS = ['Chave', 'DataFinalizacao', 'FinalizadoPor'];
+
+// Uma linha por usuário: quando ele visualizou a aba TEP pela última vez —
+// só serve pra saber quais processos pendentes são "novos" pra essa pessoa
+// (aparecem no aviso vermelho do menu) desde então. Não afeta a lista da
+// aba em si, que sempre mostra todos os processos ainda não finalizados.
+var CABECALHO_TEP_VISUALIZACOES = ['Email', 'UltimaVisualizacao'];
 
 // AcessoProdutividade ('SIM'/'NÃO'): libera o uso da aba Produtividade pra
 // esse usuário específico, independente do Perfil — admins sempre têm
@@ -496,6 +503,7 @@ function criarEstruturaInicial() {
   getOrCreateSheet_(SHEET_IMPORT_LOG, CABECALHO_IMPORT_LOG);
   getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
   getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
+  getOrCreateSheet_(SHEET_TEP_VISUALIZACOES, CABECALHO_TEP_VISUALIZACOES);
   garantirColunasVeiculos_();
   SpreadsheetApp.flush();
   SpreadsheetApp.getActiveSpreadsheet().toast('Estrutura criada com sucesso.', 'Base de Veículos');
@@ -838,7 +846,9 @@ function getContextoInicial() {
       transferido: STATUS_TRANSFERIDO
     },
     orgaosPorUF: ORGAOS_POR_UF,
-    tepPendentes: getProcessosPendentesTep_().length
+    // Só os "novos" desde a última vez que esse usuário viu a aba TEP —
+    // não o total de pendentes (esses continuam todos visíveis na aba).
+    tepPendentes: contarTepNovos_(perfil.email)
   };
 }
 
@@ -1324,13 +1334,21 @@ function getProcessosPendentesTep_() {
       grupos[chave] = {
         chave: chave, processo: r.NumeroProcesso, termoDoacao: r.TermoDoacao,
         donataria: r.Donataria, uf: r.UF, ente: r.Ente, ano: r.Ano, mes: r.Mes,
-        qtdTotal: 0, qtdTransferidos: 0
+        qtdTotal: 0, qtdTransferidos: 0, dataConclusao: null
       };
       ordem.push(chave);
     }
     var grupo = grupos[chave];
     grupo.qtdTotal++;
-    if (r.Transferido === 'SIM') grupo.qtdTransferidos++;
+    if (r.Transferido === 'SIM') {
+      grupo.qtdTransferidos++;
+      // O processo "conclui" no momento em que o último veículo dele é
+      // transferido — a maior DataTransferencia do grupo é essa data.
+      if (r.DataTransferencia) {
+        var dataTransf = new Date(r.DataTransferencia);
+        if (!grupo.dataConclusao || dataTransf > grupo.dataConclusao) grupo.dataConclusao = dataTransf;
+      }
+    }
   });
 
   var concluidos = ordem
@@ -1350,8 +1368,61 @@ function getProcessosPendentesTep_() {
  * marcar como finalizado exige permissão de edição).
  */
 function listarTepPendentes() {
-  getPerfilUsuarioAtual_();
-  return getProcessosPendentesTep_();
+  var perfil = getPerfilUsuarioAtual_();
+  var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
+  var pendentes = getProcessosPendentesTep_();
+  pendentes.forEach(function (p) {
+    p.novo = !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao);
+  });
+  return pendentes;
+}
+
+/**
+ * Busca a data/hora em que esse e-mail visualizou a aba TEP pela última
+ * vez, ou null se nunca visualizou.
+ */
+function getUltimaVisualizacaoTep_(email) {
+  var sheet = getOrCreateSheet_(SHEET_TEP_VISUALIZACOES, CABECALHO_TEP_VISUALIZACOES);
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    if (String(dados[i][0]).trim().toLowerCase() === email.toLowerCase()) {
+      return dados[i][1] ? new Date(dados[i][1]) : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Quantos processos pendentes de TEP são "novos" (concluíram depois da
+ * última vez que esse e-mail visualizou a aba) — usado só pro aviso
+ * vermelho do menu; a aba TEP em si sempre lista todos os pendentes.
+ */
+function contarTepNovos_(email) {
+  var ultimaVisualizacao = getUltimaVisualizacaoTep_(email);
+  return getProcessosPendentesTep_().filter(function (g) {
+    return !ultimaVisualizacao || (!!g.dataConclusao && g.dataConclusao > ultimaVisualizacao);
+  }).length;
+}
+
+/**
+ * Registra que o usuário atual acabou de visualizar a aba TEP — some com
+ * o aviso vermelho do menu (os processos continuam pendentes até alguém
+ * clicar em "TEP Finalizado", só param de contar como "novos" pra essa
+ * pessoa). Chamada toda vez que a aba TEP é aberta.
+ */
+function marcarTepVisualizado() {
+  var perfil = getPerfilUsuarioAtual_();
+  var sheet = getOrCreateSheet_(SHEET_TEP_VISUALIZACOES, CABECALHO_TEP_VISUALIZACOES);
+  var dados = sheet.getDataRange().getValues();
+  var agora = new Date();
+  for (var i = 1; i < dados.length; i++) {
+    if (String(dados[i][0]).trim().toLowerCase() === perfil.email.toLowerCase()) {
+      sheet.getRange(i + 1, 2).setValue(agora);
+      return { ok: true };
+    }
+  }
+  sheet.appendRow([perfil.email, agora]);
+  return { ok: true };
 }
 
 /**
