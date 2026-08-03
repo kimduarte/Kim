@@ -893,7 +893,8 @@
         <h2>Gerar Relatório de Atividades</h2>
         <p style="font-size:14px; color:var(--texto-suave);">
           Monte o relatório de um período (ex.: uma semana) com os números que o sistema já calcula
-          sozinho e os itens que você digitar (ofícios, e-mails, reconhecimentos de firma etc.).
+          sozinho (emissões de ATPVe e transferências) e os dados que só você tem (ofícios, e-mails,
+          reconhecimentos de firma etc.).
         </p>
         <div class="grid-form">
           <div class="campo">
@@ -912,20 +913,140 @@
         <div id="raConteudo" style="display:none; margin-top:18px;">
           <div id="raResumoAutomatico"></div>
 
-          <h3 style="margin-top:18px;">Itens digitados manualmente</h3>
-          <div id="raItensLista"></div>
-          <div class="botoes" style="justify-content:flex-start; margin-top:10px;">
-            <button type="button" class="secundario" onclick="adicionarItemRelatorio_()">+ Adicionar item</button>
+          <h3 style="margin-top:18px;">Dados desta semana (preencha o que se aplica — deixe em branco/zero o que não teve)</h3>
+
+          <h4>Ofícios e autorizações</h4>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ram_OficiosDetran">Ofícios ao Diretor do Detran/DF, comunicando transferências de propriedade</label>
+              <input type="number" min="0" id="ram_OficiosDetran">
+            </div>
+            <div class="campo">
+              <label for="ram_OficiosExclusaoBeneficio">Ofícios ao chefe do Registro de veículos automotores (Exc. Observ. Benefício Tributário)</label>
+              <input type="number" min="0" id="ram_OficiosExclusaoBeneficio">
+            </div>
+            <div class="campo">
+              <label for="ram_AutorizacoesRepresentacao">Autorizações para Representação de serviços cartorários</label>
+              <input type="number" min="0" id="ram_AutorizacoesRepresentacao">
+            </div>
+          </div>
+
+          <h4>Reconhecimento de firma (avulso)</h4>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ram_ReconhecimentoQtd">Quantidade de reconhecimentos de autenticidade de assinatura</label>
+              <input type="number" min="0" id="ram_ReconhecimentoQtd">
+            </div>
+            <div class="campo">
+              <label for="ram_ReconhecimentoCusto">Custo unitário (R$)</label>
+              <input type="number" min="0" step="0.01" id="ram_ReconhecimentoCusto">
+            </div>
+            <div class="campo">
+              <label for="ram_ReconhecimentoCartorio">Cartório</label>
+              <input type="text" id="ram_ReconhecimentoCartorio" placeholder="Ex.: Cartório Asa Norte">
+            </div>
+          </div>
+
+          <h4>Tratativas junto a representante de marca</h4>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ram_TratativasRepresentante">Representante (marca)</label>
+              <input type="text" id="ram_TratativasRepresentante" placeholder="Ex.: Representante Mitsubishi">
+            </div>
+            <div class="campo">
+              <label for="ram_TratativasEstampagem">Pendências na estampagem veicular</label>
+              <input type="number" min="0" id="ram_TratativasEstampagem">
+            </div>
+            <div class="campo">
+              <label for="ram_TratativasDebitos">Pendências de débitos de veículos (Licenciamento)</label>
+              <input type="number" min="0" id="ram_TratativasDebitos">
+            </div>
+            <div class="campo">
+              <label for="ram_TratativasAno">Exercício (ano do licenciamento)</label>
+              <input type="number" id="ram_TratativasAno">
+            </div>
+          </div>
+
+          <h4>E-mails enviados</h4>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ram_EmailTransfQtd">Transferência de Propriedade de veículos — quantidade</label>
+              <input type="number" min="0" id="ram_EmailTransfQtd">
+            </div>
+            <div class="campo">
+              <label for="ram_EmailTransfDestinatarios">Destinatários</label>
+              <input type="text" id="ram_EmailTransfDestinatarios" placeholder="Ex.: chefiagab@detran.df.gov.br e nudoc@detran.df.gov.br">
+            </div>
+            <div class="campo">
+              <label for="ram_EmailExclusaoQtd">Solicitação de Exclusão da Observação de benefício Tributário — quantidade</label>
+              <input type="number" min="0" id="ram_EmailExclusaoQtd">
+            </div>
+            <div class="campo">
+              <label for="ram_EmailExclusaoDestinatarios">Destinatários</label>
+              <input type="text" id="ram_EmailExclusaoDestinatarios" placeholder="Ex.: renavam@detran.df.gov.br">
+            </div>
+          </div>
+
+          <h4>Processos</h4>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ram_ExpedQtd">Processos enviados para EXPED (Protocolo)</label>
+              <input type="number" min="0" id="ram_ExpedQtd">
+            </div>
+            <div class="campo">
+              <label for="ram_BaixaQtd">Processos enviados para Baixa</label>
+              <input type="number" min="0" id="ram_BaixaQtd">
+            </div>
+            <div class="campo">
+              <label for="ram_TermoEncerramentoQtd">Termo de encerramento de processo administrativo</label>
+              <input type="number" min="0" id="ram_TermoEncerramentoQtd">
+            </div>
+          </div>
+
+          <h4>Exclusão de débitos de IPVA</h4>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ram_IpvaOficiosQtd">Quantidade de ofícios</label>
+              <input type="number" min="0" id="ram_IpvaOficiosQtd">
+            </div>
+            <div class="campo">
+              <label for="ram_IpvaNumeros">Ofícios (número e protocolo)</label>
+              <input type="text" id="ram_IpvaNumeros" placeholder="Ex.: Ofício 436 (36344619) e Ofício 451 (36376972)">
+            </div>
+            <div class="campo">
+              <label for="ram_IpvaVeiculosQtd">Referente a quantos veículos</label>
+              <input type="number" min="0" id="ram_IpvaVeiculosQtd">
+            </div>
+          </div>
+
+          <h4>Pagamento de serviços terceirizados (cartório)</h4>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ram_PagamentoCartorio">Cartório</label>
+              <input type="text" id="ram_PagamentoCartorio" placeholder="Ex.: Cartório do 4° Ofício - Asa Norte">
+            </div>
+            <div class="campo">
+              <label for="ram_PagamentoProcesso">Número do processo</label>
+              <input type="text" id="ram_PagamentoProcesso" placeholder="Ex.: 08020.006952/2026-58">
+            </div>
+            <div class="campo">
+              <label for="ram_PagamentoCusto">Custa unitária (R$)</label>
+              <input type="number" min="0" step="0.01" id="ram_PagamentoCusto">
+            </div>
+            <div class="campo">
+              <label for="ram_PagamentoQtdServicos">Quantidade de serviços</label>
+              <input type="number" min="0" id="ram_PagamentoQtdServicos">
+            </div>
           </div>
 
           <div id="mensagemRelatorioAtividades" style="margin-top:10px;"></div>
 
-          <div class="botoes" style="margin-top:10px;">
-            <button type="button" class="secundario" onclick="salvarItensRelatorioAtividades_()" id="botaoRaSalvarItens">Salvar itens deste período</button>
-            <button type="button" class="primario" style="margin-left:auto;" onclick="copiarTextoRelatorioAtividades_()">Copiar texto do relatório</button>
+          <div class="botoes" style="margin-top:18px;">
+            <button type="button" class="primario" onclick="gerarRelatorioAtividades_()">Gerar relatório</button>
+            <button type="button" class="secundario" style="margin-left:auto;" onclick="copiarTextoRelatorioAtividades_()">Copiar texto do relatório</button>
           </div>
 
-          <h3 style="margin-top:18px;">Prévia do texto</h3>
+          <h3 style="margin-top:18px;">Texto do relatório</h3>
           <textarea id="raTextoPreview" readonly style="width:100%; min-height:320px; font-family:monospace; font-size:13px; padding:10px; box-sizing:border-box;"></textarea>
         </div>
       </div>
@@ -2758,7 +2879,132 @@
   }
 
   var RESUMO_AUTOMATICO_ATUAL = null;
-  var ITENS_RELATORIO_ATUAL = [];
+
+  // ---------- Números por extenso (pt-BR), só pro texto do relatório ----------
+  var RA_UNIDADES = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  var RA_DEZ_A_DEZENOVE = ['dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  var RA_DEZENAS = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  var RA_CENTENAS = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+  function raExtensoAte999_(n) {
+    if (n === 0) return '';
+    if (n === 100) return 'cem';
+    var partes = [];
+    var centena = Math.floor(n / 100);
+    var resto = n % 100;
+    if (centena > 0) partes.push(RA_CENTENAS[centena]);
+    if (resto > 0) {
+      if (resto < 10) partes.push(RA_UNIDADES[resto]);
+      else if (resto < 20) partes.push(RA_DEZ_A_DEZENOVE[resto - 10]);
+      else {
+        var dezena = Math.floor(resto / 10);
+        var unidade = resto % 10;
+        partes.push(unidade > 0 ? RA_DEZENAS[dezena] + ' e ' + RA_UNIDADES[unidade] : RA_DEZENAS[dezena]);
+      }
+    }
+    return partes.join(' e ');
+  }
+
+  // Cobre até 999.999 — mais do que suficiente pra qualquer número deste relatório.
+  function raNumeroPorExtenso_(n) {
+    n = Math.round(Math.abs(n));
+    if (n === 0) return 'zero';
+    if (n < 1000) return raExtensoAte999_(n);
+    var milhar = Math.floor(n / 1000);
+    var resto = n % 1000;
+    var textoMilhar = (milhar === 1 ? 'mil' : raExtensoAte999_(milhar) + ' mil');
+    if (resto === 0) return textoMilhar;
+    return textoMilhar + (resto < 100 ? ' e ' : ' ') + raExtensoAte999_(resto);
+  }
+
+  function raNumeroComExtenso_(n) {
+    n = Math.round(Number(n) || 0);
+    var formatado = n < 10 ? ('0' + n) : n.toLocaleString('pt-BR');
+    return formatado + ' (' + raNumeroPorExtenso_(n) + ')';
+  }
+
+  function raValorPorExtenso_(valor) {
+    var reais = Math.floor(valor);
+    var centavos = Math.round((valor - reais) * 100);
+    if (centavos === 100) { reais += 1; centavos = 0; }
+    var textoReais = (reais === 1 ? 'um real' : raNumeroPorExtenso_(reais) + ' reais');
+    if (centavos === 0) return textoReais;
+    var textoCentavos = (centavos === 1 ? 'um centavo' : raNumeroPorExtenso_(centavos) + ' centavos');
+    return textoReais + ' e ' + textoCentavos;
+  }
+
+  function raValorComExtenso_(valor) {
+    valor = Number(valor) || 0;
+    return 'R$ ' + valor.toFixed(2).replace('.', ',') + ' (' + raValorPorExtenso_(valor) + ')';
+  }
+
+  // ---------- Formulário de dados manuais ----------
+  function raCampoNumero_(id) {
+    var el = document.getElementById(id);
+    return el.value === '' ? 0 : (Number(el.value) || 0);
+  }
+
+  function raCampoTexto_(id) {
+    return (document.getElementById(id).value || '').trim();
+  }
+
+  function coletarDadosManuaisRelatorio_() {
+    return {
+      oficiosDetran: raCampoNumero_('ram_OficiosDetran'),
+      oficiosExclusaoBeneficio: raCampoNumero_('ram_OficiosExclusaoBeneficio'),
+      autorizacoesRepresentacao: raCampoNumero_('ram_AutorizacoesRepresentacao'),
+      reconhecimentoQtd: raCampoNumero_('ram_ReconhecimentoQtd'),
+      reconhecimentoCusto: raCampoNumero_('ram_ReconhecimentoCusto'),
+      reconhecimentoCartorio: raCampoTexto_('ram_ReconhecimentoCartorio'),
+      tratativasRepresentante: raCampoTexto_('ram_TratativasRepresentante'),
+      tratativasEstampagem: raCampoNumero_('ram_TratativasEstampagem'),
+      tratativasDebitos: raCampoNumero_('ram_TratativasDebitos'),
+      tratativasAno: raCampoNumero_('ram_TratativasAno'),
+      emailTransfQtd: raCampoNumero_('ram_EmailTransfQtd'),
+      emailTransfDestinatarios: raCampoTexto_('ram_EmailTransfDestinatarios'),
+      emailExclusaoQtd: raCampoNumero_('ram_EmailExclusaoQtd'),
+      emailExclusaoDestinatarios: raCampoTexto_('ram_EmailExclusaoDestinatarios'),
+      expedQtd: raCampoNumero_('ram_ExpedQtd'),
+      baixaQtd: raCampoNumero_('ram_BaixaQtd'),
+      termoEncerramentoQtd: raCampoNumero_('ram_TermoEncerramentoQtd'),
+      ipvaOficiosQtd: raCampoNumero_('ram_IpvaOficiosQtd'),
+      ipvaNumeros: raCampoTexto_('ram_IpvaNumeros'),
+      ipvaVeiculosQtd: raCampoNumero_('ram_IpvaVeiculosQtd'),
+      pagamentoCartorio: raCampoTexto_('ram_PagamentoCartorio'),
+      pagamentoProcesso: raCampoTexto_('ram_PagamentoProcesso'),
+      pagamentoCusto: raCampoNumero_('ram_PagamentoCusto'),
+      pagamentoQtdServicos: raCampoNumero_('ram_PagamentoQtdServicos')
+    };
+  }
+
+  function preencherFormularioDadosManuais_(d) {
+    d = d || {};
+    function set(id, valor) { document.getElementById(id).value = valor || valor === 0 ? valor : ''; }
+    set('ram_OficiosDetran', d.oficiosDetran);
+    set('ram_OficiosExclusaoBeneficio', d.oficiosExclusaoBeneficio);
+    set('ram_AutorizacoesRepresentacao', d.autorizacoesRepresentacao);
+    set('ram_ReconhecimentoQtd', d.reconhecimentoQtd);
+    set('ram_ReconhecimentoCusto', d.reconhecimentoCusto);
+    set('ram_ReconhecimentoCartorio', d.reconhecimentoCartorio);
+    set('ram_TratativasRepresentante', d.tratativasRepresentante);
+    set('ram_TratativasEstampagem', d.tratativasEstampagem);
+    set('ram_TratativasDebitos', d.tratativasDebitos);
+    set('ram_TratativasAno', d.tratativasAno);
+    set('ram_EmailTransfQtd', d.emailTransfQtd);
+    set('ram_EmailTransfDestinatarios', d.emailTransfDestinatarios);
+    set('ram_EmailExclusaoQtd', d.emailExclusaoQtd);
+    set('ram_EmailExclusaoDestinatarios', d.emailExclusaoDestinatarios);
+    set('ram_ExpedQtd', d.expedQtd);
+    set('ram_BaixaQtd', d.baixaQtd);
+    set('ram_TermoEncerramentoQtd', d.termoEncerramentoQtd);
+    set('ram_IpvaOficiosQtd', d.ipvaOficiosQtd);
+    set('ram_IpvaNumeros', d.ipvaNumeros);
+    set('ram_IpvaVeiculosQtd', d.ipvaVeiculosQtd);
+    set('ram_PagamentoCartorio', d.pagamentoCartorio);
+    set('ram_PagamentoProcesso', d.pagamentoProcesso);
+    set('ram_PagamentoCusto', d.pagamentoCusto);
+    set('ram_PagamentoQtdServicos', d.pagamentoQtdServicos);
+  }
 
   async function carregarRelatorioAtividades_() {
     var dataInicio = document.getElementById('ra_DataInicio').value;
@@ -2771,11 +3017,11 @@
     document.getElementById('raConteudo').style.display = 'none';
     try {
       RESUMO_AUTOMATICO_ATUAL = await chamarServidor_('getResumoAutomaticoPeriodo', dataInicio, dataFim);
-      ITENS_RELATORIO_ATUAL = await chamarServidor_('getItensRelatorio', dataInicio, dataFim) || [];
+      var dadosManuais = await chamarServidor_('getDadosManuaisRelatorio', dataInicio, dataFim);
       document.getElementById('raConteudo').style.display = '';
       renderizarResumoAutomatico_();
-      renderizarItensRelatorio_();
-      atualizarPreviaRelatorio_();
+      preencherFormularioDadosManuais_(dadosManuais);
+      document.getElementById('raTextoPreview').value = '';
     } catch (erro) {
       mostrarErroGlobal(erro);
     }
@@ -2796,41 +3042,6 @@
     document.getElementById('raResumoAutomatico').innerHTML = html;
   }
 
-  function renderizarItensRelatorio_() {
-    var container = document.getElementById('raItensLista');
-    if (!ITENS_RELATORIO_ATUAL.length) {
-      container.innerHTML = '<p style="font-size:13px; color:var(--texto-suave);">Nenhum item adicionado ainda.</p>';
-      return;
-    }
-    var html = '';
-    ITENS_RELATORIO_ATUAL.forEach(function (item, i) {
-      html += '<div class="grid-form" style="grid-template-columns: 2fr 100px 2fr 40px; align-items:end; margin-bottom:8px;">' +
-        '<div class="campo"><label>Descrição</label><input type="text" value="' + escaparHtml(item.descricao || '') + '" oninput="atualizarItemRelatorio_(' + i + ', \'descricao\', this.value)"></div>' +
-        '<div class="campo"><label>Quantidade</label><input type="number" min="0" value="' + (item.quantidade || item.quantidade === 0 ? item.quantidade : '') + '" oninput="atualizarItemRelatorio_(' + i + ', \'quantidade\', this.value)"></div>' +
-        '<div class="campo"><label>Detalhe (opcional)</label><input type="text" value="' + escaparHtml(item.detalhe || '') + '" oninput="atualizarItemRelatorio_(' + i + ', \'detalhe\', this.value)"></div>' +
-        '<button type="button" class="secundario" title="Remover item" onclick="removerItemRelatorio_(' + i + ')">✕</button>' +
-        '</div>';
-    });
-    container.innerHTML = html;
-  }
-
-  function adicionarItemRelatorio_() {
-    ITENS_RELATORIO_ATUAL.push({ descricao: '', quantidade: '', detalhe: '' });
-    renderizarItensRelatorio_();
-    atualizarPreviaRelatorio_();
-  }
-
-  function atualizarItemRelatorio_(indice, campo, valor) {
-    ITENS_RELATORIO_ATUAL[indice][campo] = valor;
-    atualizarPreviaRelatorio_();
-  }
-
-  function removerItemRelatorio_(indice) {
-    ITENS_RELATORIO_ATUAL.splice(indice, 1);
-    renderizarItensRelatorio_();
-    atualizarPreviaRelatorio_();
-  }
-
   function formatarPeriodoTitulo_(dataInicio, dataFim) {
     function formatarData(iso) {
       var partes = iso.split('-');
@@ -2839,43 +3050,87 @@
     return formatarData(dataInicio) + ' a ' + formatarData(dataFim);
   }
 
-  function atualizarPreviaRelatorio_() {
-    var dataInicio = document.getElementById('ra_DataInicio').value;
-    var dataFim = document.getElementById('ra_DataFim').value;
+  function montarTextoRelatorioAtividades_(dataInicio, dataFim, d) {
     var linhas = [];
     linhas.push('RELATÓRIO DE ATIVIDADES DESENVOLVIDAS: ' + formatarPeriodoTitulo_(dataInicio, dataFim));
     linhas.push('');
-    linhas.push('* Emissões de ATPVe\'s: ' + RESUMO_AUTOMATICO_ATUAL.emissoesAtpve + ';');
+    linhas.push('* Emissões de ATPVE\'s: ' + raNumeroComExtenso_(RESUMO_AUTOMATICO_ATUAL.emissoesAtpve) + ';');
+
+    if (d.oficiosDetran > 0) {
+      linhas.push('* Ofícios enviados ao Diretor do Detran/DF, comunicando transferências de propriedade de veículos doados: ' + raNumeroComExtenso_(d.oficiosDetran) + ';');
+    }
+    if (d.oficiosExclusaoBeneficio > 0) {
+      linhas.push('* Ofícios enviados ao chefe do Registro de veículos automotores: sol. de Exc. da Observ. Benefício Tributário: ' + raNumeroComExtenso_(d.oficiosExclusaoBeneficio) + ';');
+    }
+    if (d.autorizacoesRepresentacao > 0) {
+      linhas.push('* Autorizações para Representação de serviços cartorários: ' + raNumeroComExtenso_(d.autorizacoesRepresentacao) + ';');
+    }
+    if (d.reconhecimentoQtd > 0) {
+      var totalReconhecimento = d.reconhecimentoQtd * d.reconhecimentoCusto;
+      linhas.push('* Realização de ' + raNumeroComExtenso_(d.reconhecimentoQtd) + ' reconhecimentos de Autenticidade de assinatura, ao custo unitário de ' +
+        raValorComExtenso_(d.reconhecimentoCusto) + ', totalizando o valor de ' + raValorComExtenso_(totalReconhecimento) +
+        (d.reconhecimentoCartorio ? ', ' + d.reconhecimentoCartorio : '') + ';');
+    }
+    if (d.tratativasRepresentante) {
+      linhas.push('* Tratativas junto a ' + d.tratativasRepresentante + ', referente à regularização com pendências na estampagem veicular: ' +
+        raNumeroComExtenso_(d.tratativasEstampagem) + ' e à regularização com pendências de débitos de Veículos (Taxas de serviços de Licenciamento - Exercício ' +
+        (d.tratativasAno || '') + '): ' + raNumeroComExtenso_(d.tratativasDebitos) + ';');
+    }
+    if (d.emailTransfQtd > 0) {
+      linhas.push('* E-mail: Transferência de Propriedade de veículos' + (d.emailTransfDestinatarios ? ' (' + d.emailTransfDestinatarios + ')' : '') + ': ' + raNumeroComExtenso_(d.emailTransfQtd) + ';');
+    }
+    if (d.emailExclusaoQtd > 0) {
+      linhas.push('* E-mail: Solicitação de Exclusão da Observação de benefício Tributário' + (d.emailExclusaoDestinatarios ? ' (' + d.emailExclusaoDestinatarios + ')' : '') + ': ' + raNumeroComExtenso_(d.emailExclusaoQtd) + ';');
+    }
+    if (d.expedQtd > 0) {
+      linhas.push('* Processos enviados para EXPED (Protocolo): ' + raNumeroComExtenso_(d.expedQtd) + ';');
+    }
+    if (d.baixaQtd > 0) {
+      linhas.push('* Processos enviados para Baixa: ' + raNumeroComExtenso_(d.baixaQtd) + ';');
+    }
+    if (d.ipvaOficiosQtd > 0) {
+      linhas.push('* Solicitações de Exclusão de Débitos de IPVA\'s' + (d.ipvaNumeros ? ' via ' + d.ipvaNumeros : '') + ', E-mail - Secretaria de Economia do DF: ' +
+        raNumeroComExtenso_(d.ipvaOficiosQtd) + ', referente à ' + raNumeroComExtenso_(d.ipvaVeiculosQtd) + ' veículos;');
+    }
+    if (d.termoEncerramentoQtd > 0) {
+      linhas.push('* Termo de encerramento de processo administrativo: ' + raNumeroComExtenso_(d.termoEncerramentoQtd) + ';');
+    }
+
     RESUMO_AUTOMATICO_ATUAL.transferenciasPorAno.forEach(function (a) {
       linhas.push('* Ano de ' + a.ano + ': ' + a.quantidade + ' veículo(s) transferido(s) no período;');
     });
-    ITENS_RELATORIO_ATUAL.forEach(function (item) {
-      if (!item.descricao) return;
-      var linha = '* ' + item.descricao;
-      if (item.quantidade !== '' && item.quantidade != null) linha += ': ' + item.quantidade;
-      if (item.detalhe) linha += ' — ' + item.detalhe;
-      linhas.push(linha + ';');
-    });
-    document.getElementById('raTextoPreview').value = linhas.join('\n');
+
+    if (d.pagamentoQtdServicos > 0) {
+      var totalPagamento = d.pagamentoQtdServicos * d.pagamentoCusto;
+      linhas.push('* Formalização de Processo de Pagamento de Prestação de Serviços Terceirizados' +
+        (d.pagamentoCartorio ? ' (' + d.pagamentoCartorio + ')' : '') +
+        (d.pagamentoProcesso ? ', (Processo n° ' + d.pagamentoProcesso + ')' : '') +
+        ', com custas de ' + raValorComExtenso_(d.pagamentoCusto) + ' cada, referente a ' + raNumeroComExtenso_(d.pagamentoQtdServicos) +
+        ' serviços cartorários de reconhecimento de firma, somando ' + raValorComExtenso_(totalPagamento) + ';');
+    }
+
+    return linhas.join('\n');
   }
 
-  async function salvarItensRelatorioAtividades_() {
+  async function gerarRelatorioAtividades_() {
     var dataInicio = document.getElementById('ra_DataInicio').value;
     var dataFim = document.getElementById('ra_DataFim').value;
-    var botao = document.getElementById('botaoRaSalvarItens');
-    botao.disabled = true;
+    var dadosManuais = coletarDadosManuaisRelatorio_();
     try {
-      await chamarServidor_('salvarItensRelatorio', dataInicio, dataFim, ITENS_RELATORIO_ATUAL);
-      mostrarMensagem('mensagemRelatorioAtividades', 'sucesso', 'Itens salvos. Na próxima vez que carregar esse período, eles já aparecem prontos.');
+      await chamarServidor_('salvarDadosManuaisRelatorio', dataInicio, dataFim, dadosManuais);
+      document.getElementById('raTextoPreview').value = montarTextoRelatorioAtividades_(dataInicio, dataFim, dadosManuais);
+      mostrarMensagem('mensagemRelatorioAtividades', 'sucesso', 'Relatório gerado e dados salvos — na próxima vez que carregar esse período, eles já aparecem prontos.');
     } catch (erro) {
       mostrarMensagem('mensagemRelatorioAtividades', 'erro', erro.message || String(erro));
-    } finally {
-      botao.disabled = false;
     }
   }
 
   function copiarTextoRelatorioAtividades_() {
     var textarea = document.getElementById('raTextoPreview');
+    if (!textarea.value) {
+      mostrarMensagem('mensagemRelatorioAtividades', 'erro', 'Clique em "Gerar relatório" primeiro.');
+      return;
+    }
     textarea.select();
     textarea.setSelectionRange(0, 999999);
     var copiado = false;

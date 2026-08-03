@@ -59,9 +59,9 @@ var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
 
 var CABECALHO_IMPORT_LOG = ['DataHora', 'AbaOrigem', 'LinhaOrigem', 'Situacao', 'Motivo', 'Chassi', 'Placa'];
 
-// Itens digitados manualmente do Relatório de Atividades (ofícios, e-mails,
-// reconhecimentos de firma etc.) — um item livre por linha, guardados por
-// período (chave DataInicio+DataFim) pra poder editar/revisar depois.
+// Dados manuais do Relatório de Atividades (ofícios, e-mails,
+// reconhecimentos de firma etc.) — um registro por período (chave
+// DataInicio+DataFim) pra poder editar/revisar depois.
 var CABECALHO_RELATORIO_ITENS = ['Chave', 'DataInicio', 'DataFim', 'ItensJSON', 'AtualizadoPor', 'AtualizadoEm'];
 
 var CABECALHO_USUARIOS = ['Email', 'Perfil', 'UF', 'Nome'];
@@ -1218,11 +1218,11 @@ function chaveRelatorioItens_(dataInicio, dataFim) {
 }
 
 /**
- * Devolve os itens manuais (ofícios, e-mails, reconhecimentos de firma
- * etc.) já salvos pra esse período, ou [] se nunca foi salvo antes.
+ * Devolve os dados manuais (ofícios, e-mails, reconhecimentos de firma
+ * etc.) já salvos pra esse período, ou {} se nunca foi salvo antes.
  * Restrito a administradores.
  */
-function getItensRelatorio(dataInicio, dataFim) {
+function getDadosManuaisRelatorio(dataInicio, dataFim) {
   exigirPerfilAdmin_();
   var sheet = getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
   var chave = chaveRelatorioItens_(dataInicio, dataFim);
@@ -1230,36 +1230,37 @@ function getItensRelatorio(dataInicio, dataFim) {
   for (var i = 1; i < dados.length; i++) {
     if (dados[i][0] === chave) {
       try {
-        return JSON.parse(dados[i][3] || '[]');
+        return JSON.parse(dados[i][3] || '{}');
       } catch (e) {
-        return [];
+        return {};
       }
     }
   }
-  return [];
+  return {};
 }
 
 /**
- * Salva (substitui) a lista de itens manuais desse período. itens é um
- * array de { descricao, quantidade, detalhe }. Restrito a administradores.
+ * Salva (substitui) os dados manuais desse período — objeto livre com os
+ * campos preenchidos no formulário (ofícios, e-mails, reconhecimentos de
+ * firma etc.). Restrito a administradores.
  */
-function salvarItensRelatorio(dataInicio, dataFim, itens) {
+function salvarDadosManuaisRelatorio(dataInicio, dataFim, dadosManuais) {
   var perfil = exigirPerfilAdmin_();
   if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
 
   var sheet = getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
   var chave = chaveRelatorioItens_(dataInicio, dataFim);
   var dados = sheet.getDataRange().getValues();
-  var linha = [chave, dataInicio, dataFim, JSON.stringify(itens || []), perfil.email, new Date()];
+  var linha = [chave, dataInicio, dataFim, JSON.stringify(dadosManuais || {}), perfil.email, new Date()];
 
   for (var i = 1; i < dados.length; i++) {
     if (dados[i][0] === chave) {
       sheet.getRange(i + 1, 1, 1, linha.length).setValues([linha]);
-      return { mensagem: 'Itens salvos com sucesso.' };
+      return { mensagem: 'Dados salvos com sucesso.' };
     }
   }
   sheet.appendRow(linha);
-  return { mensagem: 'Itens salvos com sucesso.' };
+  return { mensagem: 'Dados salvos com sucesso.' };
 }
 
 function linhaParaObjeto_(cabecalho, linha) {
