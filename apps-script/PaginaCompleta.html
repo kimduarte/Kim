@@ -816,8 +816,8 @@
         </div>
         <div class="filtros" style="margin-top:14px; margin-bottom:4px;">
           <div class="campo">
-            <label for="anoStatGeral">Ano</label>
-            <select id="anoStatGeral" onchange="this.blur(); atualizarVisualizacaoStat_()"><option value="">Todos os anos</option></select>
+            <label for="anoStatGeral">Ano (Ctrl/Cmd+clique para selecionar mais de um)</label>
+            <select id="anoStatGeral" multiple size="5" onchange="atualizarVisualizacaoStat_()"><option value="">Todos os anos</option></select>
           </div>
           <div class="campo">
             <label for="transfStatGeral">Transferidos</label>
@@ -864,6 +864,7 @@
           <button type="button" class="primario" id="botaoModoResumido" onclick="alternarModoDetalheUF_('resumido')">Resumida</button>
           <button type="button" class="secundario" id="botaoModoDetalhado" onclick="alternarModoDetalheUF_('detalhado')">Detalhada</button>
         </div>
+        <p id="totalDetalheUF" style="font-weight:700; margin-top:10px;"></p>
         <div id="listaDetalheUF"><div class="carregando">Carregando...</div></div>
       </div>
     </section>
@@ -3339,19 +3340,27 @@
     porAnoMes.forEach(function (item) { anos[item.chave.split('-')[0]] = true; });
     var anosOrdenados = Object.keys(anos).sort(function (a, b) { return b - a; });
     var select = document.getElementById(idSelect);
-    var selecionado = select.value;
+    var selecionados = Array.prototype.map.call(select.selectedOptions, function (o) { return o.value; });
     select.innerHTML = '<option value="">Todos os anos</option>' +
       anosOrdenados.map(function (ano) { return '<option value="' + ano + '">' + ano + '</option>'; }).join('');
-    select.value = selecionado;
+    Array.prototype.forEach.call(select.options, function (o) { o.selected = selecionados.indexOf(o.value) !== -1; });
+  }
+
+  // "" (Todos os anos) marcado, ou nada marcado, valem como "sem filtro de
+  // ano" — senão, devolve os anos específicos escolhidos (Ctrl/Cmd+clique).
+  function lerAnosSelecionados_(idSelect) {
+    var valores = Array.prototype.map.call(document.getElementById(idSelect).selectedOptions, function (o) { return o.value; });
+    if (!valores.length || valores.indexOf('') !== -1) return [];
+    return valores;
   }
 
   async function atualizarVisualizacaoStat_() {
-    var ano = document.getElementById('anoStatGeral').value;
+    var anos = lerAnosSelecionados_('anoStatGeral');
     var transferido = document.getElementById('transfStatGeral').value;
     var idContainer = MODO_VISUALIZACAO_STAT === 'regiao' ? 'mapaRegional' : 'rankUF';
     document.getElementById(idContainer).innerHTML = '<div class="carregando">Carregando...</div>';
     try {
-      var itens = await chamarServidor_('getVeiculosPorUFAno', ano, transferido);
+      var itens = await chamarServidor_('getVeiculosPorUFAno', anos, transferido);
       if (MODO_VISUALIZACAO_STAT === 'regiao') renderizarMapaRegional_(itens); else renderizarRankUF_(itens);
     } catch (erro) {
       mostrarErroGlobal(erro);
@@ -3442,7 +3451,7 @@
   // clicável por processo (igual à tela de Processos), que expande e mostra
   // os veículos dele.
   var DADOS_DETALHE_UF = [];
-  var CONTEXTO_DETALHE_UF = { uf: '', ano: '', transferido: '', campoFiltro: 'uf' };
+  var CONTEXTO_DETALHE_UF = { uf: '', ano: [], transferido: '', campoFiltro: 'uf' };
   var DETALHE_UF_EXPANDIDOS = {};
   var MODO_DETALHE_UF = 'resumido';
 
@@ -3450,16 +3459,17 @@
   // 'regiao') — os dois filtram por UF (o mapa regional é só o mesmo dado
   // por UF agrupado visualmente por região).
   function abrirDetalheUF_(valor, origem) {
-    var ano = document.getElementById('anoStatGeral').value;
+    var anos = lerAnosSelecionados_('anoStatGeral');
     var transferido = document.getElementById('transfStatGeral').value;
-    CONTEXTO_DETALHE_UF = { uf: valor, ano: ano, transferido: transferido, campoFiltro: 'uf' };
+    CONTEXTO_DETALHE_UF = { uf: valor, ano: anos, transferido: transferido, campoFiltro: 'uf' };
     DETALHE_UF_EXPANDIDOS = {};
     MODO_DETALHE_UF = 'resumido';
     document.getElementById('botaoModoResumido').className = 'primario';
     document.getElementById('botaoModoDetalhado').className = 'secundario';
 
     document.getElementById('painelDetalheUFTitulo').textContent =
-      'Veículos — ' + valor + ' • Ano: ' + (ano || 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
+      'Veículos — ' + valor + ' • Ano: ' + (anos.length ? anos.join(', ') : 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
+    document.getElementById('totalDetalheUF').textContent = '';
     document.getElementById('listaDetalheUF').innerHTML = '<div class="carregando">Carregando...</div>';
     document.getElementById('painelEstatisticasConteudo').style.display = 'none';
     document.getElementById('painelDetalheUF').style.display = '';
@@ -3471,7 +3481,7 @@
         document.getElementById('listaDetalheUF').innerHTML =
           '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
       })
-      .getVeiculosPorUFDetalhado(valor, ano, transferido, 'uf');
+      .getVeiculosPorUFDetalhado(valor, anos, transferido, 'uf');
   }
 
   function fecharDetalheUF_() {
@@ -3482,6 +3492,8 @@
   function renderizarDetalheUF_(grupos) {
     DADOS_DETALHE_UF = grupos || [];
     var container = document.getElementById('listaDetalheUF');
+    var totalVeiculos = flatDeGruposDetalheUF_(DADOS_DETALHE_UF).length;
+    document.getElementById('totalDetalheUF').textContent = 'Total: ' + totalVeiculos + ' veículo(s)';
     if (!grupos || !grupos.length) {
       container.innerHTML = '<div class="carregando">Nenhum veículo encontrado para esse filtro.</div>';
       return;
@@ -3612,7 +3624,7 @@
   function nomeArquivoDetalheUF_(extensao) {
     var c = CONTEXTO_DETALHE_UF;
     return 'Veiculos_' + (c.uf || 'Todos') +
-      (c.ano ? '_' + c.ano : '') +
+      (c.ano && c.ano.length ? '_' + c.ano.join('-') : '') +
       (c.transferido ? '_Transferido-' + c.transferido : '') +
       '.' + extensao;
   }

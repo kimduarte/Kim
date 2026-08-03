@@ -769,7 +769,10 @@ function listarVeiculos(filtros) {
     if (filtros.uf && registro.UF !== filtros.uf) continue;
     if (filtros.ente && registro.Ente !== filtros.ente) continue;
     if (filtros.marca && registro.Marca !== filtros.marca) continue;
-    if (filtros.ano && String(registro.Ano) !== String(filtros.ano)) continue;
+    if (filtros.ano && filtros.ano.length) {
+      var anosFiltro = Array.isArray(filtros.ano) ? filtros.ano.map(String) : [String(filtros.ano)];
+      if (anosFiltro.indexOf(String(registro.Ano)) === -1) continue;
+    }
     if (filtros.transferido && registro.Transferido !== filtros.transferido) continue;
     if (busca) {
       var camposAlvo = campoBusca
@@ -2385,15 +2388,16 @@ function getEstatisticas() {
 
 /**
  * Distribuição de veículos por UF (ou por Ente, quando campo='Ente'),
- * opcionalmente restrita a um ano e/ou a um status de transferência — usada
- * pelo seletor "Como você deseja visualizar?" (Por UF / Por Região / Por
- * Ente) na tela de Estatísticas. Sem cache: é uma consulta pontual (só
- * quando o usuário troca um filtro), diferente do painel geral que é
- * recalculado toda hora que alguém abre a tela.
+ * opcionalmente restrita a um ou mais anos (array ou ano único) e/ou a um
+ * status de transferência — usada pelo seletor "Como você deseja
+ * visualizar?" (Por UF / Por Região / Por Ente) na tela de Estatísticas.
+ * Sem cache: é uma consulta pontual (só quando o usuário troca um filtro),
+ * diferente do painel geral que é recalculado toda hora que alguém abre a
+ * tela.
  */
 function getVeiculosPorUFAno(ano, transferido, campo) {
   var filtros = {};
-  if (ano) filtros.ano = ano;
+  if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   var registros = listarVeiculos(filtros);
   return paraArrayOrdenado_(contarPor_(registros, campo || 'UF'));
@@ -2417,7 +2421,7 @@ function getVeiculosPorUFAno(ano, transferido, campo) {
 function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro) {
   var filtros = {};
   filtros[campoFiltro || 'uf'] = valor;
-  if (ano) filtros.ano = ano;
+  if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   var registros = listarVeiculos(filtros);
 
