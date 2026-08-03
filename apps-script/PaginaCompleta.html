@@ -1865,14 +1865,20 @@
       document.getElementById('tepDebugInfo').innerHTML =
         '<div class="card" style="background:#fef9c3; font-family:monospace; font-size:12px; margin-bottom:14px;">' +
         'DEBUG — email: ' + escaparHtml(info.email) + ' | perfil: ' + escaparHtml(info.perfil) +
-        ' | processos pendentes vistos pelo servidor: ' + info.totalPendentes +
+        ' | total via getProcessosPendentesTep_: ' + info.totalPendentes +
+        ' | total via listarTepPendentes: ' + info.totalViaListarTepPendentes +
+        (info.erroListarTepPendentes ? ' | ERRO em listarTepPendentes: ' + escaparHtml(info.erroListarTepPendentes) : '') +
         ' | última visualização registrada: ' + escaparHtml(info.ultimaVisualizacao || 'nunca') + '</div>';
     }).catch(function (erro) {
       document.getElementById('tepDebugInfo').innerHTML =
         '<div class="mensagem erro">DEBUG falhou: ' + escaparHtml(erro.message || String(erro)) + '</div>';
     });
     try {
-      TEP_PENDENTES_ATUAL = (await chamarServidor_('listarTepPendentes')) || [];
+      // DEBUG TEMPORÁRIO: sem "|| []" aqui de propósito — se o servidor
+      // devolver algo inesperado, queremos VER o erro real, não escondê-lo.
+      var resultadoBruto = await chamarServidor_('listarTepPendentes');
+      console.log('listarTepPendentes() devolveu:', resultadoBruto);
+      TEP_PENDENTES_ATUAL = resultadoBruto || [];
       // Abrir a aba já conta como "visualizado" — o aviso vermelho do menu
       // some agora. Mas a lista abaixo continua mostrando TODOS os
       // processos pendentes (novos ou não) — só sai daqui quando alguém
@@ -1880,7 +1886,7 @@
       chamarServidor_('marcarTepVisualizado').catch(function () { /* best-effort */ });
       atualizarContagemTep_(0);
       if (!TEP_PENDENTES_ATUAL.length) {
-        container.innerHTML = '<div class="card"><p>Nenhum processo pendente de Termo de Encerramento no momento.</p></div>';
+        container.innerHTML = '<div class="card"><p>Nenhum processo pendente de Termo de Encerramento no momento. (Veja o console do navegador — F12 — para o valor bruto recebido.)</p></div>';
         return;
       }
       container.innerHTML = TEP_PENDENTES_ATUAL.map(function (p, i) {

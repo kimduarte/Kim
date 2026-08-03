@@ -1448,11 +1448,25 @@ function debugIdentidadeTep() {
   var email = getEmailUsuarioAtual_();
   var perfil = getPerfilUsuarioAtual_();
   var totalPendentes = getProcessosPendentesTep_().length;
+
+  // Chama a MESMA função que o botão da aba usa, pra ver se o problema é
+  // na função em si ou especificamente na chamada via google.script.run
+  // que o botão faz.
+  var totalViaListarTepPendentes = null;
+  var erroListarTepPendentes = null;
+  try {
+    totalViaListarTepPendentes = listarTepPendentes().length;
+  } catch (e) {
+    erroListarTepPendentes = String(e && e.message || e);
+  }
+
   var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
   return {
     email: email,
     perfil: perfil.perfil,
     totalPendentes: totalPendentes,
+    totalViaListarTepPendentes: totalViaListarTepPendentes,
+    erroListarTepPendentes: erroListarTepPendentes,
     ultimaVisualizacao: ultimaVisualizacao ? ultimaVisualizacao.toISOString() : null
   };
 }
