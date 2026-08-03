@@ -1438,6 +1438,26 @@ function marcarTepVisualizado() {
 }
 
 /**
+ * SÓ PRA DIAGNÓSTICO — diferente de testarTepDebug (que só roda pelo
+ * editor), esta é chamada pelo PRÓPRIO NAVEGADOR ao abrir a aba TEP, pra
+ * revelar exatamente qual identidade/perfil o site enxerga na sessão real
+ * de quem está usando (pode ser diferente do que aparece rodando pelo
+ * editor, dependendo de como o app foi implantado).
+ */
+function debugIdentidadeTep() {
+  var email = getEmailUsuarioAtual_();
+  var perfil = getPerfilUsuarioAtual_();
+  var totalPendentes = getProcessosPendentesTep_().length;
+  var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
+  return {
+    email: email,
+    perfil: perfil.perfil,
+    totalPendentes: totalPendentes,
+    ultimaVisualizacao: ultimaVisualizacao ? ultimaVisualizacao.toISOString() : null
+  };
+}
+
+/**
  * Marca o Termo de Encerramento de Processo (TEP) de um processo como
  * finalizado — some da lista de pendentes e passa a contar
  * automaticamente na produtividade (Relatório de Atividades soma junto

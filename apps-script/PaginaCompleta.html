@@ -1144,6 +1144,7 @@
           <p>Processos com todos os veículos já transferidos, aguardando o Termo de Encerramento de Processo.</p>
         </div>
       </div>
+      <div id="tepDebugInfo"></div>
       <div id="tepLista"><div class="carregando">Carregando...</div></div>
     </section>
     </main>
@@ -1857,6 +1858,19 @@
   async function carregarListaTep_() {
     var container = document.getElementById('tepLista');
     container.innerHTML = '<div class="carregando">Carregando...</div>';
+    // DEBUG TEMPORÁRIO — mostra o que o servidor enxerga NESTA sessão real
+    // do navegador (email/perfil/total), pra comparar com o que aparece
+    // rodando testarTepDebug pelo editor do Apps Script.
+    chamarServidor_('debugIdentidadeTep').then(function (info) {
+      document.getElementById('tepDebugInfo').innerHTML =
+        '<div class="card" style="background:#fef9c3; font-family:monospace; font-size:12px; margin-bottom:14px;">' +
+        'DEBUG — email: ' + escaparHtml(info.email) + ' | perfil: ' + escaparHtml(info.perfil) +
+        ' | processos pendentes vistos pelo servidor: ' + info.totalPendentes +
+        ' | última visualização registrada: ' + escaparHtml(info.ultimaVisualizacao || 'nunca') + '</div>';
+    }).catch(function (erro) {
+      document.getElementById('tepDebugInfo').innerHTML =
+        '<div class="mensagem erro">DEBUG falhou: ' + escaparHtml(erro.message || String(erro)) + '</div>';
+    });
     try {
       TEP_PENDENTES_ATUAL = (await chamarServidor_('listarTepPendentes')) || [];
       // Abrir a aba já conta como "visualizado" — o aviso vermelho do menu
