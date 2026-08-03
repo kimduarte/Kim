@@ -1461,6 +1461,37 @@ function marcarTepFinalizado(chaveProcesso) {
   return { mensagem: 'TEP finalizado com sucesso — já computado na produtividade.' };
 }
 
+/**
+ * SÓ PRA DIAGNÓSTICO — rode manualmente pelo editor (selecione
+ * "testarTepDebug" no menu de funções, clique em Executar, depois em Ver >
+ * Registros/Execuções pra ler o resultado). Não altera nada na planilha.
+ * Mostra, pra cada veículo com "403" no Processo ou Termo de Doação, os
+ * valores exatos dos campos que decidem se ele entra no TEP — e o
+ * resultado final de getProcessosPendentesTep_().
+ */
+function testarTepDebug() {
+  var termoBusca = '403';
+  var todos = listarVeiculos({});
+  var relevantes = todos.filter(function (r) {
+    return String(r.NumeroProcesso || '').indexOf(termoBusca) !== -1 ||
+      String(r.TermoDoacao || '').indexOf(termoBusca) !== -1;
+  });
+
+  Logger.log('=== Veículos com "' + termoBusca + '" no Processo/Termo (' + relevantes.length + ') ===');
+  relevantes.forEach(function (r) {
+    Logger.log('ID=' + r.ID +
+      ' | NumeroProcesso=[' + r.NumeroProcesso + ']' +
+      ' | TermoDoacao=[' + r.TermoDoacao + ']' +
+      ' | chaveProcesso_=[' + chaveProcesso_(r) + ']' +
+      ' | Transferido=' + r.Transferido +
+      ' | DataTransferencia=' + r.DataTransferencia +
+      ' | Ano=' + r.Ano);
+  });
+
+  Logger.log('=== getProcessosPendentesTep_() — todos os processos pendentes de TEP ===');
+  Logger.log(JSON.stringify(getProcessosPendentesTep_(), null, 2));
+}
+
 function chaveRelatorioItens_(dataInicio, dataFim) {
   return dataInicio + '|' + dataFim;
 }
