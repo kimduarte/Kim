@@ -559,6 +559,16 @@
         </form>
       </div>
 
+      <div class="modal-fundo" id="modalConfirmacaoFundo">
+        <div class="modal" style="max-width:420px;">
+          <p id="confirmacaoMensagem" style="font-size:15px; margin-top:0;"></p>
+          <div class="botoes">
+            <button type="button" class="secundario" id="botaoConfirmacaoNao">Não</button>
+            <button type="button" class="primario" id="botaoConfirmacaoSim" style="margin-left:auto;">Sim</button>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-fundo" id="modalConfirmarQtdFundo">
         <div class="modal" style="max-width:440px;">
           <h2>Confirmar quantidade de veículos</h2>
@@ -1319,6 +1329,7 @@
     configurarStepper();
     configurarDonatariaDinamica_();
     configurarBuscaCep_();
+    configurarModalConfirmacao_();
     configurarModalEscolhaCadastro_();
     configurarModalSegundaViaAtpve_();
     configurarModalNumeroProcesso_();
@@ -1610,6 +1621,31 @@
 
   function fecharModalConfirmarQtd_() {
     document.getElementById('modalConfirmarQtdFundo').classList.remove('ativo');
+  }
+
+  // ---------- Modal genérico de confirmação (Sim/Não) ----------
+  // Substitui o confirm() nativo do navegador (que sai com a cara do
+  // navegador, não do site) por uma caixa com o mesmo visual das outras
+  // telas — use confirmar_(mensagem, funçãoSeSim) onde antes usaria confirm().
+  var CONFIRMACAO_CALLBACK = null;
+
+  function configurarModalConfirmacao_() {
+    document.getElementById('botaoConfirmacaoNao').addEventListener('click', function () {
+      document.getElementById('modalConfirmacaoFundo').classList.remove('ativo');
+      CONFIRMACAO_CALLBACK = null;
+    });
+    document.getElementById('botaoConfirmacaoSim').addEventListener('click', function () {
+      document.getElementById('modalConfirmacaoFundo').classList.remove('ativo');
+      var callback = CONFIRMACAO_CALLBACK;
+      CONFIRMACAO_CALLBACK = null;
+      if (callback) callback();
+    });
+  }
+
+  function confirmar_(mensagem, aoConfirmar) {
+    document.getElementById('confirmacaoMensagem').textContent = mensagem;
+    CONFIRMACAO_CALLBACK = aoConfirmar;
+    document.getElementById('modalConfirmacaoFundo').classList.add('ativo');
   }
 
   // ---------- Modal: escolha entre Novo Processo ou Emissão de 2ª via de ATPVe ----------
@@ -3479,14 +3515,13 @@
       ATPVE_VEICULO_ATUAL = resultados[1];
       if (!arquivos.length) {
         container.innerHTML = '<p>Nenhum ATPVe encontrado no Drive para a placa ' + escaparHtml(placa.toUpperCase()) + '.</p>';
-        var querCadastrar = confirm('Nenhum ATPVe para essa placa encontrado. Deseja cadastrar uma nova emissão de 2ª Via de ATPVe?');
-        if (querCadastrar) {
+        confirmar_('Nenhum ATPVe para essa placa encontrado. Deseja cadastrar uma nova emissão de 2ª Via de ATPVe?', function () {
           if (!USUARIO_PODE_EDITAR) {
             mostrarMensagem('mensagemGlobal', 'erro', 'Você não tem permissão para cadastrar — visitantes só podem visualizar.');
           } else {
             abrirModalSegundaViaAtpve_(placa);
           }
-        }
+        });
         return;
       }
       ATPVE_ARQUIVOS_ATUAL = arquivos;
