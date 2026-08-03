@@ -1653,14 +1653,15 @@
     document.getElementById('botaoSvSalvar').addEventListener('click', salvarSegundaViaAtpve_);
   }
 
-  function abrirModalSegundaViaAtpve_() {
-    document.getElementById('sv_Busca').value = '';
+  function abrirModalSegundaViaAtpve_(placaPreenchida) {
+    document.getElementById('sv_Busca').value = placaPreenchida || '';
     document.getElementById('sv_DataEmissao').value = '';
     document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
     document.getElementById('svBuscaContainer').style.display = '';
     document.getElementById('svResultadoContainer').style.display = 'none';
     VEICULO_SEGUNDA_VIA_ATUAL = null;
     document.getElementById('modalSegundaViaAtpveFundo').classList.add('ativo');
+    if (placaPreenchida) buscarVeiculoSegundaVia_();
   }
 
   function fecharModalSegundaViaAtpve_() {
@@ -3478,6 +3479,14 @@
       ATPVE_VEICULO_ATUAL = resultados[1];
       if (!arquivos.length) {
         container.innerHTML = '<p>Nenhum ATPVe encontrado no Drive para a placa ' + escaparHtml(placa.toUpperCase()) + '.</p>';
+        var querCadastrar = confirm('Nenhum ATPVe para essa placa encontrado. Deseja cadastrar uma nova emissão de 2ª Via de ATPVe?');
+        if (querCadastrar) {
+          if (!USUARIO_PODE_EDITAR) {
+            mostrarMensagem('mensagemGlobal', 'erro', 'Você não tem permissão para cadastrar — visitantes só podem visualizar.');
+          } else {
+            abrirModalSegundaViaAtpve_(placa);
+          }
+        }
         return;
       }
       ATPVE_ARQUIVOS_ATUAL = arquivos;
