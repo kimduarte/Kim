@@ -64,7 +64,13 @@ var CABECALHO_IMPORT_LOG = ['DataHora', 'AbaOrigem', 'LinhaOrigem', 'Situacao', 
 // DataInicio+DataFim) pra poder editar/revisar depois.
 var CABECALHO_RELATORIO_ITENS = ['Chave', 'DataInicio', 'DataFim', 'ItensJSON', 'AtualizadoPor', 'AtualizadoEm'];
 
-var CABECALHO_USUARIOS = ['Email', 'Perfil', 'UF', 'Nome'];
+// AcessoProdutividade ('SIM'/'NÃO'): libera o uso da aba Produtividade pra
+// esse usuário específico, independente do Perfil — admins sempre têm
+// acesso, isso é só pra estender a quem mais o administrador escolher.
+// AcessoPlanilha ('NENHUM'/'LEITOR'/'EDITOR'): nível de compartilhamento
+// da planilha do Drive em si (Google Sheets), à parte do Perfil no
+// sistema — editar a planilha direto pula todas as validações do site.
+var CABECALHO_USUARIOS = ['Email', 'Perfil', 'UF', 'Nome', 'AcessoProdutividade', 'AcessoPlanilha'];
 
 var UFS_VALIDAS = [
   'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS',
@@ -413,11 +419,14 @@ function getPerfilUsuarioAtual_() {
         email: email,
         perfil: perfil,
         uf: normalizarUF_(linha[2] || ''),
-        nome: linha[3] || email
+        nome: linha[3] || email,
+        // Admin sempre tem acesso à Produtividade — o campo na planilha só
+        // importa pra estender esse acesso a usuários/visitantes específicos.
+        acessoProdutividade: perfil === PERFIL_ADMIN || normalizarTexto_(linha[4]).toUpperCase() === 'SIM'
       };
     }
   }
-  return { email: email, perfil: 'sem_acesso', uf: '', nome: email };
+  return { email: email, perfil: 'sem_acesso', uf: '', nome: email, acessoProdutividade: false };
 }
 
 function exigirPerfilAdmin_() {
@@ -432,6 +441,14 @@ function exigirPerfilEditor_() {
   var perfil = getPerfilUsuarioAtual_();
   if (perfil.perfil !== PERFIL_ADMIN && perfil.perfil !== PERFIL_USUARIO) {
     throw new Error('Você não tem permissão para cadastrar ou editar — visitantes só podem visualizar.');
+  }
+  return perfil;
+}
+
+function exigirAcessoProdutividade_() {
+  var perfil = getPerfilUsuarioAtual_();
+  if (!perfil.acessoProdutividade) {
+    throw new Error('Você não tem permissão para usar a aba Produtividade — fale com um administrador.');
   }
   return perfil;
 }
@@ -670,22 +687,47 @@ function criarAbaUsuarios_() {
   var sheet = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
   if (sheet.getLastRow() <= 1) {
     var email = getEmailUsuarioAtual_();
-    sheet.getRange(2, 1, 1, 4).setValues([[email, PERFIL_ADMIN, '', 'Administrador inicial']]);
+    sheet.getRange(2, 1, 1, 6).setValues([[email, PERFIL_ADMIN, '', 'Administrador inicial', '', '']]);
   }
   return sheet;
 }
 
 /**
- * Dá acesso ao sistema para uma pessoa nova (ou atualiza o perfil dela, se
- * o e-mail já estiver cadastrado) — usado pela caixa "Cadastrar Usuário" na
- * tela inicial. Só administradores podem cadastrar outros usuários.
+ * Garante que a aba Usuários tem todas as colunas de CABECALHO_USUARIOS —
+ * instalações antigas só têm Email/Perfil/UF/Nome fisicamente; anexa as
+ * colunas novas (AcessoProdutividade/AcessoPlanilha) no fim, sem mexer nas
+ * já existentes. Mesmo padrão de garantirColunasVeiculos_.
+ */
+function garantirColunasUsuarios_() {
+  var sheet = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
+  var largura = Math.max(sheet.getLastColumn(), CABECALHO_USUARIOS.length);
+  if (largura === 0) return sheet;
+  var cabecalhoAtual = sheet.getRange(1, 1, 1, largura).getValues()[0];
+  var proximaCol = cabecalhoAtual.length;
+  CABECALHO_USUARIOS.forEach(function (nomeCampo) {
+    if (cabecalhoAtual.indexOf(nomeCampo) !== -1) return;
+    proximaCol++;
+    sheet.getRange(1, proximaCol).setValue(nomeCampo).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
+  });
+  return sheet;
+}
+
+/**
+ * Dá acesso ao sistema para uma pessoa nova (ou atualiza os dados dela, se
+ * o e-mail já estiver cadastrado) — usado pela tela "Usuários" tanto pra
+ * cadastrar quanto pra editar. Só administradores podem cadastrar/editar
+ * outros usuários.
  */
 function cadastrarUsuario(dados) {
   exigirPerfilAdmin_();
+  garantirColunasUsuarios_();
 
   var email = normalizarTexto_(dados.Email).toLowerCase();
   var perfil = normalizarTexto_(dados.Perfil).toLowerCase();
   var nome = normalizarTexto_(dados.Nome);
+  var acessoProdutividade = normalizarTexto_(dados.AcessoProdutividade).toUpperCase() === 'SIM' ? 'SIM' : 'NÃO';
+  var acessoPlanilhaBruto = normalizarTexto_(dados.AcessoPlanilha).toUpperCase();
+  var acessoPlanilha = ['LEITOR', 'EDITOR'].indexOf(acessoPlanilhaBruto) !== -1 ? acessoPlanilhaBruto : 'NENHUM';
 
   var erros = [];
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) erros.push('E-mail inválido: ' + dados.Email);
@@ -702,15 +744,69 @@ function cadastrarUsuario(dados) {
     if (String(dadosAtuais[i][0]).trim().toLowerCase() === email) { linhaExistente = i + 1; break; }
   }
 
-  var linha = [email, perfil, '', nome];
+  var linha = [email, perfil, '', nome, acessoProdutividade, acessoPlanilha];
+  var mensagem;
   if (linhaExistente) {
-    sheet.getRange(linhaExistente, 1, 1, 4).setValues([linha]);
+    sheet.getRange(linhaExistente, 1, 1, linha.length).setValues([linha]);
     registrarLog_('ATUALIZAR_USUARIO', email, JSON.stringify(linha));
-    return { mensagem: 'Usuário "' + email + '" já existia e foi atualizado com sucesso.' };
+    mensagem = 'Usuário "' + email + '" atualizado com sucesso.';
+  } else {
+    sheet.appendRow(linha);
+    registrarLog_('CRIAR_USUARIO', email, JSON.stringify(linha));
+    mensagem = 'Usuário "' + email + '" cadastrado com sucesso. Ele já pode acessar o sistema pelo mesmo link.';
   }
-  sheet.appendRow(linha);
-  registrarLog_('CRIAR_USUARIO', email, JSON.stringify(linha));
-  return { mensagem: 'Usuário "' + email + '" cadastrado com sucesso. Ele já pode acessar o sistema pelo mesmo link.' };
+  aplicarAcessoPlanilha_(email, acessoPlanilha);
+  return { mensagem: mensagem };
+}
+
+/**
+ * Compartilha (ou revoga) o acesso à planilha do Drive em si, conforme o
+ * nível escolhido pro usuário — independente do Perfil dele no sistema
+ * (editar a planilha direto pula todas as validações do site, então isso é
+ * uma escolha à parte). Melhor esforço: se o compartilhamento falhar
+ * (e-mail sem conta Google, cota do Drive etc.), não impede o cadastro do
+ * usuário em si — só fica registrado no log de execução.
+ */
+function aplicarAcessoPlanilha_(email, nivel) {
+  try {
+    var planilha = SpreadsheetApp.getActiveSpreadsheet();
+    if (nivel === 'EDITOR') {
+      planilha.addEditor(email);
+    } else if (nivel === 'LEITOR') {
+      try { planilha.removeEditor(email); } catch (e) { /* pode nunca ter sido editor */ }
+      planilha.addViewer(email);
+    } else {
+      try { planilha.removeEditor(email); } catch (e) { /* pode nunca ter sido editor */ }
+      try { planilha.removeViewer(email); } catch (e) { /* pode nunca ter sido leitor */ }
+    }
+  } catch (e) {
+    Logger.log('aplicarAcessoPlanilha_ falhou para ' + email + ': ' + e);
+  }
+}
+
+/**
+ * Lista todos os usuários cadastrados, pra tela "Usuários" listar e
+ * permitir editar quem já tem acesso. Restrito a administradores.
+ */
+function listarUsuarios() {
+  exigirPerfilAdmin_();
+  garantirColunasUsuarios_();
+  var sheet = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
+  var dados = sheet.getDataRange().getValues();
+  var linhas = [];
+  for (var i = 1; i < dados.length; i++) {
+    var l = dados[i];
+    if (!l[0]) continue;
+    linhas.push({
+      Email: l[0],
+      Perfil: l[1],
+      Nome: l[3] || '',
+      AcessoProdutividade: String(l[4] || '').toUpperCase() === 'SIM' ? 'SIM' : 'NÃO',
+      AcessoPlanilha: ['LEITOR', 'EDITOR'].indexOf(String(l[5] || '').toUpperCase()) !== -1 ? String(l[5]).toUpperCase() : 'NENHUM'
+    });
+  }
+  linhas.sort(function (a, b) { return a.Email.localeCompare(b.Email); });
+  return linhas;
 }
 
 // ======================================================================
@@ -1031,6 +1127,7 @@ function atualizarStatusVeiculo(id, campo, valor) {
  * Placa — busca por substring aqui poderia trazer o veículo errado.
  */
 function buscarVeiculoParaSegundaVia(busca) {
+  exigirPerfilEditor_(); // aba/opção fica visível a todos, mas só admin/usuário podem usar
   var termo = normalizarTexto_(busca);
   if (!termo) return null;
   var chassiBusca = normalizarChassi_(termo);
@@ -1088,10 +1185,11 @@ function registrarSegundaViaAtpve(id, dataEmissao) {
  * cada usuário registrou num período escolhido (data início/fim, ambas
  * "AAAA-MM-DD"), e lista quais veículos (placa) tiveram 2ª via emitida.
  * Fonte dos dados é a aba de log (append-only, nunca é apagada). Restrito
- * a administradores.
+ * a quem tem acesso à aba Produtividade (admins sempre têm; outros
+ * usuários, se liberados).
  */
 function getRelatorioProdutividade(dataInicio, dataFim) {
-  exigirPerfilAdmin_();
+  exigirAcessoProdutividade_();
   if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
 
   var sheetUsuarios = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
@@ -1156,10 +1254,11 @@ function dataDentroDoIntervalo_(valor, dataInicio, dataFim) {
 /**
  * Resumo automático do Relatório de Atividades pra um período: emissões de
  * ATPVe (primeira emissão + 2ª via) e veículos transferidos dentro do
- * período, agrupados por Ano. Restrito a administradores.
+ * período, agrupados por Ano. Restrito a quem tem acesso à aba
+ * Produtividade (admins sempre têm; outros usuários, se liberados).
  */
 function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
-  exigirPerfilAdmin_();
+  exigirAcessoProdutividade_();
   if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
 
   var registros = listarVeiculos({});
@@ -1189,10 +1288,10 @@ function chaveRelatorioItens_(dataInicio, dataFim) {
 /**
  * Devolve os dados manuais (ofícios, e-mails, reconhecimentos de firma
  * etc.) já salvos pra esse período, ou {} se nunca foi salvo antes.
- * Restrito a administradores.
+ * Restrito a quem tem acesso à aba Produtividade.
  */
 function getDadosManuaisRelatorio(dataInicio, dataFim) {
-  exigirPerfilAdmin_();
+  exigirAcessoProdutividade_();
   var sheet = getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
   var chave = chaveRelatorioItens_(dataInicio, dataFim);
   var dados = sheet.getDataRange().getValues();
@@ -1211,10 +1310,10 @@ function getDadosManuaisRelatorio(dataInicio, dataFim) {
 /**
  * Salva (substitui) os dados manuais desse período — objeto livre com os
  * campos preenchidos no formulário (ofícios, e-mails, reconhecimentos de
- * firma etc.). Restrito a administradores.
+ * firma etc.). Restrito a quem tem acesso à aba Produtividade.
  */
 function salvarDadosManuaisRelatorio(dataInicio, dataFim, dadosManuais) {
-  var perfil = exigirPerfilAdmin_();
+  var perfil = exigirAcessoProdutividade_();
   if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
 
   var sheet = getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
@@ -1245,7 +1344,7 @@ function normalizarPlacaParaArquivo_(texto) {
  * Drive (nome do arquivo = placa), sem depender de nenhum campo na planilha.
  */
 function buscarAtpvePorPlaca(placa) {
-  getPerfilUsuarioAtual_(); // só exige estar logado no sistema — sem restrição por perfil/UF
+  exigirPerfilEditor_(); // aba fica visível a todos, mas só admin/usuário podem usar
   var placaNormalizada = normalizarPlacaParaArquivo_(placa);
   if (!placaNormalizada) throw new Error('Informe a placa do veículo.');
 

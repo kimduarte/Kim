@@ -370,12 +370,12 @@
   <div class="app-shell">
     <nav class="app-lateral">
       <div class="app-nav-item ativo" data-tela="inicio" onclick="irParaTela('inicio')">▤ Início</div>
-      <div class="app-nav-item" id="navCadastro" data-tela="cadastro" style="display:none;" onclick="abrirModalEscolhaCadastro_()">🚓 Cadastrar veículo</div>
+      <div class="app-nav-item" id="navCadastro" data-tela="cadastro" onclick="abrirModalEscolhaCadastro_()">🚓 Cadastrar veículo</div>
       <div class="app-nav-item" data-tela="listagem" onclick="irParaTela('listagem')">☰ Processos</div>
       <div class="app-nav-item" data-tela="painel" onclick="irParaTela('painel')">📊 Estatísticas</div>
       <div class="app-nav-item" data-tela="atpve" onclick="irParaTela('atpve')">📄 2ª Via ATPVe</div>
-      <div class="app-nav-item" id="navRelatorioProdutividade" data-tela="relatorioProdutividade" style="display:none;" onclick="irParaTela('relatorioProdutividade')">📈 Produtividade</div>
-      <div class="app-nav-item" id="navNovoUsuario" style="display:none;" onclick="abrirModalNovoUsuario_()">👤 Cadastrar usuário</div>
+      <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="irParaTela('relatorioProdutividade')">📈 Produtividade</div>
+      <div class="app-nav-item" data-tela="usuarios" onclick="irParaTela('usuarios')">👤 Usuários</div>
     </nav>
     <main>
     <div id="mensagemGlobal"></div>
@@ -927,6 +927,10 @@
           <p>Emissões de 2ª via de ATPVe registradas, por usuário e por período.</p>
         </div>
       </div>
+      <div id="rpSemPermissao" class="card" style="display:none;">
+        <p>Você não tem permissão para usar a aba Produtividade — fale com um administrador.</p>
+      </div>
+      <div id="rpConteudoGeral">
       <div class="card">
         <div class="grid-form">
           <div class="campo">
@@ -1106,13 +1110,37 @@
           <textarea id="raTextoPreview" readonly style="width:100%; min-height:320px; font-family:monospace; font-size:13px; padding:10px; box-sizing:border-box;"></textarea>
         </div>
       </div>
+      </div>
+    </section>
+
+    <section id="tela-usuarios" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Usuários</h2>
+          <p>Quem tem acesso ao sistema, com qual perfil.</p>
+        </div>
+      </div>
+      <div id="usuariosSemPermissao" class="card" style="display:none;">
+        <p>Você não tem permissão para ver esta área — restrita a administradores.</p>
+      </div>
+      <div id="usuariosConteudo" class="card">
+        <div class="botoes" style="justify-content:flex-start;">
+          <button type="button" class="primario" onclick="abrirModalNovoUsuario_()">+ Novo usuário</button>
+        </div>
+        <div class="tabela-wrap" style="margin-top:14px;">
+          <table>
+            <thead><tr><th>E-mail</th><th>Nome</th><th>Perfil</th><th>Produtividade</th><th>Planilha</th><th></th></tr></thead>
+            <tbody id="corpoTabelaUsuarios"><tr><td colspan="6" class="carregando">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </section>
     </main>
   </div>
 
   <div class="modal-fundo" id="modalNovoUsuarioFundo">
     <div class="modal" style="max-width:480px;">
-      <h2>Cadastrar novo usuário</h2>
+      <h2 id="tituloModalUsuario">Cadastrar novo usuário</h2>
       <p style="font-size:14px; color:var(--texto-suave);">
         A pessoa passará a acessar o sistema com a conta Google do e-mail informado abaixo.
       </p>
@@ -1132,6 +1160,17 @@
             <option value="admin">Administrador (irrestrito — cadastra, edita, exclui e cadastra usuários)</option>
             <option value="usuario">Usuário (pode cadastrar e editar operações)</option>
             <option value="visitante">Visitante (apenas visualizar)</option>
+          </select>
+        </div>
+        <div class="campo span-2">
+          <label><input type="checkbox" id="nu_AcessoProdutividade"> Pode usar a aba Produtividade (administradores sempre podem, independente disso)</label>
+        </div>
+        <div class="campo span-2">
+          <label for="nu_AcessoPlanilha">Acesso à planilha no Google Drive</label>
+          <select id="nu_AcessoPlanilha">
+            <option value="NENHUM">Nenhum (usa só pelo site)</option>
+            <option value="LEITOR">Leitor (pode abrir e conferir a planilha)</option>
+            <option value="EDITOR">Editor (pode editar células direto na planilha)</option>
           </select>
         </div>
       </div>
@@ -1249,6 +1288,7 @@
   var CONTEXTO = null;
   var USUARIO_E_ADMIN = false;
   var USUARIO_PODE_EDITAR = false;
+  var USUARIO_ACESSO_PRODUTIVIDADE = false;
   var CACHE_REGISTROS = {};
   var ETAPA_ATUAL = 1;
   var TOTAL_ETAPAS = 4;
@@ -1290,6 +1330,7 @@
     if (nome === 'listagem') carregarListagem();
     if (nome === 'painel') carregarPainel();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
+    if (nome === 'usuarios') irParaTelaUsuarios_();
     window.scrollTo(0, 0);
   }
 
@@ -1318,9 +1359,11 @@
     var ehAdmin = ctx.usuario.perfil === 'admin';
     USUARIO_E_ADMIN = ehAdmin;
     USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
-    document.getElementById('navCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
-    document.getElementById('navRelatorioProdutividade').style.display = ehAdmin ? '' : 'none';
-    document.getElementById('navNovoUsuario').style.display = ehAdmin ? '' : 'none';
+    USUARIO_ACESSO_PRODUTIVIDADE = !!ctx.usuario.acessoProdutividade;
+    // Cadastrar veículo, Produtividade e Usuários ficam visíveis no menu pra
+    // todo mundo — quem não tem permissão só recebe um aviso ao tentar usar
+    // (ver abrirModalEscolhaCadastro_, abrirTelaRelatorioProdutividade_ e
+    // irParaTelaUsuarios_), em vez de a opção simplesmente desaparecer.
 
     document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
     carregarInicio();
@@ -1570,6 +1613,10 @@
   }
 
   function abrirModalEscolhaCadastro_() {
+    if (!USUARIO_PODE_EDITAR) {
+      mostrarMensagem('mensagemGlobal', 'erro', 'Você não tem permissão para cadastrar — visitantes só podem visualizar.');
+      return;
+    }
     document.getElementById('modalEscolhaCadastroFundo').classList.add('ativo');
   }
 
@@ -1740,22 +1787,84 @@
     document.getElementById(contexto + '_NumeroSeiExibicao').textContent = valor;
   }
 
-  // ---------- Modal: cadastrar novo usuário do sistema ----------
+  // ---------- Tela "Usuários" (lista + cadastrar/editar) ----------
+  var USUARIOS_LISTA_ATUAL = [];
+  var ROTULOS_PERFIL_USUARIO_ = { admin: 'Administrador', usuario: 'Usuário', visitante: 'Visitante' };
+  var ROTULOS_ACESSO_PLANILHA_ = { NENHUM: 'Nenhum', LEITOR: 'Leitor', EDITOR: 'Editor' };
+
+  function irParaTelaUsuarios_() {
+    if (!USUARIO_E_ADMIN) {
+      document.getElementById('usuariosSemPermissao').style.display = '';
+      document.getElementById('usuariosConteudo').style.display = 'none';
+      return;
+    }
+    document.getElementById('usuariosSemPermissao').style.display = 'none';
+    document.getElementById('usuariosConteudo').style.display = '';
+    carregarListaUsuarios_();
+  }
+
+  async function carregarListaUsuarios_() {
+    var corpo = document.getElementById('corpoTabelaUsuarios');
+    corpo.innerHTML = '<tr><td colspan="6" class="carregando">Carregando...</td></tr>';
+    try {
+      USUARIOS_LISTA_ATUAL = await chamarServidor_('listarUsuarios');
+      if (!USUARIOS_LISTA_ATUAL.length) {
+        corpo.innerHTML = '<tr><td colspan="6" class="carregando">Nenhum usuário cadastrado.</td></tr>';
+        return;
+      }
+      corpo.innerHTML = USUARIOS_LISTA_ATUAL.map(function (u, i) {
+        var produtividade = u.Perfil === 'admin' ? 'Sempre' : (u.AcessoProdutividade === 'SIM' ? 'Sim' : 'Não');
+        return '<tr>' +
+          '<td>' + escaparHtml(u.Email) + '</td>' +
+          '<td>' + escaparHtml(u.Nome) + '</td>' +
+          '<td>' + escaparHtml(ROTULOS_PERFIL_USUARIO_[u.Perfil] || u.Perfil) + '</td>' +
+          '<td>' + produtividade + '</td>' +
+          '<td>' + escaparHtml(ROTULOS_ACESSO_PLANILHA_[u.AcessoPlanilha] || u.AcessoPlanilha) + '</td>' +
+          '<td><button type="button" class="secundario" onclick="abrirModalEditarUsuario_(' + i + ')">Editar</button></td>' +
+          '</tr>';
+      }).join('');
+    } catch (erro) {
+      corpo.innerHTML = '<tr><td colspan="6" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+    }
+  }
+
+  // ---------- Modal: cadastrar/editar usuário do sistema ----------
   function configurarModalNovoUsuario_() {
     document.getElementById('botaoNovoUsuarioCancelar').addEventListener('click', fecharModalNovoUsuario_);
     document.getElementById('botaoNovoUsuarioSalvar').addEventListener('click', salvarNovoUsuario_);
   }
 
   function abrirModalNovoUsuario_() {
+    document.getElementById('tituloModalUsuario').textContent = 'Cadastrar novo usuário';
     document.getElementById('nu_Email').value = '';
+    document.getElementById('nu_Email').disabled = false;
     document.getElementById('nu_Nome').value = '';
     document.getElementById('nu_Perfil').value = 'admin';
+    document.getElementById('nu_AcessoProdutividade').checked = false;
+    document.getElementById('nu_AcessoPlanilha').value = 'NENHUM';
+    document.getElementById('mensagemNovoUsuario').innerHTML = '';
+    document.getElementById('modalNovoUsuarioFundo').classList.add('ativo');
+  }
+
+  function abrirModalEditarUsuario_(indice) {
+    var u = USUARIOS_LISTA_ATUAL[indice];
+    if (!u) return;
+    document.getElementById('tituloModalUsuario').textContent = 'Editar usuário';
+    document.getElementById('nu_Email').value = u.Email;
+    // E-mail identifica o usuário (cadastrarUsuario faz upsert por e-mail) —
+    // trocar aqui criaria um cadastro novo em vez de editar o existente.
+    document.getElementById('nu_Email').disabled = true;
+    document.getElementById('nu_Nome').value = u.Nome;
+    document.getElementById('nu_Perfil').value = u.Perfil;
+    document.getElementById('nu_AcessoProdutividade').checked = u.AcessoProdutividade === 'SIM';
+    document.getElementById('nu_AcessoPlanilha').value = u.AcessoPlanilha;
     document.getElementById('mensagemNovoUsuario').innerHTML = '';
     document.getElementById('modalNovoUsuarioFundo').classList.add('ativo');
   }
 
   function fecharModalNovoUsuario_() {
     document.getElementById('modalNovoUsuarioFundo').classList.remove('ativo');
+    document.getElementById('nu_Email').disabled = false;
   }
 
   function salvarNovoUsuario_() {
@@ -1767,7 +1876,9 @@
     var dados = {
       Email: document.getElementById('nu_Email').value,
       Nome: document.getElementById('nu_Nome').value,
-      Perfil: document.getElementById('nu_Perfil').value
+      Perfil: document.getElementById('nu_Perfil').value,
+      AcessoProdutividade: document.getElementById('nu_AcessoProdutividade').checked ? 'SIM' : 'NÃO',
+      AcessoPlanilha: document.getElementById('nu_AcessoPlanilha').value
     };
 
     var botao = document.getElementById('botaoNovoUsuarioSalvar');
@@ -1777,6 +1888,7 @@
         botao.disabled = false;
         fecharModalNovoUsuario_();
         mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
+        carregarListaUsuarios_();
       })
       .withFailureHandler(function (erro) {
         botao.disabled = false;
@@ -2910,6 +3022,13 @@
 
   // ---------- Painel / Estatísticas ----------
   function abrirTelaRelatorioProdutividade_() {
+    if (!USUARIO_ACESSO_PRODUTIVIDADE) {
+      document.getElementById('rpSemPermissao').style.display = '';
+      document.getElementById('rpConteudoGeral').style.display = 'none';
+      return;
+    }
+    document.getElementById('rpSemPermissao').style.display = 'none';
+    document.getElementById('rpConteudoGeral').style.display = '';
     if (!document.getElementById('rp_DataInicio').value || !document.getElementById('rp_DataFim').value) {
       definirPeriodoProdutividade_(7);
     } else {
