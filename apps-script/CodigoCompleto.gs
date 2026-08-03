@@ -1293,6 +1293,19 @@ function buscarAtpvePorPlaca(placa) {
   }
 
   var encontrados = [];
+  buscarAtpveNaPastaRecursivo_(pasta, placaNormalizada, encontrados, 0);
+  return encontrados;
+}
+
+/**
+ * Procura em toda a árvore de subpastas (ex.: "Abril - 2026/PMBA/..."), não
+ * só na pasta raiz — os ATPVe costumam vir organizados por mês/órgão dentro
+ * da pasta configurada. Limita a profundidade pra não rodar pra sempre numa
+ * estrutura de pastas mal formada com referência circular.
+ */
+function buscarAtpveNaPastaRecursivo_(pasta, placaNormalizada, encontrados, profundidade) {
+  if (profundidade > 10) return;
+
   var arquivos = pasta.getFiles();
   while (arquivos.hasNext()) {
     var arquivo = arquivos.next();
@@ -1307,7 +1320,10 @@ function buscarAtpvePorPlaca(placa) {
     }
   }
 
-  return encontrados;
+  var subpastas = pasta.getFolders();
+  while (subpastas.hasNext()) {
+    buscarAtpveNaPastaRecursivo_(subpastas.next(), placaNormalizada, encontrados, profundidade + 1);
+  }
 }
 
 function linhaParaObjeto_(cabecalho, linha) {
