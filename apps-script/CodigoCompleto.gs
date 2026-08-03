@@ -1374,11 +1374,24 @@ function listarTepPendentes() {
   // "TEP Finalizado" (marcarTepFinalizado). "novo" é só uma etiqueta visual
   // pra destacar o que concluiu depois da última visualização; não filtra
   // a lista (o aviso vermelho do menu que é controlado por isso).
-  var pendentes = getProcessosPendentesTep_();
-  pendentes.forEach(function (p) {
-    p.novo = !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao);
+  //
+  // Só devolve os campos que a tela realmente usa, sem o objeto Date de
+  // dataConclusao — com centenas de processos acumulados, mandar um Date
+  // por item pro navegador via google.script.run vinha falhando (a
+  // resposta chegava como null do lado do cliente, apesar de calcular
+  // certo aqui no servidor).
+  return getProcessosPendentesTep_().map(function (p) {
+    return {
+      chave: p.chave,
+      processo: p.processo,
+      termoDoacao: p.termoDoacao,
+      donataria: p.donataria,
+      uf: p.uf,
+      ano: p.ano,
+      qtdTotal: p.qtdTotal,
+      novo: !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao)
+    };
   });
-  return pendentes;
 }
 
 /**
