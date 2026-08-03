@@ -1858,7 +1858,7 @@
     var container = document.getElementById('tepLista');
     container.innerHTML = '<div class="carregando">Carregando...</div>';
     try {
-      TEP_PENDENTES_ATUAL = await chamarServidor_('listarTepPendentes');
+      TEP_PENDENTES_ATUAL = (await chamarServidor_('listarTepPendentes')) || [];
       // Abrir a aba já conta como "visualizado" — o aviso vermelho do menu
       // some agora. Mas a lista abaixo continua mostrando TODOS os
       // processos pendentes (novos ou não) — só sai daqui quando alguém

@@ -1369,16 +1369,15 @@ function getProcessosPendentesTep_() {
  */
 function listarTepPendentes() {
   var perfil = getPerfilUsuarioAtual_();
+  var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
   // Lista SEMPRE todos os pendentes — só sai daqui quando alguém clica em
   // "TEP Finalizado" (marcarTepFinalizado). "novo" é só uma etiqueta visual
   // pra destacar o que concluiu depois da última visualização; não filtra
   // a lista (o aviso vermelho do menu que é controlado por isso).
-  var novos = getTepNovosParaEmail_(perfil.email);
-  var chavesNovas = {};
-  novos.forEach(function (p) { chavesNovas[p.chave] = true; });
-
   var pendentes = getProcessosPendentesTep_();
-  pendentes.forEach(function (p) { p.novo = !!chavesNovas[p.chave]; });
+  pendentes.forEach(function (p) {
+    p.novo = !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao);
+  });
   return pendentes;
 }
 
