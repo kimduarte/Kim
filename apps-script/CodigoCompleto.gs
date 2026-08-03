@@ -1369,12 +1369,21 @@ function getProcessosPendentesTep_() {
  */
 function listarTepPendentes() {
   var perfil = getPerfilUsuarioAtual_();
-  var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
-  var pendentes = getProcessosPendentesTep_();
-  pendentes.forEach(function (p) {
-    p.novo = !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao);
+  // Só os processos concluídos depois da última visualização — não a lista
+  // inteira de pendentes. Uma vez visto (ver marcarTepVisualizado), some
+  // daqui pra sempre, mesmo que ninguém tenha clicado em "TEP Finalizado".
+  return getTepNovosParaEmail_(perfil.email);
+}
+
+/**
+ * Processos pendentes de TEP concluídos depois da última vez que esse
+ * e-mail visualizou a aba (ou todos, se nunca visualizou).
+ */
+function getTepNovosParaEmail_(email) {
+  var ultimaVisualizacao = getUltimaVisualizacaoTep_(email);
+  return getProcessosPendentesTep_().filter(function (p) {
+    return !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao);
   });
-  return pendentes;
 }
 
 /**
@@ -1398,10 +1407,7 @@ function getUltimaVisualizacaoTep_(email) {
  * vermelho do menu; a aba TEP em si sempre lista todos os pendentes.
  */
 function contarTepNovos_(email) {
-  var ultimaVisualizacao = getUltimaVisualizacaoTep_(email);
-  return getProcessosPendentesTep_().filter(function (g) {
-    return !ultimaVisualizacao || (!!g.dataConclusao && g.dataConclusao > ultimaVisualizacao);
-  }).length;
+  return getTepNovosParaEmail_(email).length;
 }
 
 /**
