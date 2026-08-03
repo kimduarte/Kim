@@ -1367,20 +1367,24 @@ function getProcessosPendentesTep_() {
  * o aviso e permitir finalizar. Visível a qualquer usuário logado (só
  * marcar como finalizado exige permissão de edição).
  */
-function listarTepPendentes() {
+/**
+ * apenasNovos=true (padrão da tela): só os processos concluídos depois da
+ * última visualização — o normal do dia a dia. apenasNovos=false: TODOS os
+ * pendentes, novos ou não (usado pelo link "Ver todos os pendentes", pra
+ * nunca perder de vista processos antigos que nunca tiveram TEP feito).
+ * Nenhum dos dois marca nada como finalizado — só quem clica em "TEP
+ * Finalizado" tira um processo dessa lista de vez.
+ *
+ * Só devolve os campos que a tela realmente usa, sem o objeto Date de
+ * dataConclusao — com centenas de processos acumulados, mandar um Date por
+ * item pro navegador via google.script.run vinha falhando (a resposta
+ * chegava como null do lado do cliente, apesar de calcular certo aqui no
+ * servidor).
+ */
+function listarTepPendentes(apenasNovos) {
   var perfil = getPerfilUsuarioAtual_();
   var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
-  // Lista SEMPRE todos os pendentes — só sai daqui quando alguém clica em
-  // "TEP Finalizado" (marcarTepFinalizado). "novo" é só uma etiqueta visual
-  // pra destacar o que concluiu depois da última visualização; não filtra
-  // a lista (o aviso vermelho do menu que é controlado por isso).
-  //
-  // Só devolve os campos que a tela realmente usa, sem o objeto Date de
-  // dataConclusao — com centenas de processos acumulados, mandar um Date
-  // por item pro navegador via google.script.run vinha falhando (a
-  // resposta chegava como null do lado do cliente, apesar de calcular
-  // certo aqui no servidor).
-  return getProcessosPendentesTep_().map(function (p) {
+  var pendentes = getProcessosPendentesTep_().map(function (p) {
     return {
       chave: p.chave,
       processo: p.processo,
@@ -1392,6 +1396,7 @@ function listarTepPendentes() {
       novo: !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao)
     };
   });
+  return apenasNovos ? pendentes.filter(function (p) { return p.novo; }) : pendentes;
 }
 
 /**
@@ -1457,33 +1462,6 @@ function marcarTepVisualizado() {
  * de quem está usando (pode ser diferente do que aparece rodando pelo
  * editor, dependendo de como o app foi implantado).
  */
-function debugIdentidadeTep() {
-  var email = getEmailUsuarioAtual_();
-  var perfil = getPerfilUsuarioAtual_();
-  var totalPendentes = getProcessosPendentesTep_().length;
-
-  // Chama a MESMA função que o botão da aba usa, pra ver se o problema é
-  // na função em si ou especificamente na chamada via google.script.run
-  // que o botão faz.
-  var totalViaListarTepPendentes = null;
-  var erroListarTepPendentes = null;
-  try {
-    totalViaListarTepPendentes = listarTepPendentes().length;
-  } catch (e) {
-    erroListarTepPendentes = String(e && e.message || e);
-  }
-
-  var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
-  return {
-    email: email,
-    perfil: perfil.perfil,
-    totalPendentes: totalPendentes,
-    totalViaListarTepPendentes: totalViaListarTepPendentes,
-    erroListarTepPendentes: erroListarTepPendentes,
-    ultimaVisualizacao: ultimaVisualizacao ? ultimaVisualizacao.toISOString() : null
-  };
-}
-
 /**
  * Marca o Termo de Encerramento de Processo (TEP) de um processo como
  * finalizado — some da lista de pendentes e passa a contar

@@ -1141,10 +1141,9 @@
       <div class="pagina-titulo">
         <div>
           <h2>TEP — Termo de Encerramento de Processo</h2>
-          <p>Processos com todos os veículos já transferidos, aguardando o Termo de Encerramento de Processo.</p>
+          <p>Por padrão mostra só os processos concluídos desde sua última visita — use "Ver todos os pendentes" para o histórico completo.</p>
         </div>
       </div>
-      <div id="tepDebugInfo"></div>
       <div id="tepLista"><div class="carregando">Carregando...</div></div>
     </section>
     </main>
@@ -1855,41 +1854,36 @@
     }
   }
 
-  async function carregarListaTep_() {
+  var TEP_MOSTRANDO_TODOS = false;
+
+  async function carregarListaTep_(mostrarTodos) {
+    TEP_MOSTRANDO_TODOS = !!mostrarTodos;
     var container = document.getElementById('tepLista');
     container.innerHTML = '<div class="carregando">Carregando...</div>';
-    // DEBUG TEMPORÁRIO — mostra o que o servidor enxerga NESTA sessão real
-    // do navegador (email/perfil/total), pra comparar com o que aparece
-    // rodando testarTepDebug pelo editor do Apps Script.
-    chamarServidor_('debugIdentidadeTep').then(function (info) {
-      document.getElementById('tepDebugInfo').innerHTML =
-        '<div class="card" style="background:#fef9c3; font-family:monospace; font-size:12px; margin-bottom:14px;">' +
-        'DEBUG — email: ' + escaparHtml(info.email) + ' | perfil: ' + escaparHtml(info.perfil) +
-        ' | total via getProcessosPendentesTep_: ' + info.totalPendentes +
-        ' | total via listarTepPendentes: ' + info.totalViaListarTepPendentes +
-        (info.erroListarTepPendentes ? ' | ERRO em listarTepPendentes: ' + escaparHtml(info.erroListarTepPendentes) : '') +
-        ' | última visualização registrada: ' + escaparHtml(info.ultimaVisualizacao || 'nunca') + '</div>';
-    }).catch(function (erro) {
-      document.getElementById('tepDebugInfo').innerHTML =
-        '<div class="mensagem erro">DEBUG falhou: ' + escaparHtml(erro.message || String(erro)) + '</div>';
-    });
     try {
-      // DEBUG TEMPORÁRIO: sem "|| []" aqui de propósito — se o servidor
-      // devolver algo inesperado, queremos VER o erro real, não escondê-lo.
-      var resultadoBruto = await chamarServidor_('listarTepPendentes');
-      console.log('listarTepPendentes() devolveu:', resultadoBruto);
-      TEP_PENDENTES_ATUAL = resultadoBruto || [];
+      TEP_PENDENTES_ATUAL = (await chamarServidor_('listarTepPendentes', !TEP_MOSTRANDO_TODOS)) || [];
       // Abrir a aba já conta como "visualizado" — o aviso vermelho do menu
-      // some agora. Mas a lista abaixo continua mostrando TODOS os
-      // processos pendentes (novos ou não) — só sai daqui quando alguém
-      // clica em "TEP Finalizado".
+      // some agora, e a lista (no modo padrão) passa a mostrar só o que
+      // concluir depois disso. "Ver todos os pendentes" ainda mostra o
+      // histórico completo, pra nenhum processo antigo ficar esquecido.
       chamarServidor_('marcarTepVisualizado').catch(function () { /* best-effort */ });
       atualizarContagemTep_(0);
+
+      var linkAlternarHtml = '<div class="botoes" style="justify-content:flex-start; margin-bottom:14px;">' +
+        (TEP_MOSTRANDO_TODOS
+          ? '<button type="button" class="secundario" onclick="carregarListaTep_(false)">‹ Ver só os novos</button>'
+          : '<button type="button" class="secundario" onclick="carregarListaTep_(true)">Ver todos os pendentes (histórico)</button>') +
+        '</div>';
+
       if (!TEP_PENDENTES_ATUAL.length) {
-        container.innerHTML = '<div class="card"><p>Nenhum processo pendente de Termo de Encerramento no momento. (Veja o console do navegador — F12 — para o valor bruto recebido.)</p></div>';
+        container.innerHTML = linkAlternarHtml + '<div class="card"><p>' +
+          (TEP_MOSTRANDO_TODOS
+            ? 'Nenhum processo pendente de Termo de Encerramento no momento.'
+            : 'Nenhum processo novo concluído desde a última vez que você olhou aqui.') +
+          '</p></div>';
         return;
       }
-      container.innerHTML = TEP_PENDENTES_ATUAL.map(function (p, i) {
+      container.innerHTML = linkAlternarHtml + TEP_PENDENTES_ATUAL.map(function (p, i) {
         return '<div class="card" style="border:2px solid #dc2626; background:#fef2f2; margin-bottom:14px;">' +
           '<p style="color:#991b1b; font-weight:700; margin:0 0 8px;">⚠️ Processo concluído (todos os veículos transferidos) — faça o Termo de Encerramento de Processo.' +
           (p.novo ? ' <span style="background:#dc2626; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; vertical-align:middle;">NOVO</span>' : '') +
@@ -1916,7 +1910,7 @@
     try {
       var resp = await chamarServidor_('marcarTepFinalizado', p.chave);
       mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
-      carregarListaTep_();
+      carregarListaTep_(TEP_MOSTRANDO_TODOS);
     } catch (erro) {
       mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
     }
