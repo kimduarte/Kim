@@ -156,6 +156,30 @@
   }
   .campo textarea { resize: vertical; min-height: 60px; }
 
+  .campo-dropdown { position: relative; }
+  .campo-dropdown-botao { text-align: left; background: #fff; min-width: 170px; }
+  .campo-dropdown-painel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 20;
+    background: #fff;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    padding: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    min-width: 170px;
+  }
+  .campo-dropdown-painel.aberto { display: block; }
+  .campo-dropdown-painel label {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 6px; font-size: 14px; font-weight: 400; cursor: pointer; border-radius: 6px;
+  }
+  .campo-dropdown-painel label:hover { background: #f3f4f6; }
+
   .botoes { display: flex; gap: 10px; margin-top: 18px; justify-content: space-between; }
   .botoes .direita { display: flex; gap: 10px; margin-left: auto; }
 
@@ -230,12 +254,12 @@
 
   /* Veículos por UF: lista ranqueada, do maior para o menor */
   .rank-lista { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; }
-  .rank-linha { display: grid; grid-template-columns: 40px 1fr 50px; align-items: center; gap: 8px; height: 24px; cursor: pointer; border-radius: 4px; }
+  .rank-linha { display: grid; grid-template-columns: 40px 1fr 200px; align-items: center; gap: 8px; min-height: 24px; padding: 3px 0; cursor: pointer; border-radius: 4px; }
   .rank-linha:hover { background: var(--azul-bg); }
   .rank-uf { font-weight: 700; font-size: 12.5px; }
   .rank-trilha { background: #f3f4f6; border-radius: 3px; height: 15px; overflow: hidden; }
   .rank-barra { background: var(--primario); height: 100%; border-radius: 3px 0 0 3px; }
-  .rank-valor { font-size: 12px; color: var(--texto-suave); text-align: right; }
+  .rank-valor { font-size: 12px; color: var(--texto-suave); text-align: right; white-space: nowrap; }
 
   /* Veículos por Região/Estado: agrupado pelas 5 regiões + órgãos federais,
      com intensidade de cor (mesma tonalidade institucional, mais escura
@@ -814,18 +838,22 @@
           <button type="button" class="primario" id="botaoModoStatUF" onclick="alternarModoVisualizacaoStat_('uf')">Por UF</button>
           <button type="button" class="secundario" id="botaoModoStatRegiao" onclick="alternarModoVisualizacaoStat_('regiao')">Por Região</button>
         </div>
-        <div class="filtros" style="margin-top:14px; margin-bottom:4px;">
-          <div class="campo">
-            <label for="anoStatGeral">Ano (Ctrl/Cmd+clique para selecionar mais de um)</label>
-            <select id="anoStatGeral" multiple size="5" onchange="atualizarVisualizacaoStat_()"><option value="">Todos os anos</option></select>
+        <div class="filtros" style="margin-top:14px; margin-bottom:4px; align-items:end;">
+          <div class="campo campo-dropdown">
+            <label>Ano</label>
+            <button type="button" class="secundario campo-dropdown-botao" id="botaoAnoStatDropdown" onclick="alternarPainelAnoStat_(event)">Todos os anos ▾</button>
+            <div class="campo-dropdown-painel" id="painelAnoStatDropdown"></div>
           </div>
           <div class="campo">
             <label for="transfStatGeral">Transferidos</label>
-            <select id="transfStatGeral" onchange="this.blur(); atualizarVisualizacaoStat_()">
+            <select id="transfStatGeral">
               <option value="">Todos</option>
               <option value="SIM">Sim</option>
               <option value="NÃO">Não</option>
             </select>
+          </div>
+          <div class="campo">
+            <button type="button" class="primario" onclick="atualizarVisualizacaoStat_()">Filtrar</button>
           </div>
         </div>
         <div id="corpoStatUF">
@@ -3301,7 +3329,7 @@
 
     renderizarRankUF_(stats.porUF);
     renderizarMapaRegional_(stats.porUF);
-    popularAnosStat_('anoStatGeral', stats.porAnoMes);
+    popularAnosStat_(stats.porAnoMes);
 
     DADOS_PENDENTES = stats.pendentesMaisAntigos;
     renderizarTabelaSimples('corpoTabelaPendentes', stats.pendentesMaisAntigos, function (p, i) {
@@ -3332,30 +3360,54 @@
     document.getElementById('corpoStatRegiao').style.display = modo === 'regiao' ? '' : 'none';
   }
 
-  // Preenche o seletor de ano a partir dos anos que já aparecem em
+  // ---------- Dropdown de Ano com checkboxes (permite marcar vários anos,
+  // mas fica com cara de campo normal fechado, em vez de um <select
+  // multiple> — que fica feio e exige Ctrl/Cmd+clique escondido) ----------
+  var ANOS_STAT_SELECIONADOS = [];
+
+  function alternarPainelAnoStat_(evt) {
+    evt.stopPropagation();
+    document.getElementById('painelAnoStatDropdown').classList.toggle('aberto');
+  }
+
+  document.addEventListener('click', function (evt) {
+    var painel = document.getElementById('painelAnoStatDropdown');
+    if (painel && painel.classList.contains('aberto') &&
+      !painel.contains(evt.target) && evt.target.id !== 'botaoAnoStatDropdown') {
+      painel.classList.remove('aberto');
+    }
+  });
+
+  // Preenche o dropdown de ano a partir dos anos que já aparecem em
   // stats.porAnoMes (chaves no formato "AAAA-MES") — sem precisar de uma
   // chamada própria ao servidor só para isso.
-  function popularAnosStat_(idSelect, porAnoMes) {
+  function popularAnosStat_(porAnoMes) {
     var anos = {};
     porAnoMes.forEach(function (item) { anos[item.chave.split('-')[0]] = true; });
     var anosOrdenados = Object.keys(anos).sort(function (a, b) { return b - a; });
-    var select = document.getElementById(idSelect);
-    var selecionados = Array.prototype.map.call(select.selectedOptions, function (o) { return o.value; });
-    select.innerHTML = '<option value="">Todos os anos</option>' +
-      anosOrdenados.map(function (ano) { return '<option value="' + ano + '">' + ano + '</option>'; }).join('');
-    Array.prototype.forEach.call(select.options, function (o) { o.selected = selecionados.indexOf(o.value) !== -1; });
+    var marcadosAntes = ANOS_STAT_SELECIONADOS;
+    var painel = document.getElementById('painelAnoStatDropdown');
+    painel.innerHTML = anosOrdenados.map(function (ano) {
+      var marcado = marcadosAntes.indexOf(ano) !== -1;
+      return '<label><input type="checkbox" value="' + ano + '"' + (marcado ? ' checked' : '') +
+        ' onchange="atualizarRotuloAnoStat_()"> ' + ano + '</label>';
+    }).join('');
+    ANOS_STAT_SELECIONADOS = anosOrdenados.filter(function (a) { return marcadosAntes.indexOf(a) !== -1; });
+    atualizarRotuloAnoStat_();
   }
 
-  // "" (Todos os anos) marcado, ou nada marcado, valem como "sem filtro de
-  // ano" — senão, devolve os anos específicos escolhidos (Ctrl/Cmd+clique).
-  function lerAnosSelecionados_(idSelect) {
-    var valores = Array.prototype.map.call(document.getElementById(idSelect).selectedOptions, function (o) { return o.value; });
-    if (!valores.length || valores.indexOf('') !== -1) return [];
-    return valores;
+  function atualizarRotuloAnoStat_() {
+    var marcados = Array.prototype.filter.call(
+      document.getElementById('painelAnoStatDropdown').querySelectorAll('input[type=checkbox]'),
+      function (c) { return c.checked; }
+    ).map(function (c) { return c.value; });
+    ANOS_STAT_SELECIONADOS = marcados;
+    document.getElementById('botaoAnoStatDropdown').textContent =
+      (marcados.length ? marcados.slice().sort().reverse().join(', ') : 'Todos os anos') + ' ▾';
   }
 
   async function atualizarVisualizacaoStat_() {
-    var anos = lerAnosSelecionados_('anoStatGeral');
+    var anos = ANOS_STAT_SELECIONADOS;
     var transferido = document.getElementById('transfStatGeral').value;
     var idContainer = MODO_VISUALIZACAO_STAT === 'regiao' ? 'mapaRegional' : 'rankUF';
     document.getElementById(idContainer).innerHTML = '<div class="carregando">Carregando...</div>';
@@ -3382,7 +3434,7 @@
       return '<div class="rank-linha" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'uf\')">' +
         '<span class="rank-uf">' + escaparHtml(item.chave) + '</span>' +
         '<div class="rank-trilha"><div class="rank-barra" style="width:' + pct + '%;"></div></div>' +
-        '<span class="rank-valor mono">' + item.total + '</span></div>';
+        '<span class="rank-valor mono">' + item.total + ' • ' + formatarMoeda_(item.valorTotal) + '</span></div>';
     }).join('');
   }
 
@@ -3426,13 +3478,15 @@
         : itens.filter(function (item) { return !ufsUsadas[item.chave] && !algumaRegiaoTem_(item.chave); });
       if (!itensDaRegiao.length) return '';
       var totalRegiao = itensDaRegiao.reduce(function (soma, item) { return soma + item.total; }, 0);
+      var valorRegiao = itensDaRegiao.reduce(function (soma, item) { return soma + (item.valorTotal || 0); }, 0);
       return '<div class="regiao-bloco"><div class="regiao-titulo">' +
         '<span>' + escaparHtml(nomeRegiao) + '</span>' +
-        '<span class="regiao-total">' + totalRegiao + ' veículo(s)</span>' +
+        '<span class="regiao-total">' + totalRegiao + ' veículo(s) • ' + formatarMoeda_(valorRegiao) + '</span>' +
         '</div><div class="regiao-grade">' +
         itensDaRegiao.map(function (item) {
           return '<div class="heat-celula ' + classeCalorUF_(item.total, max) + '" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'regiao\')">' +
-            '<div class="v mono">' + item.total + '</div><div class="l">' + escaparHtml(item.chave) + '</div></div>';
+            '<div class="v mono">' + item.total + '</div><div class="l">' + escaparHtml(item.chave) + '</div>' +
+            '<div class="l">' + formatarMoeda_(item.valorTotal) + '</div></div>';
         }).join('') + '</div></div>';
     }).join('');
 
@@ -3459,7 +3513,7 @@
   // 'regiao') — os dois filtram por UF (o mapa regional é só o mesmo dado
   // por UF agrupado visualmente por região).
   function abrirDetalheUF_(valor, origem) {
-    var anos = lerAnosSelecionados_('anoStatGeral');
+    var anos = ANOS_STAT_SELECIONADOS;
     var transferido = document.getElementById('transfStatGeral').value;
     CONTEXTO_DETALHE_UF = { uf: valor, ano: anos, transferido: transferido, campoFiltro: 'uf' };
     DETALHE_UF_EXPANDIDOS = {};

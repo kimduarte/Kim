@@ -2391,16 +2391,35 @@ function getEstatisticas() {
  * opcionalmente restrita a um ou mais anos (array ou ano único) e/ou a um
  * status de transferência — usada pelo seletor "Como você deseja
  * visualizar?" (Por UF / Por Região / Por Ente) na tela de Estatísticas.
- * Sem cache: é uma consulta pontual (só quando o usuário troca um filtro),
- * diferente do painel geral que é recalculado toda hora que alguém abre a
- * tela.
+ * Cada item traz também a soma de ValorVeiculo do recorte, ao lado da
+ * contagem. Sem cache: é uma consulta pontual (só quando o usuário troca
+ * um filtro), diferente do painel geral que é recalculado toda hora que
+ * alguém abre a tela.
  */
 function getVeiculosPorUFAno(ano, transferido, campo) {
   var filtros = {};
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   var registros = listarVeiculos(filtros);
-  return paraArrayOrdenado_(contarPor_(registros, campo || 'UF'));
+  return contarESomarValorPor_(registros, campo || 'UF');
+}
+
+/**
+ * Como contarPor_, mas devolve também a soma de ValorVeiculo de cada grupo
+ * — usada só pelo painel "Como você deseja visualizar?", que mostra o
+ * total em reais ao lado da contagem de veículos por UF/Região.
+ */
+function contarESomarValorPor_(registros, campo) {
+  var mapa = {};
+  registros.forEach(function (r) {
+    var chave = r[campo] || '(não informado)';
+    if (!mapa[chave]) mapa[chave] = { total: 0, valorTotal: 0 };
+    mapa[chave].total++;
+    mapa[chave].valorTotal += Number(r.ValorVeiculo) || 0;
+  });
+  return Object.keys(mapa).map(function (chave) {
+    return { chave: chave, total: mapa[chave].total, valorTotal: mapa[chave].valorTotal };
+  }).sort(function (a, b) { return b.total - a.total; });
 }
 
 /**
@@ -2569,7 +2588,7 @@ function exportarListagemXlsx(filtros) {
 function calcularEstatisticas_(registros) {
   var total = registros.length;
   var porTransferido = contarPor_(registros, 'Transferido');
-  var porUF = contarPor_(registros, 'UF');
+  var porUF = contarESomarValorPor_(registros, 'UF');
   var porEnte = contarPor_(registros, 'Ente');
   var porAnoMes = {};
   var porDonataria = {};
@@ -2598,7 +2617,7 @@ function calcularEstatisticas_(registros) {
     transferidos: porTransferido['SIM'] || 0,
     pendentes: porTransferido['NÃO'] || 0,
     percentualTransferido: total ? Math.round(((porTransferido['SIM'] || 0) / total) * 1000) / 10 : 0,
-    porUF: paraArrayOrdenado_(porUF),
+    porUF: porUF,
     porEnte: paraArrayOrdenado_(porEnte),
     porAnoMes: ordenarSerieTemporal_(porAnoMes),
     donatariasTop10: paraArrayOrdenado_(porDonataria).slice(0, 10),
