@@ -1159,6 +1159,17 @@
     </div>
   </div>
 
+  <div class="modal-fundo" id="modalLembreteAtpveFundo">
+    <div class="modal" style="max-width:420px;">
+      <h2>Lembrete</h2>
+      <p style="font-size:15px;">Coloque o ATPVe escaneado no Drive.</p>
+      <div class="botoes">
+        <button type="button" class="secundario" id="botaoLembreteAtpveFechar">Fechar</button>
+        <button type="button" class="primario" id="botaoLembreteAtpveDrive" style="margin-left:auto;">Link do Drive</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="modalNovoUsuarioFundo">
     <div class="modal" style="max-width:480px;">
       <h2 id="tituloModalUsuario">Cadastrar novo usuário</h2>
@@ -1330,6 +1341,7 @@
     configurarDonatariaDinamica_();
     configurarBuscaCep_();
     configurarModalConfirmacao_();
+    configurarModalLembreteAtpve_();
     configurarModalEscolhaCadastro_();
     configurarModalSegundaViaAtpve_();
     configurarModalNumeroProcesso_();
@@ -1648,6 +1660,28 @@
     document.getElementById('modalConfirmacaoFundo').classList.add('ativo');
   }
 
+  // ---------- Modal: lembrete pra colocar o ATPVe escaneado no Drive ----------
+  var URL_PASTA_ATPVE_ATUAL = null;
+
+  function configurarModalLembreteAtpve_() {
+    document.getElementById('botaoLembreteAtpveFechar').addEventListener('click', function () {
+      document.getElementById('modalLembreteAtpveFundo').classList.remove('ativo');
+    });
+    document.getElementById('botaoLembreteAtpveDrive').addEventListener('click', function () {
+      if (URL_PASTA_ATPVE_ATUAL) window.open(URL_PASTA_ATPVE_ATUAL, '_blank');
+    });
+  }
+
+  async function abrirModalLembreteAtpve_() {
+    try {
+      URL_PASTA_ATPVE_ATUAL = await chamarServidor_('getUrlPastaAtpve');
+    } catch (erro) {
+      URL_PASTA_ATPVE_ATUAL = null;
+    }
+    document.getElementById('botaoLembreteAtpveDrive').style.display = URL_PASTA_ATPVE_ATUAL ? '' : 'none';
+    document.getElementById('modalLembreteAtpveFundo').classList.add('ativo');
+  }
+
   // ---------- Modal: escolha entre Novo Processo ou Emissão de 2ª via de ATPVe ----------
   function configurarModalEscolhaCadastro_() {
     document.getElementById('botaoEscolhaCadastroFechar').addEventListener('click', fecharModalEscolhaCadastro_);
@@ -1757,6 +1791,7 @@
       irParaTela('listagem');
       carregarListagem();
       mostrarMensagem('mensagemListagem', 'sucesso', '2ª via de ATPVe registrada para o veículo ' + idVeiculo + '.');
+      abrirModalLembreteAtpve_();
     } catch (erro) {
       document.getElementById('mensagemSegundaViaAtpve').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';

@@ -1571,6 +1571,18 @@ function normalizarPlacaParaArquivo_(texto) {
  * o ATPVe escaneado de veículos antigos que só existem como arquivo solto no
  * Drive (nome do arquivo = placa), sem depender de nenhum campo na planilha.
  */
+/**
+ * Link da pasta do Drive configurada em ATPVE_DRIVE_PASTA_ID (a mesma
+ * usada por buscarAtpvePorPlaca) — usado pelo lembrete "Coloque o ATPVe
+ * escaneado no Drive" que aparece ao registrar uma emissão de 2ª via.
+ * Devolve null se a pasta ainda não foi configurada.
+ */
+function getUrlPastaAtpve() {
+  getPerfilUsuarioAtual_();
+  var pastaId = PropertiesService.getScriptProperties().getProperty('ATPVE_DRIVE_PASTA_ID');
+  return pastaId ? 'https://drive.google.com/drive/folders/' + pastaId : null;
+}
+
 function buscarAtpvePorPlaca(placa) {
   exigirPerfilEditor_(); // aba fica visível a todos, mas só admin/usuário podem usar
   var placaNormalizada = normalizarPlacaParaArquivo_(placa);
