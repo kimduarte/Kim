@@ -1239,7 +1239,9 @@ function getRelatorioProdutividade(dataInicio, dataFim) {
     porUsuario[nome] = (porUsuario[nome] || 0) + 1;
     emissoes.push({
       dataHoraOrdenacao: new Date(dataHora).getTime(),
+      dataHoraIso: new Date(dataHora).toISOString(),
       dataHora: Utilities.formatDate(new Date(dataHora), fuso, 'dd/MM/yyyy HH:mm'),
+      idVeiculo: linha[3],
       placa: veiculo ? veiculo.Placa : '(veículo excluído)',
       marca: veiculo ? veiculo.Marca : '',
       descricao: veiculo ? veiculo.Descricao : '',
@@ -1257,6 +1259,46 @@ function getRelatorioProdutividade(dataInicio, dataFim) {
   emissoes.forEach(function (e) { delete e.dataHoraOrdenacao; });
 
   return { total: emissoes.length, usuarios: usuarios, emissoes: emissoes };
+}
+
+/**
+ * Exclui um registro de emissão de 2ª via de ATPVe da tabela "ATPVe's
+ * emitidos" do Relatório de Produtividade — remove a linha correspondente
+ * do log (pra não contar mais na produtividade) e, se o veículo ainda
+ * apontar exatamente pra essa emissão, limpa também o campo
+ * DataEmissaoSegundaViaATPVe dele (senão continuaria contando no
+ * Relatório de Atividades e aparecendo na busca de 2ª Via ATPVe mesmo sem
+ * o registro correspondente). Restrito a administradores.
+ */
+function excluirEmissaoAtpve(idVeiculo, dataHoraIso) {
+  exigirPerfilAdmin_();
+  if (!idVeiculo || !dataHoraIso) throw new Error('Emissão inválida.');
+  var alvo = new Date(dataHoraIso).getTime();
+
+  var sheetLog = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
+  var dadosLog = sheetLog.getDataRange().getValues();
+  var linhaAlvo = null;
+  for (var i = 1; i < dadosLog.length; i++) {
+    var linha = dadosLog[i];
+    if (linha[2] === 'SEGUNDA_VIA_ATPVE' && String(linha[3]) === String(idVeiculo) && new Date(linha[0]).getTime() === alvo) {
+      linhaAlvo = i + 1;
+      break;
+    }
+  }
+  if (!linhaAlvo) throw new Error('Registro de emissão não encontrado — pode já ter sido excluído.');
+  sheetLog.deleteRow(linhaAlvo);
+
+  var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var linhaVeiculo = encontrarLinhaPorId_(sheetVeiculos, idVeiculo);
+  if (linhaVeiculo) {
+    var celula = sheetVeiculos.getRange(linhaVeiculo, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1);
+    var valorAtual = celula.getValue();
+    if (valorAtual && new Date(valorAtual).getTime() === alvo) {
+      celula.setValue('');
+    }
+  }
+
+  return { mensagem: 'Emissão de 2ª via excluída com sucesso.' };
 }
 
 /**

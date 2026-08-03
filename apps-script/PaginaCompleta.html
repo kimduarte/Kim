@@ -3211,6 +3211,22 @@
     return data.getFullYear() + '-' + mes + '-' + dia;
   }
 
+  var EMISSOES_ATPVE_ATUAL = [];
+
+  function excluirEmissaoAtpve_(indice) {
+    var e = EMISSOES_ATPVE_ATUAL[indice];
+    if (!e) return;
+    confirmar_('Excluir a emissão de 2ª via de ATPVe da placa ' + e.placa + ' (' + e.dataHora + ')? Ela deixa de contar na produtividade.', async function () {
+      try {
+        var resp = await chamarServidor_('excluirEmissaoAtpve', e.idVeiculo, e.dataHoraIso);
+        mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
+        carregarRelatorioProdutividade();
+      } catch (erro) {
+        mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
+      }
+    });
+  }
+
   async function carregarRelatorioProdutividade() {
     var container = document.getElementById('rpConteudo');
     var dataInicio = document.getElementById('rp_DataInicio').value;
@@ -3222,6 +3238,7 @@
     container.innerHTML = '<div class="carregando">Carregando...</div>';
     try {
       var r = await chamarServidor_('getRelatorioProdutividade', dataInicio, dataFim);
+      EMISSOES_ATPVE_ATUAL = r.emissoes || [];
       if (!r.total) {
         container.innerHTML = '<p>Nenhuma emissão de 2ª via de ATPVe registrada nesse período.</p>';
         return;
@@ -3234,10 +3251,13 @@
       html += '</tbody></table></div>';
 
       html += '<h3 style="margin-top:18px;">ATPVe\'s emitidos</h3>';
-      html += '<div class="tabela-wrap"><table><thead><tr><th>Placa</th><th>Marca / Descrição</th><th>Data/hora</th><th>Usuário</th></tr></thead><tbody>';
-      r.emissoes.forEach(function (e) {
+      html += '<div class="tabela-wrap"><table><thead><tr><th>Placa</th><th>Marca / Descrição</th><th>Data/hora</th><th>Usuário</th>' +
+        (USUARIO_E_ADMIN ? '<th></th>' : '') + '</tr></thead><tbody>';
+      EMISSOES_ATPVE_ATUAL.forEach(function (e, i) {
         var veiculoTexto = [e.marca, e.descricao].filter(Boolean).join(' — ');
-        html += '<tr><td>' + escaparHtml(e.placa) + '</td><td>' + escaparHtml(veiculoTexto) + '</td><td>' + escaparHtml(e.dataHora) + '</td><td>' + escaparHtml(e.usuario) + '</td></tr>';
+        html += '<tr><td>' + escaparHtml(e.placa) + '</td><td>' + escaparHtml(veiculoTexto) + '</td><td>' + escaparHtml(e.dataHora) + '</td><td>' + escaparHtml(e.usuario) + '</td>' +
+          (USUARIO_E_ADMIN ? '<td><button type="button" class="perigo" onclick="excluirEmissaoAtpve_(' + i + ')">Excluir</button></td>' : '') +
+          '</tr>';
       });
       html += '</tbody></table></div>';
       container.innerHTML = html;
