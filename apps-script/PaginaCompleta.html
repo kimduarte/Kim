@@ -2684,7 +2684,7 @@
       ? '<div class="processo-endereco">Endereço: ' + escaparHtml(p.logradouro) + ', ' + escaparHtml(p.numero) +
         (p.complemento ? ' — ' + escaparHtml(p.complemento) : '') + ' — ' + escaparHtml(p.bairro) + ', ' +
         escaparHtml(p.municipio) + (p.cep ? ' — CEP ' + escaparHtml(p.cep) : '') + '</div>'
-      : '<div class="processo-endereco">Endereço não informado.</div>';
+      : '<div class="processo-endereco">Número do processo: ' + escaparHtml(p.numeroProcesso || 'não informado') + '</div>';
 
     var avisoFaltantesHtml = faltam > 0
       ? '<div class="mensagem erro">Faltam ' + faltam + ' veículo(s) para completar esta operação (eram esperados ' +
