@@ -495,6 +495,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Passivo Veicular: criar planilha separada', 'criarEstruturaPassivoVeicular')
     .addItem('Passivo Veicular: importar dados do DF', 'importarVeiculosPassivoDF_')
+    .addItem('Passivo Veicular: atualizar tabela de infrações (RENAINF)', 'atualizarTabelaInfracoesRenainf_')
     .addToUi();
 }
 
@@ -3481,39 +3482,305 @@ function importarVeiculosPassivoDF_() {
 // PASSIVO VEICULAR — Aba Débitos > Infrações
 // ======================================================================
 
+// Tabela oficial de códigos de infração (RENAINF), enviada pelo usuário —
+// Código da Infração, Desdobramento (quando houver, já concatenado no
+// Código como "código-desdobramento"), Descrição da Infração e Amparo
+// Legal (artigo/inciso do CTB). Coluna Gravidade não veio nessa planilha
+// de origem, por isso fica em branco (não estou inventando classificação
+// que não veio da fonte oficial).
+function pvDadosRenainf_() {
+  return [
+    ['257, § 8º', 'Multa, por não identificação do condutor infrator, imposta à pessoa jurídica', '5002', ''],
+    ['162, I', 'Dirigir veículo sem possuir CNH ou Permissão para Dirigir', '5010', ''],
+    ['162, II', 'Dirigir veículo com CNH ou PPD cassada', '5029-1', ''],
+    ['162, II', 'Dirigir veículo com CNH ou PPD com suspensão do direito de dirigir', '5029-2', ''],
+    ['162, III', 'Dirigir veículo com CNH de categoria diferente da do veículo e Dirigir veículo com CNH ou PPD com suspensão do direito de dirigir', '5037-1', ''],
+    ['162, V', 'Dirigir veículo com validade de CNH/PPD vencida há mais de 30 dias', '5045', ''],
+    ['162, VI', 'Dirigir veículo sem usar lentes corretoras de visão e Dirigir veículo sem usar aparelho auxiliar de audição e Dirigir veículo sem usar aparelho auxiliar de prótese física e Dirigir veículo s/ adaptações impostas na concessão/renovação licença conduzir', '5053-1', ''],
+    ['163 c/c 162, I', 'Entregar veículo a pessoa sem CNH ou Permissão para Dirigir', '5061', ''],
+    ['163 c/c 162, II', 'Entregar veículo a pessoa com CNH ou PPD cassada e Entregar veículo a pessoa com CNH ou PPD com suspensão do direito de dirigir', '5070-1', ''],
+    ['163 c/c 162, III', 'Entregar veículo a pessoa com CNH de categoria diferente da do veículo e Entregar veículo a pessoa com PPD de categoria diferente da do veículo', '5088-1', ''],
+    ['163 c/c 162, V', 'Entregar veículo a pessoa com CNH/PPD vencida há mais de 30 dias', '5096', ''],
+    ['163 c/c 162, VI', 'Entregar o veículo a pessoa sem usar lentes corretoras de visão e Entregar o veículo a pessoa sem usar aparelho auxiliar de audição e Entregar o veículo a pessoa sem aparelho de prótese física e Entregar veíc pessoa s/ adaptações impostas concessão/renovação licença conduzir', '5100-1', ''],
+    ['164 c/c 162, I', 'Permitir posse/condução do veículo a pessoa sem CNH ou PPD', '5118', ''],
+    ['164 c/c 162, II', 'Permitir posse/condução do veículo a pessoa com CNH ou PPD cassada e Permitir posse/condução veíc pessoa com CNH/PPD c/ suspensão direito de dirigir', '5126-1', ''],
+    ['164 c/c 162, III', 'Permitir posse/condução veíc a pessoa com CNH categoria diferente da do veículo e Permitir posse/condução veíc a pessoa com PPD categoria diferente da do veículo', '5134-1', ''],
+    ['164 c/c 162, V', 'Permitir posse/condução do veíc a pessoa com CNH/PPD vencida há mais de 30 dias', '5142', ''],
+    ['164 c/c 162, VI', 'Permitir posse/condução do veículo a pessoa sem usar lentes corretoras de visão e Permitir posse/condução do veículo a pessoa s/ usar aparelho auxiliar de audição e Permitir posse/condução do veículo a pessoa sem usar aparelho de prótese física e Permitir posse/cond veíc s/ adaptações impostas concessão/renovação licença cond', '5150-1', ''],
+    ['165', 'Dirigir sob a influência de álcool e Dirigir sob a influência de qquer substância psicoativa que deter. Dependência', '5169-1', ''],
+    ['166', 'Confiar/entregar veíc pess c/ estado físico/psíquico s/ condições dirigir segur', '5177', ''],
+    ['167', 'Deixar o condutor de usar o cinto segurança e Deixar o passageiro de usar o cinto segurança', '5185-1', ''],
+    ['168', 'Transportar criança sem observância das normas de segurança estabelecidas p/ CTB', '5193', ''],
+    ['169', 'Dirigir sem atenção ou sem os cuidados indispensáveis à segurança', '5207', ''],
+    ['170', 'Dirigir ameaçando os pedestres que estejam atravessando a via pública e Dirigir ameaçando os demais veículos', '5215-1', ''],
+    ['171', 'Usar veículo para arremessar sobre os pedestres água ou detritos e Usar veículo para arremessar sobre os veículos água ou detritos', '5223-1', ''],
+    ['172', 'Atirar do veículo objetos ou substâncias e Abandonar na via objetos ou substâncias', '5231-1', ''],
+    ['173', 'Disputar corrida', '5240', ''],
+    ['174', 'Promover na via competição sem permissão e Promover na via eventos organizados sem permissão e Promover na via exibição e demonstração de perícia em manobra de veículo s/perm', '5258-1', ''],
+    ['174', 'Participar na via como condutor em competição sem permissão e Participar na via como condutor em eventos organizados sem permissão e Participar como condutor exib/demonst perícia em manobra de veic s/ permissão', '5266-1', ''],
+    ['175', 'Utiliz veíc demonst/exibir manobra perigosa mediante arrancada brusca e Utiliz veíc dem/exibir manob perig med derrap/frenag c/desliz/arrast pneus', '5274-1', ''],
+    ['176, I', 'Deixar o cond envolvido em acidente, de prestar ou providenciar socorro a vítima', '5282', ''],
+    ['176, II', 'Deixar o cond envolvido em acid, de adotar provid p/ evitar perigo p/o trânsito', '5290', ''],
+    ['176, III', 'Deixar o cond envolvido em acidente, de preservar local p/ trab policia/pericia', '5304', ''],
+    ['176, IV', 'Deixar o cond envolvido em acid, de remover o veíc local qdo determ polic/agente', '5312', ''],
+    ['176, V', 'Deixar o cond envolvido em acid, de identificar-se policial e prestar inf p/o BO', '5320', ''],
+    ['177', 'Deixar o cond de prestar socorro vítima acid de trânsito, qdo solicit p/ agente', '5339', ''],
+    ['178', 'Deixar o condutor envolvido em acidente s/ vítima, de remover o veículo do local', '5347', ''],
+    ['179, I', 'Fazer ou deixar que se faça reparo em veíc, em rodovia e via de trânsito rápido', '5355', ''],
+    ['179, II', 'Fazer/deixar que se faça reparo em veíc nas vias (q não rodovia/transito rapido)', '5363', ''],
+    ['180', 'Ter seu veículo imobilizado na via por falta de combustível', '5371', ''],
+    ['181, I', 'Estacionar nas esquinas e a menos de 5m do alinhamento da via transversal', '5380', ''],
+    ['181, II', 'Estacionar afastado da guia da calçada (meio-fio) de 50cm a 1m', '5398', ''],
+    ['181, III', 'Estacionar afastado da guia da calçada (meio-fio) a mais de 1m', '5401', ''],
+    ['181, IV', 'Estacionar em desacordo com as posições estabelecidas no CTB', '5410', ''],
+    ['181, V', 'Estacionar na pista de rolamento das estradas e Estacionar na pista de rolamento das rodovias e Estacionar na pista de rolamento das vias de trânsito rápido e Estacionar na pista de rolamento das vias dotadas de acostamento', '5428-1', ''],
+    ['181, VI', 'Estacionar junto/sobre hidr de incêndio, reg de água/tampa de poço visit gal sub', '5436', ''],
+    ['181, VII', 'Estacionar nos acostamentos', '5444', ''],
+    ['181, VIII', 'Estacionar no passeio, Estacionar sobre faixa destinada a pedestre, Estacionar sobre ciclovia ou ciclofaixa, Estacionar nas ilhas ou refúgios, Estacionar ao lado ou sobre canteiro central/divisores de pista de rolamento, Estacionar ao lado ou sobre marcas de canalização, Estacionar ao lado ou sobre gramado ou jardim público', '5452-1', ''],
+    ['181, IX', 'Estacionar em guia de calçada rebaixada destinada à entrada/saída de veículos', '5460', ''],
+    ['181, X', 'Estacionar impedindo a movimentação de outro veículo', '5479', ''],
+    ['181, XI', 'Estacionar ao lado de outro veículo em fila dupla', '5487', ''],
+    ['181, XII', 'Estacionar na área de cruzamento de vias', '5495', ''],
+    ['181, XIII', 'Estacionar no ponto de embarque/desembarque de passageiros transporte coletivo', '5509', ''],
+    ['181, XIV', 'Estacionar nos viadutos, Estacionar nas pontes, Estacionar nos túneis', '5517-1', ''],
+    ['181, XV', 'Estacionar na contramão de direção', '5525', ''],
+    ['181, XVI', 'Estacionar aclive/declive ñ freado e sem calço segurança, PBT superior a 3500kg', '5533', ''],
+    ['181, XVII', 'Estacionar em desacordo com a regulamentação especificada pela sinalização, estacionamento rotativo, ponto ou vaga de táxi, vaga de carga/descarga, vaga portador necessid especiais, vaga idoso, vaga de curta duração', '5541-1', ''],
+    ['181, XVIII', 'Estacionar em local/horário proibido especificamente pela sinalização', '5550', ''],
+    ['181, XIX', 'Estacionar local/horário de estacionamento e parada proibidos pela sinalização', '5568', ''],
+    ['182, I', 'Parar nas esquinas e a menos 5m do bordo do alinhamento da via transversal', '5576', ''],
+    ['182, II', 'Parar afastado da guia da calçada (meio-fio) de 50cm a 1m', '5584', ''],
+    ['182, III', 'Parar afastado da guia da calçada (meio-fio) a mais de 1m', '5592', ''],
+    ['182, IV', 'Parar em desacordo com as posições estabelecidas no CTB', '5606', ''],
+    ['182, V', 'Parar na pista de rolamento das estradas, Parar na pista de rolamento das rodovias, Parar na pista de rolamento das vias de trânsito rápido, Parar na pista de rolamento das demais vias dotadas de acostamento', '5614-1', ''],
+    ['182, VI', 'Parar no passeio, Parar sobre faixa destinada a pedestres, Parar nas ilhas ou refúgios, Parar nos canteiros centrais/divisores de pista de rolamento, Parar nas marcas de canalização', '5622-1', ''],
+    ['182, VII', 'Parar na área de cruzamento de vias', '5630', ''],
+    ['182, VIII', 'Parar nos viadutos, Parar nas pontes, Parar nos túneis', '5649-1', ''],
+    ['182, IX', 'Parar na contramão de direção', '5657', ''],
+    ['182, X', 'Parar em local/horário proibidos especificamente pela sinalização', '5665', ''],
+    ['183', 'Parar sobre faixa de pedestres na mudança de sinal luminoso, e (fisc eletrônica)', '5673-1', ''],
+    ['184, I', 'Transitar na faixa/pista da direita regul circulação exclusiva determ veículo', '5681', ''],
+    ['184, II', 'Transitar na faixa/pista da esquerda regul circulação exclusiva determ veículo', '5690', ''],
+    ['185, I', 'Deixar de conservar o veículo na faixa a ele destinada pela sinalização de regul', '5703', ''],
+    ['185, II', 'Deixar de conservar nas faixas da direita o veículo lento e de maior porte', '5711', ''],
+    ['186, I', 'Transitar pela contramão de direção em via com duplo sentido de circulação', '5720', ''],
+    ['186, II', 'Transitar pela contramão de direção em via c/ sinalização de regul sentido único', '5738', ''],
+    ['187, I', 'Transitar em local/horário não permitido pela regul estabelecida p/ autoridade, rodízio, caminhão', '5746-1', ''],
+    ['188', 'Transitar ao lado de outro veículo, interrompendo ou perturbando o trânsito', '5762', ''],
+    ['189', 'Deixar de dar passagem a veíc precedido de batedores devidamente identificados, Deixar de dar passagem a veíc socorro incêndio/salv serv urgência devid identif, Deixar de dar passagem a veíc de polícia em serviço de urgência devid identif, Deixar de dar passagem a veíc de operação e fiscalização de trânsito devid ident, Deixar de dar passagem a ambulância em serviço de urgência devid identificada', '5770-1', ''],
+    ['190', 'Seguir veículo em serv urgência devid identific p/ alarme sonoro/ilum vermelha', '5789', ''],
+    ['191', 'Forçar passagem entre veícs trans sent opostos na iminência realiz ultrapassagem', '5797', ''],
+    ['192', 'Deixar guardar dist segurança lat/front entre seu veíc e demais e ao bordo pista', '5800', ''],
+    ['193', 'Transitar com o veículo em calçadas, passeios, Transitar com o veículo em ciclovias, ciclofaixas - Transitar com o veículo em ajardinamentos, gramados, jardins públicos - Transitar com o veículo em canteiros centrais/divisores de pista de rolamento - Transitar com o veículo em ilhas, refúgios - Transitar com o veículo em marcas de canalização - Transitar com o veículo em acostamentos - Transitar com o veículo em passarelas', '5819-1', ''],
+    ['194', 'Transitar em marcha ré, salvo na distância necessária a pequenas manobras', '5827', ''],
+    ['195', 'Desobedecer às ordens emanadas da autorid compet de trânsito ou de seus agentes', '5835', ''],
+    ['196', 'Deixar de indicar c/ antec, med gesto de braço/luz indicadora, início da marcha - Deixar de indicar c/ antec, med gesto de braço/luz indicadora, manobra de parar - Deixar de indicar c/ antec, med gesto de braço/luz indicadora, mudança direção - Deixar de indicar c/ antec, med gesto de braço/luz indicadora, mudança de faixa', '5843-1', ''],
+    ['197', 'Deixar de deslocar c/antecedência veíc p/ faixa mais à esquerda qdo for manobrar - Deixar de deslocar c/antecedência veíc p/ faixa mais à direita qdo for manobrar', '5851-1', ''],
+    ['198', 'Deixar de dar passagem pela esquerda quando solicitado', '5860', ''],
+    ['199', 'Ultrapassar pela direita, salvo qdo veíc da frente der sinal p/ entrar esquerda', '5878', ''],
+    ['200', 'Ultrap pela direita veíc transp colet/escolar parado para emb/desemb passageiros', '5886', ''],
+    ['201', 'Deixar de guardar a distância lateral de 1,50m ao passar/ultrapassar bicicleta', '5894', ''],
+    ['202, I', 'Ultrapassar pelo acostamento', '5908', ''],
+    ['202, II', 'Ultrapassar em interseções - Ultrapassar em passagem de nível', '5916-1', ''],
+    ['203, I', 'Ultrapassar pela contramão nas curvas sem visibilidade suficiente - Ultrapassar pela contramão nos aclives ou declives, sem visibilidade suficiente', '5924-1', ''],
+    ['203, II', 'Ultrapassar pela contramão nas faixas de pedestre', '5932', ''],
+    ['203, III', 'Ultrapassar pela contramão nas pontes - Ultrapassar pela contramão nos viadutos - Ultrapassar pela contramão nos túneis', '5940-1', ''],
+    ['203, IV', 'Ultrapassar pela contramão veículo parado em fila junto sinal luminoso - Ultrapassar pela contramão veículo parado em fila junto a cancela/porteira - Ultrapassar pela contramão veículo parado em fila junto a cruzamento - Ultrapassar pela contramão veíc parado em fila junto qq impedimento à circulação', '5959-1', ''],
+    ['203, V', 'Ultrapassar pela contramão linha de divisão de fluxos opostos, contínua amarela', '5967', ''],
+    ['204', 'Deixar de parar no acostamento à direita, p/ cruzar pista ou entrar à esquerda', '5975', ''],
+    ['205', 'Ultrapassar veículo em movimento que integre cortejo/desfile/formação militar', '5983', ''],
+    ['206, I', 'Executar operação de retorno em locais proibidos pela sinalização', '5991', ''],
+    ['206, II', 'Executar operação de retorno nas curvas - Executar operação de retorno nos aclives ou declives - Executar operação de retorno nas pontes - Executar operação de retorno nos viadutos - Executar operação de retorno nos túneis', '6009-1', ''],
+    ['206, III', 'Executar operação de retorno passando por cima de calçada, passeio - Executar operação de retorno passando por cima de ilha, refúgio - Executar operação de retorno passando por cima de ajardinamento - Executar operação de retorno passando por cima de canteiro de divisor de pista - Executar operação de retorno passando por cima de faixa de pedestres - Executar operação de retorno passando por cima de faixa de veíc não motorizados', '6017-1', ''],
+    ['206, IV', 'Executar retorno nas interseções, entrando na contramão da via transversal', '6025', ''],
+    ['206, V', 'Executar retorno c/prejuízo da circulação/segurança ainda que em local permitido', '6033', ''],
+    ['207', 'Executar operação de conversão à direita em local proibido pela sinalização - Executar operação de conversão à esquerda em local proibido pela sinalização', '6041-1', ''],
+    ['208', 'Avançar o sinal vermelho do semáforo - Avançar o sinal de parada obrigatória - Avançar o sinal vermelho do semáforo - fiscalização eletrônica', '6050-1', ''],
+    ['209', 'Transpor bloqueio viário com ou sem sinalização ou dispositivos auxiliares - Deixar de adentrar às áreas destinadas à pesagem de veículos - Evadir-se para não efetuar o pagamento do pedágio', '6068-1', ''],
+    ['210', 'Transpor bloqueio viário policial', '6076', ''],
+    ['211', 'Ultrapassar veículos motorizados em fila, parados em razão de sinal luminoso - Ultrapassar veículos motorizados em fila, parados em razão de cancela - Ultrapassar veíc motorizados em fila parados em razão de bloqueio viário parcial - Ultrapassar veículos motorizados em fila, parados em razão de qualquer obstáculo', '6084-1', ''],
+    ['212', 'Deixar de parar o veículo antes de transpor linha férrea', '6092', ''],
+    ['213, I', 'Deixar de parar sempre que a marcha for interceptada por agrupamento de pessoas', '6106', ''],
+    ['213, II', 'Deixar de parar sempre que a marcha for interceptada por agrupamento de veículos', '6114', ''],
+    ['214, I', 'Deixar de dar preferência a pedestre/veic ñ motorizado na faixa a ele destinada', '6122', ''],
+    ['214, II', 'Deixar de dar preferência a pedestre/veic ñ mot que ñ haja concluído a travessia', '6130', ''],
+    ['214, III', 'Deixar de dar preferência a pedestre port deficiência fís/criança/idoso/gestante', '6149', ''],
+    ['214, IV', 'Deixar de dar preferência a pedestre/veic ñ mot qdo iniciada travessia s/sinaliz', '6157', ''],
+    ['214, V', 'Deixar de dar preferência a pedestre/veic não mot atravessando a via transversal', '6165', ''],
+    ['215, I, a', 'Deixar de dar preferência em interseção ñ sinaliz, a veíc circulando por rodovia - Deixar de dar preferência em interseção ñ sinaliz, veíc circulando por rotatória - Deixar de dar prefer em interseção não sinalizada, a veículo que vier da direita', '6173-1', ''],
+    ['215, II', 'Deixar de dar preferência nas interseções com sinalização de Dê a Preferência', '6181', ''],
+    ['216', 'Entrar/sair área lindeira sem precaução com a segurança de pedestres e veículos', '6190', ''],
+    ['217', 'Entrar/sair de fila de veículos estacionados sem dar pref a pedestres/veículos', '6203', ''],
+    ['219', 'Transitar em velocidade inferior à metade da máxima da via, salvo faixa direita', '6254', ''],
+    ['220, I', 'Deixar de reduzir a veloc qdo se aproximar de passeata/aglomeração/desfile/etc', '6262', ''],
+    ['220, II', 'Deixar de reduzir a veloc onde o trânsito esteja sendo controlado pelo agente', '6270', ''],
+    ['220, III', 'Deixar de reduzir a velocidade do veículo ao aproximar-se da guia da calçada - Deixar de reduzir a velocidade do veículo ao aproximar-se do acostamento', '6289-1', ''],
+    ['220, IV', 'Deixar de reduzir velocidade do veículo ao aproximar-se interseção ñ sinalizada', '6297', ''],
+    ['220, V', 'Deixar reduzir velocidade nas vias rurais cuja faixa domínio não esteja cercada', '6300', ''],
+    ['220, VI', 'Deixar de reduzir a velocidade nos trechos em curva de pequeno raio', '6319', ''],
+    ['220, VII', 'Deixar de reduzir veloc ao aproximar local sinaliz advert de obras/trabalhadores', '6327', ''],
+    ['220, VIII', 'Deixar de reduzir a velocidade sob chuva/neblina/cerração/ventos fortes', '6335', ''],
+    ['220, IX', 'Deixar de reduzir a velocidade quando houver má visibilidade', '6343', ''],
+    ['220, X', 'Deixar de reduzir veloc qdo pavimento se apresentar escorreg/defeituoso/avariado', '6351', ''],
+    ['220, XI', 'Deixar de reduzir a velocidade à aproximação de animais na pista', '6360', ''],
+    ['220, XII', 'Deixar de reduzir a velocidade de forma compatível com a segurança, em declive', '6378', ''],
+    ['220, XIII', 'Deixar de reduzir veloc de forma compatível c/ segurança ao ultrapassar ciclista', '6386', ''],
+    ['220, XIV', 'Deixar de reduzir a velocidade nas proximidades de escolas - Deixar de reduzir a velocidade nas proximidades de hospitais - Deixar de reduzir veloc na proxim estação embarque/desembarque passageiros - Deixar de reduzir veloc onde haja intensa movimentação de pedestres', '6394-1', ''],
+    ['221', 'Portar no veículo placas de identificação em desacordo c/ especif/modelo Contran', '6408', ''],
+    ['221, § único', 'Confec/distribuir/colocar veíc próprio/terceiro placa identif desacordo Contran', '6416', ''],
+    ['222', 'Deixar de manter ligado em emerg sist ilum vermelha intermitente ainda q parado', '6424', ''],
+    ['223', 'Transitar com farol desregulado perturbando visão outro condutor - Transitar com o facho de luz alta perturbando visão outro condutor', '6432-1', ''],
+    ['224', 'Fazer uso do facho de luz alta dos faróis em vias providas de iluminação pública', '6440', ''],
+    ['225, I', 'Deixar de sinalizar via p/ tornar visível local qdo tiver remover veíc da pista - Deixar de sinalizar a via p/ tornar visível o local qdo permanecer acostamento', '6459-1', ''],
+    ['225, II', 'Deixar de sinalizar a via p/ tornar visível o local qdo a carga for derramada', '6467', ''],
+    ['226', 'Deixar de retirar qualquer objeto utilizado para sinalização temporária da via', '6475', ''],
+    ['227, I', 'Usar buzina que não a de toque breve como advertência a pedestre ou condutores', '6483', ''],
+    ['227, II', 'Usar buzina prolongada e sucessivamente a qualquer pretexto', '6491', ''],
+    ['227, III', 'Usar buzina entre as vinte e duas e as seis horas', '6505', ''],
+    ['227, IV', 'Usar buzina em locais e horários proibidos pela sinalização', '6513', ''],
+    ['227, V', 'Usar buzina em desacordo c/ os padrões e freqüências estabelecidas pelo Contran', '6521', ''],
+    ['228', 'Usar no veículo equip c/ som em volume/freqüência não autorizados pelo Contran', '6530', ''],
+    ['229', 'Usar no veíc alarme/aparelho produz som perturbe sossego púb desac norma Contran', '6548', ''],
+    ['230, I', 'Conduzir o veículo com o lacre de identificação violado/falsificado - Conduzir o veículo com a inscrição do chassi violada/falsificada - Conduzir o veículo com o selo violado/falsificado - Conduzir o veículo com a placa violada/falsificada - Conduzir o veículo com qualquer outro elem de identificação violado/falsificado', '6556-1', ''],
+    ['230, II', 'Conduzir o veículo transportando passageiros em compartimento de carga', '6564', ''],
+    ['230, III', 'Conduzir o veículo com dispositivo antirradar', '6572', ''],
+    ['230, IV', 'Conduzir o veículo sem qualquer uma das placas de identificação', '6580', ''],
+    ['230, V', 'Conduzir o veículo que não esteja registrado - Conduzir o veículo registrado que não esteja devidamente licenciado', '6599-1', ''],
+    ['230, VI', 'Conduzir o veículo com qualquer uma das placas sem legibilidade e visibilidade', '6602', ''],
+    ['230, VII', 'Conduzir o veículo com a cor alterada - Conduzir o veículo com característica alterada', '6610-1', ''],
+    ['230, VIII', 'Conduzir veículo s/ ter sido submetido à inspeção seg veicular, qdo obrigatória', '6629', ''],
+    ['230, IX', 'Conduzir o veículo sem equipamento obrigatório - Conduzir o veículo com equipamento obrigatório ineficiente/inoperante', '6637-1', ''],
+    ['230, X', 'Conduzir o veículo com equip obrigatório em desacordo com o estab pelo Contran', '6645', ''],
+    ['230, XI', 'Conduzir o veículo com descarga livre - Conduzir o veículo com silenciador de motor defeituoso/deficiente/inoperante', '6653-1', ''],
+    ['230, XII', 'Conduzir o veículo com equipamento ou acessório proibido', '6661', ''],
+    ['230, XIII', 'Conduzir o veículo c/ equip do sistema de iluminação e de sinalização alterados', '6670', ''],
+    ['230, XIV', 'Conduzir veíc c/ registrador instan inalt de velocidade/tempo viciado/defeituoso', '6688', ''],
+    ['230, XV', 'Conduzir c/ inscr/adesivo/legenda/símbolo afixado pára-brisa e extensão traseira - Conduzir c/ inscr/adesivo/legenda/símbolo pintado pára-brisa e extensão traseira', '6696-1', ''],
+    ['230, XVI', 'Conduzir veíc com vidro total/parcialmente coberto por película, painéis/pintura', '6700', ''],
+    ['230, XVII', 'Conduzir o veículo com cortinas ou persianas fechadas', '6718', ''],
+    ['230, XVIII', 'Conduzir o veículo em mau estado de conservação, comprometendo a segurança - Conduzir o veículo reprovado na avaliação de inspeção de segurança - Conduzir o veículo reprovado na avaliação de emissão de poluentes e ruído', '6726-1', ''],
+    ['230, XIX', 'Conduzir o veículo sem acionar o limpador de pára-brisa sob chuva', '6734', ''],
+    ['230, XX', 'Conduzir o veículo sem portar a autorização para condução de escolares', '6742', ''],
+    ['230, XXI', 'Conduzir o veíc de carga c/ falta inscrição da tara e demais previstas no CTB', '6750', ''],
+    ['230, XXII', 'Conduzir o veículo com defeito no sistema de iluminação/lâmpada queimada - Conduzir o veículo com defeito no sistema de sinalização/lâmpada queimada', '6769-1', ''],
+    ['231, I', 'Transitar com o veículo danificando a via, suas instalações e equipamentos', '6777', ''],
+    ['231, II, a', 'Transitar com veículo derramando a carga que esteja transportando - Transitar com veículo lançando a carga que esteja transportando - Transitar com veículo arrastando a carga que esteja transportando', '6785-1', ''],
+    ['231, II, b', 'Transitar com veíc derramando/lançando combustível/lubrif que esteja utilizando', '6793', ''],
+    ['231, II, c', 'Transitar c/veíc derraman/lançando/arrastando objeto possa acarretar risco acid', '6807', ''],
+    ['231, III', 'Transitar com veículo produzindo fumaça, gases ou partículas em desac c/ Contran', '6815', ''],
+    ['231, IV', 'Transitar c/ veíc e/ou carga c/ dimensões superiores limite legal s/ autorização - Transitar c/ veíc e/ou carga c/ dimensões superiores est p/sinalização s/autoriz', '6823-1', ''],
+    ['231, V', 'Transitar com o veículo com excesso de peso PBT/PBTC - Transitar com o veículo com excesso de peso - Por Eixo - Transitar com o veículo com excesso de peso - PBT/PBTC e Por Eixo', '6831-1', ''],
+    ['231, VI', 'Transitar em desacordo c/ autorização expedida p/veículo c/ dimensões excedentes - Transitar com autorização vencida, expedida p/ veículo c/ dimensões excedentes', '6840-1', ''],
+    ['231, VII', 'Transitar com o veículo com lotação excedente', '6858', ''],
+    ['231, VIII', 'Transitar efetuando transporte remunerado de pessoas qdo ñ licenciado p/esse fim - Transitar efetuando transporte remunerado de bens qdo não licenciado p/ esse fim', '6866-1', ''],
+    ['231, IX', 'Transitar com o veículo desligado em declive - Transitar com o veículo desengrenado em declive', '6874-1', ''],
+    ['231, X', 'Transitar com o veículo excedendo a CMT em até 600 kg', '6882', ''],
+    ['231, X', 'Transitar com o veículo excedendo a CMT entre 601 e 1.000 kg', '6890', ''],
+    ['231, X', 'Transitar com o veículo excedendo a CMT acima de 1.000 kg', '6904', ''],
+    ['232', 'Conduzir veículo sem os documentos de porte obrigatório referidos no CTB', '6912', ''],
+    ['233 c/c 123, I, II, III, IV', 'Deixar de efetuar registro do veículo em 30 dias, qdo for transf a propriedade - Deixar de efetuar reg do veíc em 30 dias, qdo mudar o munic de domicilio/resid - Deixar de efetuar reg de veíc em 30 dias, qdo for alterada qquer caract do veic - Deixar de efetuar registro de veículo em 30 dias, qdo houver mudança de categoria', '6920-1', ''],
+    ['234', 'Falsificar ou adulterar documento de habilitação - Falsificar ou adulterar documento de identificação do veículo', '6939-1', ''],
+    ['235', 'Conduzir pessoas nas partes externas do veículo - Conduzir animais nas partes externas do veículo - Conduzir carga nas partes externas do veículo', '6947-1', ''],
+    ['236', 'Rebocar outro veículo com cabo flexível ou corda', '6955', ''],
+    ['237', 'Trans c/veíc desac c/especificação/falta de inscr/simbologia necessária identif', '6963', ''],
+    ['238', 'Recusar-se a entregar CNH/CRV/CRLV/ outros documentos', '6971', ''],
+    ['239', 'Retirar do local veículo legalmente retido para regularização, sem permissão', '6980', ''],
+    ['240', 'Deixar responsável de promover baixa registro de veíc irrecuperável/desmontado', '6998', ''],
+    ['241', 'Deixar de atualizar o cadastro de registro do veículo - Deixar de atualizar o cadastro de habilitação do condutor', '7005-1', ''],
+    ['242', 'Fazer falsa declaração de domicílio para fins de registro/licenciamento - Fazer falsa declaração de domicílio para fins de habilitação', '7013-1', ''],
+    ['243', 'Deixar seguradora de comunicar ocorrência perda total veíc e devolver placas/doc', '7021', ''],
+    ['244, I', 'Conduzir motocicleta, motoneta e ciclomotor sem capacete de segurança - Conduzir motocicleta, motoneta e ciclomotor sem vestuário aprovado pelo Contran', '7030-1', ''],
+    ['244, II', 'Conduzir motocicleta, motoneta e ciclomotor transportando passageiro s/ capacete - Conduzir motocicleta/motoneta/ciclomotor transportando pas. fora do assento', '7048-1', ''],
+    ['244, III', 'Conduzir motoc/moton/ciclomotor fazendo malabarismo/equilibrando-se em uma roda - Conduzir ciclo fazendo malabarismo ou equilibrando-se em uma roda', '7056-1', ''],
+    ['244, IV', 'Conduzir motocicleta, motoneta e ciclomotor com os faróis apagados', '7064', ''],
+    ['244, V', 'Conduzir motocicleta/motoneta/ciclomotor transportando criança menor de 7 anos - Conduzir motoc/moton/ciclom transp criança s/ condição cuidar própria segurança', '7072-1', ''],
+    ['244, VI', 'Conduzir motocicleta, motoneta e ciclomotor rebocando outro veículo', '7080', ''],
+    ['244, VII', 'Conduzir motocicleta/motoneta/ciclomotor sem segurar o guidom com ambas as mãos', '7099-1', ''],
+    ['244, VIII', 'Conduzir motocicleta, motoneta e ciclomotor transportando carga incompatível - Conduzir motoc/moton/ transportando carga em desacordo c/ § 2º do Art 139-A CTB', '7102-1', ''],
+    ['244, § 1º, a', 'Conduzir ciclo transportando passageiro fora da garupa/assento a ele destinado', '7110', ''],
+    ['244, § 1º, b', 'Conduzir ciclo via de trâns rápido ou rodovia salvo se houver acostam/fx própria - Conduzir ciclomotor em via de trânsito rápido - Conduzir ciclomotor em rodovia salvo se houver acostamento ou faixa própria', '7129-1', ''],
+    ['244, § 1º, c', 'Conduzir ciclo transportando criança s/ condição de cuidar própria segurança', '7137', ''],
+    ['245', 'Utilizar a via para depósito de mercadorias, materiais ou equipamentos', '7145', ''],
+    ['246', 'Deixar de sinalizar obstáculo à circulação/segurança calçada/pista-s/agravamento - Obstaculizar a via indevidamente-s/agravamento', '7153-1', ''],
+    ['246', 'Deixar de sinalizar obstáculo circulação/segurança calçada/pista-agravamento 2X - Obstaculizar a via indevidamente-agravamento 2X', '7161-1', ''],
+    ['246', 'Deixar de sinalizar obstáculo circulação/segurança calçada/pista-agravamento 3X - Obstaculizar a via indevidamente-agravamento 3X', '7170-1', ''],
+    ['246', 'Deixar de sinalizar obstáculo circulação/segurança calçada/pista-agravamento 4X - Obstaculizar a via indevidamente-agravamento 4X', '7188-1', ''],
+    ['246', 'Obstaculizar a via indevidamente-agravamento 5X', '7196-2', ''],
+    ['247', 'Deixar de conduzir pelo bordo pista em fila única veíc tração/propulsão humana - Deixar de conduzir pelo bordo da pista em fila única veículo de tração animal', '7200-1', ''],
+    ['248', 'Transportar em veíc destinado transp passageiros carga excedente desac art.109', '7218', ''],
+    ['249', 'Deixar de manter acesas à noite as luzes posição qdo o veículo estiver parado - Deixar de manter acesas à noite as luzes de posição veic fazendo carga/descarg a', '7226-1', ''],
+    ['250, I, a', 'Em movimento, deixar de manter acesa a luz baixa durante à noite', '7234', ''],
+    ['250, I, b', 'Em movimento de dia, deixar de manter acesa luz baixa túnel com iluminação pública', '7242', ''],
+    ['250, I, c', 'Em mov, deixar de manter acesa luz baixa veíc transp coletivo faixa/pista excl', '7250', ''],
+    ['250, I, d', 'Em movimento, deixar de manter acesa luz baixa do ciclomotor', '7269', ''],
+    ['250, II', 'Em mov deixar de manter acesas luzes de posição sob chuva forte/neblina/cerração', '7277', ''],
+    ['250, III', 'Em movimento, deixar de manter a placa traseira iluminada à noite', '7285', ''],
+    ['251, I', 'Utilizar o pisca-alerta, exceto em imobilizações ou situações de emergência', '7293', ''],
+    ['251, II', 'Utilizar luz alta e baixa intermitente, exceto quando permitido pelo CTB', '7307', ''],
+    ['252, I', 'Dirigir o veículo com o braço do lado de fora', '7315', ''],
+    ['252, II', 'Dirigir o veículo transport pessoas à sua esquerda ou entre os braços e pernas - Dirigir o veículo transport animais à sua esquerda ou entre os braços e pernas - Dirigir o veículo transport volume à sua esquerda ou entre os braços e pernas', '7323-1', ''],
+    ['252, III', 'Dirigir o veículo com incapacidade física ou mental temporária', '7331', ''],
+    ['252, IV', 'Dirigir o veíc usando calçado que ñ se firme nos pés/comprometa utiliz pedais', '7340', ''],
+    ['252, V', 'Dirigir o veículo com apenas uma das mãos, exceto quando permitido pelo CTB', '7358', ''],
+    ['252, VI', 'Dirigir o veículo utilizando-se de fones nos ouvidos conec a aparelhagem sonora - Dirigir veículo utilizando-se de telefone celular', '7366-1', ''],
+    ['253', 'Bloquear a via com veículo', '7374', ''],
+    ['254, I', 'É proib ao pedestre permanecer/andar pista, exceto p/ cruzá-las onde permitido', '7382', ''],
+    ['254, II', 'É proibido ao pedestre cruzar pista de rolamento de viaduto exc onde permitido - de ponte exceto onde permitido - de túneis exceto onde permitido', '7390-1', ''],
+    ['254, III', 'É proib ao pedestre atravessar via área cruzamento exc onde permitido p/ sinaliz', '7404', ''],
+    ['254, IV', 'É proib pedestre utilizar via em agrupam que perturbe trâns/prát esporte/desfile', '7412', ''],
+    ['254, V', 'É proibido ao pedestre andar fora da faixa própria - andar fora da passarela - andar fora da passagem aérea - andar fora da passagem subterrânea', '7420-1', ''],
+    ['254, VI', 'É proibido ao pedestre desobedecer a sinalização de trânsito específica', '7439', ''],
+    ['255', 'Conduzir bicicleta em passeios onde não seja permitida a circulação desta - Conduzir bicicleta de forma agressiva', '7447-1', ''],
+    ['218, I', 'Transitar em velocidade superior à máxima permitida em até 20%', '7455', ''],
+    ['218, II', 'Transitar em velocidade superior à máxima permitida em mais de 20% até 50%', '7463', ''],
+    ['218, III', 'Transitar em velocidade superior à máxima permitida em mais de 50%', '7471', ''],
+    ['93 c/c 95, § 4º', 'Aprovar proj edificação pólo atrativo trânsito s/ anuência órgão/entid trânsito e Aprovar proj edificação pólo atrativo trâns s/ estacion/indicação vias de acesso', '7480-1', ''],
+    ['94', 'Ñ sinalizar devida/imed obstáculo à circul/segurança veíc/pedestre pista/calçada', '7498', ''],
+    ['94, § único', 'Utilizar ondulação transversal/sonorizador fora padrão/critério estab p/ Contran', '7501', ''],
+    ['95', 'Iniciar obra perturbe/interrompa circulação/segurança veíc/pedestres s/permissão e Iniciar evento perturbe/interrompa circulaç/segurança veíc/pedestres s/permissão', '7510-1', ''],
+    ['95, § 1º', 'Não sinalizar a execução ou manutenção da obra e Não sinalizar a execução ou manutenção do evento', '7528-1', ''],
+    ['95, § 2º', 'Não avisar comunidade c/ 48h antec interdição via indicando caminho alternativo', '7536', ''],
+    ['330, § 5º', 'Falta de escrituração livro registro entrada/saída e de uso placa de experiência - Atraso escrituração livro registro entrada/saída e de uso placa de experiência - Fraude escrituração livro registro entrada/saída e de uso placa de experiência - Recusa da exibição do livro registro entrada/saída e de uso placa de experiência', '7544-1', ''],
+    ['244, IX', 'Conduzir motoc/moton/ efetuando transp remun mercadoria desac c/ art 139-A CTB - Conduzir motoc/moton/ efet transp remun desac normas ativid profic mototaxistas', '7552-1', ''],
+    ['230, XXIII', 'Conduzir veíc de transp passag ou carga em desacordo c/ as cond do art 67-C CTB', '7560', ''],
+    ['277, § 3º, c/c 165', 'Cond que se recusar a se submeter a qq dos proc prev no art. 277 do CTB', '7579', ''],
+    ['184, III', 'Transitar na faixa ou via exclusiva regulam. p/ transp. públ. coletivo passag.', '7587', ''],
+    ['252, VII', 'Dirigir veículo realizando cobrança de tarifa com veículo em movimento', '7595', ''],
+    ['253-A, § 1º', 'Organizar as condutas previstas no caput do art. 253-A', '7609', ''],
+    ['253-A', 'Usar veículo para, deliberadamente, interromper a circulação na via - restringir a circulação na via - perturbar a circulação na via', '7617-1', ''],
+  ];
+}
+
 function pvSeedTabelaInfracoesSeVazia_(ss) {
   var sheet = ss.getSheetByName(SHEET_PV_TABELA_INFRACOES);
   if (!sheet || sheet.getLastRow() > 1) return;
-  // Descrições conferem com o texto oficial do CTB (Lei 9.503/1997), mas a
-  // coluna Código (Resolução CONTRAN, tabela de enquadramento) fica em
-  // branco de propósito — ela muda com frequência e tem muitos
-  // desdobramentos por inciso/velocidade/reincidência, e um código errado
-  // vai direto pra um documento oficial de pedido de cancelamento. Um
-  // administrador deve completar essa coluna com a tabela oficial vigente
-  // antes de usar pra emitir pedidos de cancelamento. Enquanto isso, o
-  // campo Código do cadastro de infração continua livre pra digitar na
-  // hora, então nada fica bloqueado.
-  var linhas = [
-    ['162', 'Dirigir veículo sem possuir Carteira Nacional de Habilitação ou Permissão para Dirigir', '', 'Gravíssima'],
-    ['163', 'Entregar a direção do veículo a pessoa não habilitada', '', 'Gravíssima'],
-    ['165', 'Dirigir sob influência de álcool ou de qualquer substância psicoativa', '', 'Gravíssima'],
-    ['165-A', 'Recusar-se a se submeter a teste, exame clínico, perícia ou outro procedimento para comprovar embriaguez', '', 'Gravíssima'],
-    ['173', 'Participar de corrida, disputa ou competição automobilística não autorizada', '', 'Gravíssima'],
-    ['174', 'Utilizar-se de veículo para arrastar, arrancar ou desprender outro veículo, salvo em caso de socorro', '', 'Gravíssima'],
-    ['181', 'Estacionar o veículo em desacordo com as posições regulamentadas', '', 'Leve/Média (varia por inciso)'],
-    ['182', 'Estacionar o veículo em local/forma proibidos', '', 'Média'],
-    ['191', 'Deixar de guardar distância de segurança lateral e frontal em relação ao veículo da frente', '', 'Média'],
-    ['193', 'Transitar pela contramão de direção', '', 'Gravíssima'],
-    ['201', 'Deixar o condutor de parar o veículo antes da faixa de pedestres, quando houver sinal de parada obrigatória', '', 'Grave'],
-    ['208', 'Avançar o sinal vermelho do semáforo ou o de parada obrigatória', '', 'Gravíssima'],
-    ['218', 'Transitar em velocidade superior à máxima permitida para o local', '', 'Média/Grave/Gravíssima (varia com o % de excesso)'],
-    ['230', 'Conduzir o veículo com irregularidade que comprometa a segurança ou emitindo gases/ruídos acima do permitido (diversos incisos)', '', 'Grave/Gravíssima (varia por inciso)'],
-    ['244', 'Conduzir motocicleta, motoneta ou ciclomotor sem o capacete de segurança', '', 'Gravíssima'],
-    ['250', 'Deixar o condutor envolvido em acidente com vítima de tomar as providências determinadas', '', 'Gravíssima'],
-    ['252', 'Dirigir sem atenção ou sem os cuidados indispensáveis à segurança', '', 'Média'],
-    ['253', 'Estacionar o veículo em desacordo com as normas regulamentares específicas', '', 'Média']
-  ];
+  var linhas = pvDadosRenainf_();
   sheet.getRange(2, 1, linhas.length, CABECALHO_PV_TABELA_INFRACOES.length).setValues(linhas);
+}
+
+// Rode pelo editor do Apps Script (ou pelo menu "Base de Veículos") se a
+// planilha do Passivo já foi criada ANTES da tabela RENAINF existir —
+// substitui o conteúdo da aba TabelaInfracoes pela tabela oficial
+// completa (258 códigos). Limpa as linhas antigas primeiro, então rode
+// de novo só se quiser mesmo repor a tabela do zero (perde edições
+// manuais feitas direto na planilha).
+function atualizarTabelaInfracoesRenainf_() {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_TABELA_INFRACOES, CABECALHO_PV_TABELA_INFRACOES);
+  var ultimaLinha = sheet.getLastRow();
+  if (ultimaLinha > 1) {
+    sheet.getRange(2, 1, ultimaLinha - 1, CABECALHO_PV_TABELA_INFRACOES.length).clearContent();
+  }
+  var linhas = pvDadosRenainf_();
+  sheet.getRange(2, 1, linhas.length, CABECALHO_PV_TABELA_INFRACOES.length).setValues(linhas);
+  var mensagem = 'Tabela de infrações atualizada com ' + linhas.length + ' códigos oficiais (RENAINF).';
+  Logger.log(mensagem);
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Passivo Veicular', 10);
+  } catch (e) {
+    // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
+  }
+  return mensagem;
 }
 
 function pvSeedOrgaosAutuadoresSeVazia_(ss) {
