@@ -3049,6 +3049,11 @@ var PROP_PV_SPREADSHEET_ID = 'PV_SPREADSHEET_ID';
 
 var SHEET_PV_VEICULOS = 'Veiculos';
 
+// Sempre adicione campos novos SÓ NO FINAL desta lista. A planilha do
+// Passivo já existente não reescreve o cabeçalho sozinha quando esse array
+// muda — inserir um campo no meio desalinha a leitura de todas as linhas
+// já gravadas (ver corrigirCabecalhoVeiculosPassivo_, que existe
+// justamente pra consertar isso quando acontece de novo).
 var CABECALHO_PV_VEICULOS = [
   'ID', 'DataCadastro',
   'Marca', 'Modelo', 'Placa', 'Chassi', 'Renavam', 'AnoFabricacao', 'AnoModelo',
@@ -3125,6 +3130,26 @@ function getOrCreateSheetPassivo_(nome, cabecalho) {
   return sheet;
 }
 
+// Conserta o cabeçalho (linha 1) da aba Veiculos quando ele ficou
+// desatualizado em relação a CABECALHO_PV_VEICULOS — aconteceu quando um
+// campo novo (AnoModelo, CNPJProprietario, SituacaoDetran, Municipio) foi
+// inserido no meio do array em vez de só no final, e a planilha já criada
+// antes disso continuou com os rótulos antigos na linha 1 enquanto os
+// dados novos (import do DF) já eram gravados nas posições novas —
+// resultado: leitura por nome de coluna vinha toda embaralhada (ex.: "UF"
+// mostrando o texto de "Situação DETRAN"). Só reescreve os RÓTULOS da
+// linha 1; não toca em nenhuma linha de dado — por isso é seguro rodar
+// de novo sempre que a estrutura for atualizada (é chamada automaticamente
+// dentro de criarEstruturaPassivoVeicular).
+function corrigirCabecalhoVeiculosPassivo_(sheet) {
+  var cabecalhoAtual = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), CABECALHO_PV_VEICULOS.length)).getValues()[0];
+  var jaCorreto = CABECALHO_PV_VEICULOS.every(function (campo, i) { return cabecalhoAtual[i] === campo; });
+  if (jaCorreto) return;
+  sheet.getRange(1, 1, 1, CABECALHO_PV_VEICULOS.length).setValues([CABECALHO_PV_VEICULOS]);
+  sheet.getRange(1, 1, 1, CABECALHO_PV_VEICULOS.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
+  Logger.log('Cabeçalho da aba Veiculos (Passivo Veicular) corrigido.');
+}
+
 // Rode esta função uma vez pelo editor do Apps Script (selecione ela no
 // menu de funções, ao lado do botão "Executar", e clique em Executar) pra
 // criar a planilha do Passivo Veicular — separada da planilha de Doações,
@@ -3151,6 +3176,8 @@ function criarEstruturaPassivoVeicular() {
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, 1, CABECALHO_PV_VEICULOS.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
     sheet.setColumnWidths(1, CABECALHO_PV_VEICULOS.length, 130);
+  } else {
+    corrigirCabecalhoVeiculosPassivo_(sheet);
   }
 
   [
