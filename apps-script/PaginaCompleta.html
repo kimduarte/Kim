@@ -2355,6 +2355,27 @@
     }).catch(function () { info.textContent = ''; });
   }
 
+  // Sempre tenta (re)carregar status/órgãos/artigos ao abrir o modal, em
+  // vez de confiar só no carregamento feito na entrada do painel — se por
+  // algum motivo aquele primeiro carregamento falhou ou ainda não tinha
+  // terminado, isso conserta sozinho. Se falhar de novo, mostra o erro de
+  // verdade dentro do próprio modal (em vez de deixar os campos vazios
+  // sem explicação nenhuma).
+  function pvGarantirListasDebitos_() {
+    if (PV_LISTAS_DEBITOS) {
+      pvPreencherListasInfracoes_();
+      return;
+    }
+    mostrarMensagem('mensagemPvInfracao', 'sucesso', 'Carregando listas de órgãos e status...');
+    chamarServidor_('getListasDebitosPassivo').then(function (listas) {
+      PV_LISTAS_DEBITOS = listas;
+      pvPreencherListasInfracoes_();
+      document.getElementById('mensagemPvInfracao').innerHTML = '';
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', 'Não consegui carregar as listas de órgãos/status: ' + (erro.message || String(erro)));
+    });
+  }
+
   function pvAbrirNovaInfracao_() {
     document.getElementById('formPvInfracao').reset();
     document.getElementById('pvi_ID').value = '';
@@ -2371,6 +2392,7 @@
       pvBuscarVeiculoPorPlacaInfracao_();
     }
     document.getElementById('modalPvInfracaoFundo').classList.add('ativo');
+    pvGarantirListasDebitos_();
   }
 
   function pvAbrirEdicaoInfracao_(id) {
@@ -2411,6 +2433,7 @@
     document.getElementById('mensagemPvInfracao').innerHTML = '';
     pvCarregarEnviosNaModal_(inf.ID);
     document.getElementById('modalPvInfracaoFundo').classList.add('ativo');
+    pvGarantirListasDebitos_();
   }
 
   function pvCarregarEnviosNaModal_(idInfracao) {
