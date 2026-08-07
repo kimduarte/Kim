@@ -514,6 +514,10 @@
                   <label for="pv_UF">UF *</label>
                   <select id="pv_UF" required></select>
                 </div>
+                <div class="campo">
+                  <label for="pv_Municipio">Município <span class="opcional">(opcional)</span></label>
+                  <input type="text" id="pv_Municipio" maxlength="100">
+                </div>
                 <div class="campo span-2">
                   <label for="pv_Instituicao">Instituição (donatária) *</label>
                   <input type="text" id="pv_Instituicao" required maxlength="200">
@@ -562,8 +566,16 @@
                     <input type="number" id="pv_AnoFabricacao" min="1950" max="2100">
                   </div>
                   <div class="campo">
-                    <label for="pv_CNPJOrigem">CNPJ de origem <span class="opcional">(opcional)</span></label>
-                    <input type="text" id="pv_CNPJOrigem" maxlength="20">
+                    <label for="pv_AnoModelo">Ano de modelo <span class="opcional">(opcional, igual ao de fabricação se em branco)</span></label>
+                    <input type="number" id="pv_AnoModelo" min="1950" max="2100">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_CNPJProprietario">CNPJ do proprietário no DETRAN <span class="opcional">(opcional)</span></label>
+                    <input type="text" id="pv_CNPJProprietario" maxlength="20">
+                  </div>
+                  <div class="campo span-2">
+                    <label for="pv_SituacaoDetran">Situação no DETRAN <span class="opcional">(opcional, texto da consulta)</span></label>
+                    <input type="text" id="pv_SituacaoDetran" maxlength="200">
                   </div>
                   <div class="campo">
                     <label for="pv_SituacaoTransferencia">Situação da transferência *</label>
@@ -627,8 +639,8 @@
             <div id="mensagemPvListagem"></div>
             <div class="tabela-wrap">
               <table>
-                <thead><tr><th>Placa</th><th>Marca / Modelo</th><th>Chassi</th><th>Renavam</th><th>UF</th><th>Instituição</th><th>Situação</th><th>Ações</th></tr></thead>
-                <tbody id="pvCorpoTabelaListagem"><tr><td colspan="8" class="carregando">Carregando...</td></tr></tbody>
+                <thead><tr><th>Placa</th><th>Marca / Modelo</th><th>Chassi</th><th>Renavam</th><th>UF</th><th>Município</th><th>Instituição</th><th>Situação</th><th>Ações</th></tr></thead>
+                <tbody id="pvCorpoTabelaListagem"><tr><td colspan="9" class="carregando">Carregando...</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -646,6 +658,10 @@
             <div class="campo">
               <label for="pve_UF">UF *</label>
               <select id="pve_UF" required></select>
+            </div>
+            <div class="campo">
+              <label for="pve_Municipio">Município <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pve_Municipio" maxlength="100">
             </div>
             <div class="campo span-2">
               <label for="pve_Instituicao">Instituição *</label>
@@ -688,8 +704,16 @@
               <input type="number" id="pve_AnoFabricacao" required min="1950" max="2100">
             </div>
             <div class="campo">
-              <label for="pve_CNPJOrigem">CNPJ de origem <span class="opcional">(opcional)</span></label>
-              <input type="text" id="pve_CNPJOrigem" maxlength="20">
+              <label for="pve_AnoModelo">Ano de modelo <span class="opcional">(opcional)</span></label>
+              <input type="number" id="pve_AnoModelo" min="1950" max="2100">
+            </div>
+            <div class="campo">
+              <label for="pve_CNPJProprietario">CNPJ do proprietário no DETRAN <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pve_CNPJProprietario" maxlength="20">
+            </div>
+            <div class="campo span-2">
+              <label for="pve_SituacaoDetran">Situação no DETRAN <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pve_SituacaoDetran" maxlength="200">
             </div>
             <div class="campo">
               <label for="pve_SituacaoTransferencia">Situação da transferência *</label>
@@ -1893,7 +1917,9 @@
       '<div class="campo"><label>Chassi *</label><input type="text" class="pv_l_Chassi" required maxlength="17" style="text-transform:uppercase"></div>' +
       '<div class="campo"><label>Renavam *</label><input type="text" class="pv_l_Renavam" required maxlength="11"></div>' +
       '<div class="campo"><label>Ano de fabricação *</label><input type="number" class="pv_l_AnoFabricacao" required min="1950" max="2100"></div>' +
-      '<div class="campo"><label>CNPJ de origem <span class="opcional">(opcional)</span></label><input type="text" class="pv_l_CNPJOrigem" maxlength="20"></div>' +
+      '<div class="campo"><label>Ano de modelo <span class="opcional">(opcional)</span></label><input type="number" class="pv_l_AnoModelo" min="1950" max="2100"></div>' +
+      '<div class="campo"><label>CNPJ do proprietário no DETRAN <span class="opcional">(opcional)</span></label><input type="text" class="pv_l_CNPJProprietario" maxlength="20"></div>' +
+      '<div class="campo span-2"><label>Situação no DETRAN <span class="opcional">(opcional)</span></label><input type="text" class="pv_l_SituacaoDetran" maxlength="200"></div>' +
       '<div class="campo"><label>Situação da transferência *</label><select class="pv_l_SituacaoTransferencia">' +
         situacoes.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('') +
       '</select></div>' +
@@ -1914,6 +1940,7 @@
   function pvColetarDadosComuns_() {
     return {
       uf: document.getElementById('pv_UF').value,
+      municipio: document.getElementById('pv_Municipio').value,
       instituicao: document.getElementById('pv_Instituicao').value,
       cnpjInstituicao: document.getElementById('pv_CNPJInstituicao').value,
       dataDoacao: document.getElementById('pv_DataDoacao').value,
@@ -1932,7 +1959,9 @@
         chassi: document.getElementById('pv_Chassi').value,
         renavam: document.getElementById('pv_Renavam').value,
         anoFabricacao: document.getElementById('pv_AnoFabricacao').value,
-        cnpjOrigem: document.getElementById('pv_CNPJOrigem').value,
+        anoModelo: document.getElementById('pv_AnoModelo').value,
+        cnpjProprietario: document.getElementById('pv_CNPJProprietario').value,
+        situacaoDetran: document.getElementById('pv_SituacaoDetran').value,
         situacaoTransferencia: document.getElementById('pv_SituacaoTransferencia').value,
         observacoes: document.getElementById('pv_Observacoes').value
       });
@@ -1957,7 +1986,9 @@
           chassi: linha.querySelector('.pv_l_Chassi').value,
           renavam: linha.querySelector('.pv_l_Renavam').value,
           anoFabricacao: linha.querySelector('.pv_l_AnoFabricacao').value,
-          cnpjOrigem: linha.querySelector('.pv_l_CNPJOrigem').value,
+          anoModelo: linha.querySelector('.pv_l_AnoModelo').value,
+          cnpjProprietario: linha.querySelector('.pv_l_CNPJProprietario').value,
+          situacaoDetran: linha.querySelector('.pv_l_SituacaoDetran').value,
           situacaoTransferencia: linha.querySelector('.pv_l_SituacaoTransferencia').value
         };
       });
@@ -1977,7 +2008,7 @@
 
   // ---------- Listagem ----------
   function carregarListagemPv_() {
-    document.getElementById('pvCorpoTabelaListagem').innerHTML = '<tr><td colspan="8" class="carregando">Carregando...</td></tr>';
+    document.getElementById('pvCorpoTabelaListagem').innerHTML = '<tr><td colspan="9" class="carregando">Carregando...</td></tr>';
     var filtro = {
       uf: document.getElementById('pvfUF').value,
       instituicao: document.getElementById('pvfInstituicao').value,
@@ -1991,14 +2022,14 @@
       pvRenderizarTabelaListagem_(lista);
     }).catch(function (erro) {
       document.getElementById('pvCorpoTabelaListagem').innerHTML =
-        '<tr><td colspan="8"><div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div></td></tr>';
+        '<tr><td colspan="9"><div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div></td></tr>';
     });
   }
 
   function pvRenderizarTabelaListagem_(lista) {
     var corpo = document.getElementById('pvCorpoTabelaListagem');
     if (!lista.length) {
-      corpo.innerHTML = '<tr><td colspan="8">Nenhum veículo encontrado.</td></tr>';
+      corpo.innerHTML = '<tr><td colspan="9">Nenhum veículo encontrado.</td></tr>';
       return;
     }
     corpo.innerHTML = lista.map(function (v) {
@@ -2009,6 +2040,7 @@
         '<td>' + escaparHtml(v.Chassi) + '</td>' +
         '<td>' + escaparHtml(String(v.Renavam)) + '</td>' +
         '<td>' + escaparHtml(v.UF) + '</td>' +
+        '<td>' + escaparHtml(v.Municipio) + '</td>' +
         '<td>' + escaparHtml(v.Instituicao) + '</td>' +
         '<td><span class="selo ' + classeSelo + '">' + escaparHtml(v.SituacaoTransferencia) + '</span></td>' +
         '<td><button type="button" class="secundario" onclick="event.stopPropagation(); pvAbrirEdicao_(\'' + v.ID + '\')">Editar</button></td>' +
@@ -2030,6 +2062,7 @@
     if (!v) return;
     document.getElementById('pve_ID').value = v.ID;
     document.getElementById('pve_UF').value = v.UF;
+    document.getElementById('pve_Municipio').value = v.Municipio || '';
     document.getElementById('pve_Instituicao').value = v.Instituicao;
     document.getElementById('pve_CNPJInstituicao').value = v.CNPJInstituicao || '';
     document.getElementById('pve_DataDoacao').value = v.DataDoacao || '';
@@ -2040,7 +2073,9 @@
     document.getElementById('pve_Chassi').value = v.Chassi || '';
     document.getElementById('pve_Renavam').value = v.Renavam || '';
     document.getElementById('pve_AnoFabricacao').value = v.AnoFabricacao || '';
-    document.getElementById('pve_CNPJOrigem').value = v.CNPJOrigem || '';
+    document.getElementById('pve_AnoModelo').value = v.AnoModelo || '';
+    document.getElementById('pve_CNPJProprietario').value = v.CNPJProprietario || '';
+    document.getElementById('pve_SituacaoDetran').value = v.SituacaoDetran || '';
     document.getElementById('pve_SituacaoTransferencia').value = v.SituacaoTransferencia || '';
     document.getElementById('pve_Observacoes').value = v.Observacoes || '';
     document.getElementById('pvBotaoExcluir').style.display = USUARIO_E_ADMIN ? '' : 'none';
@@ -2053,6 +2088,7 @@
     var id = document.getElementById('pve_ID').value;
     var dados = {
       uf: document.getElementById('pve_UF').value,
+      municipio: document.getElementById('pve_Municipio').value,
       instituicao: document.getElementById('pve_Instituicao').value,
       cnpjInstituicao: document.getElementById('pve_CNPJInstituicao').value,
       dataDoacao: document.getElementById('pve_DataDoacao').value,
@@ -2063,7 +2099,9 @@
       chassi: document.getElementById('pve_Chassi').value,
       renavam: document.getElementById('pve_Renavam').value,
       anoFabricacao: document.getElementById('pve_AnoFabricacao').value,
-      cnpjOrigem: document.getElementById('pve_CNPJOrigem').value,
+      anoModelo: document.getElementById('pve_AnoModelo').value,
+      cnpjProprietario: document.getElementById('pve_CNPJProprietario').value,
+      situacaoDetran: document.getElementById('pve_SituacaoDetran').value,
       situacaoTransferencia: document.getElementById('pve_SituacaoTransferencia').value,
       observacoes: document.getElementById('pve_Observacoes').value
     };

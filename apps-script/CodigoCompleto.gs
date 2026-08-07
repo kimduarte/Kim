@@ -494,6 +494,7 @@ function onOpen() {
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
     .addSeparator()
     .addItem('Passivo Veicular: criar planilha separada', 'criarEstruturaPassivoVeicular')
+    .addItem('Passivo Veicular: importar dados do DF', 'importarVeiculosPassivoDF_')
     .addToUi();
 }
 
@@ -3049,9 +3050,15 @@ var SHEET_PV_VEICULOS = 'Veiculos';
 
 var CABECALHO_PV_VEICULOS = [
   'ID', 'DataCadastro',
-  'Marca', 'Modelo', 'Placa', 'Chassi', 'Renavam', 'AnoFabricacao', 'CNPJOrigem',
-  'SituacaoTransferencia',
-  'UF', 'Instituicao', 'CNPJInstituicao', 'DataDoacao', 'NumeroTermoDoacao',
+  'Marca', 'Modelo', 'Placa', 'Chassi', 'Renavam', 'AnoFabricacao', 'AnoModelo',
+  // CNPJProprietario: quem ainda consta como dono no DETRAN (normalmente a
+  // União/o ente doador) — a doação em si não transfere o registro no
+  // DETRAN, só a posse; enquanto isso não é feito, o veículo é "passivo".
+  // SituacaoDetran: texto livre copiado da consulta ao DETRAN (ex.: "EM
+  // CIRCULAÇÃO COMUNICADO VENDA") — informativo, não confundir com
+  // SituacaoTransferencia, que é o status de workflow controlado por nós.
+  'CNPJProprietario', 'SituacaoDetran', 'SituacaoTransferencia',
+  'UF', 'Municipio', 'Instituicao', 'CNPJInstituicao', 'DataDoacao', 'NumeroTermoDoacao',
   'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor'
 ];
 
@@ -3155,9 +3162,14 @@ function pvMontarRegistro_(dados, autor, existente) {
     Chassi: normalizarChassi_(dados.chassi),
     Renavam: normalizarTexto_(dados.renavam),
     AnoFabricacao: Number(dados.anoFabricacao) || dados.anoFabricacao,
-    CNPJOrigem: normalizarTexto_(dados.cnpjOrigem),
+    // Sem ano de modelo informado à parte, assume igual ao de fabricação
+    // (a imensa maioria dos veículos não tem essa distinção relevante).
+    AnoModelo: Number(dados.anoModelo) || Number(dados.anoFabricacao) || dados.anoFabricacao,
+    CNPJProprietario: normalizarTexto_(dados.cnpjProprietario),
+    SituacaoDetran: normalizarTexto_(dados.situacaoDetran),
     SituacaoTransferencia: dados.situacaoTransferencia || PV_SITUACOES_TRANSFERENCIA[0],
     UF: normalizarUF_(dados.uf),
+    Municipio: normalizarTexto_(dados.municipio),
     Instituicao: normalizarTexto_(dados.instituicao),
     CNPJInstituicao: normalizarTexto_(dados.cnpjInstituicao),
     DataDoacao: normalizarTexto_(dados.dataDoacao),
@@ -3188,8 +3200,8 @@ function cadastrarVeiculoPassivo(dados) {
   return { ok: true, id: registro.ID };
 }
 
-// dadosComuns: {uf, instituicao, cnpjInstituicao, dataDoacao, numeroTermoDoacao}
-// veiculos: [{marca, modelo, placa, chassi, renavam, anoFabricacao, cnpjOrigem, situacaoTransferencia}, ...]
+// dadosComuns: {uf, municipio, instituicao, cnpjInstituicao, dataDoacao, numeroTermoDoacao}
+// veiculos: [{marca, modelo, placa, chassi, renavam, anoFabricacao, anoModelo, cnpjProprietario, situacaoDetran, situacaoTransferencia}, ...]
 function cadastrarVeiculosPassivoLote(dadosComuns, veiculos) {
   var perfil = exigirPerfilEditor_();
   pvValidarComuns_(dadosComuns);
@@ -3301,4 +3313,91 @@ function excluirVeiculoPassivo(id) {
     }
   }
   throw new Error('Veículo não encontrado.');
+}
+
+// Importação única dos veículos do Distrito Federal, a partir da planilha
+// "DISTRITO_FEDERAL.xlsx" (aba "SIMPLIFICADA") enviada pelo usuário —
+// Marca/Modelo, Ano Fabricação/Modelo, CNPJ Proprietário, Situação DETRAN,
+// Município e Instituição (resolvida a partir do CNPJ Origem/Possuidor,
+// cruzado com ORGAOS_POR_UF['DF']) já vêm prontos. Data e número do termo
+// de doação NÃO vinham na planilha original (o campo "Processo SEI" da
+// origem estava em branco) — ficam marcados "A CONFIRMAR" e devem ser
+// completados depois, editando cada veículo pelo próprio painel.
+// Rode uma vez pelo editor do Apps Script (ou pelo menu "Base de
+// Veículos" na planilha de Doações) — já ignora veículos cuja placa já
+// exista na planilha do Passivo, então pode rodar de novo sem duplicar.
+function importarVeiculosPassivoDF_() {
+  var perfil = exigirPerfilEditor_();
+  var veiculosDF = [
+    { marca: 'GM', modelo: 'ASTRA SEDAN ADVANTAGE', placa: 'JFP2161', chassi: '9BGTR69W07B237917', renavam: '923894314', anoFabricacao: 2007, anoModelo: 2007, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'GM', modelo: 'BLAZER ADVANTAGE', placa: 'JJE4261', chassi: '9BG116GU07C422762', renavam: '927218291', anoFabricacao: 2007, anoModelo: 2007, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'MMC', modelo: 'L200 TRITON 3.2 D', placa: 'OVQ0953', chassi: '93XJNKB8TDCD69648', renavam: '595870511', anoFabricacao: 2013, anoModelo: 2013, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'MMC', modelo: 'L200 TRITON 3.2 D', placa: 'OVQ0963', chassi: '93XJNKB8TDCD69967', renavam: '595878571', anoFabricacao: 2013, anoModelo: 2013, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'MMC', modelo: 'L200 TRITON 3.2 D', placa: 'OVQ0973', chassi: '93XJNKB8TDCD69873', renavam: '595882030', anoFabricacao: 2013, anoModelo: 2013, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'MMC', modelo: 'L200 TRITON 3.2 D', placa: 'OVQ0983', chassi: '93XJNKB8TDCD69930', renavam: '595885560', anoFabricacao: 2013, anoModelo: 2013, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'CHEVROLET', modelo: 'S10 LT DD4', placa: 'OVS7556', chassi: '9BG148FK0GC400919', renavam: '1094496437', anoFabricacao: 2015, anoModelo: 2016, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'CHEVROLET', modelo: 'S10 LT DD4', placa: 'OVS7557', chassi: '9BG148FK0GC400623', renavam: '1094544040', anoFabricacao: 2015, anoModelo: 2016, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'CHEVROLET', modelo: 'S10 LT DD4', placa: 'OVS7558', chassi: '9BG148FK0GC414659', renavam: '1094496046', anoFabricacao: 2015, anoModelo: 2016, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'CHEVROLET', modelo: 'S10 LT DD4', placa: 'OVS7559', chassi: '9BG148FK0GC416863', renavam: '1094475120', anoFabricacao: 2015, anoModelo: 2016, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'CHEVROLET', modelo: 'S10 LT DD4', placa: 'OVS7560', chassi: '9BG148FK0GC400989', renavam: '1094495805', anoFabricacao: 2015, anoModelo: 2016, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'CHEVROLET', modelo: 'S10 LT DD4', placa: 'OVS7561', chassi: '9BG148FK0GC414776', renavam: '1094513234', anoFabricacao: 2015, anoModelo: 2016, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'CHEVROLET', modelo: 'S10 LT DD4', placa: 'OVS8002', chassi: '9BG148FK0GC401045', renavam: '1094488396', anoFabricacao: 2015, anoModelo: 2016, cnpjProprietario: '394494001370', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO DISTRITO FEDERAL', cnpjInstituicao: '00.394.718/0001-00' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9063', chassi: '8AFAR23L0JJ047092', renavam: '1139257312', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9064', chassi: '8AFAR23L1JJ039437', renavam: '1139257347', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9068', chassi: '8AFAR23L1JJ042483', renavam: '1139257444', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9067', chassi: '8AFAR23L3JJ037768', renavam: '1139257428', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9062', chassi: '8AFAR23L5JJ047119', renavam: '1139257266', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9056', chassi: '8AFAR23L3JJ050908', renavam: '1139257185', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9055', chassi: '8AFAR23L4JJ047113', renavam: '1139257169', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9060', chassi: '8AFAR23L0JJ045133', renavam: '1139257231', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9065', chassi: '8AFAR23L2JJ054299', renavam: '1139257363', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' },
+    { marca: 'FORD', modelo: 'RANGER XLTCD4A32C', placa: 'PBE9058', chassi: '8AFAR23L5JJ048819', renavam: '1139257207', anoFabricacao: 2017, anoModelo: 2018, cnpjProprietario: '394494000560', situacaoDetran: 'EM CIRCULACAO COMUNICADO VENDA', municipio: 'BRASILIA', instituicao: 'POLÍCIA MILITAR', cnpjInstituicao: '08.942.610/0001-16' }
+  ];
+
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var idxPlaca = CABECALHO_PV_VEICULOS.indexOf('Placa');
+  var placasExistentes = {};
+  for (var i = 1; i < valores.length; i++) {
+    placasExistentes[valores[i][idxPlaca]] = true;
+  }
+
+  var observacaoImportacao = 'Importado da planilha "Bens Doados (PAN 2007 / Legado 2016) - DF" em ' +
+    Utilities.formatDate(new Date(), 'GMT-3', 'dd/MM/yyyy') + '.';
+  var linhas = [];
+  var ignorados = [];
+  veiculosDF.forEach(function (v) {
+    var placaNormalizada = normalizarPlaca_(v.placa);
+    if (placasExistentes[placaNormalizada]) {
+      ignorados.push(v.placa);
+      return;
+    }
+    pvValidarVeiculo_(v);
+    var dados = {
+      marca: v.marca, modelo: v.modelo, placa: v.placa, chassi: v.chassi, renavam: v.renavam,
+      anoFabricacao: v.anoFabricacao, anoModelo: v.anoModelo,
+      cnpjProprietario: v.cnpjProprietario, situacaoDetran: v.situacaoDetran,
+      situacaoTransferencia: PV_SITUACOES_TRANSFERENCIA[0],
+      uf: 'DF', municipio: v.municipio, instituicao: v.instituicao, cnpjInstituicao: v.cnpjInstituicao,
+      dataDoacao: 'A CONFIRMAR', numeroTermoDoacao: 'A CONFIRMAR',
+      observacoes: observacaoImportacao
+    };
+    var registro = pvMontarRegistro_(dados, perfil.email);
+    linhas.push(CABECALHO_PV_VEICULOS.map(function (campo) { return registro[campo]; }));
+  });
+
+  if (linhas.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, linhas.length, CABECALHO_PV_VEICULOS.length).setValues(linhas);
+  }
+
+  var mensagem = 'Importação do DF concluída: ' + linhas.length + ' veículo(s) novo(s) cadastrado(s).' +
+    (ignorados.length ? ' ' + ignorados.length + ' já existiam (placa já cadastrada) e foram ignorados: ' + ignorados.join(', ') + '.' : '') +
+    ' Data e número do termo de doação ficaram como "A CONFIRMAR" — ajuste em cada veículo pela tela Veículos > clique na linha > Editar.';
+  Logger.log(mensagem);
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importação Passivo Veicular - DF', 20);
+  } catch (e) {
+    // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
+  }
+  return mensagem;
 }
