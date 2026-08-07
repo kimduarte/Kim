@@ -317,17 +317,17 @@
     border-radius: 28px;
     box-shadow: 0 1px 3px rgba(60,64,67,0.15), 0 4px 24px rgba(60,64,67,0.15);
     width: 100%;
-    max-width: 420px;
-    padding: 40px 0 20px;
+    max-width: 640px;
+    padding: 56px 0 32px;
     text-align: center;
   }
-  .seletor-cabecalho { padding: 0 40px 24px; }
-  .seletor-cabecalho h1 { font-size: 19px; font-weight: 600; color: #202124; margin: 0 0 6px; line-height: 1.3; }
-  .seletor-cabecalho p { font-size: 13px; color: var(--texto-suave); margin: 0; }
+  .seletor-cabecalho { padding: 0 56px 32px; }
+  .seletor-cabecalho h1 { font-size: 26px; font-weight: 600; color: #202124; margin: 0 0 10px; line-height: 1.3; }
+  .seletor-cabecalho p { font-size: 15px; color: var(--texto-suave); margin: 0; }
   .seletor-linhas { border-top: 1px solid #e8eaed; }
   .painel-linha {
-    display: flex; align-items: center; gap: 16px;
-    padding: 14px 40px;
+    display: flex; align-items: center; gap: 22px;
+    padding: 24px 56px;
     cursor: pointer;
     text-align: left;
     transition: background 0.15s;
@@ -335,14 +335,14 @@
   .painel-linha:hover { background: #f8f9fa; }
   .painel-linha + .painel-linha { border-top: 1px solid #e8eaed; }
   .painel-linha-icone {
-    width: 40px; height: 40px; border-radius: 50%;
+    width: 56px; height: 56px; border-radius: 50%;
     background: var(--primario);
     color: #fff;
     display: flex; align-items: center; justify-content: center;
-    font-size: 18px; flex-shrink: 0;
+    font-size: 26px; flex-shrink: 0;
   }
-  .painel-linha-texto { font-size: 14px; font-weight: 600; color: var(--primario); }
-  .painel-linha-sub { font-size: 12px; color: var(--texto-suave); margin-top: 2px; font-weight: 400; }
+  .painel-linha-texto { font-size: 18px; font-weight: 600; color: var(--primario); }
+  .painel-linha-sub { font-size: 14px; color: var(--texto-suave); margin-top: 4px; font-weight: 400; }
 
   .modal-fundo {
     display: none;
@@ -416,9 +416,9 @@
   </div>
 
   <div class="seletor-fundo escondido" id="painelPassivoFundo">
-    <div class="seletor-cartao-central" style="max-width:480px; padding:40px;">
-      <h1 style="font-size:19px; font-weight:600; color:#202124; margin:0 0 8px;">Painel Passivo Veicular</h1>
-      <p style="color:var(--texto-suave); margin-bottom:28px; font-size:13px;">Em construção — os dados e as telas desse painel ainda vão ser definidos.</p>
+    <div class="seletor-cartao-central" style="max-width:600px; padding:56px;">
+      <h1 style="font-size:26px; font-weight:600; color:#202124; margin:0 0 12px;">Painel Passivo Veicular</h1>
+      <p style="color:var(--texto-suave); margin-bottom:32px; font-size:15px;">Em construção — os dados e as telas desse painel ainda vão ser definidos.</p>
       <button type="button" class="secundario" onclick="voltarSeletorPaineis_()">‹ Voltar aos painéis</button>
     </div>
   </div>
