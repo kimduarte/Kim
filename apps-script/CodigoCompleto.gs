@@ -3194,6 +3194,7 @@ function criarEstruturaPassivoVeicular() {
       abaNova.getRange(1, 1, 1, cabecalhoAba.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
     }
   });
+  pvFormatarColunaComoTexto_(ss.getSheetByName(SHEET_PV_INFRACOES), CABECALHO_PV_INFRACOES, 'Codigo');
   pvSeedTabelaInfracoesSeVazia_(ss);
   pvSeedOrgaosAutuadoresSeVazia_(ss);
 
@@ -3509,6 +3510,18 @@ function importarVeiculosPassivoDF_() {
 // PASSIVO VEICULAR — Aba Débitos > Infrações
 // ======================================================================
 
+// Sheets converte sozinho valores tipo "5037-1" (código-desdobramento) pra
+// data (interpreta como ano 5037, mês 1) — mesmo escrevendo pela API, não
+// só pela interface. Trava a coluna inteira como texto puro ANTES de
+// gravar; sem isso, o valor vira data e a leitura de volta traz um objeto
+// Date em vez do código de verdade.
+function pvFormatarColunaComoTexto_(sheet, cabecalho, nomeColuna) {
+  if (!sheet) return;
+  var idx = cabecalho.indexOf(nomeColuna);
+  if (idx === -1) return;
+  sheet.getRange(1, idx + 1, sheet.getMaxRows(), 1).setNumberFormat('@');
+}
+
 // Tabela oficial de códigos de infração (RENAINF), enviada pelo usuário —
 // Código da Infração, Desdobramento (quando houver, já concatenado no
 // Código como "código-desdobramento"), Descrição da Infração e Amparo
@@ -3781,6 +3794,7 @@ function pvDadosRenainf_() {
 function pvSeedTabelaInfracoesSeVazia_(ss) {
   var sheet = ss.getSheetByName(SHEET_PV_TABELA_INFRACOES);
   if (!sheet || sheet.getLastRow() > 1) return;
+  pvFormatarColunaComoTexto_(sheet, CABECALHO_PV_TABELA_INFRACOES, 'Codigo');
   var linhas = pvDadosRenainf_();
   sheet.getRange(2, 1, linhas.length, CABECALHO_PV_TABELA_INFRACOES.length).setValues(linhas);
 }
@@ -3798,6 +3812,7 @@ function atualizarTabelaInfracoesRenainf_() {
   if (ultimaLinha > 1) {
     sheet.getRange(2, 1, ultimaLinha - 1, CABECALHO_PV_TABELA_INFRACOES.length).clearContent();
   }
+  pvFormatarColunaComoTexto_(sheet, CABECALHO_PV_TABELA_INFRACOES, 'Codigo');
   var linhas = pvDadosRenainf_();
   sheet.getRange(2, 1, linhas.length, CABECALHO_PV_TABELA_INFRACOES.length).setValues(linhas);
   var mensagem = 'Tabela de infrações atualizada com ' + linhas.length + ' códigos oficiais (RENAINF).';
