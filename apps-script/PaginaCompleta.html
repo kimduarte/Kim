@@ -842,7 +842,7 @@
               <select id="pvi_StatusCancelamento"></select>
             </div>
             <div class="campo">
-              <label for="pvi_ArtigoBusca">Artigo (CTB) <span class="opcional">(opcional — digite o artigo ou parte da descrição pra buscar)</span></label>
+              <label for="pvi_ArtigoBusca">Artigo (CTB)</label>
               <div style="display:flex; gap:6px;">
                 <input type="text" id="pvi_ArtigoBusca" list="pvi_ArtigoDatalist" maxlength="300" placeholder="Ex.: 218 ou velocidade..." style="flex:1;" onfocus="this.select()">
                 <button type="button" class="secundario" title="Limpar" onclick="pvLimparArtigoBusca_()" style="padding:0 12px;">&times;</button>
@@ -2348,6 +2348,7 @@
   function pvLimparArtigoBusca_() {
     var campo = document.getElementById('pvi_ArtigoBusca');
     campo.value = '';
+    document.getElementById('pvi_Codigo').value = '';
     campo.focus();
   }
 
