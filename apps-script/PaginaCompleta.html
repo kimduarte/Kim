@@ -304,6 +304,29 @@
   .selo-toggle.selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
   .selo-toggle.selo-nao { background: var(--amarelo-bg); color: var(--amarelo-fg); }
 
+  /* Seletor de painéis — tela cheia, sobre tudo o mais, até um painel ser escolhido */
+  .seletor-fundo {
+    position: fixed; inset: 0; z-index: 200;
+    background: #f7f7f8;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .seletor-fundo.escondido { display: none; }
+  .seletor-cartoes { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .painel-cartao {
+    border: 2px solid var(--primario);
+    border-radius: 16px;
+    color: var(--primario);
+    font-size: 18px;
+    font-weight: 700;
+    padding: 40px 50px;
+    min-width: 220px;
+    text-align: center;
+    background: #fff;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .painel-cartao:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(20,81,180,0.18); }
+
   .modal-fundo {
     display: none;
     position: fixed; inset: 0;
@@ -350,6 +373,25 @@
   </style>
 </head>
 <body>
+  <div class="seletor-fundo" id="seletorPaineisFundo">
+    <div style="text-align:center;">
+      <h1 style="margin-bottom:8px; color:var(--primario-escuro);">Escolha um painel</h1>
+      <p style="color:var(--texto-suave); margin-bottom:28px;">SENASP · Secretaria Nacional de Segurança Pública</p>
+      <div class="seletor-cartoes">
+        <div class="painel-cartao" onclick="entrarPainelDoacoes_()">Painel Doações Veiculares</div>
+        <div class="painel-cartao" onclick="entrarPainelPassivo_()">Painel Passivo Veicular</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="seletor-fundo escondido" id="painelPassivoFundo">
+    <div style="text-align:center; max-width:520px; padding:0 20px;">
+      <h1 style="margin-bottom:8px; color:var(--primario-escuro);">Painel Passivo Veicular</h1>
+      <p style="color:var(--texto-suave); margin-bottom:28px;">Em construção — os dados e as telas desse painel ainda vão ser definidos.</p>
+      <button type="button" class="secundario" onclick="voltarSeletorPaineis_()">‹ Voltar aos painéis</button>
+    </div>
+  </div>
+
   <div class="topo-utilitario">Ministério da Justiça e Segurança Pública</div>
   <header class="topo">
     <div class="topo-marca">
@@ -369,6 +411,7 @@
 
   <div class="app-shell">
     <nav class="app-lateral">
+      <div class="app-nav-item" onclick="voltarSeletorPaineis_()">🏠 Painéis</div>
       <div class="app-nav-item ativo" data-tela="inicio" onclick="irParaTela('inicio')">▤ Início</div>
       <div class="app-nav-item" id="navCadastro" data-tela="cadastro" onclick="abrirModalEscolhaCadastro_()">🚓 Cadastrar veículo</div>
       <div class="app-nav-item" data-tela="listagem" onclick="irParaTela('listagem')">☰ Processos</div>
@@ -1350,6 +1393,25 @@
     configurarModalNovoUsuario_();
     configurarModalNumeroSei_();
   });
+
+  // ---------- Seletor de painéis (Doações Veiculares / Passivo Veicular) ----------
+  // O painel de Doações já roda por baixo desde o carregamento da página —
+  // entrar nele é só tirar a tela cheia do seletor de cima. O Passivo
+  // Veicular ainda não tem dados/telas próprias (placeholder por enquanto).
+  function entrarPainelDoacoes_() {
+    document.getElementById('seletorPaineisFundo').classList.add('escondido');
+    document.getElementById('painelPassivoFundo').classList.add('escondido');
+  }
+
+  function entrarPainelPassivo_() {
+    document.getElementById('seletorPaineisFundo').classList.add('escondido');
+    document.getElementById('painelPassivoFundo').classList.remove('escondido');
+  }
+
+  function voltarSeletorPaineis_() {
+    document.getElementById('painelPassivoFundo').classList.add('escondido');
+    document.getElementById('seletorPaineisFundo').classList.remove('escondido');
+  }
 
   // ---------- Navegação entre telas ----------
   function irParaTela(nome) {
