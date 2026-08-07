@@ -2316,11 +2316,14 @@
     // o navegador filtra sozinho. PV_MAPA_ARTIGOS usa o texto completo da
     // opção como chave (só ele garante ser único) pra achar de volta o
     // Artigo/Código/Descrição reais na hora de preencher ou salvar.
+    // Cada item chega como [Artigo, Descricao, Codigo] (array simples, não
+    // objeto) — ver comentário em getListasDebitosPassivo_ no servidor.
     PV_MAPA_ARTIGOS = {};
     var datalist = document.getElementById('pvi_ArtigoDatalist');
     datalist.innerHTML = PV_LISTAS_DEBITOS.tabelaInfracoes.map(function (item) {
-      var rotulo = 'Art. ' + item.Artigo + ' — ' + item.Descricao + (item.Codigo ? ' (Cód. ' + item.Codigo + ')' : '');
-      PV_MAPA_ARTIGOS[rotulo] = item;
+      var artigo = item[0], descricao = item[1], codigo = item[2];
+      var rotulo = 'Art. ' + artigo + ' — ' + descricao + (codigo ? ' (Cód. ' + codigo + ')' : '');
+      PV_MAPA_ARTIGOS[rotulo] = { Artigo: artigo, Descricao: descricao, Codigo: codigo };
       return '<option value="' + escaparHtml(rotulo) + '"></option>';
     }).join('');
   }

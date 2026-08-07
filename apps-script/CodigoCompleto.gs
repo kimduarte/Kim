@@ -3890,12 +3890,22 @@ function getListasDebitosPassivo() {
   var perfil = getPerfilUsuarioAtual_();
   if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
 
+  // Devolve como array de arrays [Artigo, Descricao, Codigo] em vez de 258
+  // objetos com chave repetida — google.script.run trava (nunca chama nem
+  // sucesso nem erro) com respostas grandes cheias de objetos, o mesmo bug
+  // que já tinha acontecido antes na aba TEP. Array simples é bem mais
+  // leve pra serializar/enviar. Gravidade não vai porque não é usada em
+  // lugar nenhum do cliente.
   var sheetTabela = getOrCreateSheetPassivo_(SHEET_PV_TABELA_INFRACOES, CABECALHO_PV_TABELA_INFRACOES);
   var valoresTabela = sheetTabela.getDataRange().getValues();
   var tabelaInfracoes = [];
   for (var i = 1; i < valoresTabela.length; i++) {
     if (!valoresTabela[i][0]) continue;
-    tabelaInfracoes.push(linhaParaObjeto_(valoresTabela[0], valoresTabela[i]));
+    tabelaInfracoes.push([
+      String(valoresTabela[i][0] || ''),
+      String(valoresTabela[i][1] || ''),
+      String(valoresTabela[i][2] || '')
+    ]);
   }
 
   var sheetOrgaos = getOrCreateSheetPassivo_(SHEET_PV_ORGAOS_AUTUADORES, CABECALHO_PV_ORGAOS_AUTUADORES);
