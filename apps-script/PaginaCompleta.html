@@ -843,7 +843,10 @@
             </div>
             <div class="campo">
               <label for="pvi_ArtigoBusca">Artigo (CTB) <span class="opcional">(opcional — digite o artigo ou parte da descrição pra buscar)</span></label>
-              <input type="text" id="pvi_ArtigoBusca" list="pvi_ArtigoDatalist" maxlength="300" placeholder="Ex.: 218 ou velocidade...">
+              <div style="display:flex; gap:6px;">
+                <input type="text" id="pvi_ArtigoBusca" list="pvi_ArtigoDatalist" maxlength="300" placeholder="Ex.: 218 ou velocidade..." style="flex:1;" onfocus="this.select()">
+                <button type="button" class="secundario" title="Limpar" onclick="pvLimparArtigoBusca_()" style="padding:0 12px;">&times;</button>
+              </div>
               <datalist id="pvi_ArtigoDatalist"></datalist>
             </div>
             <div class="campo">
@@ -2288,6 +2291,11 @@
   function pvPreencherListasInfracoes_() {
     if (!PV_LISTAS_DEBITOS) return;
     preencherSelect('pvifStatus', PV_LISTAS_DEBITOS.statusCancelamento, false, 'Todos');
+    // pvGarantirListasDebitos_ chama esta função de novo toda vez que o
+    // modal de infração abre — sem limpar antes, preencherSelect (que só
+    // limpa quando recebe um rótulo de "Selecione.../Todos") ia só
+    // empilhando as mesmas opções de novo a cada abertura.
+    document.getElementById('pvi_StatusCancelamento').innerHTML = '';
     preencherSelect('pvi_StatusCancelamento', PV_LISTAS_DEBITOS.statusCancelamento, false);
 
     var todosOrgaos = PV_LISTAS_DEBITOS.orgaosFederais.slice();
@@ -2335,6 +2343,12 @@
       document.getElementById('pvi_Codigo').value = item.Codigo || '';
       document.getElementById('pvi_DescricaoInfracao').value = item.Descricao || '';
     }
+  }
+
+  function pvLimparArtigoBusca_() {
+    var campo = document.getElementById('pvi_ArtigoBusca');
+    campo.value = '';
+    campo.focus();
   }
 
   function pvConfigurarModalInfracao_() {
