@@ -492,6 +492,8 @@ function onOpen() {
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
+    .addSeparator()
+    .addItem('Passivo Veicular: criar planilha separada', 'criarEstruturaPassivoVeicular')
     .addToUi();
 }
 
@@ -3030,4 +3032,273 @@ function ordenarSerieTemporal_(mapa) {
       if (anoA !== anoB) return anoA - anoB;
       return MESES_VALIDOS.indexOf(pa[1]) - MESES_VALIDOS.indexOf(pb[1]);
     });
+}
+
+// ======================================================================
+// PASSIVO VEICULAR — Aba Veículos
+// Banco separado (planilha própria, fora da planilha de Doações) para
+// permitir no futuro compartilhamento de Drive independente entre os dois
+// painéis. Login/perfis continuam sendo os mesmos (Usuarios fica na
+// planilha de Doações, que é a planilha à qual este projeto está vinculado)
+// — só os dados de veículos do passivo ficam na planilha separada.
+// ======================================================================
+
+var PROP_PV_SPREADSHEET_ID = 'PV_SPREADSHEET_ID';
+
+var SHEET_PV_VEICULOS = 'Veiculos';
+
+var CABECALHO_PV_VEICULOS = [
+  'ID', 'DataCadastro',
+  'Marca', 'Modelo', 'Placa', 'Chassi', 'Renavam', 'AnoFabricacao', 'CNPJOrigem',
+  'SituacaoTransferencia',
+  'UF', 'Instituicao', 'CNPJInstituicao', 'DataDoacao', 'NumeroTermoDoacao',
+  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor'
+];
+
+var PV_SITUACOES_TRANSFERENCIA = ['PENDENTE', 'EM ANDAMENTO', 'CONCLUÍDA'];
+
+function getSpreadsheetPassivo_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(PROP_PV_SPREADSHEET_ID);
+  if (!id) {
+    throw new Error('A planilha do Passivo Veicular ainda não foi criada. Peça a um administrador para abrir o editor do Apps Script, selecionar a função "criarEstruturaPassivoVeicular" e clicar em Executar.');
+  }
+  return SpreadsheetApp.openById(id);
+}
+
+function getOrCreateSheetPassivo_(nome, cabecalho) {
+  var ss = getSpreadsheetPassivo_();
+  var sheet = ss.getSheetByName(nome);
+  if (!sheet) {
+    sheet = ss.insertSheet(nome);
+  }
+  if (cabecalho && sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, cabecalho.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
+  }
+  return sheet;
+}
+
+// Rode esta função uma vez pelo editor do Apps Script (selecione ela no
+// menu de funções, ao lado do botão "Executar", e clique em Executar) pra
+// criar a planilha do Passivo Veicular — separada da planilha de Doações,
+// com compartilhamento de Drive próprio. Pode rodar de novo sem problema:
+// se a planilha já existe, só garante que a aba/cabeçalho estão certos.
+function criarEstruturaPassivoVeicular() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(PROP_PV_SPREADSHEET_ID);
+  var ss = null;
+  if (id) {
+    try {
+      ss = SpreadsheetApp.openById(id);
+    } catch (e) {
+      ss = null;
+    }
+  }
+  if (!ss) {
+    ss = SpreadsheetApp.create('Passivo Veicular - SGP/COLOG');
+    props.setProperty(PROP_PV_SPREADSHEET_ID, ss.getId());
+  }
+  var sheet = ss.getSheetByName(SHEET_PV_VEICULOS) || ss.insertSheet(SHEET_PV_VEICULOS);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, CABECALHO_PV_VEICULOS.length).setValues([CABECALHO_PV_VEICULOS]);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, CABECALHO_PV_VEICULOS.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
+    sheet.setColumnWidths(1, CABECALHO_PV_VEICULOS.length, 130);
+  }
+  var abaPadrao = ss.getSheetByName('Sheet1') || ss.getSheetByName('Página1');
+  if (abaPadrao && ss.getSheets().length > 1) {
+    ss.deleteSheet(abaPadrao);
+  }
+  Logger.log('Planilha do Passivo Veicular pronta: ' + ss.getUrl());
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast('Planilha do Passivo Veicular pronta. Abra: ' + ss.getUrl(), 'Passivo Veicular', 15);
+  } catch (e) {
+    // Rodando sem UI ativa (ex.: direto pelo editor de scripts) — sem problema, a URL já foi gravada no Logger acima.
+  }
+  return ss.getUrl();
+}
+
+function pvProximoId_() {
+  var props = PropertiesService.getScriptProperties();
+  var seq = Number(props.getProperty('PV_SEQ_VEICULO') || '0');
+  seq += 1;
+  props.setProperty('PV_SEQ_VEICULO', String(seq));
+  return 'PV-' + ('000000' + seq).slice(-6);
+}
+
+function pvValidarComuns_(dados) {
+  if (!dados.uf) throw new Error('Informe a UF.');
+  if (!dados.instituicao) throw new Error('Informe a instituição (donatária).');
+  if (!dados.dataDoacao) throw new Error('Informe a data ou ano da doação.');
+  if (!dados.numeroTermoDoacao) throw new Error('Informe o número do termo de doação.');
+}
+
+function pvValidarVeiculo_(dados) {
+  if (!dados.marca) throw new Error('Informe a marca do veículo.');
+  if (!dados.modelo) throw new Error('Informe o modelo do veículo.');
+  if (!validarPlaca_(normalizarPlaca_(dados.placa))) throw new Error('Placa inválida: ' + dados.placa);
+  if (!validarChassi_(normalizarChassi_(dados.chassi))) throw new Error('Chassi inválido: ' + dados.chassi);
+  if (!validarRenavam_(dados.renavam)) throw new Error('Renavam inválido: ' + dados.renavam);
+  if (!dados.anoFabricacao) throw new Error('Informe o ano de fabricação.');
+}
+
+function pvMontarRegistro_(dados, autor, existente) {
+  var agora = new Date();
+  return {
+    ID: existente ? existente.ID : pvProximoId_(),
+    DataCadastro: existente ? existente.DataCadastro : agora,
+    Marca: normalizarMarca_(dados.marca),
+    Modelo: normalizarTexto_(dados.modelo),
+    Placa: normalizarPlaca_(dados.placa),
+    Chassi: normalizarChassi_(dados.chassi),
+    Renavam: normalizarTexto_(dados.renavam),
+    AnoFabricacao: Number(dados.anoFabricacao) || dados.anoFabricacao,
+    CNPJOrigem: normalizarTexto_(dados.cnpjOrigem),
+    SituacaoTransferencia: dados.situacaoTransferencia || PV_SITUACOES_TRANSFERENCIA[0],
+    UF: normalizarUF_(dados.uf),
+    Instituicao: normalizarTexto_(dados.instituicao),
+    CNPJInstituicao: normalizarTexto_(dados.cnpjInstituicao),
+    DataDoacao: normalizarTexto_(dados.dataDoacao),
+    NumeroTermoDoacao: normalizarTexto_(dados.numeroTermoDoacao),
+    Observacoes: normalizarTexto_(dados.observacoes),
+    CadastradoPor: existente ? existente.CadastradoPor : autor,
+    UltimaAtualizacao: agora,
+    AtualizadoPor: autor
+  };
+}
+
+function getListasPassivo() {
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
+  return {
+    uf: UFS_VALIDAS.concat(CODIGOS_ORGAO_FEDERAL),
+    situacoes: PV_SITUACOES_TRANSFERENCIA
+  };
+}
+
+function cadastrarVeiculoPassivo(dados) {
+  var perfil = exigirPerfilEditor_();
+  pvValidarComuns_(dados);
+  pvValidarVeiculo_(dados);
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var registro = pvMontarRegistro_(dados, perfil.email);
+  sheet.appendRow(CABECALHO_PV_VEICULOS.map(function (campo) { return registro[campo]; }));
+  return { ok: true, id: registro.ID };
+}
+
+// dadosComuns: {uf, instituicao, cnpjInstituicao, dataDoacao, numeroTermoDoacao}
+// veiculos: [{marca, modelo, placa, chassi, renavam, anoFabricacao, cnpjOrigem, situacaoTransferencia}, ...]
+function cadastrarVeiculosPassivoLote(dadosComuns, veiculos) {
+  var perfil = exigirPerfilEditor_();
+  pvValidarComuns_(dadosComuns);
+  if (!veiculos || !veiculos.length) throw new Error('Informe ao menos um veículo.');
+  veiculos.forEach(pvValidarVeiculo_);
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var linhas = veiculos.map(function (v) {
+    var dados = {};
+    Object.keys(dadosComuns).forEach(function (k) { dados[k] = dadosComuns[k]; });
+    Object.keys(v).forEach(function (k) { dados[k] = v[k]; });
+    var registro = pvMontarRegistro_(dados, perfil.email);
+    return CABECALHO_PV_VEICULOS.map(function (campo) { return registro[campo]; });
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, linhas.length, CABECALHO_PV_VEICULOS.length).setValues(linhas);
+  return { ok: true, quantidade: linhas.length };
+}
+
+function listarVeiculosPassivo(filtros) {
+  filtros = filtros || {};
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var busca = filtros.busca ? normalizarTexto_(filtros.busca).toUpperCase() : '';
+  var resultado = [];
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[0]) continue;
+    var registro = linhaParaObjeto_(cabecalho, linha);
+
+    if (filtros.uf && registro.UF !== filtros.uf) continue;
+    if (filtros.instituicao && registro.Instituicao !== filtros.instituicao) continue;
+    if (filtros.situacao && registro.SituacaoTransferencia !== filtros.situacao) continue;
+    if (busca) {
+      var alvo = [registro.Placa, registro.Chassi, String(registro.Renavam), registro.Marca, registro.Modelo, registro.Instituicao, registro.NumeroTermoDoacao].join(' ').toUpperCase();
+      if (alvo.indexOf(busca) === -1) continue;
+    }
+
+    // Datas viram texto simples antes de voltar ao cliente — evita o bug já
+    // visto no google.script.run que devolve null pra listas grandes com
+    // muitos objetos Date (ver histórico do painel de Doações).
+    registro.DataCadastro = registro.DataCadastro ? Utilities.formatDate(new Date(registro.DataCadastro), 'GMT-3', 'dd/MM/yyyy') : '';
+    registro.UltimaAtualizacao = registro.UltimaAtualizacao ? Utilities.formatDate(new Date(registro.UltimaAtualizacao), 'GMT-3', 'dd/MM/yyyy HH:mm') : '';
+    resultado.push(registro);
+  }
+
+  resultado.sort(function (a, b) { return String(b.ID).localeCompare(String(a.ID)); });
+  return resultado;
+}
+
+function getVeiculoPassivo(id) {
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxId = cabecalho.indexOf('ID');
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxId] === id) {
+      return linhaParaObjeto_(cabecalho, valores[i]);
+    }
+  }
+  throw new Error('Veículo não encontrado.');
+}
+
+function getPainelPassivo(filtros) {
+  var lista = listarVeiculosPassivo(filtros);
+  var painel = { total: lista.length, porSituacao: {}, porUF: {}, porInstituicao: {} };
+  PV_SITUACOES_TRANSFERENCIA.forEach(function (s) { painel.porSituacao[s] = 0; });
+  lista.forEach(function (v) {
+    painel.porSituacao[v.SituacaoTransferencia] = (painel.porSituacao[v.SituacaoTransferencia] || 0) + 1;
+    if (v.UF) painel.porUF[v.UF] = (painel.porUF[v.UF] || 0) + 1;
+    if (v.Instituicao) painel.porInstituicao[v.Instituicao] = (painel.porInstituicao[v.Instituicao] || 0) + 1;
+  });
+  return painel;
+}
+
+function atualizarVeiculoPassivo(id, dados) {
+  var perfil = exigirPerfilEditor_();
+  pvValidarComuns_(dados);
+  pvValidarVeiculo_(dados);
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxId = cabecalho.indexOf('ID');
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxId] === id) {
+      var existente = linhaParaObjeto_(cabecalho, valores[i]);
+      var registro = pvMontarRegistro_(dados, perfil.email, existente);
+      var linha = CABECALHO_PV_VEICULOS.map(function (campo) { return registro[campo]; });
+      sheet.getRange(i + 1, 1, 1, CABECALHO_PV_VEICULOS.length).setValues([linha]);
+      return { ok: true };
+    }
+  }
+  throw new Error('Veículo não encontrado.');
+}
+
+function excluirVeiculoPassivo(id) {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var idxId = CABECALHO_PV_VEICULOS.indexOf('ID');
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxId] === id) {
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  throw new Error('Veículo não encontrado.');
 }

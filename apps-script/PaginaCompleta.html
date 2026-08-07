@@ -344,6 +344,18 @@
   .painel-linha-texto { font-size: 18px; font-weight: 600; color: var(--primario); }
   .painel-linha-sub { font-size: 14px; color: var(--texto-suave); margin-top: 4px; font-weight: 400; }
 
+  /* Painel Passivo Veicular — mesma tela cheia por cima do resto, mas com
+     rolagem normal (app-shell próprio, igual ao painel de Doações). */
+  .pv-fundo {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg);
+    overflow-y: auto;
+  }
+  .pv-fundo.escondido { display: none; }
+  .tela-pv { display: none; }
+  .tela-pv.ativa { display: block; }
+  .pv-linha-lote { position: relative; }
+
   .modal-fundo {
     display: none;
     position: fixed; inset: 0;
@@ -415,11 +427,288 @@
     </div>
   </div>
 
-  <div class="seletor-fundo escondido" id="painelPassivoFundo">
-    <div class="seletor-cartao-central" style="max-width:600px; padding:56px;">
-      <h1 style="font-size:26px; font-weight:600; color:#202124; margin:0 0 12px;">Painel Passivo Veicular</h1>
-      <p style="color:var(--texto-suave); margin-bottom:32px; font-size:15px;">Em construção — os dados e as telas desse painel ainda vão ser definidos.</p>
-      <button type="button" class="secundario" onclick="voltarSeletorPaineis_()">‹ Voltar aos painéis</button>
+  <div class="pv-fundo escondido" id="painelPassivoFundo">
+    <div class="topo-utilitario">Sistema de Gestão de Patrimônio - SGP/COLOG</div>
+    <header class="topo">
+      <div class="topo-marca">
+        <div class="topo-icone">
+          <svg class="icone-linha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+        </div>
+        <div>
+          <h1>Painel Passivo Veicular</h1>
+          <div class="subtitulo">Controle de débitos e transferência de propriedade</div>
+        </div>
+      </div>
+      <div class="topo-usuario">
+        <div class="nome" id="pvInfoUsuarioNome">carregando…</div>
+        <div class="perfil" id="pvInfoUsuarioPerfil"></div>
+      </div>
+    </header>
+
+    <div class="app-shell">
+      <nav class="app-lateral">
+        <div class="app-nav-item" onclick="voltarSeletorPaineis_()">🏠 Painéis</div>
+        <div class="app-nav-item ativo" data-tela-pv="pv-inicio" onclick="irParaTelaPv_('pv-inicio')">📊 Painel Geral</div>
+        <div class="app-nav-item" id="navPvCadastro" data-tela-pv="pv-cadastro" onclick="irParaTelaPv_('pv-cadastro')">🚗 Cadastrar veículo</div>
+        <div class="app-nav-item" data-tela-pv="pv-listagem" onclick="irParaTelaPv_('pv-listagem')">☰ Veículos</div>
+      </nav>
+      <main>
+        <div id="mensagemGlobalPv"></div>
+
+        <section id="tela-pv-inicio" class="tela-pv ativa">
+          <div class="pagina-titulo">
+            <div>
+              <h2>Painel Geral</h2>
+              <p>Situação atual dos veículos do passivo veicular</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="filtros">
+              <div class="campo">
+                <label for="pvPainelUF">UF</label>
+                <select id="pvPainelUF"><option value="">Todas</option></select>
+              </div>
+              <div class="campo">
+                <label for="pvPainelInstituicao">Instituição</label>
+                <select id="pvPainelInstituicao"><option value="">Todas</option></select>
+              </div>
+              <div class="campo">
+                <button type="button" class="primario" onclick="carregarPainelPv_()">Filtrar</button>
+              </div>
+            </div>
+          </div>
+          <div class="kpis" id="pvKpis">
+            <div class="kpi azul"><div class="rotulo">TOTAL DE VEÍCULOS</div><div class="valor" id="pvKpiTotal">–</div></div>
+            <div class="kpi amarelo"><div class="rotulo">PENDENTE</div><div class="valor" id="pvKpiPendente">–</div></div>
+            <div class="kpi roxo"><div class="rotulo">EM ANDAMENTO</div><div class="valor" id="pvKpiAndamento">–</div></div>
+            <div class="kpi verde"><div class="rotulo">CONCLUÍDA</div><div class="valor" id="pvKpiConcluida">–</div></div>
+          </div>
+          <div class="card">
+            <h2>Veículos por UF</h2>
+            <div class="rank-lista" id="pvRankUF"><div class="carregando">Carregando...</div></div>
+          </div>
+          <div class="card">
+            <h2>Veículos por Instituição</h2>
+            <div class="rank-lista" id="pvRankInstituicao"><div class="carregando">Carregando...</div></div>
+          </div>
+        </section>
+
+        <section id="tela-pv-cadastro" class="tela-pv">
+          <div class="pagina-titulo">
+            <div>
+              <h2>Cadastro de Veículo</h2>
+              <p>Passivo Veicular</p>
+            </div>
+          </div>
+          <div class="botoes" style="justify-content:flex-start; margin-top:0;">
+            <button type="button" class="primario" id="pvBotaoModoIndividual" onclick="pvAlternarModoCadastro_('individual')">Cadastro individual</button>
+            <button type="button" class="secundario" id="pvBotaoModoLote" onclick="pvAlternarModoCadastro_('lote')">Cadastro em lote</button>
+          </div>
+
+          <div class="card">
+            <div id="mensagemPvCadastro"></div>
+            <form id="formPvCadastro">
+              <div class="etapa-cabecalho">Dados da Doação</div>
+              <div class="grid-form">
+                <div class="campo">
+                  <label for="pv_UF">UF *</label>
+                  <select id="pv_UF" required></select>
+                </div>
+                <div class="campo span-2">
+                  <label for="pv_Instituicao">Instituição (donatária) *</label>
+                  <input type="text" id="pv_Instituicao" required maxlength="200">
+                  <select id="pv_InstituicaoSelect" style="display:none;"></select>
+                </div>
+                <div class="campo">
+                  <label for="pv_CNPJInstituicao">CNPJ da instituição <span class="opcional">(opcional)</span></label>
+                  <input type="text" id="pv_CNPJInstituicao" maxlength="20">
+                </div>
+                <div class="campo">
+                  <label for="pv_DataDoacao">Data ou ano da doação *</label>
+                  <input type="text" id="pv_DataDoacao" required maxlength="20" placeholder="Ex: 2023 ou 12/2023">
+                </div>
+                <div class="campo span-2">
+                  <label for="pv_NumeroTermoDoacao">Número do termo de doação ou similar *</label>
+                  <input type="text" id="pv_NumeroTermoDoacao" required maxlength="200">
+                </div>
+              </div>
+
+              <div class="etapa-cabecalho" style="margin-top:18px;">Dados do Veículo</div>
+
+              <div id="pvBlocoIndividual">
+                <div class="grid-form">
+                  <div class="campo">
+                    <label for="pv_Marca">Marca *</label>
+                    <input type="text" id="pv_Marca" maxlength="60">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_Modelo">Modelo *</label>
+                    <input type="text" id="pv_Modelo" maxlength="120">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_Placa">Placa *</label>
+                    <input type="text" id="pv_Placa" maxlength="8" style="text-transform:uppercase">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_Chassi">Chassi *</label>
+                    <input type="text" id="pv_Chassi" maxlength="17" style="text-transform:uppercase">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_Renavam">Renavam *</label>
+                    <input type="text" id="pv_Renavam" maxlength="11">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_AnoFabricacao">Ano de fabricação *</label>
+                    <input type="number" id="pv_AnoFabricacao" min="1950" max="2100">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_CNPJOrigem">CNPJ de origem <span class="opcional">(opcional)</span></label>
+                    <input type="text" id="pv_CNPJOrigem" maxlength="20">
+                  </div>
+                  <div class="campo">
+                    <label for="pv_SituacaoTransferencia">Situação da transferência *</label>
+                    <select id="pv_SituacaoTransferencia"></select>
+                  </div>
+                  <div class="campo span-2">
+                    <label for="pv_Observacoes">Observações <span class="opcional">(opcional)</span></label>
+                    <textarea id="pv_Observacoes" maxlength="500"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div id="pvBlocoLote" style="display:none;">
+                <p class="dica-painel" style="margin-top:-6px;">Os dados da doação acima valem para todos os veículos abaixo. Adicione quantos precisar.</p>
+                <div id="pvListaLinhasLote"></div>
+                <button type="button" class="secundario" onclick="pvAdicionarLinhaLote_()">+ Adicionar veículo</button>
+              </div>
+
+              <div class="botoes">
+                <button type="button" class="secundario" onclick="pvLimparFormularioCadastro_()">Limpar</button>
+                <button type="submit" class="primario" style="margin-left:auto;">Salvar</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section id="tela-pv-listagem" class="tela-pv">
+          <div class="pagina-titulo">
+            <div>
+              <h2>Veículos Cadastrados</h2>
+              <p>Passivo Veicular</p>
+            </div>
+          </div>
+          <div class="card">
+            <h2>Filtros</h2>
+            <div class="filtros">
+              <div class="campo">
+                <label for="pvfUF">UF</label>
+                <select id="pvfUF"><option value="">Todas</option></select>
+              </div>
+              <div class="campo">
+                <label for="pvfInstituicao">Instituição</label>
+                <select id="pvfInstituicao"><option value="">Todas</option></select>
+              </div>
+              <div class="campo">
+                <label for="pvfSituacao">Situação</label>
+                <select id="pvfSituacao"><option value="">Todas</option></select>
+              </div>
+              <div class="campo" style="min-width:220px;">
+                <label for="pvfBusca">Buscar</label>
+                <input type="text" id="pvfBusca" placeholder="Placa, chassi, renavam...">
+              </div>
+              <div class="botoes" style="margin-top:0;">
+                <button class="primario" onclick="carregarListagemPv_()">Filtrar</button>
+                <button class="secundario" onclick="pvLimparFiltros_()">Limpar</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h2>Veículos (<span id="pvContadorVeiculos">0</span>)</h2>
+            <div id="mensagemPvListagem"></div>
+            <div class="tabela-wrap">
+              <table>
+                <thead><tr><th>Placa</th><th>Marca / Modelo</th><th>Chassi</th><th>Renavam</th><th>UF</th><th>Instituição</th><th>Situação</th><th>Ações</th></tr></thead>
+                <tbody id="pvCorpoTabelaListagem"><tr><td colspan="8" class="carregando">Carregando...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-fundo" id="modalPvEditarFundo">
+      <div class="modal" style="max-width:760px;">
+        <h2>Editar veículo</h2>
+        <div id="mensagemPvEditar"></div>
+        <form id="formPvEditar">
+          <input type="hidden" id="pve_ID">
+          <div class="grid-form">
+            <div class="campo">
+              <label for="pve_UF">UF *</label>
+              <select id="pve_UF" required></select>
+            </div>
+            <div class="campo span-2">
+              <label for="pve_Instituicao">Instituição *</label>
+              <input type="text" id="pve_Instituicao" required maxlength="200">
+            </div>
+            <div class="campo">
+              <label for="pve_CNPJInstituicao">CNPJ da instituição <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pve_CNPJInstituicao" maxlength="20">
+            </div>
+            <div class="campo">
+              <label for="pve_DataDoacao">Data ou ano da doação *</label>
+              <input type="text" id="pve_DataDoacao" required maxlength="20">
+            </div>
+            <div class="campo span-2">
+              <label for="pve_NumeroTermoDoacao">Número do termo de doação *</label>
+              <input type="text" id="pve_NumeroTermoDoacao" required maxlength="200">
+            </div>
+            <div class="campo">
+              <label for="pve_Marca">Marca *</label>
+              <input type="text" id="pve_Marca" required maxlength="60">
+            </div>
+            <div class="campo">
+              <label for="pve_Modelo">Modelo *</label>
+              <input type="text" id="pve_Modelo" required maxlength="120">
+            </div>
+            <div class="campo">
+              <label for="pve_Placa">Placa *</label>
+              <input type="text" id="pve_Placa" required maxlength="8" style="text-transform:uppercase">
+            </div>
+            <div class="campo">
+              <label for="pve_Chassi">Chassi *</label>
+              <input type="text" id="pve_Chassi" required maxlength="17" style="text-transform:uppercase">
+            </div>
+            <div class="campo">
+              <label for="pve_Renavam">Renavam *</label>
+              <input type="text" id="pve_Renavam" required maxlength="11">
+            </div>
+            <div class="campo">
+              <label for="pve_AnoFabricacao">Ano de fabricação *</label>
+              <input type="number" id="pve_AnoFabricacao" required min="1950" max="2100">
+            </div>
+            <div class="campo">
+              <label for="pve_CNPJOrigem">CNPJ de origem <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pve_CNPJOrigem" maxlength="20">
+            </div>
+            <div class="campo">
+              <label for="pve_SituacaoTransferencia">Situação da transferência *</label>
+              <select id="pve_SituacaoTransferencia"></select>
+            </div>
+            <div class="campo span-2">
+              <label for="pve_Observacoes">Observações <span class="opcional">(opcional)</span></label>
+              <textarea id="pve_Observacoes" maxlength="500"></textarea>
+            </div>
+          </div>
+          <div class="botoes">
+            <button type="button" class="perigo" id="pvBotaoExcluir" style="display:none;" onclick="pvExcluirVeiculoAtual_()">Excluir</button>
+            <div class="direita">
+              <button type="button" class="secundario" onclick="document.getElementById('modalPvEditarFundo').classList.remove('ativo')">Cancelar</button>
+              <button type="submit" class="primario">Salvar alterações</button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -1428,7 +1717,8 @@
   // ---------- Seletor de painéis (Doações Veiculares / Passivo Veicular) ----------
   // O painel de Doações já roda por baixo desde o carregamento da página —
   // entrar nele é só tirar a tela cheia do seletor de cima. O Passivo
-  // Veicular ainda não tem dados/telas próprias (placeholder por enquanto).
+  // Veicular tem seu próprio app-shell (nav + telas), inicializado só na
+  // primeira vez que a pessoa entra nele (pvInicializar_).
   function entrarPainelDoacoes_() {
     document.getElementById('seletorPaineisFundo').classList.add('escondido');
     document.getElementById('painelPassivoFundo').classList.add('escondido');
@@ -1437,11 +1727,366 @@
   function entrarPainelPassivo_() {
     document.getElementById('seletorPaineisFundo').classList.add('escondido');
     document.getElementById('painelPassivoFundo').classList.remove('escondido');
+    pvInicializar_();
   }
 
   function voltarSeletorPaineis_() {
     document.getElementById('painelPassivoFundo').classList.add('escondido');
     document.getElementById('seletorPaineisFundo').classList.remove('escondido');
+  }
+
+  // ---------- Painel Passivo Veicular ----------
+  var PV_INICIALIZADO = false;
+  var PV_LISTAS = null;
+  var PV_MODO_CADASTRO = 'individual';
+  var PV_CACHE_LISTAGEM = {};
+  var PV_SELO_SITUACAO = { 'PENDENTE': 'selo-nao', 'EM ANDAMENTO': 'selo-pendente', 'CONCLUÍDA': 'selo-sim' };
+
+  function pvInicializar_() {
+    if (PV_INICIALIZADO) return;
+    PV_INICIALIZADO = true;
+    document.getElementById('pvInfoUsuarioNome').textContent = (CONTEXTO && CONTEXTO.usuario) ? (CONTEXTO.usuario.nome || CONTEXTO.usuario.email) : '';
+    var rotulosPerfil = { admin: 'Administrador', usuario: 'Usuário', visitante: 'Visitante', sem_acesso: 'Sem acesso' };
+    document.getElementById('pvInfoUsuarioPerfil').textContent =
+      (CONTEXTO && CONTEXTO.usuario) ? 'Perfil: ' + (rotulosPerfil[CONTEXTO.usuario.perfil] || CONTEXTO.usuario.perfil) : '';
+    document.getElementById('navPvCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
+    pvConfigurarFormularios_();
+    chamarServidor_('getListasPassivo').then(function (listas) {
+      PV_LISTAS = listas;
+      pvPreencherListasFormularios_();
+      pvAlternarModoCadastro_('individual');
+      carregarPainelPv_();
+    }).catch(mostrarErroGlobalPv_);
+  }
+
+  function mostrarErroGlobalPv_(erro) {
+    var div = document.getElementById('mensagemGlobalPv');
+    div.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+  }
+
+  function pvPreencherListasFormularios_() {
+    preencherSelect('pv_UF', PV_LISTAS.uf, true);
+    preencherSelect('pve_UF', PV_LISTAS.uf, true);
+    preencherSelect('pvPainelUF', PV_LISTAS.uf, false, 'Todas');
+    preencherSelect('pvfUF', PV_LISTAS.uf, false, 'Todas');
+    preencherSelect('pv_SituacaoTransferencia', PV_LISTAS.situacoes, false);
+    preencherSelect('pve_SituacaoTransferencia', PV_LISTAS.situacoes, false);
+    preencherSelect('pvfSituacao', PV_LISTAS.situacoes, false, 'Todas');
+  }
+
+  function pvAtualizarSelectInstituicoes_(lista) {
+    var ordenada = lista.filter(function (x) { return x; }).sort();
+    ['pvPainelInstituicao', 'pvfInstituicao'].forEach(function (id) {
+      var sel = document.getElementById(id);
+      var atual = sel.value;
+      sel.innerHTML = '<option value="">Todas</option>' + ordenada.map(function (i) {
+        return '<option value="' + escaparHtml(i) + '">' + escaparHtml(i) + '</option>';
+      }).join('');
+      sel.value = atual;
+    });
+  }
+
+  // ---------- Navegação entre telas do Passivo ----------
+  function irParaTelaPv_(nome) {
+    document.querySelectorAll('.tela-pv').forEach(function (t) { t.classList.remove('ativa'); });
+    document.getElementById('tela-' + nome).classList.add('ativa');
+    document.querySelectorAll('.app-nav-item[data-tela-pv]').forEach(function (el) {
+      el.classList.toggle('ativo', el.dataset.telaPv === nome);
+    });
+    if (nome === 'pv-inicio') carregarPainelPv_();
+    if (nome === 'pv-listagem') carregarListagemPv_();
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- Painel Geral ----------
+  function carregarPainelPv_() {
+    document.getElementById('pvRankUF').innerHTML = '<div class="carregando">Carregando...</div>';
+    document.getElementById('pvRankInstituicao').innerHTML = '<div class="carregando">Carregando...</div>';
+    var filtro = { uf: document.getElementById('pvPainelUF').value, instituicao: document.getElementById('pvPainelInstituicao').value };
+    chamarServidor_('getPainelPassivo', filtro).then(function (painel) {
+      document.getElementById('pvKpiTotal').textContent = painel.total;
+      document.getElementById('pvKpiPendente').textContent = painel.porSituacao['PENDENTE'] || 0;
+      document.getElementById('pvKpiAndamento').textContent = painel.porSituacao['EM ANDAMENTO'] || 0;
+      document.getElementById('pvKpiConcluida').textContent = painel.porSituacao['CONCLUÍDA'] || 0;
+      pvRenderizarRank_('pvRankUF', painel.porUF);
+      pvRenderizarRank_('pvRankInstituicao', painel.porInstituicao);
+      pvAtualizarSelectInstituicoes_(Object.keys(painel.porInstituicao));
+    }).catch(mostrarErroGlobalPv_);
+  }
+
+  function pvRenderizarRank_(idContainer, dict) {
+    var itens = Object.keys(dict).map(function (k) { return { chave: k, total: dict[k] }; })
+      .sort(function (a, b) { return b.total - a.total; });
+    var container = document.getElementById(idContainer);
+    if (!itens.length) {
+      container.innerHTML = '<div class="stat-card-vazio">Sem dados.</div>';
+      return;
+    }
+    var max = itens[0].total;
+    container.innerHTML = itens.map(function (item) {
+      var pct = max ? Math.round((item.total / max) * 100) : 0;
+      return '<div class="rank-linha">' +
+        '<span class="rank-uf">' + escaparHtml(item.chave) + '</span>' +
+        '<div class="rank-trilha"><div class="rank-barra" style="width:' + pct + '%;"></div></div>' +
+        '<span class="rank-valor">' + item.total + '</span></div>';
+    }).join('');
+  }
+
+  // ---------- Cadastro (individual / lote) ----------
+  function pvConfigurarFormularios_() {
+    document.getElementById('pv_UF').addEventListener('change', pvAtualizarModoInstituicao_);
+    document.getElementById('pv_InstituicaoSelect').addEventListener('change', function () {
+      var opt = this.options[this.selectedIndex];
+      var cnpj = opt ? (opt.dataset.cnpj || '') : '';
+      document.getElementById('pv_Instituicao').value = this.value;
+      document.getElementById('pv_CNPJInstituicao').value = cnpj;
+    });
+    document.getElementById('formPvCadastro').addEventListener('submit', pvSubmeterCadastro_);
+    document.getElementById('formPvEditar').addEventListener('submit', pvSubmeterEdicao_);
+  }
+
+  function pvAtualizarModoInstituicao_() {
+    var uf = document.getElementById('pv_UF').value;
+    var lista = ORGAOS_POR_UF[uf];
+    var inputTexto = document.getElementById('pv_Instituicao');
+    var select = document.getElementById('pv_InstituicaoSelect');
+    if (lista && lista.length) {
+      inputTexto.style.display = 'none';
+      inputTexto.required = false;
+      select.style.display = '';
+      select.required = true;
+      select.innerHTML = '<option value="">Selecione o órgão...</option>' + lista.map(function (o) {
+        return '<option value="' + escaparHtml(o.orgao) + '" data-cnpj="' + escaparHtml(o.cnpj) + '">' + escaparHtml(o.orgao) + '</option>';
+      }).join('');
+    } else {
+      select.style.display = 'none';
+      select.required = false;
+      inputTexto.style.display = '';
+      inputTexto.required = true;
+    }
+  }
+
+  function pvAlternarModoCadastro_(modo) {
+    PV_MODO_CADASTRO = modo;
+    document.getElementById('pvBotaoModoIndividual').className = modo === 'individual' ? 'primario' : 'secundario';
+    document.getElementById('pvBotaoModoLote').className = modo === 'lote' ? 'primario' : 'secundario';
+    document.getElementById('pvBlocoIndividual').style.display = modo === 'individual' ? '' : 'none';
+    document.getElementById('pvBlocoLote').style.display = modo === 'lote' ? '' : 'none';
+    ['pv_Marca', 'pv_Modelo', 'pv_Placa', 'pv_Chassi', 'pv_Renavam', 'pv_AnoFabricacao'].forEach(function (id) {
+      document.getElementById(id).required = (modo === 'individual');
+    });
+    if (modo === 'lote' && !document.querySelectorAll('#pvListaLinhasLote .pv-linha-lote').length) {
+      pvAdicionarLinhaLote_();
+    }
+  }
+
+  function pvAdicionarLinhaLote_() {
+    var situacoes = (PV_LISTAS && PV_LISTAS.situacoes) || PV_SITUACOES_TRANSFERENCIA_PADRAO_;
+    var div = document.createElement('div');
+    div.className = 'pv-linha-lote card';
+    div.style.marginBottom = '10px';
+    div.innerHTML =
+      '<div class="grid-form">' +
+      '<div class="campo"><label>Marca *</label><input type="text" class="pv_l_Marca" required maxlength="60"></div>' +
+      '<div class="campo"><label>Modelo *</label><input type="text" class="pv_l_Modelo" required maxlength="120"></div>' +
+      '<div class="campo"><label>Placa *</label><input type="text" class="pv_l_Placa" required maxlength="8" style="text-transform:uppercase"></div>' +
+      '<div class="campo"><label>Chassi *</label><input type="text" class="pv_l_Chassi" required maxlength="17" style="text-transform:uppercase"></div>' +
+      '<div class="campo"><label>Renavam *</label><input type="text" class="pv_l_Renavam" required maxlength="11"></div>' +
+      '<div class="campo"><label>Ano de fabricação *</label><input type="number" class="pv_l_AnoFabricacao" required min="1950" max="2100"></div>' +
+      '<div class="campo"><label>CNPJ de origem <span class="opcional">(opcional)</span></label><input type="text" class="pv_l_CNPJOrigem" maxlength="20"></div>' +
+      '<div class="campo"><label>Situação da transferência *</label><select class="pv_l_SituacaoTransferencia">' +
+        situacoes.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('') +
+      '</select></div>' +
+      '</div>' +
+      '<button type="button" class="secundario" style="margin-top:8px;" onclick="this.closest(\'.pv-linha-lote\').remove()">Remover este veículo</button>';
+    document.getElementById('pvListaLinhasLote').appendChild(div);
+  }
+  var PV_SITUACOES_TRANSFERENCIA_PADRAO_ = ['PENDENTE', 'EM ANDAMENTO', 'CONCLUÍDA'];
+
+  function pvLimparFormularioCadastro_() {
+    document.getElementById('formPvCadastro').reset();
+    document.getElementById('pvListaLinhasLote').innerHTML = '';
+    document.getElementById('pv_InstituicaoSelect').style.display = 'none';
+    document.getElementById('pv_Instituicao').style.display = '';
+    pvAlternarModoCadastro_(PV_MODO_CADASTRO);
+  }
+
+  function pvColetarDadosComuns_() {
+    return {
+      uf: document.getElementById('pv_UF').value,
+      instituicao: document.getElementById('pv_Instituicao').value,
+      cnpjInstituicao: document.getElementById('pv_CNPJInstituicao').value,
+      dataDoacao: document.getElementById('pv_DataDoacao').value,
+      numeroTermoDoacao: document.getElementById('pv_NumeroTermoDoacao').value
+    };
+  }
+
+  function pvSubmeterCadastro_(e) {
+    e.preventDefault();
+    var comuns = pvColetarDadosComuns_();
+    if (PV_MODO_CADASTRO === 'individual') {
+      var dados = Object.assign({}, comuns, {
+        marca: document.getElementById('pv_Marca').value,
+        modelo: document.getElementById('pv_Modelo').value,
+        placa: document.getElementById('pv_Placa').value,
+        chassi: document.getElementById('pv_Chassi').value,
+        renavam: document.getElementById('pv_Renavam').value,
+        anoFabricacao: document.getElementById('pv_AnoFabricacao').value,
+        cnpjOrigem: document.getElementById('pv_CNPJOrigem').value,
+        situacaoTransferencia: document.getElementById('pv_SituacaoTransferencia').value,
+        observacoes: document.getElementById('pv_Observacoes').value
+      });
+      chamarServidor_('cadastrarVeiculoPassivo', dados).then(function () {
+        mostrarMensagem('mensagemPvCadastro', 'sucesso', 'Veículo cadastrado com sucesso.');
+        pvLimparFormularioCadastro_();
+        pvInvalidarCachePainel_();
+      }).catch(function (erro) {
+        mostrarMensagem('mensagemPvCadastro', 'erro', erro.message || String(erro));
+      });
+    } else {
+      var linhas = Array.prototype.slice.call(document.querySelectorAll('#pvListaLinhasLote .pv-linha-lote'));
+      if (!linhas.length) {
+        mostrarMensagem('mensagemPvCadastro', 'erro', 'Adicione ao menos um veículo.');
+        return;
+      }
+      var veiculos = linhas.map(function (linha) {
+        return {
+          marca: linha.querySelector('.pv_l_Marca').value,
+          modelo: linha.querySelector('.pv_l_Modelo').value,
+          placa: linha.querySelector('.pv_l_Placa').value,
+          chassi: linha.querySelector('.pv_l_Chassi').value,
+          renavam: linha.querySelector('.pv_l_Renavam').value,
+          anoFabricacao: linha.querySelector('.pv_l_AnoFabricacao').value,
+          cnpjOrigem: linha.querySelector('.pv_l_CNPJOrigem').value,
+          situacaoTransferencia: linha.querySelector('.pv_l_SituacaoTransferencia').value
+        };
+      });
+      chamarServidor_('cadastrarVeiculosPassivoLote', comuns, veiculos).then(function (resp) {
+        mostrarMensagem('mensagemPvCadastro', 'sucesso', resp.quantidade + ' veículo(s) cadastrado(s) com sucesso.');
+        pvLimparFormularioCadastro_();
+        pvInvalidarCachePainel_();
+      }).catch(function (erro) {
+        mostrarMensagem('mensagemPvCadastro', 'erro', erro.message || String(erro));
+      });
+    }
+  }
+
+  function pvInvalidarCachePainel_() {
+    if (document.getElementById('tela-pv-inicio').classList.contains('ativa')) carregarPainelPv_();
+  }
+
+  // ---------- Listagem ----------
+  function carregarListagemPv_() {
+    document.getElementById('pvCorpoTabelaListagem').innerHTML = '<tr><td colspan="8" class="carregando">Carregando...</td></tr>';
+    var filtro = {
+      uf: document.getElementById('pvfUF').value,
+      instituicao: document.getElementById('pvfInstituicao').value,
+      situacao: document.getElementById('pvfSituacao').value,
+      busca: document.getElementById('pvfBusca').value
+    };
+    chamarServidor_('listarVeiculosPassivo', filtro).then(function (lista) {
+      PV_CACHE_LISTAGEM = {};
+      lista.forEach(function (v) { PV_CACHE_LISTAGEM[v.ID] = v; });
+      document.getElementById('pvContadorVeiculos').textContent = lista.length;
+      pvRenderizarTabelaListagem_(lista);
+    }).catch(function (erro) {
+      document.getElementById('pvCorpoTabelaListagem').innerHTML =
+        '<tr><td colspan="8"><div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div></td></tr>';
+    });
+  }
+
+  function pvRenderizarTabelaListagem_(lista) {
+    var corpo = document.getElementById('pvCorpoTabelaListagem');
+    if (!lista.length) {
+      corpo.innerHTML = '<tr><td colspan="8">Nenhum veículo encontrado.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = lista.map(function (v) {
+      var classeSelo = PV_SELO_SITUACAO[v.SituacaoTransferencia] || 'selo-pendente';
+      return '<tr class="linha-clicavel" onclick="pvAbrirEdicao_(\'' + v.ID + '\')">' +
+        '<td>' + escaparHtml(v.Placa) + '</td>' +
+        '<td>' + escaparHtml(v.Marca) + ' / ' + escaparHtml(v.Modelo) + '</td>' +
+        '<td>' + escaparHtml(v.Chassi) + '</td>' +
+        '<td>' + escaparHtml(String(v.Renavam)) + '</td>' +
+        '<td>' + escaparHtml(v.UF) + '</td>' +
+        '<td>' + escaparHtml(v.Instituicao) + '</td>' +
+        '<td><span class="selo ' + classeSelo + '">' + escaparHtml(v.SituacaoTransferencia) + '</span></td>' +
+        '<td><button type="button" class="secundario" onclick="event.stopPropagation(); pvAbrirEdicao_(\'' + v.ID + '\')">Editar</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function pvLimparFiltros_() {
+    document.getElementById('pvfUF').value = '';
+    document.getElementById('pvfInstituicao').value = '';
+    document.getElementById('pvfSituacao').value = '';
+    document.getElementById('pvfBusca').value = '';
+    carregarListagemPv_();
+  }
+
+  // ---------- Editar / excluir ----------
+  function pvAbrirEdicao_(id) {
+    var v = PV_CACHE_LISTAGEM[id];
+    if (!v) return;
+    document.getElementById('pve_ID').value = v.ID;
+    document.getElementById('pve_UF').value = v.UF;
+    document.getElementById('pve_Instituicao').value = v.Instituicao;
+    document.getElementById('pve_CNPJInstituicao').value = v.CNPJInstituicao || '';
+    document.getElementById('pve_DataDoacao').value = v.DataDoacao || '';
+    document.getElementById('pve_NumeroTermoDoacao').value = v.NumeroTermoDoacao || '';
+    document.getElementById('pve_Marca').value = v.Marca || '';
+    document.getElementById('pve_Modelo').value = v.Modelo || '';
+    document.getElementById('pve_Placa').value = v.Placa || '';
+    document.getElementById('pve_Chassi').value = v.Chassi || '';
+    document.getElementById('pve_Renavam').value = v.Renavam || '';
+    document.getElementById('pve_AnoFabricacao').value = v.AnoFabricacao || '';
+    document.getElementById('pve_CNPJOrigem').value = v.CNPJOrigem || '';
+    document.getElementById('pve_SituacaoTransferencia').value = v.SituacaoTransferencia || '';
+    document.getElementById('pve_Observacoes').value = v.Observacoes || '';
+    document.getElementById('pvBotaoExcluir').style.display = USUARIO_E_ADMIN ? '' : 'none';
+    document.getElementById('mensagemPvEditar').innerHTML = '';
+    document.getElementById('modalPvEditarFundo').classList.add('ativo');
+  }
+
+  function pvSubmeterEdicao_(e) {
+    e.preventDefault();
+    var id = document.getElementById('pve_ID').value;
+    var dados = {
+      uf: document.getElementById('pve_UF').value,
+      instituicao: document.getElementById('pve_Instituicao').value,
+      cnpjInstituicao: document.getElementById('pve_CNPJInstituicao').value,
+      dataDoacao: document.getElementById('pve_DataDoacao').value,
+      numeroTermoDoacao: document.getElementById('pve_NumeroTermoDoacao').value,
+      marca: document.getElementById('pve_Marca').value,
+      modelo: document.getElementById('pve_Modelo').value,
+      placa: document.getElementById('pve_Placa').value,
+      chassi: document.getElementById('pve_Chassi').value,
+      renavam: document.getElementById('pve_Renavam').value,
+      anoFabricacao: document.getElementById('pve_AnoFabricacao').value,
+      cnpjOrigem: document.getElementById('pve_CNPJOrigem').value,
+      situacaoTransferencia: document.getElementById('pve_SituacaoTransferencia').value,
+      observacoes: document.getElementById('pve_Observacoes').value
+    };
+    chamarServidor_('atualizarVeiculoPassivo', id, dados).then(function () {
+      document.getElementById('modalPvEditarFundo').classList.remove('ativo');
+      carregarListagemPv_();
+      pvInvalidarCachePainel_();
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvEditar', 'erro', erro.message || String(erro));
+    });
+  }
+
+  function pvExcluirVeiculoAtual_() {
+    var id = document.getElementById('pve_ID').value;
+    confirmar_('Tem certeza que deseja excluir este veículo do Passivo Veicular? Essa ação não pode ser desfeita.', function () {
+      chamarServidor_('excluirVeiculoPassivo', id).then(function () {
+        document.getElementById('modalPvEditarFundo').classList.remove('ativo');
+        carregarListagemPv_();
+        pvInvalidarCachePainel_();
+      }).catch(function (erro) {
+        mostrarMensagem('mensagemPvEditar', 'erro', erro.message || String(erro));
+      });
+    });
   }
 
   // ---------- Navegação entre telas ----------
