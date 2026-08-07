@@ -3064,6 +3064,43 @@ var CABECALHO_PV_VEICULOS = [
 
 var PV_SITUACOES_TRANSFERENCIA = ['PENDENTE', 'EM ANDAMENTO', 'CONCLUÍDA'];
 
+// ---- Débitos > Infrações ----
+var SHEET_PV_INFRACOES = 'Infracoes';
+var SHEET_PV_INFRACOES_ENVIOS = 'InfracoesEnvios';
+// Tabela de referência Artigo (CTB) → Código de enquadramento — fica numa
+// aba própria, editável direto na planilha por um administrador (não é
+// preciso mexer em código pra corrigir ou completar). O cadastro de
+// infração usa ela só pra sugerir/preencher automaticamente; o campo
+// Código continua digitável, então nada fica travado nessa lista.
+var SHEET_PV_TABELA_INFRACOES = 'TabelaInfracoes';
+// Órgãos autuadores — igual à de cima, editável na planilha. Federais
+// (DNIT, PRF) valem pra qualquer UF (linha com UF em branco); estaduais
+// são por UF; municipais não entram aqui — ficam sempre como texto livre
+// no cadastro, porque variam demais por prefeitura.
+var SHEET_PV_ORGAOS_AUTUADORES = 'OrgaosAutuadores';
+
+var CABECALHO_PV_INFRACOES = [
+  'ID', 'DataCadastro',
+  'Placa', 'OrgaoAutuador', 'AIT', 'Artigo', 'Codigo', 'DescricaoInfracao',
+  'DataInfracao', 'StatusCancelamento',
+  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor'
+];
+
+// Um envio de pedido de cancelamento por linha (não um contador único) —
+// assim dá pra mostrar "2ª via enviada em 12/03/2025" e sinalizar "sem
+// resposta" automaticamente com base na data do envio mais recente.
+var CABECALHO_PV_INFRACOES_ENVIOS = ['ID', 'IdInfracao', 'DataEnvio', 'RegistradoPor', 'Observacoes'];
+
+var CABECALHO_PV_TABELA_INFRACOES = ['Artigo', 'Descricao', 'Codigo', 'Gravidade'];
+
+var CABECALHO_PV_ORGAOS_AUTUADORES = ['UF', 'Orgao', 'Tipo'];
+
+var PV_STATUS_CANCELAMENTO = ['PENDENTE', 'ENVIADO', 'RECEBIDO', 'CANCELADA', 'NEGADA'];
+
+// Depois de quantos dias sem mudar de status (ainda ENVIADO) o painel
+// sinaliza "sem resposta" — só um alerta visual, não bloqueia nada.
+var PV_DIAS_SEM_RESPOSTA = 60;
+
 function getSpreadsheetPassivo_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty(PROP_PV_SPREADSHEET_ID);
@@ -3114,6 +3151,24 @@ function criarEstruturaPassivoVeicular() {
     sheet.getRange(1, 1, 1, CABECALHO_PV_VEICULOS.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
     sheet.setColumnWidths(1, CABECALHO_PV_VEICULOS.length, 130);
   }
+
+  [
+    [SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES],
+    [SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS],
+    [SHEET_PV_TABELA_INFRACOES, CABECALHO_PV_TABELA_INFRACOES],
+    [SHEET_PV_ORGAOS_AUTUADORES, CABECALHO_PV_ORGAOS_AUTUADORES]
+  ].forEach(function (par) {
+    var nomeAba = par[0], cabecalhoAba = par[1];
+    var abaNova = ss.getSheetByName(nomeAba) || ss.insertSheet(nomeAba);
+    if (abaNova.getLastRow() === 0) {
+      abaNova.getRange(1, 1, 1, cabecalhoAba.length).setValues([cabecalhoAba]);
+      abaNova.setFrozenRows(1);
+      abaNova.getRange(1, 1, 1, cabecalhoAba.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
+    }
+  });
+  pvSeedTabelaInfracoesSeVazia_(ss);
+  pvSeedOrgaosAutuadoresSeVazia_(ss);
+
   var abaPadrao = ss.getSheetByName('Sheet1') || ss.getSheetByName('Página1');
   if (abaPadrao && ss.getSheets().length > 1) {
     ss.deleteSheet(abaPadrao);
@@ -3269,6 +3324,26 @@ function getVeiculoPassivo(id) {
   throw new Error('Veículo não encontrado.');
 }
 
+// Usado no cadastro de infração — devolve null (em vez de lançar erro)
+// quando a placa ainda não está cadastrada na Aba Veículos, porque uma
+// infração pode ser cadastrada antes do veículo em si estar completo.
+function buscarVeiculoPassivoPorPlaca(placa) {
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
+  var placaNormalizada = normalizarPlaca_(placa);
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxPlaca = cabecalho.indexOf('Placa');
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxPlaca] === placaNormalizada) {
+      var registro = linhaParaObjeto_(cabecalho, valores[i]);
+      return { Marca: registro.Marca, Modelo: registro.Modelo, Chassi: registro.Chassi, Renavam: registro.Renavam, UF: registro.UF };
+    }
+  }
+  return null;
+}
+
 function getPainelPassivo(filtros) {
   var lista = listarVeiculosPassivo(filtros);
   var painel = { total: lista.length, porSituacao: {}, porUF: {}, porInstituicao: {} };
@@ -3400,4 +3475,327 @@ function importarVeiculosPassivoDF_() {
     // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
   }
   return mensagem;
+}
+
+// ======================================================================
+// PASSIVO VEICULAR — Aba Débitos > Infrações
+// ======================================================================
+
+function pvSeedTabelaInfracoesSeVazia_(ss) {
+  var sheet = ss.getSheetByName(SHEET_PV_TABELA_INFRACOES);
+  if (!sheet || sheet.getLastRow() > 1) return;
+  // Descrições conferem com o texto oficial do CTB (Lei 9.503/1997), mas a
+  // coluna Código (Resolução CONTRAN, tabela de enquadramento) fica em
+  // branco de propósito — ela muda com frequência e tem muitos
+  // desdobramentos por inciso/velocidade/reincidência, e um código errado
+  // vai direto pra um documento oficial de pedido de cancelamento. Um
+  // administrador deve completar essa coluna com a tabela oficial vigente
+  // antes de usar pra emitir pedidos de cancelamento. Enquanto isso, o
+  // campo Código do cadastro de infração continua livre pra digitar na
+  // hora, então nada fica bloqueado.
+  var linhas = [
+    ['162', 'Dirigir veículo sem possuir Carteira Nacional de Habilitação ou Permissão para Dirigir', '', 'Gravíssima'],
+    ['163', 'Entregar a direção do veículo a pessoa não habilitada', '', 'Gravíssima'],
+    ['165', 'Dirigir sob influência de álcool ou de qualquer substância psicoativa', '', 'Gravíssima'],
+    ['165-A', 'Recusar-se a se submeter a teste, exame clínico, perícia ou outro procedimento para comprovar embriaguez', '', 'Gravíssima'],
+    ['173', 'Participar de corrida, disputa ou competição automobilística não autorizada', '', 'Gravíssima'],
+    ['174', 'Utilizar-se de veículo para arrastar, arrancar ou desprender outro veículo, salvo em caso de socorro', '', 'Gravíssima'],
+    ['181', 'Estacionar o veículo em desacordo com as posições regulamentadas', '', 'Leve/Média (varia por inciso)'],
+    ['182', 'Estacionar o veículo em local/forma proibidos', '', 'Média'],
+    ['191', 'Deixar de guardar distância de segurança lateral e frontal em relação ao veículo da frente', '', 'Média'],
+    ['193', 'Transitar pela contramão de direção', '', 'Gravíssima'],
+    ['201', 'Deixar o condutor de parar o veículo antes da faixa de pedestres, quando houver sinal de parada obrigatória', '', 'Grave'],
+    ['208', 'Avançar o sinal vermelho do semáforo ou o de parada obrigatória', '', 'Gravíssima'],
+    ['218', 'Transitar em velocidade superior à máxima permitida para o local', '', 'Média/Grave/Gravíssima (varia com o % de excesso)'],
+    ['230', 'Conduzir o veículo com irregularidade que comprometa a segurança ou emitindo gases/ruídos acima do permitido (diversos incisos)', '', 'Grave/Gravíssima (varia por inciso)'],
+    ['244', 'Conduzir motocicleta, motoneta ou ciclomotor sem o capacete de segurança', '', 'Gravíssima'],
+    ['250', 'Deixar o condutor envolvido em acidente com vítima de tomar as providências determinadas', '', 'Gravíssima'],
+    ['252', 'Dirigir sem atenção ou sem os cuidados indispensáveis à segurança', '', 'Média'],
+    ['253', 'Estacionar o veículo em desacordo com as normas regulamentares específicas', '', 'Média']
+  ];
+  sheet.getRange(2, 1, linhas.length, CABECALHO_PV_TABELA_INFRACOES.length).setValues(linhas);
+}
+
+function pvSeedOrgaosAutuadoresSeVazia_(ss) {
+  var sheet = ss.getSheetByName(SHEET_PV_ORGAOS_AUTUADORES);
+  if (!sheet || sheet.getLastRow() > 1) return;
+  var linhas = [
+    ['', 'DNIT', 'Federal'],
+    ['', 'PRF', 'Federal']
+  ];
+  UFS_VALIDAS.forEach(function (uf) {
+    linhas.push([uf, 'DETRAN-' + uf, 'Estadual']);
+  });
+  // Órgãos estaduais extras, além do DETRAN — confirmados a partir de
+  // casos reais (planilha do DF). Adicione mais linhas direto na planilha
+  // (aba OrgaosAutuadores) conforme for precisando de outros estados —
+  // não precisa mexer em código pra isso.
+  linhas.push(['DF', 'DER-DF', 'Estadual']);
+  linhas.push(['SP', 'DER-SP', 'Estadual']);
+  linhas.push(['RS', 'DER-RS', 'Estadual']);
+  linhas.push(['GO', 'AGETOP-GO', 'Estadual']);
+  sheet.getRange(2, 1, linhas.length, CABECALHO_PV_ORGAOS_AUTUADORES.length).setValues(linhas);
+}
+
+function pvInfracaoProximoId_() {
+  var props = PropertiesService.getScriptProperties();
+  var seq = Number(props.getProperty('PV_SEQ_INFRACAO') || '0');
+  seq += 1;
+  props.setProperty('PV_SEQ_INFRACAO', String(seq));
+  return 'PVI-' + ('000000' + seq).slice(-6);
+}
+
+function pvEnvioProximoId_() {
+  var props = PropertiesService.getScriptProperties();
+  var seq = Number(props.getProperty('PV_SEQ_ENVIO') || '0');
+  seq += 1;
+  props.setProperty('PV_SEQ_ENVIO', String(seq));
+  return 'PVE-' + ('000000' + seq).slice(-6);
+}
+
+function pvValidarInfracao_(dados) {
+  if (!dados.placa) throw new Error('Informe a placa do veículo.');
+  if (!validarPlaca_(normalizarPlaca_(dados.placa))) throw new Error('Placa inválida: ' + dados.placa);
+  if (!dados.orgaoAutuador) throw new Error('Informe o órgão autuador.');
+  if (!dados.ait) throw new Error('Informe o número do AIT (auto de infração).');
+}
+
+function pvMontarRegistroInfracao_(dados, autor, existente) {
+  var agora = new Date();
+  return {
+    ID: existente ? existente.ID : pvInfracaoProximoId_(),
+    DataCadastro: existente ? existente.DataCadastro : agora,
+    Placa: normalizarPlaca_(dados.placa),
+    OrgaoAutuador: normalizarTexto_(dados.orgaoAutuador),
+    AIT: normalizarTexto_(dados.ait),
+    Artigo: normalizarTexto_(dados.artigo),
+    Codigo: normalizarTexto_(dados.codigo),
+    DescricaoInfracao: normalizarTexto_(dados.descricaoInfracao),
+    DataInfracao: normalizarTexto_(dados.dataInfracao),
+    StatusCancelamento: dados.statusCancelamento || PV_STATUS_CANCELAMENTO[0],
+    Observacoes: normalizarTexto_(dados.observacoes),
+    CadastradoPor: existente ? existente.CadastradoPor : autor,
+    UltimaAtualizacao: agora,
+    AtualizadoPor: autor
+  };
+}
+
+function pvMapaVeiculosPorPlaca_() {
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var mapa = {};
+  for (var i = 1; i < valores.length; i++) {
+    var registro = linhaParaObjeto_(cabecalho, valores[i]);
+    if (registro.Placa) mapa[registro.Placa] = registro;
+  }
+  return mapa;
+}
+
+function getListasDebitosPassivo() {
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
+
+  var sheetTabela = getOrCreateSheetPassivo_(SHEET_PV_TABELA_INFRACOES, CABECALHO_PV_TABELA_INFRACOES);
+  var valoresTabela = sheetTabela.getDataRange().getValues();
+  var tabelaInfracoes = [];
+  for (var i = 1; i < valoresTabela.length; i++) {
+    if (!valoresTabela[i][0]) continue;
+    tabelaInfracoes.push(linhaParaObjeto_(valoresTabela[0], valoresTabela[i]));
+  }
+
+  var sheetOrgaos = getOrCreateSheetPassivo_(SHEET_PV_ORGAOS_AUTUADORES, CABECALHO_PV_ORGAOS_AUTUADORES);
+  var valoresOrgaos = sheetOrgaos.getDataRange().getValues();
+  var orgaosFederais = [];
+  var orgaosPorUF = {};
+  for (var j = 1; j < valoresOrgaos.length; j++) {
+    var linha = valoresOrgaos[j];
+    if (!linha[1]) continue;
+    var uf = normalizarUF_(linha[0]);
+    if (!uf) {
+      orgaosFederais.push(linha[1]);
+    } else {
+      if (!orgaosPorUF[uf]) orgaosPorUF[uf] = [];
+      orgaosPorUF[uf].push(linha[1]);
+    }
+  }
+
+  return {
+    statusCancelamento: PV_STATUS_CANCELAMENTO,
+    tabelaInfracoes: tabelaInfracoes,
+    orgaosFederais: orgaosFederais,
+    orgaosPorUF: orgaosPorUF
+  };
+}
+
+function cadastrarInfracaoPassivo(dados) {
+  var perfil = exigirPerfilEditor_();
+  pvValidarInfracao_(dados);
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
+  var registro = pvMontarRegistroInfracao_(dados, perfil.email);
+  sheet.appendRow(CABECALHO_PV_INFRACOES.map(function (campo) { return registro[campo]; }));
+  return { ok: true, id: registro.ID };
+}
+
+function listarInfracoesPassivo(filtros) {
+  filtros = filtros || {};
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+
+  var sheetEnvios = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS);
+  var valoresEnvios = sheetEnvios.getDataRange().getValues();
+  var enviosPorInfracao = {};
+  for (var e = 1; e < valoresEnvios.length; e++) {
+    var idInf = valoresEnvios[e][1];
+    if (!idInf) continue;
+    if (!enviosPorInfracao[idInf]) enviosPorInfracao[idInf] = [];
+    enviosPorInfracao[idInf].push(valoresEnvios[e][2]);
+  }
+
+  var mapaVeiculos = pvMapaVeiculosPorPlaca_();
+  var busca = filtros.busca ? normalizarTexto_(filtros.busca).toUpperCase() : '';
+  var resultado = [];
+  var agora = new Date();
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[0]) continue;
+    var registro = linhaParaObjeto_(cabecalho, linha);
+
+    if (filtros.placa && normalizarPlaca_(registro.Placa) !== normalizarPlaca_(filtros.placa)) continue;
+    if (filtros.orgaoAutuador && registro.OrgaoAutuador !== filtros.orgaoAutuador) continue;
+    if (filtros.status && registro.StatusCancelamento !== filtros.status) continue;
+    if (busca) {
+      var alvo = [registro.Placa, registro.AIT, registro.Artigo, registro.Codigo, registro.OrgaoAutuador].join(' ').toUpperCase();
+      if (alvo.indexOf(busca) === -1) continue;
+    }
+
+    var datasEnvio = (enviosPorInfracao[registro.ID] || []).map(function (d) { return new Date(d); });
+    var qtdEnvios = datasEnvio.length;
+    var dataUltimoEnvio = qtdEnvios ? new Date(Math.max.apply(null, datasEnvio)) : null;
+    var diasSemResposta = dataUltimoEnvio ? Math.floor((agora - dataUltimoEnvio) / 86400000) : null;
+    registro.QtdEnvios = qtdEnvios;
+    registro.DataUltimoEnvio = dataUltimoEnvio ? Utilities.formatDate(dataUltimoEnvio, 'GMT-3', 'dd/MM/yyyy') : '';
+    registro.SemResposta = registro.StatusCancelamento === 'ENVIADO' && diasSemResposta !== null && diasSemResposta >= PV_DIAS_SEM_RESPOSTA;
+
+    var veiculo = mapaVeiculos[registro.Placa];
+    registro.MarcaVeiculo = veiculo ? veiculo.Marca : '';
+    registro.ModeloVeiculo = veiculo ? veiculo.Modelo : '';
+    registro.ChassiVeiculo = veiculo ? veiculo.Chassi : '';
+    registro.RenavamVeiculo = veiculo ? veiculo.Renavam : '';
+    registro.AnoVeiculo = veiculo ? (veiculo.AnoFabricacao + '/' + veiculo.AnoModelo) : '';
+
+    registro.DataCadastro = registro.DataCadastro ? Utilities.formatDate(new Date(registro.DataCadastro), 'GMT-3', 'dd/MM/yyyy') : '';
+    registro.UltimaAtualizacao = registro.UltimaAtualizacao ? Utilities.formatDate(new Date(registro.UltimaAtualizacao), 'GMT-3', 'dd/MM/yyyy HH:mm') : '';
+    resultado.push(registro);
+  }
+
+  resultado.sort(function (a, b) { return String(b.ID).localeCompare(String(a.ID)); });
+  return resultado;
+}
+
+function atualizarInfracaoPassivo(id, dados) {
+  var perfil = exigirPerfilEditor_();
+  pvValidarInfracao_(dados);
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxId = cabecalho.indexOf('ID');
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxId] === id) {
+      var existente = linhaParaObjeto_(cabecalho, valores[i]);
+      var registro = pvMontarRegistroInfracao_(dados, perfil.email, existente);
+      var linha = CABECALHO_PV_INFRACOES.map(function (campo) { return registro[campo]; });
+      sheet.getRange(i + 1, 1, 1, CABECALHO_PV_INFRACOES.length).setValues([linha]);
+      return { ok: true };
+    }
+  }
+  throw new Error('Infração não encontrada.');
+}
+
+function excluirInfracaoPassivo(id) {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
+  var valores = sheet.getDataRange().getValues();
+  var idxId = CABECALHO_PV_INFRACOES.indexOf('ID');
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxId] === id) {
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  throw new Error('Infração não encontrada.');
+}
+
+// Cada clique em "Registrar envio" grava uma linha nova (data + quem
+// enviou) em vez de só incrementar um contador — assim dá pra mostrar
+// "2ª via enviada em 12/03/2025" e sinalizar "sem resposta" sozinho
+// (ver PV_DIAS_SEM_RESPOSTA) sem a pessoa ter que lembrar de marcar isso
+// manualmente.
+function registrarEnvioCancelamentoPassivo(idInfracao, observacoes) {
+  var perfil = exigirPerfilEditor_();
+  var sheetInfracoes = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
+  var valores = sheetInfracoes.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxId = cabecalho.indexOf('ID');
+  var idxStatus = cabecalho.indexOf('StatusCancelamento');
+  var idxAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
+  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
+  var linhaEncontrada = -1;
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxId] === idInfracao) { linhaEncontrada = i; break; }
+  }
+  if (linhaEncontrada === -1) throw new Error('Infração não encontrada.');
+
+  var sheetEnvios = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS);
+  var agora = new Date();
+  sheetEnvios.appendRow([pvEnvioProximoId_(), idInfracao, agora, perfil.email, normalizarTexto_(observacoes)]);
+
+  // Só o primeiro envio empurra o status de PENDENTE pra ENVIADO
+  // automaticamente — os demais (2º, 3º...) ficam só no histórico, porque
+  // a partir daí quem decide se já foi recebida, cancelada ou negada é a
+  // pessoa, mudando o status manualmente pela tela de edição.
+  if (valores[linhaEncontrada][idxStatus] === 'PENDENTE') {
+    sheetInfracoes.getRange(linhaEncontrada + 1, idxStatus + 1).setValue('ENVIADO');
+  }
+  sheetInfracoes.getRange(linhaEncontrada + 1, idxAtualizacao + 1).setValue(agora);
+  sheetInfracoes.getRange(linhaEncontrada + 1, idxAtualizadoPor + 1).setValue(perfil.email);
+
+  return { ok: true };
+}
+
+function listarEnviosDaInfracaoPassivo(idInfracao) {
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var envios = [];
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][1] === idInfracao) {
+      var e = linhaParaObjeto_(cabecalho, valores[i]);
+      envios.push({
+        ID: e.ID,
+        DataEnvio: e.DataEnvio ? Utilities.formatDate(new Date(e.DataEnvio), 'GMT-3', 'dd/MM/yyyy HH:mm') : '',
+        RegistradoPor: e.RegistradoPor,
+        Observacoes: e.Observacoes
+      });
+    }
+  }
+  envios.sort(function (a, b) { return b.ID.localeCompare(a.ID); });
+  return envios;
+}
+
+function getResumoInfracoesPassivo(filtros) {
+  var lista = listarInfracoesPassivo(filtros);
+  var resumo = { total: lista.length, porStatus: {}, porOrgao: {} };
+  PV_STATUS_CANCELAMENTO.forEach(function (s) { resumo.porStatus[s] = 0; });
+  lista.forEach(function (inf) {
+    resumo.porStatus[inf.StatusCancelamento] = (resumo.porStatus[inf.StatusCancelamento] || 0) + 1;
+    if (inf.OrgaoAutuador) resumo.porOrgao[inf.OrgaoAutuador] = (resumo.porOrgao[inf.OrgaoAutuador] || 0) + 1;
+  });
+  return resumo;
 }
