@@ -307,25 +307,42 @@
   /* Seletor de painéis — tela cheia, sobre tudo o mais, até um painel ser escolhido */
   .seletor-fundo {
     position: fixed; inset: 0; z-index: 200;
-    background: #f7f7f8;
+    background: #f1f3f4;
     display: flex; align-items: center; justify-content: center;
+    padding: 20px;
   }
   .seletor-fundo.escondido { display: none; }
-  .seletor-cartoes { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
-  .painel-cartao {
-    border: 2px solid var(--primario);
-    border-radius: 16px;
-    color: var(--primario);
-    font-size: 18px;
-    font-weight: 700;
-    padding: 40px 50px;
-    min-width: 220px;
-    text-align: center;
+  .seletor-cartao-central {
     background: #fff;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    border-radius: 28px;
+    box-shadow: 0 1px 3px rgba(60,64,67,0.15), 0 4px 24px rgba(60,64,67,0.15);
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 0 20px;
+    text-align: center;
   }
-  .painel-cartao:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(20,81,180,0.18); }
+  .seletor-cabecalho { padding: 0 40px 24px; }
+  .seletor-cabecalho h1 { font-size: 19px; font-weight: 600; color: #202124; margin: 0 0 6px; line-height: 1.3; }
+  .seletor-cabecalho p { font-size: 13px; color: var(--texto-suave); margin: 0; }
+  .seletor-linhas { border-top: 1px solid #e8eaed; }
+  .painel-linha {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 40px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .painel-linha:hover { background: #f8f9fa; }
+  .painel-linha + .painel-linha { border-top: 1px solid #e8eaed; }
+  .painel-linha-icone {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--primario);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .painel-linha-texto { font-size: 14px; font-weight: 600; color: var(--primario); }
+  .painel-linha-sub { font-size: 12px; color: var(--texto-suave); margin-top: 2px; font-weight: 400; }
 
   .modal-fundo {
     display: none;
@@ -374,20 +391,34 @@
 </head>
 <body>
   <div class="seletor-fundo" id="seletorPaineisFundo">
-    <div style="text-align:center;">
-      <h1 style="margin-bottom:8px; color:var(--primario-escuro);">Escolha um painel</h1>
-      <p style="color:var(--texto-suave); margin-bottom:28px;">SENASP · Secretaria Nacional de Segurança Pública</p>
-      <div class="seletor-cartoes">
-        <div class="painel-cartao" onclick="entrarPainelDoacoes_()">Painel Doações Veiculares</div>
-        <div class="painel-cartao" onclick="entrarPainelPassivo_()">Painel Passivo Veicular</div>
+    <div class="seletor-cartao-central">
+      <div class="seletor-cabecalho">
+        <h1>Sistema de Gestão de Patrimônio - SGP/COLOG</h1>
+        <p>Escolha um painel para continuar</p>
+      </div>
+      <div class="seletor-linhas">
+        <div class="painel-linha" onclick="entrarPainelDoacoes_()">
+          <div class="painel-linha-icone">🚗</div>
+          <div>
+            <div class="painel-linha-texto">Painel Doações Veiculares</div>
+            <div class="painel-linha-sub">Gestão de veículos doados a entes públicos</div>
+          </div>
+        </div>
+        <div class="painel-linha" onclick="entrarPainelPassivo_()">
+          <div class="painel-linha-icone">📋</div>
+          <div>
+            <div class="painel-linha-texto">Painel Passivo Veicular</div>
+            <div class="painel-linha-sub">Controle do passivo veicular</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="seletor-fundo escondido" id="painelPassivoFundo">
-    <div style="text-align:center; max-width:520px; padding:0 20px;">
-      <h1 style="margin-bottom:8px; color:var(--primario-escuro);">Painel Passivo Veicular</h1>
-      <p style="color:var(--texto-suave); margin-bottom:28px;">Em construção — os dados e as telas desse painel ainda vão ser definidos.</p>
+    <div class="seletor-cartao-central" style="max-width:480px; padding:40px;">
+      <h1 style="font-size:19px; font-weight:600; color:#202124; margin:0 0 8px;">Painel Passivo Veicular</h1>
+      <p style="color:var(--texto-suave); margin-bottom:28px; font-size:13px;">Em construção — os dados e as telas desse painel ainda vão ser definidos.</p>
       <button type="button" class="secundario" onclick="voltarSeletorPaineis_()">‹ Voltar aos painéis</button>
     </div>
   </div>
