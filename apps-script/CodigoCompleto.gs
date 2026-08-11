@@ -493,7 +493,7 @@ function onOpen() {
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
-    .addItem('Migrar chaves de TEP finalizado para incluir o ano', 'migrarChavesTepFinalizadosParaIncluirAno_')
+    .addItem('Atualizar chaves de TEP finalizado (ano/SEI)', 'migrarChavesTepFinalizadosParaIncluirAno_')
     .addSeparator()
     .addItem('Passivo Veicular: criar planilha separada', 'criarEstruturaPassivoVeicular')
     .addItem('Passivo Veicular: importar dados do DF', 'importarVeiculosPassivoDF_')
@@ -1359,15 +1359,19 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
 /**
  * Identidade de um processo pra fins de agrupamento — usada pela tela de
  * Processos, pelo aviso de TEP e pelo detalhamento por UF/Região.
- * NumeroProcesso quando existe; senão Ano + Termo de Doação. O Ano entra
- * porque o SENASP reaproveita os mesmos números de termo a cada ano (ex.:
- * "Termo de Doação SENASP 85" existiu em 2024 E de novo, sem relação
- * nenhuma, em 2026) — só o texto do termo sozinho já juntou processos
- * bem diferentes (UF, donatária, veículos) num único card por engano.
+ * NumeroProcesso quando existe; senão Ano + Número SEI (quando tiver) ou
+ * Ano + Termo de Doação. O Ano entra porque o SENASP reaproveita os
+ * mesmos números de termo a cada ano (ex.: "Termo de Doação SENASP 85"
+ * existiu em 2024 E de novo, sem relação nenhuma, em 2026). O Número SEI
+ * tem prioridade sobre o texto do termo porque é o identificador
+ * administrativo de verdade: dois números de termo iguais no MESMO ano,
+ * mas com SEI diferente (ex.: "SENASP 411" usado tanto por um órgão do
+ * Pará quanto pela Prefeitura de Florianópolis, no mesmo 2026), só o SEI
+ * consegue diferenciar — o texto do termo sozinho ainda juntaria os dois.
  */
 function chaveProcesso_(registro) {
   if (registro.NumeroProcesso) return registro.NumeroProcesso;
-  return (registro.Ano || '') + ':' + (registro.TermoDoacao || '');
+  return (registro.Ano || '') + ':' + (registro.NumeroSei || registro.TermoDoacao || '');
 }
 
 /**
@@ -1528,6 +1532,15 @@ function marcarTepFinalizado(chaveProcesso) {
 // que usavam o formato antigo (Termo de Doação sozinho); acha o Ano do
 // veículo correspondente e regrava a chave como "Ano:TermoDoacao". Pode
 // rodar de novo sem problema (idempotente — chave já migrada não muda).
+// Recalcula as chaves gravadas em TepFinalizados usando a lógica ATUAL de
+// chaveProcesso_ — não fica presa a "incluir o ano" especificamente,
+// então continua servindo mesmo que chaveProcesso_ mude nas próximas
+// vezes (ex.: quando o SEI passou a ter prioridade sobre o texto do
+// termo). Pra achar o veículo correspondente a uma chave antiga (que
+// pode estar em qualquer formato usado no passado: só o termo, "Ano:Termo"
+// etc.), tira um possível prefixo "AAAA:" e casa pelo texto puro do Termo
+// de Doação — sempre que achar, regrava com a chave certa de agora.
+// Idempotente: pode rodar de novo sempre que quiser, sem risco.
 function migrarChavesTepFinalizadosParaIncluirAno_() {
   exigirPerfilAdmin_();
   var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
@@ -1538,11 +1551,11 @@ function migrarChavesTepFinalizadosParaIncluirAno_() {
 
   var todosVeiculos = listarVeiculos({});
   var numerosProcessoExistentes = {};
-  var anoPorTermo = {};
+  var porTermoBruto = {};
   todosVeiculos.forEach(function (v) {
     if (v.NumeroProcesso) numerosProcessoExistentes[v.NumeroProcesso] = true;
-    if (!v.NumeroProcesso && v.TermoDoacao && !anoPorTermo[v.TermoDoacao]) {
-      anoPorTermo[v.TermoDoacao] = v.Ano;
+    if (!v.NumeroProcesso && v.TermoDoacao && !porTermoBruto[v.TermoDoacao]) {
+      porTermoBruto[v.TermoDoacao] = v;
     }
   });
 
@@ -1550,19 +1563,22 @@ function migrarChavesTepFinalizadosParaIncluirAno_() {
   var alterados = 0;
   var naoEncontrados = [];
   for (var i = 1; i < valores.length; i++) {
-    var chaveAntiga = valores[i][idxChave];
-    if (!chaveAntiga || numerosProcessoExistentes[chaveAntiga]) continue;
-    if (/^\d{4}:/.test(chaveAntiga)) continue; // já migrada (começa com "AAAA:")
-    var ano = anoPorTermo[chaveAntiga];
-    if (!ano) {
-      naoEncontrados.push(chaveAntiga);
+    var chaveAtual = valores[i][idxChave];
+    if (!chaveAtual || numerosProcessoExistentes[chaveAtual]) continue;
+    var termoBruto = String(chaveAtual).replace(/^\d{4}:/, '');
+    var veiculo = porTermoBruto[termoBruto];
+    if (!veiculo) {
+      naoEncontrados.push(chaveAtual);
       continue;
     }
-    sheet.getRange(i + 1, idxChave + 1).setValue(ano + ':' + chaveAntiga);
-    alterados++;
+    var chaveCorreta = chaveProcesso_(veiculo);
+    if (chaveCorreta !== chaveAtual) {
+      sheet.getRange(i + 1, idxChave + 1).setValue(chaveCorreta);
+      alterados++;
+    }
   }
 
-  var mensagem = 'Migração concluída: ' + alterados + ' chave(s) de TEP finalizado atualizada(s) para incluir o ano.' +
+  var mensagem = 'Migração concluída: ' + alterados + ' chave(s) de TEP finalizado atualizada(s).' +
     (naoEncontrados.length ? ' Não encontrei veículo correspondente pra: ' + naoEncontrados.join(' | ') + ' (ficaram como estavam).' : '');
   Logger.log(mensagem);
   try {
@@ -2923,8 +2939,8 @@ function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro) {
       ValorVeiculo: r.ValorVeiculo
     };
   }).sort(function (a, b) {
-    var chaveA = a.Processo || (a.Ano + ':' + (a.TermoDoacao || ''));
-    var chaveB = b.Processo || (b.Ano + ':' + (b.TermoDoacao || ''));
+    var chaveA = a.Processo || (a.Ano + ':' + (a.NumeroSei || a.TermoDoacao || ''));
+    var chaveB = b.Processo || (b.Ano + ':' + (b.NumeroSei || b.TermoDoacao || ''));
     return chaveA < chaveB ? -1 : (chaveA > chaveB ? 1 : 0);
   });
 }
@@ -2942,9 +2958,10 @@ function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro) {
   var ordem = [];
 
   registros.forEach(function (r) {
-    // Ano entra na chave quando não há Processo/SEI — ver chaveProcesso_
-    // pro mesmo raciocínio (o SENASP reaproveita número de termo por ano).
-    var chave = r.Processo || (r.Ano + ':' + (r.TermoDoacao || ''));
+    // Ano+SEI (ou Termo, se não houver SEI) quando não há Processo — ver
+    // chaveProcesso_ pro mesmo raciocínio (o SENASP reaproveita número de
+    // termo por ano, e dois termos iguais no mesmo ano só o SEI separa).
+    var chave = r.Processo || (r.Ano + ':' + (r.NumeroSei || r.TermoDoacao || ''));
     if (!grupos[chave]) {
       grupos[chave] = {
         processo: r.Processo,
