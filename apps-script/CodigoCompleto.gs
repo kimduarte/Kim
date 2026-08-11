@@ -494,6 +494,7 @@ function onOpen() {
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
     .addItem('Atualizar chaves de TEP finalizado (ano/SEI)', 'migrarChavesTepFinalizadosParaIncluirAno_')
+    .addItem('CONSERTO ÚNICO: restaurar chaves de TEP corrompidas', 'corrigirChavesTepCorrompidas_')
     .addSeparator()
     .addItem('Passivo Veicular: criar planilha separada', 'criarEstruturaPassivoVeicular')
     .addItem('Passivo Veicular: importar dados do DF', 'importarVeiculosPassivoDF_')
@@ -1505,12 +1506,24 @@ function contarTepNovos_(email) {
  * com o que for digitado manualmente na linha de "Termo de encerramento
  * de processo administrativo").
  */
+// O Sheets converte sozinho valores tipo "2026:34146279" (Ano:NumeroSei)
+// pra duração/hora — mesmo bug já visto na coluna de código de infração.
+// Trava a coluna Chave como texto puro ANTES de gravar; sem isso, uma
+// chave baseada em SEI vira data internamente e perde a informação
+// original pra sempre (foi o que aconteceu com 7 chaves — ver
+// corrigirChavesTepCorrompidas_).
+function garantirColunaChaveTepComoTexto_(sheet) {
+  var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave') + 1;
+  sheet.getRange(1, idxChave, sheet.getMaxRows(), 1).setNumberFormat('@');
+}
+
 function marcarTepFinalizado(chaveProcesso) {
   var perfil = exigirPerfilEditor_();
   chaveProcesso = normalizarTexto_(chaveProcesso);
   if (!chaveProcesso) throw new Error('Processo inválido.');
 
   var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
+  garantirColunaChaveTepComoTexto_(sheet);
   var dados = sheet.getDataRange().getValues();
   for (var i = 1; i < dados.length; i++) {
     if (dados[i][0] === chaveProcesso) {
@@ -1544,6 +1557,7 @@ function marcarTepFinalizado(chaveProcesso) {
 function migrarChavesTepFinalizadosParaIncluirAno_() {
   exigirPerfilAdmin_();
   var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
+  garantirColunaChaveTepComoTexto_(sheet);
   var valores = sheet.getDataRange().getValues();
   if (valores.length <= 1) {
     return 'Nada para migrar — aba TepFinalizados está vazia.';
@@ -1595,6 +1609,61 @@ function migrarChavesTepFinalizadosParaIncluirAno_() {
   var mensagem = 'Migração concluída: ' + alterados + ' chave(s) de TEP finalizado atualizada(s).' +
     (naoEncontrados.length ? ' Não encontrei veículo correspondente pra: ' + naoEncontrados.join(' | ') +
       ' — pra esses, o mais simples é abrir o processo na aba TEP (se estiver aparecendo como pendente) e clicar em "TEP Finalizado" de novo.' : '');
+  Logger.log(mensagem);
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
+  } catch (e) {
+    // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
+  }
+  return mensagem;
+}
+
+// CONSERTO ÚNICO — rode uma vez só. A execução anterior de
+// migrarChavesTepFinalizadosParaIncluirAno_ escreveu 7 chaves no formato
+// "AAAA:NumeroSei" (ex.: "2024:27809541") sem travar a coluna como texto
+// antes — o Sheets interpretou esses valores como duração/hora e o texto
+// original virou uma data internamente, perdendo a informação de vez
+// (mesmo bug já visto na coluna de código de infração da Tabela de
+// Infrações). Como o valor certo não existe mais na própria célula, a
+// única forma de recuperar é pela posição da linha, que não mudou desde
+// que os valores corretos foram calculados (antes da corrupção). Por
+// segurança, só mexe numa linha se ela ainda estiver mesmo corrompida
+// (Chave não é texto) — se alguém já tiver corrigido manualmente, pula.
+function corrigirChavesTepCorrompidas_() {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
+  garantirColunaChaveTepComoTexto_(sheet);
+  var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave');
+
+  // Linha (2 = primeira linha de dados) -> valor certo, na ordem em que as
+  // 10 chaves já existiam antes da migração corrompê-las.
+  var correcoesPorLinha = {
+    2: '2024:27809541',   // Termo de Doação nº 359/2024
+    3: '2026:34949065',   // Termo de Doação SENASP 102
+    4: '2026:33788658',   // Termo de Doação SENASP 868/2025
+    7: '2026:34012907',   // Termo de Doação SENASP 894/2025
+    9: '2026:33820013',   // Termo de Doação SENASP 882/2025
+    10: '2026:33816236',  // Termo de Doação SENASP 879/2025
+    11: '2026:36183788'   // Termo de Doação SENASP 403
+  };
+
+  var valores = sheet.getDataRange().getValues();
+  var corrigidos = 0;
+  var jaEstavamOk = [];
+  Object.keys(correcoesPorLinha).forEach(function (linhaStr) {
+    var linha = Number(linhaStr);
+    if (linha > valores.length) return; // planilha não tem mais linhas que isso
+    var valorAtual = valores[linha - 1][idxChave];
+    if (typeof valorAtual === 'string') {
+      jaEstavamOk.push(linha);
+      return; // já é texto — ou já foi consertada, ou nunca corrompeu; não mexe
+    }
+    sheet.getRange(linha, idxChave + 1).setValue(correcoesPorLinha[linha]);
+    corrigidos++;
+  });
+
+  var mensagem = 'Conserto único concluído: ' + corrigidos + ' chave(s) corrompida(s) restaurada(s).' +
+    (jaEstavamOk.length ? ' ' + jaEstavamOk.length + ' linha(s) já estavam como texto (não mexi): linhas ' + jaEstavamOk.join(', ') + '.' : '');
   Logger.log(mensagem);
   try {
     SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
