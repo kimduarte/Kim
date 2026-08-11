@@ -150,10 +150,10 @@
      na mesma semana. Seção com algo já preenchido abre sozinha (ver
      atualizarAccordionSecoesRelatorio_). */
   .rp-secao { border: 1px solid var(--borda); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
-  .rp-secao-cabecalho { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; background: #fff; border-left: 3px solid transparent; }
-  .rp-secao-cabecalho:hover { background: #f9fafb; }
-  .rp-secao.aberta .rp-secao-cabecalho { background: var(--azul-bg); border-left-color: var(--primario); }
-  .rp-secao.aberta .rp-secao-cabecalho:hover { background: var(--azul-bg); }
+  .rp-secao-cabecalho { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; background: #fff; border-left: 3px solid transparent; transition: background 0.1s; }
+  .rp-secao-cabecalho:hover { background: var(--azul-bg); border-left-color: #9DBDE8; }
+  .rp-secao.aberta .rp-secao-cabecalho { background: #C3D7F3; border-left-color: var(--primario); }
+  .rp-secao.aberta .rp-secao-cabecalho:hover { background: #B3CBEE; }
   .rp-secao-titulo { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
   .rp-secao.aberta .rp-secao-titulo { color: var(--primario-escuro); }
   .rp-secao-badge { background: #fff; color: var(--azul-fg); font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 10px; }
