@@ -3760,15 +3760,13 @@
       if (e.key === 'Enter') { PAGINA_ATUAL_LISTAGEM = 1; carregarListagem(); }
     });
     document.getElementById('f_buscaCampo').addEventListener('change', function () {
-      // "Últimos cadastrados" não é um campo de texto pra buscar — é só a
-      // ordem padrão (mais recente primeiro), então o campo Buscar não
-      // faz sentido nesse modo.
+      // Só ajusta o campo Buscar (desabilita em "Últimos cadastrados", que
+      // não é uma busca de texto) — não dispara a busca sozinho; isso só
+      // acontece quando a pessoa clica em "Filtrar".
       var campoBusca = document.getElementById('f_busca');
       var ehRecentes = this.value === 'recentes';
       campoBusca.disabled = ehRecentes;
       if (ehRecentes) campoBusca.value = '';
-      PAGINA_ATUAL_LISTAGEM = 1;
-      carregarListagem();
     });
     document.getElementById('botaoPaginaAnterior').addEventListener('click', function () {
       if (PAGINA_ATUAL_LISTAGEM <= 1) return;
