@@ -66,9 +66,10 @@ var CABECALHO_IMPORT_LOG = ['DataHora', 'AbaOrigem', 'LinhaOrigem', 'Situacao', 
 // DataInicio+DataFim) pra poder editar/revisar depois.
 var CABECALHO_RELATORIO_ITENS = ['Chave', 'DataInicio', 'DataFim', 'ItensJSON', 'AtualizadoPor', 'AtualizadoEm'];
 
-// Processos (chave = NumeroProcesso ou TermoDoacao) que já tiveram o Termo
-// de Encerramento de Processo (TEP) registrado como finalizado — usado só
-// pra tirar da lista de pendentes (getProcessosPendentesTep_) um processo
+// Processos (chave = ver chaveProcesso_: NumeroProcesso, ou Ano+TermoDoacao
+// quando não há) que já tiveram o Termo de Encerramento de Processo (TEP)
+// registrado como finalizado — usado só pra tirar da lista de pendentes
+// (getProcessosPendentesTep_) um processo
 // 100% transferido que já foi encerrado.
 var CABECALHO_TEP_FINALIZADOS = ['Chave', 'DataFinalizacao', 'FinalizadoPor'];
 
@@ -492,6 +493,7 @@ function onOpen() {
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
+    .addItem('Migrar chaves de TEP finalizado para incluir o ano', 'migrarChavesTepFinalizadosParaIncluirAno_')
     .addSeparator()
     .addItem('Passivo Veicular: criar planilha separada', 'criarEstruturaPassivoVeicular')
     .addItem('Passivo Veicular: importar dados do DF', 'importarVeiculosPassivoDF_')
@@ -986,7 +988,7 @@ function listarProcessos(filtros) {
     // antigos, migrados antes desse campo existir, não têm NumeroProcesso —
     // para não cair todos num único grupo gigante (o que travaria a tela),
     // esses usam o Termo de Doação como identificador de agrupamento.
-    var chave = v.NumeroProcesso ? ('P:' + v.NumeroProcesso) : ('T:' + (v.TermoDoacao || '(sem identificação)'));
+    var chave = chaveProcesso_(v);
     if (!grupos[chave]) {
       grupos[chave] = {
         numeroProcesso: v.NumeroProcesso || '',
@@ -1352,12 +1354,17 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
 }
 
 /**
- * Identidade de um processo pra fins de TEP/relatórios — mesmo padrão
- * usado em getVeiculosPorUFDetalhado: NumeroProcesso quando existe, senão
- * o Termo de Doação.
+ * Identidade de um processo pra fins de agrupamento — usada pela tela de
+ * Processos, pelo aviso de TEP e pelo detalhamento por UF/Região.
+ * NumeroProcesso quando existe; senão Ano + Termo de Doação. O Ano entra
+ * porque o SENASP reaproveita os mesmos números de termo a cada ano (ex.:
+ * "Termo de Doação SENASP 85" existiu em 2024 E de novo, sem relação
+ * nenhuma, em 2026) — só o texto do termo sozinho já juntou processos
+ * bem diferentes (UF, donatária, veículos) num único card por engano.
  */
 function chaveProcesso_(registro) {
-  return registro.NumeroProcesso || registro.TermoDoacao || '';
+  if (registro.NumeroProcesso) return registro.NumeroProcesso;
+  return (registro.Ano || '') + ':' + (registro.TermoDoacao || '');
 }
 
 /**
@@ -1506,6 +1513,61 @@ function marcarTepFinalizado(chaveProcesso) {
   sheet.appendRow([chaveProcesso, new Date(), perfil.email]);
   registrarLog_('TEP_FINALIZADO', chaveProcesso, 'Termo de Encerramento de Processo finalizado');
   return { mensagem: 'TEP finalizado com sucesso — já computado na produtividade.' };
+}
+
+// Rode uma vez pelo editor do Apps Script (ou pelo menu "Base de
+// Veículos") depois de atualizar o código do chaveProcesso_ pra incluir o
+// Ano — sem isso, processos que já tinham TEP finalizado ANTES dessa
+// mudança (usando a chave antiga, só "Termo de Doação...", sem ano)
+// voltariam a aparecer como pendentes, porque a chave calculada agora pros
+// veículos deles já não bate mais com a chave gravada. Só atualiza linhas
+// cuja chave gravada não corresponde a nenhum Número de Processo — essas é
+// que usavam o formato antigo (Termo de Doação sozinho); acha o Ano do
+// veículo correspondente e regrava a chave como "Ano:TermoDoacao". Pode
+// rodar de novo sem problema (idempotente — chave já migrada não muda).
+function migrarChavesTepFinalizadosParaIncluirAno_() {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
+  var valores = sheet.getDataRange().getValues();
+  if (valores.length <= 1) {
+    return 'Nada para migrar — aba TepFinalizados está vazia.';
+  }
+
+  var todosVeiculos = listarVeiculos({});
+  var numerosProcessoExistentes = {};
+  var anoPorTermo = {};
+  todosVeiculos.forEach(function (v) {
+    if (v.NumeroProcesso) numerosProcessoExistentes[v.NumeroProcesso] = true;
+    if (!v.NumeroProcesso && v.TermoDoacao && !anoPorTermo[v.TermoDoacao]) {
+      anoPorTermo[v.TermoDoacao] = v.Ano;
+    }
+  });
+
+  var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave');
+  var alterados = 0;
+  var naoEncontrados = [];
+  for (var i = 1; i < valores.length; i++) {
+    var chaveAntiga = valores[i][idxChave];
+    if (!chaveAntiga || numerosProcessoExistentes[chaveAntiga]) continue;
+    if (/^\d{4}:/.test(chaveAntiga)) continue; // já migrada (começa com "AAAA:")
+    var ano = anoPorTermo[chaveAntiga];
+    if (!ano) {
+      naoEncontrados.push(chaveAntiga);
+      continue;
+    }
+    sheet.getRange(i + 1, idxChave + 1).setValue(ano + ':' + chaveAntiga);
+    alterados++;
+  }
+
+  var mensagem = 'Migração concluída: ' + alterados + ' chave(s) de TEP finalizado atualizada(s) para incluir o ano.' +
+    (naoEncontrados.length ? ' Não encontrei veículo correspondente pra: ' + naoEncontrados.join(' | ') + ' (ficaram como estavam).' : '');
+  Logger.log(mensagem);
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
+  } catch (e) {
+    // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
+  }
+  return mensagem;
 }
 
 /**
@@ -2833,12 +2895,12 @@ function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro) {
   // Ano + Transferidos) — contexto útil ao ver cada veículo isoladamente.
   var qtdPorProcesso = {};
   registros.forEach(function (r) {
-    var chave = r.NumeroProcesso || r.TermoDoacao || '';
+    var chave = chaveProcesso_(r);
     qtdPorProcesso[chave] = (qtdPorProcesso[chave] || 0) + 1;
   });
 
   return registros.map(function (r) {
-    var chave = r.NumeroProcesso || r.TermoDoacao || '';
+    var chave = chaveProcesso_(r);
     return {
       Processo: r.NumeroProcesso || r.NumeroSei || '',
       NumeroSei: r.NumeroSei,
@@ -2858,8 +2920,8 @@ function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro) {
       ValorVeiculo: r.ValorVeiculo
     };
   }).sort(function (a, b) {
-    var chaveA = a.Processo || a.TermoDoacao || '';
-    var chaveB = b.Processo || b.TermoDoacao || '';
+    var chaveA = a.Processo || (a.Ano + ':' + (a.TermoDoacao || ''));
+    var chaveB = b.Processo || (b.Ano + ':' + (b.TermoDoacao || ''));
     return chaveA < chaveB ? -1 : (chaveA > chaveB ? 1 : 0);
   });
 }
@@ -2877,7 +2939,9 @@ function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro) {
   var ordem = [];
 
   registros.forEach(function (r) {
-    var chave = r.Processo || r.TermoDoacao || '';
+    // Ano entra na chave quando não há Processo/SEI — ver chaveProcesso_
+    // pro mesmo raciocínio (o SENASP reaproveita número de termo por ano).
+    var chave = r.Processo || (r.Ano + ':' + (r.TermoDoacao || ''));
     if (!grupos[chave]) {
       grupos[chave] = {
         processo: r.Processo,
