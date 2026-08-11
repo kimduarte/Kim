@@ -3002,6 +3002,15 @@ function exportarListagemXlsx(filtros) {
   }
 }
 
+// Primeiro dia do mês/ano do PROCESSO (não da data de cadastro no sistema —
+// que só diz quando o registro foi digitado aqui, útil pra auditoria, mas
+// não pra saber há quanto tempo a doação em si está parada).
+function dataInicioProcesso_(ano, mes) {
+  var idxMes = MESES_VALIDOS.indexOf(mes);
+  if (!ano || idxMes === -1) return null;
+  return new Date(Number(ano), idxMes, 1);
+}
+
 function calcularEstatisticas_(registros) {
   var total = registros.length;
   var porTransferido = contarPor_(registros, 'Transferido');
@@ -3019,7 +3028,8 @@ function calcularEstatisticas_(registros) {
     porDonataria[r.Donataria] = (porDonataria[r.Donataria] || 0) + 1;
 
     if (r.Transferido === 'NÃO') {
-      var dias = r.DataCadastro ? Math.floor((agora - new Date(r.DataCadastro)) / 86400000) : null;
+      var dataProcesso = dataInicioProcesso_(r.Ano, r.Mes);
+      var dias = dataProcesso ? Math.floor((agora - dataProcesso) / 86400000) : null;
       pendentesAntigos.push({
         TermoDoacao: r.TermoDoacao, Donataria: r.Donataria, UF: r.UF, Placa: r.Placa,
         Chassi: r.Chassi, DiasEmAberto: dias
