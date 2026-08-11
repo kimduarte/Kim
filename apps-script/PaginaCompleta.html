@@ -143,6 +143,21 @@
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 14px 16px;
   }
+
+  /* Relatório de Atividades: cada seção some por trás de um cabeçalho
+     clicável (fechada por padrão) — evita mostrar os ~24 campos do
+     formulário de uma vez, já que raramente todas as seções se aplicam
+     na mesma semana. Seção com algo já preenchido abre sozinha (ver
+     atualizarAccordionSecoesRelatorio_). */
+  .rp-secao { border: 1px solid var(--borda); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .rp-secao-cabecalho { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; background: #fff; }
+  .rp-secao-cabecalho:hover { background: #f9fafb; }
+  .rp-secao-titulo { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .rp-secao-badge { background: var(--azul-bg); color: var(--azul-fg); font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 10px; }
+  .rp-secao-seta { color: var(--texto-suave); font-size: 12px; transition: transform 0.15s; }
+  .rp-secao.aberta .rp-secao-seta { transform: rotate(180deg); }
+  .rp-secao-corpo { display: none; padding: 4px 16px 16px; }
+  .rp-secao.aberta .rp-secao-corpo { display: block; }
   .campo { display: flex; flex-direction: column; gap: 5px; }
   .campo.span-2 { grid-column: span 2; }
   .campo label { font-size: 13px; font-weight: 600; }
@@ -1524,133 +1539,168 @@
           <button type="button" class="secundario" onclick="carregarRelatorioAtividades_()">Carregar período</button>
         </div>
 
-        <div id="raConteudo" style="display:none; margin-top:18px;">
+        <div id="raConteudo" style="display:none; margin-top:18px;" oninput="atualizarAccordionSecoesRelatorio_()">
           <div id="raResumoAutomatico"></div>
 
-          <h3 style="margin-top:18px;">Dados desta semana (preencha o que se aplica — deixe em branco/zero o que não teve)</h3>
+          <h3 style="margin-top:18px;">Dados desta semana (abra só o que se aplica — o que já tiver algo preenchido abre sozinho)</h3>
 
-          <h4>Ofícios e autorizações</h4>
-          <div class="grid-form">
-            <div class="campo">
-              <label for="ram_OficiosDetran">Ofícios ao Diretor do Detran/DF, comunicando transferências de propriedade</label>
-              <input type="number" min="0" id="ram_OficiosDetran">
+          <div class="rp-secao" id="rpSecao_oficios">
+            <div class="rp-secao-cabecalho" onclick="alternarSecaoRelatorio_('oficios')">
+              <div class="rp-secao-titulo">Ofícios e autorizações <span class="rp-secao-badge" id="rpBadge_oficios" style="display:none;"></span></div>
+              <div class="rp-secao-seta">&#9660;</div>
             </div>
-            <div class="campo">
-              <label for="ram_OficiosExclusaoBeneficio">Ofícios ao chefe do Registro de veículos automotores (Exc. Observ. Benefício Tributário)</label>
-              <input type="number" min="0" id="ram_OficiosExclusaoBeneficio">
-            </div>
-            <div class="campo">
-              <label for="ram_AutorizacoesRepresentacao">Autorizações para Representação de serviços cartorários</label>
-              <input type="number" min="0" id="ram_AutorizacoesRepresentacao">
-            </div>
+            <div class="rp-secao-corpo"><div class="grid-form">
+              <div class="campo">
+                <label for="ram_OficiosDetran">Ofícios ao Diretor do Detran/DF, comunicando transferências de propriedade</label>
+                <input type="number" min="0" id="ram_OficiosDetran">
+              </div>
+              <div class="campo">
+                <label for="ram_OficiosExclusaoBeneficio">Ofícios ao chefe do Registro de veículos automotores (Exc. Observ. Benefício Tributário)</label>
+                <input type="number" min="0" id="ram_OficiosExclusaoBeneficio">
+              </div>
+              <div class="campo">
+                <label for="ram_AutorizacoesRepresentacao">Autorizações para Representação de serviços cartorários</label>
+                <input type="number" min="0" id="ram_AutorizacoesRepresentacao">
+              </div>
+            </div></div>
           </div>
 
-          <h4>Reconhecimento de firma (avulso)</h4>
-          <div class="grid-form">
-            <div class="campo">
-              <label for="ram_ReconhecimentoQtd">Quantidade de reconhecimentos de autenticidade de assinatura</label>
-              <input type="number" min="0" id="ram_ReconhecimentoQtd">
+          <div class="rp-secao" id="rpSecao_reconhecimento">
+            <div class="rp-secao-cabecalho" onclick="alternarSecaoRelatorio_('reconhecimento')">
+              <div class="rp-secao-titulo">Reconhecimento de firma (avulso) <span class="rp-secao-badge" id="rpBadge_reconhecimento" style="display:none;"></span></div>
+              <div class="rp-secao-seta">&#9660;</div>
             </div>
-            <div class="campo">
-              <label for="ram_ReconhecimentoCusto">Custo unitário (R$)</label>
-              <input type="number" min="0" step="0.01" id="ram_ReconhecimentoCusto">
-            </div>
-            <div class="campo">
-              <label for="ram_ReconhecimentoCartorio">Cartório</label>
-              <input type="text" id="ram_ReconhecimentoCartorio" placeholder="Ex.: Cartório Asa Norte">
-            </div>
+            <div class="rp-secao-corpo"><div class="grid-form">
+              <div class="campo">
+                <label for="ram_ReconhecimentoQtd">Quantidade de reconhecimentos de autenticidade de assinatura</label>
+                <input type="number" min="0" id="ram_ReconhecimentoQtd">
+              </div>
+              <div class="campo">
+                <label for="ram_ReconhecimentoCusto">Custo unitário (R$)</label>
+                <input type="number" min="0" step="0.01" id="ram_ReconhecimentoCusto">
+              </div>
+              <div class="campo">
+                <label for="ram_ReconhecimentoCartorio">Cartório</label>
+                <input type="text" id="ram_ReconhecimentoCartorio" placeholder="Ex.: Cartório Asa Norte">
+              </div>
+            </div></div>
           </div>
 
-          <h4>Tratativas junto a representante de marca</h4>
-          <div class="grid-form">
-            <div class="campo">
-              <label for="ram_TratativasRepresentante">Representante (marca)</label>
-              <input type="text" id="ram_TratativasRepresentante" placeholder="Ex.: Representante Mitsubishi">
+          <div class="rp-secao" id="rpSecao_tratativas">
+            <div class="rp-secao-cabecalho" onclick="alternarSecaoRelatorio_('tratativas')">
+              <div class="rp-secao-titulo">Tratativas junto a representante de marca <span class="rp-secao-badge" id="rpBadge_tratativas" style="display:none;"></span></div>
+              <div class="rp-secao-seta">&#9660;</div>
             </div>
-            <div class="campo">
-              <label for="ram_TratativasEstampagem">Pendências na estampagem veicular</label>
-              <input type="number" min="0" id="ram_TratativasEstampagem">
-            </div>
-            <div class="campo">
-              <label for="ram_TratativasDebitos">Pendências de débitos de veículos (Licenciamento)</label>
-              <input type="number" min="0" id="ram_TratativasDebitos">
-            </div>
-            <div class="campo">
-              <label for="ram_TratativasAno">Exercício (ano do licenciamento)</label>
-              <input type="number" id="ram_TratativasAno">
-            </div>
+            <div class="rp-secao-corpo"><div class="grid-form">
+              <div class="campo">
+                <label for="ram_TratativasRepresentante">Representante (marca)</label>
+                <input type="text" id="ram_TratativasRepresentante" placeholder="Ex.: Representante Mitsubishi">
+              </div>
+              <div class="campo">
+                <label for="ram_TratativasEstampagem">Pendências na estampagem veicular</label>
+                <input type="number" min="0" id="ram_TratativasEstampagem">
+              </div>
+              <div class="campo">
+                <label for="ram_TratativasDebitos">Pendências de débitos de veículos (Licenciamento)</label>
+                <input type="number" min="0" id="ram_TratativasDebitos">
+              </div>
+              <div class="campo">
+                <label for="ram_TratativasAno">Exercício (ano do licenciamento)</label>
+                <input type="number" id="ram_TratativasAno">
+              </div>
+            </div></div>
           </div>
 
-          <h4>E-mails enviados</h4>
-          <div class="grid-form">
-            <div class="campo">
-              <label for="ram_EmailTransfQtd">Transferência de Propriedade de veículos — quantidade</label>
-              <input type="number" min="0" id="ram_EmailTransfQtd">
+          <div class="rp-secao" id="rpSecao_emails">
+            <div class="rp-secao-cabecalho" onclick="alternarSecaoRelatorio_('emails')">
+              <div class="rp-secao-titulo">E-mails enviados <span class="rp-secao-badge" id="rpBadge_emails" style="display:none;"></span></div>
+              <div class="rp-secao-seta">&#9660;</div>
             </div>
-            <div class="campo">
-              <label for="ram_EmailTransfDestinatarios">Destinatários</label>
-              <input type="text" id="ram_EmailTransfDestinatarios" placeholder="Ex.: chefiagab@detran.df.gov.br e nudoc@detran.df.gov.br">
-            </div>
-            <div class="campo">
-              <label for="ram_EmailExclusaoQtd">Solicitação de Exclusão da Observação de benefício Tributário — quantidade</label>
-              <input type="number" min="0" id="ram_EmailExclusaoQtd">
-            </div>
-            <div class="campo">
-              <label for="ram_EmailExclusaoDestinatarios">Destinatários</label>
-              <input type="text" id="ram_EmailExclusaoDestinatarios" placeholder="Ex.: renavam@detran.df.gov.br">
-            </div>
+            <div class="rp-secao-corpo"><div class="grid-form">
+              <div class="campo">
+                <label for="ram_EmailTransfQtd">Transferência de Propriedade de veículos — quantidade</label>
+                <input type="number" min="0" id="ram_EmailTransfQtd">
+              </div>
+              <div class="campo">
+                <label for="ram_EmailTransfDestinatarios">Destinatários</label>
+                <input type="text" id="ram_EmailTransfDestinatarios" placeholder="Ex.: chefiagab@detran.df.gov.br e nudoc@detran.df.gov.br">
+              </div>
+              <div class="campo">
+                <label for="ram_EmailExclusaoQtd">Solicitação de Exclusão da Observação de benefício Tributário — quantidade</label>
+                <input type="number" min="0" id="ram_EmailExclusaoQtd">
+              </div>
+              <div class="campo">
+                <label for="ram_EmailExclusaoDestinatarios">Destinatários</label>
+                <input type="text" id="ram_EmailExclusaoDestinatarios" placeholder="Ex.: renavam@detran.df.gov.br">
+              </div>
+            </div></div>
           </div>
 
-          <h4>Processos</h4>
-          <div class="grid-form">
-            <div class="campo">
-              <label for="ram_ExpedQtd">Processos enviados para EXPED (Protocolo)</label>
-              <input type="number" min="0" id="ram_ExpedQtd">
+          <div class="rp-secao" id="rpSecao_processos">
+            <div class="rp-secao-cabecalho" onclick="alternarSecaoRelatorio_('processos')">
+              <div class="rp-secao-titulo">Processos <span class="rp-secao-badge" id="rpBadge_processos" style="display:none;"></span></div>
+              <div class="rp-secao-seta">&#9660;</div>
             </div>
-            <div class="campo">
-              <label for="ram_BaixaQtd">Processos enviados para Baixa</label>
-              <input type="number" min="0" id="ram_BaixaQtd">
-            </div>
-            <div class="campo">
-              <label for="ram_TermoEncerramentoQtd">Termo de encerramento de processo administrativo</label>
-              <input type="number" min="0" id="ram_TermoEncerramentoQtd">
-            </div>
+            <div class="rp-secao-corpo"><div class="grid-form">
+              <div class="campo">
+                <label for="ram_ExpedQtd">Processos enviados para EXPED (Protocolo)</label>
+                <input type="number" min="0" id="ram_ExpedQtd">
+              </div>
+              <div class="campo">
+                <label for="ram_BaixaQtd">Processos enviados para Baixa</label>
+                <input type="number" min="0" id="ram_BaixaQtd">
+              </div>
+              <div class="campo">
+                <label for="ram_TermoEncerramentoQtd">Termo de encerramento de processo administrativo</label>
+                <input type="number" min="0" id="ram_TermoEncerramentoQtd">
+              </div>
+            </div></div>
           </div>
 
-          <h4>Exclusão de débitos de IPVA</h4>
-          <div class="grid-form">
-            <div class="campo">
-              <label for="ram_IpvaOficiosQtd">Quantidade de ofícios</label>
-              <input type="number" min="0" id="ram_IpvaOficiosQtd">
+          <div class="rp-secao" id="rpSecao_ipva">
+            <div class="rp-secao-cabecalho" onclick="alternarSecaoRelatorio_('ipva')">
+              <div class="rp-secao-titulo">Exclusão de débitos de IPVA <span class="rp-secao-badge" id="rpBadge_ipva" style="display:none;"></span></div>
+              <div class="rp-secao-seta">&#9660;</div>
             </div>
-            <div class="campo">
-              <label for="ram_IpvaNumeros">Ofícios (número e protocolo)</label>
-              <input type="text" id="ram_IpvaNumeros" placeholder="Ex.: Ofício 436 (36344619) e Ofício 451 (36376972)">
-            </div>
-            <div class="campo">
-              <label for="ram_IpvaVeiculosQtd">Referente a quantos veículos</label>
-              <input type="number" min="0" id="ram_IpvaVeiculosQtd">
-            </div>
+            <div class="rp-secao-corpo"><div class="grid-form">
+              <div class="campo">
+                <label for="ram_IpvaOficiosQtd">Quantidade de ofícios</label>
+                <input type="number" min="0" id="ram_IpvaOficiosQtd">
+              </div>
+              <div class="campo">
+                <label for="ram_IpvaNumeros">Ofícios (número e protocolo)</label>
+                <input type="text" id="ram_IpvaNumeros" placeholder="Ex.: Ofício 436 (36344619) e Ofício 451 (36376972)">
+              </div>
+              <div class="campo">
+                <label for="ram_IpvaVeiculosQtd">Referente a quantos veículos</label>
+                <input type="number" min="0" id="ram_IpvaVeiculosQtd">
+              </div>
+            </div></div>
           </div>
 
-          <h4>Pagamento de serviços terceirizados (cartório)</h4>
-          <div class="grid-form">
-            <div class="campo">
-              <label for="ram_PagamentoCartorio">Cartório</label>
-              <input type="text" id="ram_PagamentoCartorio" placeholder="Ex.: Cartório do 4° Ofício - Asa Norte">
+          <div class="rp-secao" id="rpSecao_pagamento">
+            <div class="rp-secao-cabecalho" onclick="alternarSecaoRelatorio_('pagamento')">
+              <div class="rp-secao-titulo">Pagamento de serviços terceirizados (cartório) <span class="rp-secao-badge" id="rpBadge_pagamento" style="display:none;"></span></div>
+              <div class="rp-secao-seta">&#9660;</div>
             </div>
-            <div class="campo">
-              <label for="ram_PagamentoProcesso">Número do processo</label>
-              <input type="text" id="ram_PagamentoProcesso" placeholder="Ex.: 08020.006952/2026-58">
-            </div>
-            <div class="campo">
-              <label for="ram_PagamentoCusto">Custa unitária (R$)</label>
-              <input type="number" min="0" step="0.01" id="ram_PagamentoCusto">
-            </div>
-            <div class="campo">
-              <label for="ram_PagamentoQtdServicos">Quantidade de serviços</label>
-              <input type="number" min="0" id="ram_PagamentoQtdServicos">
-            </div>
+            <div class="rp-secao-corpo"><div class="grid-form">
+              <div class="campo">
+                <label for="ram_PagamentoCartorio">Cartório</label>
+                <input type="text" id="ram_PagamentoCartorio" placeholder="Ex.: Cartório do 4° Ofício - Asa Norte">
+              </div>
+              <div class="campo">
+                <label for="ram_PagamentoProcesso">Número do processo</label>
+                <input type="text" id="ram_PagamentoProcesso" placeholder="Ex.: 08020.006952/2026-58">
+              </div>
+              <div class="campo">
+                <label for="ram_PagamentoCusto">Custa unitária (R$)</label>
+                <input type="number" min="0" step="0.01" id="ram_PagamentoCusto">
+              </div>
+              <div class="campo">
+                <label for="ram_PagamentoQtdServicos">Quantidade de serviços</label>
+                <input type="number" min="0" id="ram_PagamentoQtdServicos">
+              </div>
+            </div></div>
           </div>
 
           <div id="mensagemRelatorioAtividades" style="margin-top:10px;"></div>
@@ -4750,10 +4800,50 @@
       document.getElementById('raConteudo').style.display = '';
       renderizarResumoAutomatico_();
       preencherFormularioDadosManuais_(dadosManuais);
+      atualizarAccordionSecoesRelatorio_();
       document.getElementById('raTextoPreview').value = '';
     } catch (erro) {
       mostrarErroGlobal(erro);
     }
+  }
+
+  // ---------- Seções retráteis do formulário de dados manuais ----------
+  var RA_SECOES_CAMPOS_ = {
+    oficios: ['ram_OficiosDetran', 'ram_OficiosExclusaoBeneficio', 'ram_AutorizacoesRepresentacao'],
+    reconhecimento: ['ram_ReconhecimentoQtd', 'ram_ReconhecimentoCusto', 'ram_ReconhecimentoCartorio'],
+    tratativas: ['ram_TratativasRepresentante', 'ram_TratativasEstampagem', 'ram_TratativasDebitos', 'ram_TratativasAno'],
+    emails: ['ram_EmailTransfQtd', 'ram_EmailTransfDestinatarios', 'ram_EmailExclusaoQtd', 'ram_EmailExclusaoDestinatarios'],
+    processos: ['ram_ExpedQtd', 'ram_BaixaQtd', 'ram_TermoEncerramentoQtd'],
+    ipva: ['ram_IpvaOficiosQtd', 'ram_IpvaNumeros', 'ram_IpvaVeiculosQtd'],
+    pagamento: ['ram_PagamentoCartorio', 'ram_PagamentoProcesso', 'ram_PagamentoCusto', 'ram_PagamentoQtdServicos']
+  };
+
+  function alternarSecaoRelatorio_(chave) {
+    document.getElementById('rpSecao_' + chave).classList.toggle('aberta');
+  }
+
+  function raCampoPreenchido_(id) {
+    var el = document.getElementById(id);
+    var v = el.value;
+    if (el.type === 'number') return v !== '' && Number(v) !== 0;
+    return (v || '').trim() !== '';
+  }
+
+  // Abre sozinha toda seção que já tiver algo preenchido (dado carregado do
+  // período ou digitado agora) e mostra quantos campos dela estão
+  // preenchidos — só fecha de novo se a pessoa clicar no cabeçalho.
+  function atualizarAccordionSecoesRelatorio_() {
+    Object.keys(RA_SECOES_CAMPOS_).forEach(function (chave) {
+      var qtd = RA_SECOES_CAMPOS_[chave].filter(raCampoPreenchido_).length;
+      var badge = document.getElementById('rpBadge_' + chave);
+      if (qtd > 0) {
+        badge.textContent = qtd + ' preenchido' + (qtd > 1 ? 's' : '');
+        badge.style.display = '';
+        document.getElementById('rpSecao_' + chave).classList.add('aberta');
+      } else {
+        badge.style.display = 'none';
+      }
+    });
   }
 
   function renderizarResumoAutomatico_() {
