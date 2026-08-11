@@ -1551,22 +1551,36 @@ function migrarChavesTepFinalizadosParaIncluirAno_() {
 
   var todosVeiculos = listarVeiculos({});
   var numerosProcessoExistentes = {};
-  var porTermoBruto = {};
+  // Duas variantes por Ano+Termo: o texto exato, e o texto sem um possível
+  // sufixo "/AAAA" no final — a Reconciliação (reconciliarBaseOrigem) às
+  // vezes reescreve o Termo de Doação de veículos já existentes com um
+  // texto mais limpo (ex.: "SENASP 868/2025" virou só "SENASP 868", com o
+  // SEI indo pro campo próprio) — sem essa segunda tentativa, uma chave
+  // gravada com o texto antigo não acha mais o veículo depois disso.
+  var porAnoETermo = {};
   todosVeiculos.forEach(function (v) {
-    if (v.NumeroProcesso) numerosProcessoExistentes[v.NumeroProcesso] = true;
-    if (!v.NumeroProcesso && v.TermoDoacao && !porTermoBruto[v.TermoDoacao]) {
-      porTermoBruto[v.TermoDoacao] = v;
-    }
+    if (v.NumeroProcesso) { numerosProcessoExistentes[v.NumeroProcesso] = true; return; }
+    if (!v.TermoDoacao) return;
+    var chave = v.Ano + '|' + v.TermoDoacao;
+    if (!porAnoETermo[chave]) porAnoETermo[chave] = v;
   });
 
   var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave');
   var alterados = 0;
   var naoEncontrados = [];
   for (var i = 1; i < valores.length; i++) {
-    var chaveAtual = valores[i][idxChave];
+    var chaveAtual = String(valores[i][idxChave] || '');
     if (!chaveAtual || numerosProcessoExistentes[chaveAtual]) continue;
-    var termoBruto = String(chaveAtual).replace(/^\d{4}:/, '');
-    var veiculo = porTermoBruto[termoBruto];
+
+    var m = /^(\d{4}):(.*)$/.exec(chaveAtual);
+    if (!m) { naoEncontrados.push(chaveAtual); continue; } // formato bem antigo, sem ano — precisa mexer manualmente
+    var ano = m[1], termo = m[2];
+
+    var veiculo = porAnoETermo[ano + '|' + termo];
+    if (!veiculo) {
+      var termoSemSufixo = termo.replace(/\s*\/\d{4}\s*$/, '');
+      veiculo = porAnoETermo[ano + '|' + termoSemSufixo];
+    }
     if (!veiculo) {
       naoEncontrados.push(chaveAtual);
       continue;
@@ -1579,7 +1593,8 @@ function migrarChavesTepFinalizadosParaIncluirAno_() {
   }
 
   var mensagem = 'Migração concluída: ' + alterados + ' chave(s) de TEP finalizado atualizada(s).' +
-    (naoEncontrados.length ? ' Não encontrei veículo correspondente pra: ' + naoEncontrados.join(' | ') + ' (ficaram como estavam).' : '');
+    (naoEncontrados.length ? ' Não encontrei veículo correspondente pra: ' + naoEncontrados.join(' | ') +
+      ' — pra esses, o mais simples é abrir o processo na aba TEP (se estiver aparecendo como pendente) e clicar em "TEP Finalizado" de novo.' : '');
   Logger.log(mensagem);
   try {
     SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
