@@ -1193,7 +1193,7 @@
               <option value="renavam">Renavam</option>
               <option value="termo">Termo de Doação</option>
               <option value="marca">Marca</option>
-              <option value="descricao">Descrição</option>
+              <option value="recentes">Últimos cadastrados</option>
             </select>
           </div>
           <div class="campo" style="min-width:220px;">
@@ -1217,7 +1217,7 @@
         </div>
         <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar. A exportação respeita os filtros aplicados acima (não só a página atual).</p>
         <div id="mensagemListagem"></div>
-        <div id="listaProcessos"><div class="carregando">Carregando...</div></div>
+        <div id="listaProcessos"><div class="carregando">Ajuste os filtros acima (se quiser) e clique em "Filtrar" para carregar os processos.</div></div>
         <div class="rodape-tabela" id="rodapePaginacaoProcessos" style="display:none;">
           <button type="button" class="secundario" id="botaoPaginaAnterior">‹ Página anterior</button>
           <span id="infoPaginaProcessos"></span>
@@ -2660,7 +2660,11 @@
 
     if (nome === 'inicio') carregarInicio();
     if (nome === 'cadastro') irParaEtapa(1);
-    if (nome === 'listagem') carregarListagem();
+    // "listagem" (Processos) não carrega sozinha ao entrar na tela — só
+    // quando a pessoa clica em "Filtrar" (ou muda um dos filtros), pra não
+    // ficar buscando e agrupando tudo de novo toda vez que só se navega
+    // até essa aba. A exceção é logo abaixo, em irParaProcessoRecemCriado_,
+    // que precisa carregar mesmo pra já mostrar o processo recém-salvo.
     if (nome === 'painel') carregarPainel();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
     if (nome === 'usuarios') irParaTelaUsuarios_();
@@ -3748,6 +3752,7 @@
     document.getElementById('botaoLimparFiltro').addEventListener('click', function () {
       ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
       document.getElementById('f_busca').value = '';
+      document.getElementById('f_busca').disabled = false;
       PAGINA_ATUAL_LISTAGEM = 1;
       carregarListagem();
     });
@@ -3755,6 +3760,13 @@
       if (e.key === 'Enter') { PAGINA_ATUAL_LISTAGEM = 1; carregarListagem(); }
     });
     document.getElementById('f_buscaCampo').addEventListener('change', function () {
+      // "Últimos cadastrados" não é um campo de texto pra buscar — é só a
+      // ordem padrão (mais recente primeiro), então o campo Buscar não
+      // faz sentido nesse modo.
+      var campoBusca = document.getElementById('f_busca');
+      var ehRecentes = this.value === 'recentes';
+      campoBusca.disabled = ehRecentes;
+      if (ehRecentes) campoBusca.value = '';
       PAGINA_ATUAL_LISTAGEM = 1;
       carregarListagem();
     });
@@ -3927,9 +3939,11 @@
   function irParaProcessoRecemCriado_(numeroProcesso) {
     ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
     document.getElementById('f_busca').value = '';
+    document.getElementById('f_busca').disabled = false;
     PAGINA_ATUAL_LISTAGEM = 1;
     PROCESSO_DESTACAR_APOS_CADASTRO = numeroProcesso;
     irParaTela('listagem');
+    carregarListagem();
   }
 
   function destacarProcessoRecemCriado_(numeroProcesso) {
@@ -5351,6 +5365,7 @@
   function irParaListagemComFiltro(campo, valor, campoBusca) {
     ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
     document.getElementById('f_busca').value = '';
+    document.getElementById('f_busca').disabled = false;
 
     if (campo === 'uf') {
       document.getElementById('f_UF').value = valor;
@@ -5373,7 +5388,9 @@
       selectAno.value = valor;
     }
 
+    PAGINA_ATUAL_LISTAGEM = 1;
     irParaTela('listagem');
+    carregarListagem();
   }
   </script>
 </body>

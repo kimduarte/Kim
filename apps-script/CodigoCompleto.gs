@@ -863,9 +863,12 @@ function getContextoInicial() {
 // é o que fazia "222" (ou qualquer trecho curto) achar chassis, placas e
 // renavams sem relação nenhuma entre si, então o seletor existe para
 // restringir a busca a um único campo quando isso importa.
+// "recentes" (Últimos cadastrados) não mapeia pra nenhum campo — não é uma
+// busca de texto, é só a lista já ordenada do mais recente pro mais antigo
+// (comportamento padrão), com o campo Buscar desabilitado nesse modo.
 var MAPA_CAMPOS_BUSCA = {
   donataria: 'Donataria', chassi: 'Chassi', placa: 'Placa',
-  renavam: 'Renavam', termo: 'TermoDoacao', marca: 'Marca', descricao: 'Descricao'
+  renavam: 'Renavam', termo: 'TermoDoacao', marca: 'Marca'
 };
 
 function listarVeiculos(filtros) {
