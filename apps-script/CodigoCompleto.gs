@@ -1632,7 +1632,6 @@ function migrarChavesTepFinalizadosParaIncluirAno_() {
 function corrigirChavesTepCorrompidas_() {
   exigirPerfilAdmin_();
   var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
-  garantirColunaChaveTepComoTexto_(sheet);
   var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave');
 
   // Linha (2 = primeira linha de dados) -> valor certo, na ordem em que as
@@ -1647,23 +1646,30 @@ function corrigirChavesTepCorrompidas_() {
     11: '2026:36183788'   // Termo de Doação SENASP 403
   };
 
+  // Lê os valores ANTES de travar o formato — mudar o formato pra texto
+  // primeiro faz o Sheets devolver as células corrompidas como string
+  // (com o número serial errado dentro), o que atrapalharia a checagem de
+  // "já está certa" feita a seguir.
   var valores = sheet.getDataRange().getValues();
+  garantirColunaChaveTepComoTexto_(sheet);
+
   var corrigidos = 0;
   var jaEstavamOk = [];
   Object.keys(correcoesPorLinha).forEach(function (linhaStr) {
     var linha = Number(linhaStr);
     if (linha > valores.length) return; // planilha não tem mais linhas que isso
     var valorAtual = valores[linha - 1][idxChave];
-    if (typeof valorAtual === 'string') {
+    var valorCorreto = correcoesPorLinha[linha];
+    if (valorAtual === valorCorreto) {
       jaEstavamOk.push(linha);
-      return; // já é texto — ou já foi consertada, ou nunca corrompeu; não mexe
+      return; // já está com o valor certo — não precisa mexer
     }
-    sheet.getRange(linha, idxChave + 1).setValue(correcoesPorLinha[linha]);
+    sheet.getRange(linha, idxChave + 1).setValue(valorCorreto);
     corrigidos++;
   });
 
   var mensagem = 'Conserto único concluído: ' + corrigidos + ' chave(s) corrompida(s) restaurada(s).' +
-    (jaEstavamOk.length ? ' ' + jaEstavamOk.length + ' linha(s) já estavam como texto (não mexi): linhas ' + jaEstavamOk.join(', ') + '.' : '');
+    (jaEstavamOk.length ? ' ' + jaEstavamOk.length + ' linha(s) já estavam certas (não mexi): linhas ' + jaEstavamOk.join(', ') + '.' : '');
   Logger.log(mensagem);
   try {
     SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
