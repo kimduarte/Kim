@@ -270,11 +270,12 @@
   .regiao-bloco:first-child { margin-top: 0; }
   .regiao-titulo { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--texto-suave); margin-bottom: 6px; }
   .regiao-total { font-size: 12px; font-weight: 800; text-transform: none; letter-spacing: normal; color: var(--primario); }
-  .regiao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 5px; }
-  .heat-celula { border-radius: 6px; padding: 8px 10px; cursor: pointer; transition: transform 0.1s; }
+  .regiao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+  .heat-celula { border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: transform 0.1s; }
   .heat-celula:hover { transform: translateY(-2px); }
-  .heat-celula .v { font-size: 15px; font-weight: 800; }
-  .heat-celula .l { font-size: 10px; opacity: 0.85; }
+  .heat-celula .uf { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.8; }
+  .heat-celula .v { font-size: 20px; font-weight: 800; margin: 3px 0 2px; }
+  .heat-celula .l { font-size: 11.5px; opacity: 0.85; white-space: nowrap; }
   .heat-h1 { background: #EAF1FB; color: var(--primario-escuro); }
   .heat-h2 { background: #C3D7F3; color: var(--primario-escuro); }
   .heat-h3 { background: #8FB2E7; color: #fff; }
@@ -2833,6 +2834,16 @@
     return 'R$ ' + formatarNumeroComVirgula_(numero);
   }
 
+  // Versão curta pra caber em espaços pequenos (grade "Por Região", cards) —
+  // o valor exato continua disponível no tooltip/detalhe.
+  function formatarMoedaCompacta_(numero) {
+    numero = Number(numero) || 0;
+    var abs = Math.abs(numero);
+    if (abs >= 1000000) return 'R$ ' + (numero / 1000000).toFixed(1).replace('.', ',') + ' mi';
+    if (abs >= 1000) return 'R$ ' + Math.round(numero / 1000) + ' mil';
+    return formatarMoeda_(numero);
+  }
+
   // ---------- Início (resumo do dia) ----------
   async function carregarInicio() {
     try {
@@ -5128,9 +5139,11 @@
         '<span class="regiao-total">' + totalRegiao + ' veículo(s) • ' + formatarMoeda_(valorRegiao) + '</span>' +
         '</div><div class="regiao-grade">' +
         itensDaRegiao.map(function (item) {
-          return '<div class="heat-celula ' + classeCalorUF_(item.total, max) + '" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'regiao\')">' +
-            '<div class="v mono">' + item.total + '</div><div class="l">' + escaparHtml(item.chave) + '</div>' +
-            '<div class="l">' + formatarMoeda_(item.valorTotal) + '</div></div>';
+          var tituloTip = item.chave + ' — ' + item.total + ' veículo(s) • ' + formatarMoeda_(item.valorTotal);
+          return '<div class="heat-celula ' + classeCalorUF_(item.total, max) + '" onclick="abrirDetalheUF_(\'' + item.chave + '\', \'regiao\')" title="' + escaparHtml(tituloTip) + '">' +
+            '<div class="uf">' + escaparHtml(item.chave) + '</div>' +
+            '<div class="v mono">' + item.total + '</div>' +
+            '<div class="l">' + formatarMoedaCompacta_(item.valorTotal) + '</div></div>';
         }).join('') + '</div></div>';
     }).join('');
 
