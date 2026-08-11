@@ -493,9 +493,6 @@ function onOpen() {
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
-    .addItem('Atualizar chaves de TEP finalizado (ano/SEI)', 'migrarChavesTepFinalizadosParaIncluirAno_')
-    .addItem('CONSERTO ÚNICO: restaurar chaves de TEP corrompidas', 'corrigirChavesTepCorrompidas_')
-    .addItem('CONSERTO ÚNICO: corrigir separador das chaves de TEP', 'corrigirChaveTepSeparador_')
     .addSeparator()
     .addItem('Passivo Veicular: criar planilha separada', 'criarEstruturaPassivoVeicular')
     .addItem('Passivo Veicular: importar dados do DF', 'importarVeiculosPassivoDF_')
@@ -1374,10 +1371,9 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
  * Separador '_' (não ':') de propósito: uma chave tipo "2026:33808427"
  * parece hora/duração (H:MM:SS) pro autoparser do Google Sheets, que
  * converte sozinho pra um valor de duração (ex.: virou "565499:47:00")
- * mesmo com a coluna travada como texto puro — já aconteceu de novo com
- * as 4 chaves geradas ao clicar em "TEP Finalizado" (ver
- * corrigirChaveTepSeparador_). '_' nunca é interpretado como data/hora,
- * então essa classe de bug não pode mais acontecer aqui.
+ * mesmo com a coluna travada como texto puro — já aconteceu com as chaves
+ * de TEP finalizado. '_' nunca é interpretado como data/hora, então essa
+ * classe de bug não pode mais acontecer aqui.
  */
 function chaveProcesso_(registro) {
   if (registro.NumeroProcesso) return registro.NumeroProcesso;
@@ -1515,12 +1511,9 @@ function contarTepNovos_(email) {
  * com o que for digitado manualmente na linha de "Termo de encerramento
  * de processo administrativo").
  */
-// O Sheets converte sozinho valores tipo "2026:34146279" (Ano:NumeroSei)
-// pra duração/hora — mesmo bug já visto na coluna de código de infração.
-// Trava a coluna Chave como texto puro ANTES de gravar; sem isso, uma
-// chave baseada em SEI vira data internamente e perde a informação
-// original pra sempre (foi o que aconteceu com 7 chaves — ver
-// corrigirChavesTepCorrompidas_).
+// Trava a coluna Chave como texto puro ANTES de gravar, como defesa extra
+// contra o autoparser de data/hora do Sheets (motivo pelo qual a chave usa
+// '_' e não ':' — ver comentário de chaveProcesso_).
 function garantirColunaChaveTepComoTexto_(sheet) {
   var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave') + 1;
   sheet.getRange(1, idxChave, sheet.getMaxRows(), 1).setNumberFormat('@');
@@ -1542,233 +1535,6 @@ function marcarTepFinalizado(chaveProcesso) {
   sheet.appendRow([chaveProcesso, new Date(), perfil.email]);
   registrarLog_('TEP_FINALIZADO', chaveProcesso, 'Termo de Encerramento de Processo finalizado');
   return { mensagem: 'TEP finalizado com sucesso — já computado na produtividade.' };
-}
-
-// Rode uma vez pelo editor do Apps Script (ou pelo menu "Base de
-// Veículos") depois de atualizar o código do chaveProcesso_ pra incluir o
-// Ano — sem isso, processos que já tinham TEP finalizado ANTES dessa
-// mudança (usando a chave antiga, só "Termo de Doação...", sem ano)
-// voltariam a aparecer como pendentes, porque a chave calculada agora pros
-// veículos deles já não bate mais com a chave gravada. Só atualiza linhas
-// cuja chave gravada não corresponde a nenhum Número de Processo — essas é
-// que usavam o formato antigo (Termo de Doação sozinho); acha o Ano do
-// veículo correspondente e regrava a chave como "Ano:TermoDoacao". Pode
-// rodar de novo sem problema (idempotente — chave já migrada não muda).
-// Recalcula as chaves gravadas em TepFinalizados usando a lógica ATUAL de
-// chaveProcesso_ — não fica presa a "incluir o ano" especificamente,
-// então continua servindo mesmo que chaveProcesso_ mude nas próximas
-// vezes (ex.: quando o SEI passou a ter prioridade sobre o texto do
-// termo). Pra achar o veículo correspondente a uma chave antiga (que
-// pode estar em qualquer formato usado no passado: só o termo, "Ano:Termo"
-// etc.), tira um possível prefixo "AAAA:" e casa pelo texto puro do Termo
-// de Doação — sempre que achar, regrava com a chave certa de agora.
-// Idempotente: pode rodar de novo sempre que quiser, sem risco.
-function migrarChavesTepFinalizadosParaIncluirAno_() {
-  exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
-  garantirColunaChaveTepComoTexto_(sheet);
-  var valores = sheet.getDataRange().getValues();
-  if (valores.length <= 1) {
-    return 'Nada para migrar — aba TepFinalizados está vazia.';
-  }
-
-  var todosVeiculos = listarVeiculos({});
-  var numerosProcessoExistentes = {};
-  // Duas variantes por Ano+Termo: o texto exato, e o texto sem um possível
-  // sufixo "/AAAA" no final — a Reconciliação (reconciliarBaseOrigem) às
-  // vezes reescreve o Termo de Doação de veículos já existentes com um
-  // texto mais limpo (ex.: "SENASP 868/2025" virou só "SENASP 868", com o
-  // SEI indo pro campo próprio) — sem essa segunda tentativa, uma chave
-  // gravada com o texto antigo não acha mais o veículo depois disso.
-  var porAnoETermo = {};
-  todosVeiculos.forEach(function (v) {
-    if (v.NumeroProcesso) { numerosProcessoExistentes[v.NumeroProcesso] = true; return; }
-    if (!v.TermoDoacao) return;
-    var chave = v.Ano + '|' + v.TermoDoacao;
-    if (!porAnoETermo[chave]) porAnoETermo[chave] = v;
-  });
-
-  var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave');
-  var alterados = 0;
-  var naoEncontrados = [];
-  for (var i = 1; i < valores.length; i++) {
-    var chaveAtual = String(valores[i][idxChave] || '');
-    if (!chaveAtual || numerosProcessoExistentes[chaveAtual]) continue;
-
-    var m = /^(\d{4}):(.*)$/.exec(chaveAtual);
-    if (!m) { naoEncontrados.push(chaveAtual); continue; } // formato bem antigo, sem ano — precisa mexer manualmente
-    var ano = m[1], termo = m[2];
-
-    var veiculo = porAnoETermo[ano + '|' + termo];
-    if (!veiculo) {
-      var termoSemSufixo = termo.replace(/\s*\/\d{4}\s*$/, '');
-      veiculo = porAnoETermo[ano + '|' + termoSemSufixo];
-    }
-    if (!veiculo) {
-      naoEncontrados.push(chaveAtual);
-      continue;
-    }
-    var chaveCorreta = chaveProcesso_(veiculo);
-    if (chaveCorreta !== chaveAtual) {
-      sheet.getRange(i + 1, idxChave + 1).setValue(chaveCorreta);
-      alterados++;
-    }
-  }
-
-  var mensagem = 'Migração concluída: ' + alterados + ' chave(s) de TEP finalizado atualizada(s).' +
-    (naoEncontrados.length ? ' Não encontrei veículo correspondente pra: ' + naoEncontrados.join(' | ') +
-      ' — pra esses, o mais simples é abrir o processo na aba TEP (se estiver aparecendo como pendente) e clicar em "TEP Finalizado" de novo.' : '');
-  Logger.log(mensagem);
-  try {
-    SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
-  } catch (e) {
-    // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
-  }
-  return mensagem;
-}
-
-// CONSERTO ÚNICO — rode uma vez só. A execução anterior de
-// migrarChavesTepFinalizadosParaIncluirAno_ escreveu 7 chaves no formato
-// "AAAA:NumeroSei" (ex.: "2024:27809541") sem travar a coluna como texto
-// antes — o Sheets interpretou esses valores como duração/hora e o texto
-// original virou uma data internamente, perdendo a informação de vez
-// (mesmo bug já visto na coluna de código de infração da Tabela de
-// Infrações). Como o valor certo não existe mais na própria célula, a
-// única forma de recuperar é pela posição da linha, que não mudou desde
-// que os valores corretos foram calculados (antes da corrupção). Por
-// segurança, só mexe numa linha se ela ainda estiver mesmo corrompida
-// (Chave não é texto) — se alguém já tiver corrigido manualmente, pula.
-function corrigirChavesTepCorrompidas_() {
-  exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
-  var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave');
-
-  // Linha (2 = primeira linha de dados) -> valor certo, na ordem em que as
-  // 10 chaves já existiam antes da migração corrompê-las.
-  var correcoesPorLinha = {
-    2: '2024:27809541',   // Termo de Doação nº 359/2024
-    3: '2026:34949065',   // Termo de Doação SENASP 102
-    4: '2026:33788658',   // Termo de Doação SENASP 868/2025
-    7: '2026:34012907',   // Termo de Doação SENASP 894/2025
-    9: '2026:33820013',   // Termo de Doação SENASP 882/2025
-    10: '2026:33816236',  // Termo de Doação SENASP 879/2025
-    11: '2026:36183788'   // Termo de Doação SENASP 403
-  };
-
-  // Lê os valores ANTES de travar o formato — mudar o formato pra texto
-  // primeiro faz o Sheets devolver as células corrompidas como string
-  // (com o número serial errado dentro), o que atrapalharia a checagem de
-  // "já está certa" feita a seguir.
-  var valores = sheet.getDataRange().getValues();
-  garantirColunaChaveTepComoTexto_(sheet);
-
-  var corrigidos = 0;
-  var jaEstavamOk = [];
-  Object.keys(correcoesPorLinha).forEach(function (linhaStr) {
-    var linha = Number(linhaStr);
-    if (linha > valores.length) return; // planilha não tem mais linhas que isso
-    var valorAtual = valores[linha - 1][idxChave];
-    var valorCorreto = correcoesPorLinha[linha];
-    if (valorAtual === valorCorreto) {
-      jaEstavamOk.push(linha);
-      return; // já está com o valor certo — não precisa mexer
-    }
-    sheet.getRange(linha, idxChave + 1).setValue(valorCorreto);
-    corrigidos++;
-  });
-
-  var mensagem = 'Conserto único concluído: ' + corrigidos + ' chave(s) corrompida(s) restaurada(s).' +
-    (jaEstavamOk.length ? ' ' + jaEstavamOk.length + ' linha(s) já estavam certas (não mexi): linhas ' + jaEstavamOk.join(', ') + '.' : '');
-  Logger.log(mensagem);
-  try {
-    SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
-  } catch (e) {
-    // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
-  }
-  return mensagem;
-}
-
-// Mesmo bug de novo, de um jeito novo: mesmo com a coluna travada como
-// texto ('@') ANTES do appendRow, o Sheets converteu sozinho chaves tipo
-// "2026:33808427" (formato Ano:NumeroSei) pra duração (H:MM:SS,
-// estourando os "minutos" pra dentro das horas — ex.: virou
-// "565499:47:00"). É por isso que clicar em "TEP Finalizado" respondia
-// "já tinha sido finalizado" (achou a chave certa na comparação
-// dados[i][0] === chaveProcesso, gravada com ':' minutos antes por outro
-// clique) mas o processo continuava aparecendo como pendente (a chave
-// gravada, corrompida, não bate mais com a chave "Ano:NumeroSei" que o
-// chaveProcesso_ recalcula toda vez).
-//
-// Conserto definitivo: chaveProcesso_ agora usa '_' em vez de ':' (nunca
-// vira data/hora). Essa função de rodada única arruma o que já está
-// gravado errado na planilha:
-// - Converte as chaves boas no formato antigo "Ano:X" pra "Ano_X".
-// - Apaga as linhas com lixo de duração (geradas pelos cliques que deram
-//   errado) — sem problema apagar, é só clicar em "TEP Finalizado" de novo
-//   depois que essa função rodar.
-// - Apaga as 3 linhas que a migração anterior gravou com o ano errado
-//   (não correspondem a nenhum veículo de verdade) — os processos
-//   corretos (2026) continuam pendentes normalmente pra serem finalizados
-//   de novo, agora sem risco de corromper.
-function corrigirChaveTepSeparador_() {
-  exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
-  var idxChave = CABECALHO_TEP_FINALIZADOS.indexOf('Chave');
-
-  var chavesInvalidasConhecidas = {
-    '2025:Termo de Doação SENASP 878': true,
-    '2025:Termo de Doação SENASP 731': true,
-    '2025:Termo de Doação SENASP 917': true
-  };
-
-  var valores = sheet.getDataRange().getValues();
-  garantirColunaChaveTepComoTexto_(sheet);
-
-  var convertidos = 0;
-  var linhasParaApagar = [];
-
-  for (var i = 1; i < valores.length; i++) {
-    var linha = i + 1;
-    var valorAtual = valores[i][idxChave];
-    if (!valorAtual) continue;
-
-    if (typeof valorAtual !== 'string') {
-      // Data/duração — lixo de clique que corrompeu na hora de gravar.
-      linhasParaApagar.push(linha);
-      continue;
-    }
-    if (chavesInvalidasConhecidas[valorAtual]) {
-      linhasParaApagar.push(linha);
-      continue;
-    }
-    if (/^\d{4,}:\d{1,2}:\d{2}$/.test(valorAtual)) {
-      // Texto tipo "565499:47:00" — a duração já veio como string (o
-      // autoparser do Sheets rodou antes do formato de texto valer).
-      linhasParaApagar.push(linha);
-      continue;
-    }
-    var match = /^(\d{4}):(.+)$/.exec(valorAtual);
-    if (match) {
-      sheet.getRange(linha, idxChave + 1).setValue(match[1] + '_' + match[2]);
-      convertidos++;
-    }
-  }
-
-  // Apaga de baixo pra cima pra não bagunçar os números das linhas
-  // seguintes ainda por processar.
-  linhasParaApagar.sort(function (a, b) { return b - a; });
-  linhasParaApagar.forEach(function (linha) { sheet.deleteRow(linha); });
-
-  var mensagem = 'Conserto de separador concluído: ' + convertidos + ' chave(s) convertida(s) pra "Ano_X". ' +
-    linhasParaApagar.length + ' linha(s) inválida(s) removida(s) (lixo de duração ou migração errada) — ' +
-    'os processos correspondentes voltam a aparecer como pendentes pra finalizar de novo, agora sem risco de corromper.';
-  Logger.log(mensagem);
-  try {
-    SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'TEP', 15);
-  } catch (e) {
-    // Rodando sem UI ativa — sem problema, a mensagem já foi gravada no Logger acima.
-  }
-  return mensagem;
 }
 
 /**
