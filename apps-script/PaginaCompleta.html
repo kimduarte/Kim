@@ -90,6 +90,53 @@
   .pagina-titulo h2 { font-size: 26px; margin: 0 0 4px; font-weight: 800; }
   .pagina-titulo p { margin: 0; color: var(--texto-suave); font-size: 14px; }
 
+  /* Faixa de boas-vindas — só na tela Início, com atalhos pras ações mais
+     comuns (evita ter que ir até o menu lateral pra elas). */
+  .welcome-banner {
+    background: linear-gradient(135deg, var(--primario) 0%, var(--primario-escuro) 100%);
+    border-radius: 16px; padding: 22px 28px; color: #fff; margin-bottom: 22px;
+    box-shadow: 0 4px 12px rgba(20,81,180,0.25);
+  }
+  .welcome-text { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .welcome-text h2 { margin: 0; font-size: 21px; font-weight: 800; }
+  .welcome-date { opacity: 0.85; font-size: 13px; }
+  .welcome-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .action-btn {
+    padding: 9px 18px; border: none; border-radius: 9px; font-weight: 700; font-size: 13.5px;
+    cursor: pointer; transition: transform 0.1s, filter 0.1s; font-family: inherit;
+  }
+  .action-btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .action-btn.primary { background: rgba(255,255,255,0.18); color: #fff; }
+  .action-btn.success { background: var(--verde); color: #fff; }
+  .action-btn.info { background: var(--azul-bg); color: var(--azul-fg); }
+  .action-btn.warning { background: var(--amarelo-destaque); color: var(--primario-escuro); }
+
+  /* Skeleton — blocos animados no lugar do texto "Carregando...", nas
+     listas em forma de cartão (Processos, Últimos processos da Início). */
+  .skeleton-container { display: flex; flex-direction: column; gap: 10px; }
+  .skeleton-card { padding: 14px 18px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--borda); }
+  .skeleton-line { height: 13px; background: #e5e7eb; border-radius: 4px; animation: skeleton-shimmer 1.4s ease-in-out infinite; }
+  @keyframes skeleton-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+  /* Overlay de carregamento — cobre a tela inteira durante operações
+     sequenciais longas (cadastro em lote, excluir/marcar todos os
+     veículos de um processo), pra deixar claro que o sistema está
+     trabalhando e não travado — sem isso dá pra clicar de novo achando
+     que não funcionou. */
+  #loaderOverlay {
+    display: none; position: fixed; inset: 0; z-index: 999;
+    background: rgba(11,45,87,0.55); align-items: center; justify-content: center;
+  }
+  #loaderOverlay.ativo { display: flex; }
+  .loader-container { background: var(--card-bg); padding: 30px 40px; border-radius: 14px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+  .loader-spinner {
+    width: 42px; height: 42px; margin: 0 auto 14px;
+    border: 4px solid var(--azul-bg); border-top-color: var(--primario); border-radius: 50%;
+    animation: loader-girar 0.8s linear infinite;
+  }
+  @keyframes loader-girar { to { transform: rotate(360deg); } }
+  .loader-container p { margin: 0; font-weight: 700; color: var(--texto); font-size: 14px; }
+
   button.primario, button.secundario, button.perigo {
     border: none;
     border-radius: 8px;
@@ -950,11 +997,24 @@
     <main>
     <div id="mensagemGlobal"></div>
 
+    <div id="loaderOverlay">
+      <div class="loader-container">
+        <div class="loader-spinner"></div>
+        <p id="loaderTexto">Processando...</p>
+      </div>
+    </div>
+
     <section id="tela-inicio" class="tela ativa">
-      <div class="pagina-titulo">
-        <div>
+      <div class="welcome-banner">
+        <div class="welcome-text">
           <h2 id="inicioSaudacao">Bem-vindo</h2>
-          <p id="inicioData">Resumo de hoje</p>
+          <span class="welcome-date" id="inicioData">Resumo de hoje</span>
+        </div>
+        <div class="welcome-actions">
+          <button type="button" class="action-btn primary" onclick="irParaTela('painel')">📊 Painel Geral</button>
+          <button type="button" class="action-btn success" onclick="abrirModalEscolhaCadastro_()">🚗 Novo Veículo</button>
+          <button type="button" class="action-btn info" onclick="irParaTela('listagem')">📋 Processos</button>
+          <button type="button" class="action-btn warning" id="inicioBotaoTep" style="display:none;" onclick="irParaTela('tep')">⚠️ TEP (<span id="inicioBannerTepContagem">0</span>)</button>
         </div>
       </div>
 
@@ -2799,6 +2859,8 @@
     atualizarContagemTep_(ctx.tepPendentes || 0);
 
     document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
+    var dataPorExtenso = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    document.getElementById('inicioData').textContent = dataPorExtenso.charAt(0).toUpperCase() + dataPorExtenso.slice(1);
     carregarInicio();
 
     preencherSelect('c_Mes', ctx.listas.mes, true);
@@ -2922,6 +2984,7 @@
 
   // ---------- Início (resumo do dia) ----------
   async function carregarInicio() {
+    mostrarSkeleton_('inicioUltimosProcessos', 3);
     try {
       var stats = await chamarServidor_('getEstatisticas');
       document.getElementById('inicioKpiTotal').textContent = stats.total;
@@ -3378,11 +3441,15 @@
 
   function atualizarContagemTep_(total) {
     var nav = document.getElementById('navTep');
+    var botaoBanner = document.getElementById('inicioBotaoTep');
     if (total > 0) {
       nav.style.display = '';
       document.getElementById('navTepContagem').textContent = '(' + total + ')';
+      botaoBanner.style.display = '';
+      document.getElementById('inicioBannerTepContagem').textContent = total;
     } else {
       nav.style.display = 'none';
+      botaoBanner.style.display = 'none';
     }
   }
 
@@ -3837,11 +3904,11 @@
 
       var botao = document.getElementById('botaoSalvarCadastro');
       botao.disabled = true;
-      mostrarMensagem('mensagemCadastro', 'sucesso',
-        'Cadastrando veículo ' + (INDICE_RETOMADA_CADASTRO + 1) + ' de ' + QUANTIDADE_TOTAL_VEICULOS + ', aguarde...');
+      mostrarLoader_('Cadastrando veículo ' + (INDICE_RETOMADA_CADASTRO + 1) + ' de ' + QUANTIDADE_TOTAL_VEICULOS + ', aguarde...');
 
       try {
         for (var i = INDICE_RETOMADA_CADASTRO; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
+          atualizarTextoLoader_('Cadastrando veículo ' + (i + 1) + ' de ' + QUANTIDADE_TOTAL_VEICULOS + ', aguarde...');
           var veiculoColetado = VEICULOS_COLETADOS[i] || {};
           var dadosVeiculo = Object.assign({}, comuns, {
             Marca: veiculoColetado.Marca,
@@ -3855,6 +3922,7 @@
           IDS_GERADOS_CADASTRO.push(resp.ID);
           INDICE_RETOMADA_CADASTRO = i + 1;
         }
+        esconderLoader_();
         botao.disabled = false;
         var numeroProcessoConcluido = NUMERO_PROCESSO_ATUAL;
         mostrarMensagem('mensagemGlobal', 'sucesso',
@@ -3862,6 +3930,7 @@
         reiniciarFormularioCadastro_();
         irParaProcessoRecemCriado_(numeroProcessoConcluido);
       } catch (erro) {
+        esconderLoader_();
         botao.disabled = false;
         document.getElementById('mensagemCadastro').innerHTML = '';
         mostrarErroCadastro_(
@@ -3882,6 +3951,34 @@
     var div = document.getElementById(idContainer);
     div.innerHTML = '<div class="mensagem ' + tipo + '">' + escaparHtml(texto) + '</div>';
     setTimeout(function () { div.innerHTML = ''; }, 8000);
+  }
+
+  // Skeleton no lugar de "Carregando..." — usado só nas listas em forma de
+  // cartão (Processos, Últimos processos), onde dá pra imitar o formato do
+  // conteúdo real. Cada bloco tem 3 linhas de larguras diferentes, pra não
+  // parecer um retângulo cinza sem forma.
+  function mostrarSkeleton_(idContainer, quantidade) {
+    var linha = '<div class="skeleton-card">' +
+      '<div class="skeleton-line" style="width:55%;"></div>' +
+      '<div class="skeleton-line" style="width:80%; margin-top:8px;"></div>' +
+      '<div class="skeleton-line" style="width:35%; margin-top:8px;"></div>' +
+      '</div>';
+    document.getElementById(idContainer).innerHTML =
+      '<div class="skeleton-container">' + new Array((quantidade || 3) + 1).join(linha) + '</div>';
+  }
+
+  // ---------- Overlay de carregamento (operações sequenciais longas) ----------
+  function mostrarLoader_(texto) {
+    document.getElementById('loaderTexto').textContent = texto;
+    document.getElementById('loaderOverlay').classList.add('ativo');
+  }
+
+  function atualizarTextoLoader_(texto) {
+    document.getElementById('loaderTexto').textContent = texto;
+  }
+
+  function esconderLoader_() {
+    document.getElementById('loaderOverlay').classList.remove('ativo');
   }
 
   // ---------- Modal de erro no cadastro (fica na tela até o usuário fechar) ----------
@@ -4020,12 +4117,12 @@
   var PROCESSO_DESTACAR_APOS_CADASTRO = '';
 
   function carregarListagem() {
-    var container = document.getElementById('listaProcessos');
-    container.innerHTML = '<div class="carregando">Carregando...</div>';
+    mostrarSkeleton_('listaProcessos', 5);
     google.script.run
       .withSuccessHandler(renderizarListagem)
       .withFailureHandler(function (erro) {
-        container.innerHTML = '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
+        document.getElementById('listaProcessos').innerHTML =
+          '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
       })
       .listarProcessos(obterFiltrosAtuais());
   }
@@ -4321,14 +4418,18 @@
     var acao = alvo === 'SIM' ? 'Marcar' : 'Desmarcar';
     if (!confirm(acao + ' os ' + pendentes.length + ' veículo(s) deste processo como "' + rotulo + ': ' + alvo + '"?')) return;
 
+    var acaoGerundio = alvo === 'SIM' ? 'Marcando' : 'Desmarcando';
+    mostrarLoader_(acaoGerundio + ' 1 de ' + pendentes.length + ' veículo(s), aguarde...');
     var erros = [];
     for (var i = 0; i < pendentes.length; i++) {
+      atualizarTextoLoader_(acaoGerundio + ' ' + (i + 1) + ' de ' + pendentes.length + ' veículo(s), aguarde...');
       try {
         await chamarServidor_('atualizarStatusVeiculo', pendentes[i].ID, campo, alvo);
       } catch (erro) {
         erros.push(pendentes[i].ID + ': ' + (erro.message || String(erro)));
       }
     }
+    esconderLoader_();
     carregarListagem();
     if (erros.length) {
       mostrarErroCadastro_('Alguns veículos não puderam ser atualizados:\n' + erros.join('\n'));
@@ -4349,16 +4450,19 @@
 
     // Botão "Excluir processo" fica no cabeçalho do card — dá pra clicar
     // sem nunca ter expandido, então p.veiculos pode ainda não existir.
+    mostrarLoader_('Buscando os veículos deste processo, aguarde...');
     await garantirVeiculosProcesso_(indiceProcesso);
 
     var erros = [];
     for (var i = 0; i < p.veiculos.length; i++) {
+      atualizarTextoLoader_('Excluindo veículo ' + (i + 1) + ' de ' + p.veiculos.length + ', aguarde...');
       try {
         await chamarServidor_('excluirVeiculo', p.veiculos[i].ID);
       } catch (erro) {
         erros.push(p.veiculos[i].ID + ': ' + (erro.message || String(erro)));
       }
     }
+    esconderLoader_();
     carregarListagem();
     if (erros.length) {
       mostrarErroCadastro_('Alguns veículos deste processo não puderam ser excluídos:\n' + erros.join('\n'));
