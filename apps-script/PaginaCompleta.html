@@ -944,6 +944,7 @@
       <div class="app-nav-item" data-tela="atpve" onclick="irParaTela('atpve')">📄 2ª Via ATPVe</div>
       <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="irParaTela('relatorioProdutividade')">📈 Produtividade</div>
       <div class="app-nav-item" data-tela="usuarios" onclick="irParaTela('usuarios')">👤 Usuários</div>
+      <div class="app-nav-item" data-tela="lixeira" onclick="irParaTela('lixeira')">🗑️ Lixeira</div>
       <div class="app-nav-item" id="navTep" data-tela="tep" style="display:none; background:#dc2626; color:#fff;" onclick="irParaTela('tep')">🔴 TEP <span id="navTepContagem"></span></div>
     </nav>
     <main>
@@ -1739,6 +1740,26 @@
           <table>
             <thead><tr><th>E-mail</th><th>Nome</th><th>Perfil</th><th>Produtividade</th><th>Planilha</th><th></th></tr></thead>
             <tbody id="corpoTabelaUsuarios"><tr><td colspan="6" class="carregando">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tela-lixeira" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Lixeira</h2>
+          <p>Veículos excluídos pelo site — restrito a administradores. Clique em "Restaurar" pra trazer um veículo de volta.</p>
+        </div>
+      </div>
+      <div id="lixeiraSemPermissao" class="card" style="display:none;">
+        <p>Você não tem permissão para ver esta área — restrita a administradores.</p>
+      </div>
+      <div id="lixeiraConteudo" class="card">
+        <div class="tabela-wrap">
+          <table>
+            <thead><tr><th>Placa</th><th>Chassi</th><th>Termo de Doação</th><th>Donatária</th><th>UF</th><th>Excluído por</th><th>Quando</th><th></th></tr></thead>
+            <tbody id="corpoTabelaLixeira"><tr><td colspan="8" class="carregando">Carregando...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -2740,6 +2761,7 @@
     if (nome === 'painel') carregarPainel();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
     if (nome === 'usuarios') irParaTelaUsuarios_();
+    if (nome === 'lixeira') irParaTelaLixeira_();
     if (nome === 'tep') carregarListaTep_();
     window.scrollTo(0, 0);
   }
@@ -3295,6 +3317,59 @@
       }).join('');
     } catch (erro) {
       corpo.innerHTML = '<tr><td colspan="6" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+    }
+  }
+
+  // ---------- Tela "Lixeira" (veículos excluídos — restaurar) ----------
+  var LIXEIRA_ITENS_ATUAL = [];
+
+  function irParaTelaLixeira_() {
+    if (!USUARIO_E_ADMIN) {
+      document.getElementById('lixeiraSemPermissao').style.display = '';
+      document.getElementById('lixeiraConteudo').style.display = 'none';
+      return;
+    }
+    document.getElementById('lixeiraSemPermissao').style.display = 'none';
+    document.getElementById('lixeiraConteudo').style.display = '';
+    carregarLixeira_();
+  }
+
+  async function carregarLixeira_() {
+    var corpo = document.getElementById('corpoTabelaLixeira');
+    corpo.innerHTML = '<tr><td colspan="8" class="carregando">Carregando...</td></tr>';
+    try {
+      LIXEIRA_ITENS_ATUAL = await chamarServidor_('getVeiculosExcluidos');
+      if (!LIXEIRA_ITENS_ATUAL.length) {
+        corpo.innerHTML = '<tr><td colspan="8" class="carregando">A lixeira está vazia.</td></tr>';
+        return;
+      }
+      corpo.innerHTML = LIXEIRA_ITENS_ATUAL.map(function (v, i) {
+        return '<tr>' +
+          '<td>' + escaparHtml(v.Placa) + '</td>' +
+          '<td class="mono">' + escaparHtml(v.Chassi) + '</td>' +
+          '<td>' + escaparHtml(formatarTermoDoacao_(v.TermoDoacao, v.Ano)) + '</td>' +
+          '<td>' + escaparHtml(v.Donataria) + '</td>' +
+          '<td>' + escaparHtml(v.UF) + '</td>' +
+          '<td>' + escaparHtml(v.ExcluidoPor) + '</td>' +
+          '<td>' + (v.DataExclusao ? new Date(v.DataExclusao).toLocaleDateString('pt-BR') : '-') + '</td>' +
+          '<td><button type="button" class="secundario" onclick="restaurarVeiculoLixeira_(' + i + ')">Restaurar</button></td>' +
+          '</tr>';
+      }).join('');
+    } catch (erro) {
+      corpo.innerHTML = '<tr><td colspan="8" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+    }
+  }
+
+  async function restaurarVeiculoLixeira_(indice) {
+    var v = LIXEIRA_ITENS_ATUAL[indice];
+    if (!v) return;
+    if (!confirm('Restaurar o veículo ' + v.Placa + ' (' + v.Chassi + ')? Ele volta a aparecer normalmente no site.')) return;
+    try {
+      var resp = await chamarServidor_('restaurarVeiculo', v.ID);
+      mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
+      carregarLixeira_();
+    } catch (erro) {
+      mostrarErroGlobal(erro);
     }
   }
 
@@ -3977,12 +4052,10 @@
     document.getElementById('contadorProcessos').textContent = resposta.totalProcessos;
     document.getElementById('contadorVeiculos').textContent = resposta.totalVeiculos;
 
+    // listarProcessos não traz mais os veículos de cada processo (só os
+    // totais) — CACHE_REGISTROS vai sendo preenchido aos poucos, conforme
+    // cada card é expandido (ver garantirVeiculosProcesso_).
     CACHE_REGISTROS = {};
-    processos.forEach(function (p) {
-      p.veiculos.forEach(function (v) {
-        CACHE_REGISTROS[v.ID] = v;
-      });
-    });
 
     var rodape = document.getElementById('rodapePaginacaoProcessos');
     if (resposta.totalProcessos > 0 && resposta.totalPaginas > 1) {
@@ -4043,12 +4116,16 @@
   }
 
   // Verdadeiro só se o processo tiver veículos e todos eles tiverem esse
-  // campo marcado como SIM (usado tanto pro status "Finalizado" quanto pra
-  // decidir se o botão de um campo vira "Desmarcar todos").
+  // campo marcado como SIM — usada pra decidir se o botão de um campo vira
+  // "Desmarcar todos". Só é chamada com o card já expandido (p.veiculos
+  // carregado): os botões que a usam ficam dentro da área expandida.
   function todosComCampoSim_(p, campo) {
     return p.veiculos.length > 0 && p.veiculos.every(function (v) { return v[campo] === 'SIM'; });
   }
 
+  // O selo "Finalizado/Incompleto" aparece no cabeçalho do card mesmo
+  // fechado (sem p.veiculos carregado) — por isso usa os totais que
+  // listarProcessos já manda prontos, em vez de olhar veículo por veículo.
   function obterStatusProcesso_(p) {
     if (faltamVeiculosProcesso_(p) > 0) {
       return { texto: 'Faltam veículos', classe: 'selo-vermelho' };
@@ -4056,14 +4133,28 @@
     // Transferido é o estado final de um veículo (implica ATPVe emitido e
     // enviado) — o processo só é "Finalizado" quando todos os veículos dele
     // chegaram lá; enquanto isso, é sempre "Incompleto".
-    if (todosComCampoSim_(p, 'Transferido')) {
+    if (p.totalVeiculos > 0 && p.totalTransferidos === p.totalVeiculos) {
       return { texto: 'Finalizado', classe: 'selo-sim' };
     }
     return { texto: 'Incompleto', classe: 'selo-nao' };
   }
 
+  // Prefere a chave que o servidor já manda pronta (chaveProcesso_ de lá);
+  // o fallback é só pra respostas antigas/incomuns sem esse campo.
   function chaveProcesso_(p) {
-    return p.numeroProcesso || p.termoDoacao || '';
+    return p.chave || p.numeroProcesso || p.termoDoacao || '';
+  }
+
+  // Busca os veículos de UM processo sob demanda (na primeira vez que o
+  // card é expandido) e guarda em p.veiculos — nas próximas vezes não
+  // busca de novo. listarProcessos só traz os totais; os veículos em si só
+  // vêm quando realmente precisam aparecer na tela, pra não sobrecarregar
+  // o carregamento da tela de Processos com dado que talvez nem seja visto.
+  async function garantirVeiculosProcesso_(indice) {
+    var p = DADOS_PROCESSOS[indice];
+    if (!p || p.veiculos) return;
+    p.veiculos = await chamarServidor_('getVeiculosDoProcesso', chaveProcesso_(p), obterFiltrosAtuais());
+    p.veiculos.forEach(function (v) { CACHE_REGISTROS[v.ID] = v; });
   }
 
   function montarCardProcesso_(p, indice) {
@@ -4087,7 +4178,12 @@
         (USUARIO_PODE_EDITAR ? ' — clique em "Editar processo" para adicionar' : '') + ').</div>'
       : '';
 
-    var linhasVeiculos = p.veiculos.map(function (v) {
+    // p.veiculos só existe depois que o card é expandido pelo menos uma vez
+    // (busca sob demanda — ver garantirVeiculosProcesso_). Enquanto isso
+    // (ou enquanto a busca ainda está em andamento), mostra "Carregando..."
+    // em vez da tabela.
+    var veiculosCarregados = !!p.veiculos;
+    var linhasVeiculos = veiculosCarregados ? p.veiculos.map(function (v) {
       return '<tr>' +
         '<td>' + destacarBusca_(v.Marca, 'marca') + ' — ' + destacarBusca_(v.Descricao, 'descricao') + '</td>' +
         '<td>' + destacarBusca_(v.Chassi, 'chassi') + '</td>' +
@@ -4099,7 +4195,7 @@
         '<td>' + montarBotaoToggle_(v, 'Transferido', '') + '</td>' +
         (USUARIO_PODE_EDITAR ? '<td><button class="secundario" onclick="event.stopPropagation(); abrirModalEditarProcesso_(' + indice + ')">Editar</button></td>' : '') +
         '</tr>';
-    }).join('');
+    }).join('') : '';
 
     return '<div class="processo-card' + (faltam > 0 ? ' processo-incompleto' : '') + '">' +
       '<div class="processo-cabecalho" onclick="alternarProcesso_(' + indice + ')">' +
@@ -4121,22 +4217,24 @@
         '<span class="selo ' + status.classe + '">' + status.texto + '</span>' +
       '</div>' +
       '<div class="processo-veiculos" style="' + (expandido ? '' : 'display:none;') + '">' +
-        avisoFaltantesHtml +
-        enderecoHtml +
-        '<div class="tabela-wrap"><table><thead><tr>' +
-          '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>Valor</th><th>ATPVe Emitido</th><th>ATPVe Enviado</th><th>Transferido</th>' +
-          (USUARIO_PODE_EDITAR ? '<th>Ações</th>' : '') +
-        '</tr></thead><tbody>' + linhasVeiculos + '</tbody>' +
-        (USUARIO_PODE_EDITAR
-          ? '<tfoot><tr>' +
-            '<td colspan="5"></td>' +
-            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">' + (todosComCampoSim_(p, 'ATPVeEmitido') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
-            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">' + (todosComCampoSim_(p, 'ATPVeEnviado') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
-            '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'Transferido\')">' + (todosComCampoSim_(p, 'Transferido') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
-            '<td></td>' +
-            '</tr></tfoot>'
-          : '') +
-        '</table></div>' +
+        (veiculosCarregados ? (
+          avisoFaltantesHtml +
+          enderecoHtml +
+          '<div class="tabela-wrap"><table><thead><tr>' +
+            '<th>Veículo</th><th>Chassi</th><th>Placa</th><th>Renavam</th><th>Valor</th><th>ATPVe Emitido</th><th>ATPVe Enviado</th><th>Transferido</th>' +
+            (USUARIO_PODE_EDITAR ? '<th>Ações</th>' : '') +
+          '</tr></thead><tbody>' + linhasVeiculos + '</tbody>' +
+          (USUARIO_PODE_EDITAR
+            ? '<tfoot><tr>' +
+              '<td colspan="5"></td>' +
+              '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEmitido\')">' + (todosComCampoSim_(p, 'ATPVeEmitido') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
+              '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'ATPVeEnviado\')">' + (todosComCampoSim_(p, 'ATPVeEnviado') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
+              '<td><button type="button" class="secundario" onclick="marcarTodosAtpve_(' + indice + ', \'Transferido\')">' + (todosComCampoSim_(p, 'Transferido') ? 'Desmarcar todos' : 'Marcar todos') + '</button></td>' +
+              '<td></td>' +
+              '</tr></tfoot>'
+            : '') +
+          '</table></div>'
+        ) : (expandido ? '<div class="carregando">Carregando veículos...</div>' : '')) +
       '</div>' +
     '</div>';
   }
@@ -4155,12 +4253,17 @@
       texto + '</button>';
   }
 
-  function alternarProcesso_(indice) {
+  async function alternarProcesso_(indice) {
     var p = DADOS_PROCESSOS[indice];
     if (!p) return;
     var chave = chaveProcesso_(p);
-    TERMOS_EXPANDIDOS[chave] = !TERMOS_EXPANDIDOS[chave];
-    renderizarCardsProcessos_();
+    var vaiExpandir = !TERMOS_EXPANDIDOS[chave];
+    TERMOS_EXPANDIDOS[chave] = vaiExpandir;
+    renderizarCardsProcessos_(); // já abre/fecha na hora; se faltar buscar os veículos, mostra "Carregando..."
+    if (vaiExpandir && !p.veiculos) {
+      await garantirVeiculosProcesso_(indice);
+      renderizarCardsProcessos_(); // re-renderiza agora com os veículos já carregados
+    }
   }
 
   function alternarStatusAtpve_(id, campo, valorAtual) {
@@ -4177,6 +4280,11 @@
         }
         var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : (campo === 'ATPVeEnviado' ? 'totalEnviados' : (campo === 'Transferido' ? 'totalTransferidos' : null));
         DADOS_PROCESSOS.forEach(function (p) {
+          // Processo ainda fechado (nunca expandido) não tem p.veiculos
+          // carregado — o clique que disparou isso só pode ter vindo de um
+          // botão dentro da área expandida, então o processo dono do
+          // veículo sempre tem p.veiculos; os outros só são pulados aqui.
+          if (!p.veiculos) return;
           for (var i = 0; i < p.veiculos.length; i++) {
             if (p.veiculos[i].ID === id) {
               if (totalCampo && p.veiculos[i][campo] !== novoValor) {
@@ -4237,7 +4345,11 @@
       return;
     }
     var titulo = p.numeroProcesso ? ('o processo nº ' + p.numeroProcesso) : ('o processo "' + (formatarTermoDoacao_(p.termoDoacao, p.ano) || '(sem identificação)') + '"');
-    if (!confirm('Excluir definitivamente ' + titulo + ' e TODOS os ' + p.totalVeiculos + ' veículo(s) cadastrados nele? Esta ação não pode ser desfeita.')) return;
+    if (!confirm('Excluir ' + titulo + ' e TODOS os ' + p.totalVeiculos + ' veículo(s) cadastrados nele? Eles vão para a lixeira — um administrador pode restaurar depois em "Lixeira", se precisar.')) return;
+
+    // Botão "Excluir processo" fica no cabeçalho do card — dá pra clicar
+    // sem nunca ter expandido, então p.veiculos pode ainda não existir.
+    await garantirVeiculosProcesso_(indiceProcesso);
 
     var erros = [];
     for (var i = 0; i < p.veiculos.length; i++) {
@@ -4356,9 +4468,12 @@
       });
   }
 
-  function abrirModalEditarProcesso_(indiceProcesso) {
+  async function abrirModalEditarProcesso_(indiceProcesso) {
     var p = DADOS_PROCESSOS[indiceProcesso];
     if (!p) return;
+    // "Editar processo" também fica no cabeçalho do card (além de dentro de
+    // cada linha) — pode ser clicado com o card ainda fechado.
+    await garantirVeiculosProcesso_(indiceProcesso);
     PROCESSO_EM_EDICAO = p;
 
     document.getElementById('peNumeroProcessoTitulo').textContent = p.numeroProcesso ? ('nº ' + p.numeroProcesso) : '';
@@ -4474,7 +4589,7 @@
   function excluirVeiculoDaEdicao_(indice) {
     var v = VEICULOS_PROCESSO_EDICAO[indice];
     if (!v || !v.ID) return;
-    if (!confirm('Excluir definitivamente o veículo ' + v.ID + ' (' + v.Marca + ' — ' + v.Chassi + ')? Esta ação não pode ser desfeita.')) return;
+    if (!confirm('Excluir o veículo ' + v.ID + ' (' + v.Marca + ' — ' + v.Chassi + ')? Ele vai para a lixeira — um administrador pode restaurar depois em "Lixeira", se precisar.')) return;
 
     google.script.run
       .withSuccessHandler(function () {

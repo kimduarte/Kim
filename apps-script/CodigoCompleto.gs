@@ -54,7 +54,14 @@ var CABECALHO_VEICULOS = [
   // Data da primeira vez que ATPVeEmitido virou SIM (toggle direto ou
   // cascata ao marcar Transferido) — usada só pelo relatório de
   // produtividade, pra contar emissões de ATPVe dentro de um período.
-  'DataEmissaoATPVe'
+  'DataEmissaoATPVe',
+  // Exclusão lógica (soft delete): excluirVeiculo() nunca mais apaga a
+  // linha de verdade — só marca Excluido='SIM' e some das telas normais
+  // (listarVeiculos filtra por padrão). Assim um administrador pode
+  // restaurar em "Lixeira" se alguém excluir por engano, e o histórico
+  // completo do veículo (quem cadastrou, quando foi transferido etc.)
+  // não se perde.
+  'Excluido', 'ExcluidoPor', 'DataExclusao'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -345,6 +352,14 @@ function normalizarPlaca_(valor) {
 
 function normalizarChassi_(valor) {
   return normalizarTexto_(valor).toUpperCase().replace(/\s/g, '');
+}
+
+// CNPJ/CPF: guarda só os dígitos (sem ponto, barra, hífen) — assim
+// "12.345.678/0001-99" e "12345678000199" digitados por pessoas diferentes
+// viram o mesmo valor gravado, e buscar ou comparar depois não falha por
+// causa da formatação usada na hora de digitar.
+function normalizarCnpjCpf_(valor) {
+  return String(valor || '').replace(/\D/g, '');
 }
 
 function normalizarUF_(valor) {
@@ -889,6 +904,10 @@ function listarVeiculos(filtros) {
 
     var registro = linhaParaObjeto_(cabecalho, linha);
 
+    // Excluído (lixeira) some das telas normais por padrão — só aparece
+    // pra quem pede explicitamente (tela Lixeira, via filtros.incluirExcluidos).
+    if (registro.Excluido === 'SIM' && !filtros.incluirExcluidos) continue;
+
     if (filtros.uf && registro.UF !== filtros.uf) continue;
     if (filtros.ente && registro.Ente !== filtros.ente) continue;
     if (filtros.marca && registro.Marca !== filtros.marca) continue;
@@ -973,6 +992,13 @@ function paraDtoListagem_(r) {
  * Agrupa os veículos filtrados por Termo de Doação ("Processo"), com
  * contagem de quantos já tiveram o ATPVe emitido/enviado. É o que a tela
  * de Listagem exibe — processos, não veículos soltos.
+ *
+ * Não traz a lista de veículos de cada processo (só os totais) — a tela
+ * busca isso à parte, um processo de cada vez, só quando a pessoa expande
+ * o card (ver getVeiculosDoProcesso). Antes essa função montava a lista
+ * completa de veículos de TODOS os processos da página de uma vez, mesmo
+ * dos cards ainda fechados — trabalho e tráfego desperdiçados numa tela
+ * com muitos processos.
  */
 function listarProcessos(filtros) {
   var todos = listarVeiculos(filtros);
@@ -993,6 +1019,7 @@ function listarProcessos(filtros) {
     var chave = chaveProcesso_(v);
     if (!grupos[chave]) {
       grupos[chave] = {
+        chave: chave,
         numeroProcesso: v.NumeroProcesso || '',
         termoDoacao: v.TermoDoacao,
         numeroSei: v.NumeroSei || '',
@@ -1017,8 +1044,7 @@ function listarProcessos(filtros) {
         totalEmitidos: 0,
         totalEnviados: 0,
         totalTransferidos: 0,
-        totalValor: 0,
-        veiculos: []
+        totalValor: 0
       };
       ordem.push(chave);
       maiorIdPorChave[chave] = '';
@@ -1031,7 +1057,6 @@ function listarProcessos(filtros) {
     grupo.totalValor += Number(v.ValorVeiculo) || 0;
     var idAtual = String(v.ID || '');
     if (idAtual > maiorIdPorChave[chave]) maiorIdPorChave[chave] = idAtual;
-    grupo.veiculos.push(paraDtoListagem_(v));
   });
 
   ordem.sort(function (a, b) {
@@ -1061,6 +1086,22 @@ function listarProcessos(filtros) {
     totalPaginas: totalPaginas,
     processos: processos.slice(inicio, inicio + LIMITE_LISTAGEM_PADRAO)
   };
+}
+
+/**
+ * Veículos de UM processo só — chamada pela tela de Listagem no momento em
+ * que a pessoa expande aquele card (não mais junto com listarProcessos).
+ * "chave" é o campo "chave" que cada processo já traz (ver chaveProcesso_).
+ * Os mesmos filtros (ano, transferido, busca etc.) usados em listarProcessos
+ * devem ser passados de novo aqui, senão um processo que só aparece com um
+ * filtro aplicado devolveria a lista errada (ou vazia) ao expandir.
+ */
+function getVeiculosDoProcesso(chave, filtros) {
+  if (!chave) throw new Error('Processo inválido.');
+  var todos = listarVeiculos(filtros || {});
+  return todos
+    .filter(function (v) { return chaveProcesso_(v) === chave; })
+    .map(paraDtoListagem_);
 }
 
 /**
@@ -1792,7 +1833,7 @@ function validarESanitizarVeiculo_(dados) {
     Placa: placa,
     Transferido: transferido,
     Observacoes: normalizarTexto_(dados.Observacoes),
-    CNPJDonataria: normalizarTexto_(dados.CNPJDonataria),
+    CNPJDonataria: normalizarCnpjCpf_(dados.CNPJDonataria),
     CEP: cep,
     Logradouro: normalizarTexto_(dados.Logradouro),
     Numero: normalizarTexto_(dados.Numero),
@@ -1888,16 +1929,73 @@ function atualizarVeiculo_(sheet, perfil, id, registro) {
   return { ID: id, mensagem: 'Veículo atualizado com sucesso.' };
 }
 
+// Exclusão lógica: a linha nunca é apagada de verdade, só marcada como
+// excluída e filtrada das telas normais (ver listarVeiculos). O log grava
+// o registro inteiro (igual ATUALIZAR) — sem isso, restaurar não bastaria,
+// porque não haveria como saber o que tinha na linha antes de virar
+// "excluído" (o log antigo só guardava "EXCLUIR" + o ID, sem os dados).
 function excluirVeiculo(id) {
+  var perfil = exigirPerfilAdmin_();
+  garantirColunasVeiculos_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var linhaIdx = encontrarLinhaPorId_(sheet, id);
+  if (!linhaIdx) throw new Error('Veículo não encontrado: ' + id);
+
+  var cabecalho = sheet.getRange(1, 1, 1, CABECALHO_VEICULOS.length).getValues()[0];
+  var linhaAtual = sheet.getRange(linhaIdx, 1, 1, CABECALHO_VEICULOS.length).getValues()[0];
+  var registroAntes = linhaParaObjeto_(cabecalho, linhaAtual);
+  if (registroAntes.Excluido === 'SIM') {
+    return { mensagem: 'Esse veículo já estava na lixeira.' };
+  }
+
+  var agora = new Date();
+  sheet.getRange(linhaIdx, colunaParaIndice_('Excluido') + 1).setValue('SIM');
+  sheet.getRange(linhaIdx, colunaParaIndice_('ExcluidoPor') + 1).setValue(perfil.email);
+  sheet.getRange(linhaIdx, colunaParaIndice_('DataExclusao') + 1).setValue(agora);
+
+  registrarLog_('EXCLUIR', id, JSON.stringify(registroAntes));
+  invalidarCacheDashboard_();
+  return { mensagem: 'Veículo movido para a lixeira — um administrador pode restaurar em "Lixeira".' };
+}
+
+// Tira o veículo da lixeira — some da tela Lixeira e volta a aparecer
+// normalmente em todo o resto do site.
+function restaurarVeiculo(id) {
   exigirPerfilAdmin_();
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
   var linhaIdx = encontrarLinhaPorId_(sheet, id);
   if (!linhaIdx) throw new Error('Veículo não encontrado: ' + id);
 
-  sheet.deleteRow(linhaIdx);
-  registrarLog_('EXCLUIR', id, '');
+  sheet.getRange(linhaIdx, colunaParaIndice_('Excluido') + 1).setValue('NÃO');
+  sheet.getRange(linhaIdx, colunaParaIndice_('ExcluidoPor') + 1).setValue('');
+  sheet.getRange(linhaIdx, colunaParaIndice_('DataExclusao') + 1).setValue('');
+
+  registrarLog_('RESTAURAR', id, '');
   invalidarCacheDashboard_();
-  return { mensagem: 'Veículo excluído.' };
+  return { mensagem: 'Veículo restaurado com sucesso.' };
+}
+
+// Lista da tela "Lixeira" — só os veículos excluídos, mais recentes
+// primeiro. Só administradores (mesma exigência de quem pode excluir).
+function getVeiculosExcluidos() {
+  exigirPerfilAdmin_();
+  var registros = listarVeiculos({ incluirExcluidos: true });
+  return registros
+    .filter(function (r) { return r.Excluido === 'SIM'; })
+    .map(function (r) {
+      return {
+        ID: r.ID,
+        Placa: r.Placa,
+        Chassi: r.Chassi,
+        TermoDoacao: r.TermoDoacao,
+        Ano: r.Ano,
+        Donataria: r.Donataria,
+        UF: r.UF,
+        ExcluidoPor: r.ExcluidoPor,
+        DataExclusao: r.DataExclusao ? new Date(r.DataExclusao).getTime() : 0
+      };
+    })
+    .sort(function (a, b) { return b.DataExclusao - a.DataExclusao; });
 }
 
 function encontrarLinhaPorId_(sheet, id) {
@@ -3291,13 +3389,13 @@ function pvMontarRegistro_(dados, autor, existente) {
     // Sem ano de modelo informado à parte, assume igual ao de fabricação
     // (a imensa maioria dos veículos não tem essa distinção relevante).
     AnoModelo: Number(dados.anoModelo) || Number(dados.anoFabricacao) || dados.anoFabricacao,
-    CNPJProprietario: normalizarTexto_(dados.cnpjProprietario),
+    CNPJProprietario: normalizarCnpjCpf_(dados.cnpjProprietario),
     SituacaoDetran: normalizarTexto_(dados.situacaoDetran),
     SituacaoTransferencia: dados.situacaoTransferencia || PV_SITUACOES_TRANSFERENCIA[0],
     UF: normalizarUF_(dados.uf),
     Municipio: normalizarTexto_(dados.municipio),
     Instituicao: normalizarTexto_(dados.instituicao),
-    CNPJInstituicao: normalizarTexto_(dados.cnpjInstituicao),
+    CNPJInstituicao: normalizarCnpjCpf_(dados.cnpjInstituicao),
     DataDoacao: normalizarTexto_(dados.dataDoacao),
     NumeroTermoDoacao: normalizarTexto_(dados.numeroTermoDoacao),
     Observacoes: normalizarTexto_(dados.observacoes),
