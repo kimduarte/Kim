@@ -1063,10 +1063,10 @@
       </div>
 
       <div class="kpis" id="inicioKpis">
-        <div class="kpi roxo"><div class="rotulo">TOTAL DE VEÍCULOS</div><div class="valor" id="inicioKpiTotal">–</div></div>
-        <div class="kpi verde"><div class="rotulo">TRANSFERIDOS</div><div class="valor" id="inicioKpiTransferidos">–</div></div>
-        <div class="kpi amarelo"><div class="rotulo">PENDENTES</div><div class="valor" id="inicioKpiPendentes">–</div></div>
-        <div class="kpi azul"><div class="rotulo">% CONCLUÍDO</div><div class="valor" id="inicioKpiPercentual">–</div></div>
+        <div class="kpi roxo"><div class="rotulo">🚗 TOTAL DE VEÍCULOS</div><div class="valor" id="inicioKpiTotal">–</div></div>
+        <div class="kpi verde"><div class="rotulo">✅ TRANSFERIDOS</div><div class="valor" id="inicioKpiTransferidos">–</div></div>
+        <div class="kpi amarelo"><div class="rotulo">⏳ PENDENTES</div><div class="valor" id="inicioKpiPendentes">–</div></div>
+        <div class="kpi azul"><div class="rotulo">📊 % CONCLUÍDO</div><div class="valor" id="inicioKpiPercentual">–</div></div>
       </div>
 
       <div class="card">
@@ -1498,10 +1498,10 @@
       </div>
 
       <div class="kpis" id="kpis">
-        <div class="kpi roxo"><div class="rotulo">TOTAL DE VEÍCULOS</div><div class="valor" id="kpiTotal">–</div></div>
-        <div class="kpi verde clicavel" onclick="irParaListagemComFiltro('transferido', 'SIM')"><div class="rotulo">TRANSFERIDOS</div><div class="valor" id="kpiTransferidos">–</div></div>
-        <div class="kpi amarelo clicavel" onclick="irParaListagemComFiltro('transferido', 'NÃO')"><div class="rotulo">PENDENTES</div><div class="valor" id="kpiPendentes">–</div></div>
-        <div class="kpi azul"><div class="rotulo">% CONCLUÍDO</div><div class="valor" id="kpiPercentual">–</div></div>
+        <div class="kpi roxo"><div class="rotulo">🚗 TOTAL DE VEÍCULOS</div><div class="valor" id="kpiTotal">–</div></div>
+        <div class="kpi verde clicavel" onclick="irParaListagemComFiltro('transferido', 'SIM')"><div class="rotulo">✅ TRANSFERIDOS</div><div class="valor" id="kpiTransferidos">–</div></div>
+        <div class="kpi amarelo clicavel" onclick="irParaListagemComFiltro('transferido', 'NÃO')"><div class="rotulo">⏳ PENDENTES</div><div class="valor" id="kpiPendentes">–</div></div>
+        <div class="kpi azul"><div class="rotulo">📊 % CONCLUÍDO</div><div class="valor" id="kpiPercentual">–</div></div>
       </div>
 
       <p class="dica-painel">Clique em qualquer card abaixo para ver a lista de veículos correspondente.</p>
@@ -3058,6 +3058,7 @@
     }
     container.innerHTML = processos.map(function (p, i) {
       var status = obterStatusProcesso_(p);
+      var pct = p.totalVeiculos ? Math.round((p.totalTransferidos / p.totalVeiculos) * 100) : 0;
       return '<div class="processo-card">' +
         '<div class="processo-cabecalho" style="cursor:pointer;" onclick="abrirProcessoDaInicio_(' + i + ')">' +
           '<div class="processo-info">' +
@@ -3065,6 +3066,7 @@
               ? 'Processo nº ' + escaparHtml(p.numeroProcesso)
               : escaparHtml(formatarTermoDoacao_(p.termoDoacao, p.ano) || '(sem identificação)')) + '</div>' +
             '<div class="processo-sub">' + escaparHtml(p.donataria) + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + ' • ' + p.totalVeiculos + ' veículo(s)</div>' +
+            '<div class="barra-progresso" style="margin-top:8px; max-width:220px;"><div class="barra-progresso-fill" style="width:' + pct + '%"></div></div>' +
           '</div>' +
           '<span class="selo ' + status.classe + '">' + status.texto + '</span>' +
         '</div>' +
