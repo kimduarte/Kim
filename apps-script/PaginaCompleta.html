@@ -592,6 +592,17 @@
         <div id="mensagemGlobalPv"></div>
 
         <section id="tela-pv-inicio" class="tela-pv ativa">
+          <div class="welcome-banner">
+            <div class="welcome-text">
+              <h2 id="pvSaudacao">Bem-vindo</h2>
+              <span class="welcome-date" id="pvData">Resumo de hoje</span>
+            </div>
+            <div class="welcome-actions">
+              <button type="button" class="action-btn success" onclick="irParaTelaPv_('pv-cadastro')">🚗 Novo Veículo</button>
+              <button type="button" class="action-btn info" onclick="irParaTelaPv_('pv-listagem')">☰ Veículos</button>
+              <button type="button" class="action-btn warning" onclick="irParaTelaPv_('pv-infracoes')">⚠️ Infrações</button>
+            </div>
+          </div>
           <div class="pagina-titulo">
             <div>
               <h2>Painel Geral</h2>
@@ -614,10 +625,10 @@
             </div>
           </div>
           <div class="kpis" id="pvKpis">
-            <div class="kpi azul"><div class="rotulo">TOTAL DE VEÍCULOS</div><div class="valor" id="pvKpiTotal">–</div></div>
-            <div class="kpi amarelo"><div class="rotulo">PENDENTE</div><div class="valor" id="pvKpiPendente">–</div></div>
-            <div class="kpi roxo"><div class="rotulo">EM ANDAMENTO</div><div class="valor" id="pvKpiAndamento">–</div></div>
-            <div class="kpi verde"><div class="rotulo">CONCLUÍDA</div><div class="valor" id="pvKpiConcluida">–</div></div>
+            <div class="kpi azul"><div class="rotulo">🚗 TOTAL DE VEÍCULOS</div><div class="valor" id="pvKpiTotal">–</div></div>
+            <div class="kpi amarelo"><div class="rotulo">⏳ PENDENTE</div><div class="valor" id="pvKpiPendente">–</div></div>
+            <div class="kpi roxo"><div class="rotulo">🔄 EM ANDAMENTO</div><div class="valor" id="pvKpiAndamento">–</div></div>
+            <div class="kpi verde"><div class="rotulo">✅ CONCLUÍDA</div><div class="valor" id="pvKpiConcluida">–</div></div>
           </div>
           <div class="card">
             <h2>Veículos por UF</h2>
@@ -791,11 +802,11 @@
           </div>
 
           <div class="kpis" id="pviKpis">
-            <div class="kpi amarelo"><div class="rotulo">PENDENTE</div><div class="valor" id="pviKpiPendente">–</div></div>
-            <div class="kpi roxo"><div class="rotulo">ENVIADO</div><div class="valor" id="pviKpiEnviado">–</div></div>
-            <div class="kpi azul"><div class="rotulo">RECEBIDO</div><div class="valor" id="pviKpiRecebido">–</div></div>
-            <div class="kpi verde"><div class="rotulo">CANCELADA</div><div class="valor" id="pviKpiCancelada">–</div></div>
-            <div class="kpi vermelho"><div class="rotulo">NEGADA</div><div class="valor" id="pviKpiNegada">–</div></div>
+            <div class="kpi amarelo"><div class="rotulo">⏳ PENDENTE</div><div class="valor" id="pviKpiPendente">–</div></div>
+            <div class="kpi roxo"><div class="rotulo">📨 ENVIADO</div><div class="valor" id="pviKpiEnviado">–</div></div>
+            <div class="kpi azul"><div class="rotulo">📬 RECEBIDO</div><div class="valor" id="pviKpiRecebido">–</div></div>
+            <div class="kpi verde"><div class="rotulo">✅ CANCELADA</div><div class="valor" id="pviKpiCancelada">–</div></div>
+            <div class="kpi vermelho"><div class="rotulo">⛔ NEGADA</div><div class="valor" id="pviKpiNegada">–</div></div>
           </div>
 
           <div class="card">
@@ -2120,10 +2131,14 @@
   function pvInicializar_() {
     if (PV_INICIALIZADO) return;
     PV_INICIALIZADO = true;
-    document.getElementById('pvInfoUsuarioNome').textContent = (CONTEXTO && CONTEXTO.usuario) ? (CONTEXTO.usuario.nome || CONTEXTO.usuario.email) : '';
+    var nomeUsuarioPv = (CONTEXTO && CONTEXTO.usuario) ? (CONTEXTO.usuario.nome || CONTEXTO.usuario.email) : '';
+    document.getElementById('pvInfoUsuarioNome').textContent = nomeUsuarioPv;
     var rotulosPerfil = { admin: 'Administrador', usuario: 'Usuário', visitante: 'Visitante', sem_acesso: 'Sem acesso' };
     document.getElementById('pvInfoUsuarioPerfil').textContent =
       (CONTEXTO && CONTEXTO.usuario) ? 'Perfil: ' + (rotulosPerfil[CONTEXTO.usuario.perfil] || CONTEXTO.usuario.perfil) : '';
+    document.getElementById('pvSaudacao').textContent = 'Bem-vindo, ' + nomeUsuarioPv;
+    var dataPvExtenso = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    document.getElementById('pvData').textContent = dataPvExtenso.charAt(0).toUpperCase() + dataPvExtenso.slice(1);
     document.getElementById('navPvCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
     pvConfigurarFormularios_();
     pvConfigurarModalInfracao_();
@@ -2181,8 +2196,8 @@
 
   // ---------- Painel Geral ----------
   function carregarPainelPv_() {
-    document.getElementById('pvRankUF').innerHTML = '<div class="carregando">Carregando...</div>';
-    document.getElementById('pvRankInstituicao').innerHTML = '<div class="carregando">Carregando...</div>';
+    mostrarSkeleton_('pvRankUF', 4);
+    mostrarSkeleton_('pvRankInstituicao', 4);
     var filtro = { uf: document.getElementById('pvPainelUF').value, instituicao: document.getElementById('pvPainelInstituicao').value };
     chamarServidor_('getPainelPassivo', filtro).then(function (painel) {
       document.getElementById('pvKpiTotal').textContent = painel.total;
@@ -2322,11 +2337,14 @@
         situacaoTransferencia: document.getElementById('pv_SituacaoTransferencia').value,
         observacoes: document.getElementById('pv_Observacoes').value
       });
+      mostrarLoader_('Cadastrando veículo, aguarde...');
       chamarServidor_('cadastrarVeiculoPassivo', dados).then(function () {
+        esconderLoader_();
         mostrarMensagem('mensagemPvCadastro', 'sucesso', 'Veículo cadastrado com sucesso.');
         pvLimparFormularioCadastro_();
         pvInvalidarCachePainel_();
       }).catch(function (erro) {
+        esconderLoader_();
         mostrarMensagem('mensagemPvCadastro', 'erro', erro.message || String(erro));
       });
     } else {
@@ -2349,11 +2367,14 @@
           situacaoTransferencia: linha.querySelector('.pv_l_SituacaoTransferencia').value
         };
       });
+      mostrarLoader_('Cadastrando ' + veiculos.length + ' veículo(s), aguarde...');
       chamarServidor_('cadastrarVeiculosPassivoLote', comuns, veiculos).then(function (resp) {
+        esconderLoader_();
         mostrarMensagem('mensagemPvCadastro', 'sucesso', resp.quantidade + ' veículo(s) cadastrado(s) com sucesso.');
         pvLimparFormularioCadastro_();
         pvInvalidarCachePainel_();
       }).catch(function (erro) {
+        esconderLoader_();
         mostrarMensagem('mensagemPvCadastro', 'erro', erro.message || String(erro));
       });
     }
