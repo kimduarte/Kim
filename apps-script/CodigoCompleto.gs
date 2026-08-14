@@ -940,6 +940,32 @@ function listarVeiculos(filtros) {
 }
 
 /**
+ * Veículos ainda não transferidos, só com os campos que a tela
+ * "Conferência SINESP" usa — usada pra gerar os lotes de chassi/placa que
+ * são colados na busca do SINESP na conferência semanal. Devolve todos os
+ * pendentes de uma vez (não paginado como listarVeiculosParaExibicao),
+ * mas com um DTO bem enxuto pra não pesar o payload mesmo com centenas de
+ * registros. Ordenado por UF/Donatária/Placa pra os lotes de 10 saírem
+ * agrupados por quem recebeu os veículos, em vez de embaralhados.
+ */
+function listarPendentesSinesp(filtros) {
+  filtros = filtros || {};
+  var pendentes = listarVeiculos({
+    uf: filtros.uf || '',
+    ente: filtros.ente || '',
+    transferido: 'NÃO'
+  });
+  pendentes.sort(function (a, b) {
+    var chaveA = (a.UF || '') + '|' + (a.Donataria || '') + '|' + (a.Placa || '');
+    var chaveB = (b.UF || '') + '|' + (b.Donataria || '') + '|' + (b.Placa || '');
+    return chaveA < chaveB ? -1 : chaveA > chaveB ? 1 : 0;
+  });
+  return pendentes.map(function (r) {
+    return { chassi: r.Chassi, placa: r.Placa, uf: r.UF, donataria: r.Donataria };
+  });
+}
+
+/**
  * Versão usada pela tela de Listagem: devolve no máximo
  * LIMITE_LISTAGEM_PADRAO registros (os mais recentes) para não travar o
  * navegador com milhares de linhas de uma vez. Use os filtros/busca para
