@@ -2967,7 +2967,7 @@
       itens.length + ' veículo(s) pendente(s) de transferência — ' + lotes.length + ' lote(s) de até ' + TAMANHO_LOTE_SINESP + '.</p></div>';
 
     html += lotes.map(function (lote, indiceLote) {
-      var textoLote = lote.map(function (item) { return item[campo] || ''; }).filter(Boolean).join('\n');
+      var textoLote = lote.map(function (item) { return item[campo] || ''; }).filter(Boolean).join(' ');
       var linhasDetalhe = lote.map(function (item, i) {
         return '<div>' + (indiceLote * TAMANHO_LOTE_SINESP + i + 1) + '. ' +
           '<strong>' + escaparHtml(item[campo] || '—') + '</strong> — ' +
@@ -2978,8 +2978,8 @@
         '<h2 style="margin:0; font-size:16px;">Lote ' + (indiceLote + 1) + ' de ' + lotes.length + ' (' + lote.length + ')</h2>' +
         '<button type="button" class="secundario" onclick="copiarLoteSinesp_(' + indiceLote + ')">Copiar lote</button>' +
         '</div>' +
-        '<textarea id="sinespLote_' + indiceLote + '" readonly rows="' + lote.length +
-        '" style="width:100%; font-family:monospace; font-size:13px; padding:10px; border:1px solid var(--borda); border-radius:6px; resize:vertical; box-sizing:border-box;">' +
+        '<textarea id="sinespLote_' + indiceLote + '" readonly rows="3"' +
+        ' style="width:100%; font-family:monospace; font-size:13px; padding:10px; border:1px solid var(--borda); border-radius:6px; resize:vertical; box-sizing:border-box;">' +
         escaparHtml(textoLote) + '</textarea>' +
         '<div style="margin-top:8px; font-size:12px; color:var(--texto-suave);">' + linhasDetalhe + '</div>' +
         '</div>';
