@@ -1447,6 +1447,7 @@ function getProcessosPendentesTep_() {
     if (!grupos[chave]) {
       grupos[chave] = {
         chave: chave, processo: r.NumeroProcesso, termoDoacao: r.TermoDoacao,
+        numeroSei: r.NumeroSei,
         donataria: r.Donataria, uf: r.UF, ente: r.Ente, ano: r.Ano, mes: r.Mes,
         qtdTotal: 0, qtdTransferidos: 0, dataConclusao: null
       };
@@ -1504,6 +1505,7 @@ function listarTepPendentes(apenasNovos) {
       chave: p.chave,
       processo: p.processo,
       termoDoacao: p.termoDoacao,
+      numeroSei: p.numeroSei,
       donataria: p.donataria,
       uf: p.uf,
       ano: p.ano,
