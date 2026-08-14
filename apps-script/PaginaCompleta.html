@@ -2934,6 +2934,7 @@
 
   // ---------- Conferência SINESP (lotes de chassi/placa pra copiar) ----------
   var TAMANHO_LOTE_SINESP = 10;
+  var SINESP_ITENS_ATUAL = [];
 
   async function gerarLotesSinesp_() {
     var container = document.getElementById('sinespResultado');
@@ -2952,6 +2953,7 @@
   }
 
   function renderizarLotesSinesp_(itens) {
+    SINESP_ITENS_ATUAL = itens;
     var container = document.getElementById('sinespResultado');
     if (!itens.length) {
       container.innerHTML = '<div class="card"><p>Nenhum veículo pendente de transferência encontrado com esse filtro.</p></div>';
@@ -2964,14 +2966,19 @@
     }
 
     var html = '<div class="card"><p style="margin:0; font-weight:700;">' +
-      itens.length + ' veículo(s) pendente(s) de transferência — ' + lotes.length + ' lote(s) de até ' + TAMANHO_LOTE_SINESP + '.</p></div>';
+      itens.length + ' veículo(s) pendente(s) de transferência — ' + lotes.length + ' lote(s) de até ' + TAMANHO_LOTE_SINESP +
+      '.</p><p style="margin:6px 0 0; font-size:12px; color:var(--texto-suave);">Depois de conferir no SINESP, clique em "Marcar transferido" no item confirmado — ele já sai da lista de pendentes do sistema.</p></div>';
 
     html += lotes.map(function (lote, indiceLote) {
       var textoLote = lote.map(function (item) { return item[campo] || ''; }).filter(Boolean).join(' ');
       var linhasDetalhe = lote.map(function (item, i) {
-        return '<div>' + (indiceLote * TAMANHO_LOTE_SINESP + i + 1) + '. ' +
-          '<strong>' + escaparHtml(item[campo] || '—') + '</strong> — ' +
-          escaparHtml(item.donataria || '') + ' • ' + escaparHtml(item.uf || '') + '</div>';
+        var indiceGlobal = indiceLote * TAMANHO_LOTE_SINESP + i;
+        var botao = USUARIO_PODE_EDITAR
+          ? '<button type="button" class="secundario" id="sinespBotao_' + indiceGlobal + '" style="padding:2px 10px; font-size:11px;" onclick="marcarTransferidoSinesp_(' + indiceGlobal + ')">Marcar transferido</button>'
+          : '';
+        return '<div id="sinespItem_' + indiceGlobal + '" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:4px 0;">' +
+          '<span>' + (indiceGlobal + 1) + '. <strong>' + escaparHtml(item[campo] || '—') + '</strong> — ' +
+          escaparHtml(item.donataria || '') + ' • ' + escaparHtml(item.uf || '') + '</span>' + botao + '</div>';
       }).join('');
       return '<div class="card" style="margin-top:14px;">' +
         '<div class="pagina-titulo" style="margin-bottom:8px;">' +
@@ -2986,6 +2993,28 @@
     }).join('');
 
     container.innerHTML = html;
+  }
+
+  async function marcarTransferidoSinesp_(indice) {
+    var item = SINESP_ITENS_ATUAL[indice];
+    if (!item) return;
+    if (!confirm('Confirma que o SINESP mostrou "' + (item.placa || item.chassi) + '" como transferido?\n\nIsso vai marcar o veículo como Transferido no sistema.')) return;
+
+    var linha = document.getElementById('sinespItem_' + indice);
+    var botao = document.getElementById('sinespBotao_' + indice);
+    botao.disabled = true;
+    botao.textContent = 'Marcando...';
+    try {
+      await chamarServidor_('atualizarStatusVeiculo', item.id, 'Transferido', 'SIM');
+      linha.style.opacity = '0.5';
+      linha.querySelector('strong').style.textDecoration = 'line-through';
+      botao.textContent = '✓ Transferido';
+      mostrarMensagem('mensagemGlobal', 'sucesso', (item.placa || item.chassi) + ' marcado como transferido.');
+    } catch (erro) {
+      botao.disabled = false;
+      botao.textContent = 'Marcar transferido';
+      mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
+    }
   }
 
   function copiarLoteSinesp_(indiceLote) {

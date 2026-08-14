@@ -962,7 +962,7 @@ function listarPendentesSinesp(filtros) {
     return chaveA < chaveB ? -1 : chaveA > chaveB ? 1 : 0;
   });
   return pendentes.map(function (r) {
-    return { chassi: r.Chassi, placa: r.Placa, uf: r.UF, donataria: r.Donataria };
+    return { id: r.ID, chassi: r.Chassi, placa: r.Placa, uf: r.UF, donataria: r.Donataria };
   });
 }
 
