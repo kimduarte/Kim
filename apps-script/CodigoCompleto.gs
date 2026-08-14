@@ -509,6 +509,7 @@ function onOpen() {
     .addItem('3) Reconciliar Veiculos com BDADOS2024/2025/2026 atualizadas', 'reconciliarBaseOrigem')
     .addItem('4) ATENÇÃO: apagar tudo e remigrar do zero', 'zerarVeiculosERemigrar')
     .addItem('5) Importar Contrato (coluna O) da origem', 'importarContratoDaOrigem')
+    .addItem('5b) Corrigir Contratos corrompidos (viraram data)', 'corrigirContratosCorrompidos_')
     .addItem('6) Importar Valor de veículos (base legado)', 'importarValorLegado')
     .addSeparator()
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
@@ -2473,6 +2474,13 @@ function importarContratoDaOrigem() {
   var idxAtualizacao = colunaParaIndice_('UltimaAtualizacao');
   var idxAtualizadoPor = colunaParaIndice_('AtualizadoPor');
 
+  // Trava a coluna Contrato como texto puro ANTES de gravar — números de
+  // contrato como "07/2017" ou "8/2025" parecem data pro autoparser do
+  // Sheets, que os converte sozinho se a coluna não estiver travada (foi
+  // assim que a corrupção que corrigirContratosCorrompidos_ conserta
+  // aconteceu da primeira vez).
+  sheetVeiculos.getRange(2, idxContratoV + 1, sheetVeiculos.getMaxRows() - 1, 1).setNumberFormat('@');
+
   var ultimaLinha = sheetVeiculos.getLastRow();
   var dadosVeiculos = ultimaLinha >= 2
     ? sheetVeiculos.getRange(2, 1, ultimaLinha - 1, CABECALHO_VEICULOS.length).getValues()
@@ -2530,6 +2538,77 @@ function importarContratoDaOrigem() {
     (semChassiCorrespondente ? '. ' + semChassiCorrespondente + ' linha(s) com contrato não encontraram o chassi em Veiculos (veja "' + SHEET_IMPORT_LOG + '").' : '.');
   ss.toast(mensagem, 'Importar Contrato', 10);
   return { preenchidos: preenchidos, semChassiCorrespondente: semChassiCorrespondente, mensagem: mensagem };
+}
+
+/**
+ * Repara veículos cujo Contrato foi corrompido pelo autoparser de data do
+ * Google Sheets: números de contrato no formato "MM/AAAA" (ex.: "07/2017")
+ * foram digitados numa aba de origem sem a coluna travada como texto, o
+ * Sheets sozinho interpretou como data, e importarContratoDaOrigem acabou
+ * copiando esse valor já corrompido pra Veiculos — virando um texto longo
+ * tipo "Sat Jul 01 2017 00:00:00 GMT-0300 (Horário Padrão de Brasília)".
+ *
+ * Detecta os dois formatos que a corrupção pode assumir (um objeto Date de
+ * verdade na célula, ou o texto gerado por Date.toString()), reconstrói o
+ * "MM/AAAA" original a partir do mês/ano da própria data corrompida — sem
+ * precisar re-consultar a aba de origem, que pode estar com o mesmo
+ * problema — e trava a coluna como texto antes de gravar, pra não
+ * corromper de novo. Rode manualmente pelo menu "Base de Veículos" depois
+ * de implantar esta versão.
+ */
+function corrigirContratosCorrompidos_() {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var idxContrato = colunaParaIndice_('Contrato');
+  var idxChassi = colunaParaIndice_('Chassi');
+  var idxPlaca = colunaParaIndice_('Placa');
+  var idxAtualizacao = colunaParaIndice_('UltimaAtualizacao');
+  var idxAtualizadoPor = colunaParaIndice_('AtualizadoPor');
+  var ultimaLinha = sheet.getLastRow();
+  if (ultimaLinha < 2) {
+    return { corrigidos: 0, mensagem: 'Nenhum veículo cadastrado.' };
+  }
+
+  var dados = sheet.getRange(2, 1, ultimaLinha - 1, CABECALHO_VEICULOS.length).getValues();
+  var padraoDateToString = /^[A-Za-z]{3} [A-Za-z]{3} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT[+-]\d{4}/;
+  var perfil = getPerfilUsuarioAtual_();
+  var agora = new Date();
+  var corrigidos = [];
+
+  dados.forEach(function (linha) {
+    var valor = linha[idxContrato];
+    var data = null;
+    if (Object.prototype.toString.call(valor) === '[object Date]' && !isNaN(valor.getTime())) {
+      data = valor;
+    } else if (typeof valor === 'string' && padraoDateToString.test(valor.trim())) {
+      var tentativa = new Date(valor);
+      if (!isNaN(tentativa.getTime())) data = tentativa;
+    }
+    if (!data) return;
+
+    var mes = data.getMonth() + 1;
+    var novoValor = (mes < 10 ? '0' + mes : String(mes)) + '/' + data.getFullYear();
+    corrigidos.push({ chassi: linha[idxChassi], placa: linha[idxPlaca], de: String(valor), para: novoValor });
+    linha[idxContrato] = novoValor;
+    linha[idxAtualizacao] = agora;
+    linha[idxAtualizadoPor] = perfil.email + ' (correção de Contrato corrompido)';
+  });
+
+  if (!corrigidos.length) {
+    return { corrigidos: 0, mensagem: 'Nenhum Contrato corrompido encontrado — nada pra corrigir.' };
+  }
+
+  // Trava a coluna como texto ANTES de gravar, senão o Sheets corrompe de
+  // novo os valores "MM/AAAA" que estamos prestes a escrever.
+  sheet.getRange(2, idxContrato + 1, sheet.getMaxRows() - 1, 1).setNumberFormat('@');
+  sheet.getRange(2, 1, dados.length, CABECALHO_VEICULOS.length).setValues(dados);
+
+  registrarLog_('CORRIGIR_CONTRATOS', '-', 'Contratos corrigidos: ' + corrigidos.length + ' — ' + JSON.stringify(corrigidos));
+  invalidarCacheDashboard_();
+
+  var mensagem = corrigidos.length + ' contrato(s) corrompido(s) corrigido(s) com sucesso.';
+  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Corrigir Contratos', 10);
+  return { corrigidos: corrigidos.length, detalhes: corrigidos, mensagem: mensagem };
 }
 
 /**
