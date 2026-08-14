@@ -953,6 +953,7 @@ function listarPendentesSinesp(filtros) {
   var pendentes = listarVeiculos({
     uf: filtros.uf || '',
     ente: filtros.ente || '',
+    ano: filtros.ano || '',
     transferido: 'NÃO'
   });
   pendentes.sort(function (a, b) {

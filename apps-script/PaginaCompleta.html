@@ -1636,6 +1636,10 @@
             <label for="sinesp_Ente">Ente</label>
             <select id="sinesp_Ente"><option value="">Todos</option></select>
           </div>
+          <div class="campo">
+            <label for="sinesp_Ano">Ano</label>
+            <select id="sinesp_Ano"><option value="">Todos</option></select>
+          </div>
           <div class="botoes" style="margin-top:0;">
             <button type="button" class="primario" onclick="gerarLotesSinesp_()">Gerar lotes</button>
           </div>
@@ -2115,6 +2119,7 @@
     google.script.run.withSuccessHandler(aoCarregarContexto).withFailureHandler(mostrarErroGlobal).getContextoInicial();
     configurarFormularioCadastro();
     configurarListagem();
+    carregarAnosFiltro_('sinesp_Ano');
     configurarModalEditarProcesso_();
     configurarStepper();
     configurarDonatariaDinamica_();
@@ -2936,7 +2941,8 @@
     try {
       var filtros = {
         uf: document.getElementById('sinesp_UF').value,
-        ente: document.getElementById('sinesp_Ente').value
+        ente: document.getElementById('sinesp_Ente').value,
+        ano: document.getElementById('sinesp_Ano').value
       };
       var itens = await chamarServidor_('listarPendentesSinesp', filtros);
       renderizarLotesSinesp_(itens);
@@ -4678,8 +4684,8 @@
     }
   }
 
-  function carregarAnosFiltro_() {
-    var select = document.getElementById('f_Ano');
+  function carregarAnosFiltro_(idSelect) {
+    var select = document.getElementById(idSelect || 'f_Ano');
     if (select.dataset.populado) return;
     google.script.run
       .withSuccessHandler(function (anos) {
