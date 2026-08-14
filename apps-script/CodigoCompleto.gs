@@ -19,6 +19,7 @@ var SHEET_IMPORT_LOG = 'ImportacaoLog';
 var SHEET_RELATORIO_ITENS = 'RelatorioItens';
 var SHEET_TEP_FINALIZADOS = 'TepFinalizados';
 var SHEET_TEP_VISUALIZACOES = 'TepVisualizacoes';
+var SHEET_TEP_OBSERVACOES = 'TepObservacoes';
 
 // Quantas linhas extras (além do que já tem dado) recebem validação de
 // lista suspensa — mantém espaço para novos cadastros sem inflar demais
@@ -85,6 +86,11 @@ var CABECALHO_TEP_FINALIZADOS = ['Chave', 'DataFinalizacao', 'FinalizadoPor'];
 // (aparecem no aviso vermelho do menu) desde então. Não afeta a lista da
 // aba em si, que sempre mostra todos os processos ainda não finalizados.
 var CABECALHO_TEP_VISUALIZACOES = ['Email', 'UltimaVisualizacao'];
+
+// Anotação livre por processo pendente de TEP — pra registrar o motivo de
+// ainda não ter sido finalizado (ex.: "aguardando assinatura do donatário").
+// Uma linha por chave de processo (upsert em salvarObservacaoTep_).
+var CABECALHO_TEP_OBSERVACOES = ['Chave', 'Observacao', 'AtualizadoPor', 'AtualizadoEm'];
 
 // AcessoProdutividade ('SIM'/'NÃO'): libera o uso da aba Produtividade pra
 // esse usuário específico, independente do Perfil — admins sempre têm
@@ -524,6 +530,7 @@ function criarEstruturaInicial() {
   getOrCreateSheet_(SHEET_RELATORIO_ITENS, CABECALHO_RELATORIO_ITENS);
   getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS);
   getOrCreateSheet_(SHEET_TEP_VISUALIZACOES, CABECALHO_TEP_VISUALIZACOES);
+  getOrCreateSheet_(SHEET_TEP_OBSERVACOES, CABECALHO_TEP_OBSERVACOES);
   garantirColunasVeiculos_();
   SpreadsheetApp.flush();
   SpreadsheetApp.getActiveSpreadsheet().toast('Estrutura criada com sucesso.', 'Base de Veículos');
@@ -1491,6 +1498,7 @@ function getProcessosPendentesTep_() {
 function listarTepPendentes(apenasNovos) {
   var perfil = getPerfilUsuarioAtual_();
   var ultimaVisualizacao = getUltimaVisualizacaoTep_(perfil.email);
+  var observacoes = getObservacoesTep_();
   var pendentes = getProcessosPendentesTep_().map(function (p) {
     return {
       chave: p.chave,
@@ -1500,6 +1508,7 @@ function listarTepPendentes(apenasNovos) {
       uf: p.uf,
       ano: p.ano,
       qtdTotal: p.qtdTotal,
+      observacao: observacoes[p.chave] || '',
       novo: !ultimaVisualizacao || (!!p.dataConclusao && p.dataConclusao > ultimaVisualizacao)
     };
   });
@@ -1576,6 +1585,51 @@ function marcarTepFinalizado(chaveProcesso) {
   sheet.appendRow([chaveProcesso, new Date(), perfil.email]);
   registrarLog_('TEP_FINALIZADO', chaveProcesso, 'Termo de Encerramento de Processo finalizado');
   return { mensagem: 'TEP finalizado com sucesso — já computado na produtividade.' };
+}
+
+/**
+ * Chave -> texto de observação, pra "juntar" com getProcessosPendentesTep_()
+ * em listarTepPendentes. Uma linha por processo (ver CABECALHO_TEP_OBSERVACOES).
+ */
+function getObservacoesTep_() {
+  var sheet = getOrCreateSheet_(SHEET_TEP_OBSERVACOES, CABECALHO_TEP_OBSERVACOES);
+  var dados = sheet.getDataRange().getValues();
+  var mapa = {};
+  for (var i = 1; i < dados.length; i++) {
+    if (dados[i][0]) mapa[dados[i][0]] = dados[i][1];
+  }
+  return mapa;
+}
+
+/**
+ * Grava (ou atualiza) a observação de um processo pendente de TEP — motivo
+ * pelo qual ele ainda não foi encerrado, anotação livre de quem estiver
+ * acompanhando. Upsert por Chave: se já existe linha pra essa chave,
+ * atualiza; senão, adiciona uma nova.
+ */
+function salvarObservacaoTep(chaveProcesso, observacao) {
+  var perfil = exigirPerfilEditor_();
+  chaveProcesso = normalizarTexto_(chaveProcesso);
+  if (!chaveProcesso) throw new Error('Processo inválido.');
+  observacao = normalizarTexto_(observacao);
+
+  var sheet = getOrCreateSheet_(SHEET_TEP_OBSERVACOES, CABECALHO_TEP_OBSERVACOES);
+  // Mesma defesa usada em garantirColunaChaveTepComoTexto_: trava a coluna
+  // Chave como texto puro antes de gravar, pra evitar que o autoparser do
+  // Sheets corrompa chaves que pareçam data/hora.
+  sheet.getRange(1, 1, sheet.getMaxRows(), 1).setNumberFormat('@');
+
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    if (dados[i][0] === chaveProcesso) {
+      sheet.getRange(i + 1, 2, 1, 3).setValues([[observacao, perfil.email, new Date()]]);
+      registrarLog_('TEP_OBSERVACAO', chaveProcesso, observacao);
+      return { mensagem: 'Observação salva com sucesso.' };
+    }
+  }
+  sheet.appendRow([chaveProcesso, observacao, perfil.email, new Date()]);
+  registrarLog_('TEP_OBSERVACAO', chaveProcesso, observacao);
+  return { mensagem: 'Observação salva com sucesso.' };
 }
 
 /**

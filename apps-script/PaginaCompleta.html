@@ -3559,11 +3559,20 @@
           escaparHtml(p.donataria || '') + ' • ' + escaparHtml(p.uf || '') + ' • Ano ' + escaparHtml(String(p.ano || '')) +
           ' • ' + p.qtdTotal + ' veículo(s)</p>' +
           '<div class="botoes" style="justify-content:flex-start; margin-top:12px;">' +
-          '<button type="button" class="secundario" onclick="irParaListagemComFiltro(\'busca\', ' + JSON.stringify(p.termoDoacao || p.processo || '') + ', \'termo\')">Ver processo</button>' +
+          '<button type="button" class="secundario" onclick="verProcessoTep_(' + i + ')">Ver processo</button>' +
           (USUARIO_PODE_EDITAR
             ? '<button type="button" class="primario" onclick="finalizarTep_(' + i + ')">TEP Finalizado</button>'
             : '<span style="font-size:13px; color:var(--texto-suave);">Só administradores/usuários podem finalizar o TEP.</span>') +
-          '</div></div>';
+          '</div>' +
+          (USUARIO_PODE_EDITAR
+            ? '<div style="margin-top:12px;">' +
+              '<label for="tepObs_' + i + '" style="font-size:12px; font-weight:700; color:var(--texto-suave); display:block; margin-bottom:4px;">Observação (motivo de ainda não ter sido finalizado):</label>' +
+              '<textarea id="tepObs_' + i + '" rows="2" style="width:100%; resize:vertical; font-family:inherit; font-size:13px; padding:8px; border:1px solid var(--borda); border-radius:6px; box-sizing:border-box;" placeholder="Ex.: aguardando assinatura do donatário...">' + escaparHtml(p.observacao || '') + '</textarea>' +
+              '<div class="botoes" style="justify-content:flex-start; margin-top:6px;">' +
+              '<button type="button" class="secundario" onclick="salvarObservacaoTep_(' + i + ')">Salvar observação</button>' +
+              '</div></div>'
+            : (p.observacao ? '<p style="margin-top:12px; font-size:13px;"><strong>Observação:</strong> ' + escaparHtml(p.observacao) + '</p>' : '')) +
+          '</div>';
       }).join('');
     } catch (erro) {
       container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
@@ -3577,6 +3586,25 @@
       var resp = await chamarServidor_('marcarTepFinalizado', p.chave);
       mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
       carregarListaTep_(TEP_MOSTRANDO_TODOS);
+    } catch (erro) {
+      mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
+    }
+  }
+
+  function verProcessoTep_(indice) {
+    var p = TEP_PENDENTES_ATUAL[indice];
+    if (!p) return;
+    irParaListagemComFiltro('busca', p.termoDoacao || p.processo || '', 'termo');
+  }
+
+  async function salvarObservacaoTep_(indice) {
+    var p = TEP_PENDENTES_ATUAL[indice];
+    if (!p) return;
+    var campo = document.getElementById('tepObs_' + indice);
+    try {
+      var resp = await chamarServidor_('salvarObservacaoTep', p.chave, campo.value);
+      p.observacao = campo.value;
+      mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
     } catch (erro) {
       mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
     }
