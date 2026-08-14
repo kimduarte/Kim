@@ -88,6 +88,15 @@ function paraNumero_(valor) {
 
 function paraData_(valor) {
   if (valor instanceof Date) return valor;
+  // Datas "yyyy-MM-dd" (é o formato que <input type="date"/month"> manda) não
+  // podem passar por `new Date(texto)`: o JS interpreta esse formato como
+  // meia-noite UTC, e ao exibir no fuso do Brasil (UTC-3) isso "volta" pro
+  // dia anterior às 21h — construir a data a partir dos números evita isso.
+  var texto = String(valor);
+  var partesData = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (partesData) {
+    return new Date(Number(partesData[1]), Number(partesData[2]) - 1, Number(partesData[3]));
+  }
   var d = new Date(valor);
   return isNaN(d.getTime()) ? new Date() : d;
 }
