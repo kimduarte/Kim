@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+:root {
+  --bg: #f3f4f8;
+  --card-bg: #ffffff;
+  --borda: #e5e7eb;
+  --texto: #111827;
+  --texto-suave: #6b7280;
+  --primario: #4f46e5;
+  --primario-escuro: #4338ca;
+  --verde: #16a34a;
+  --verde-bg: #dcfce7;
+  --vermelho: #ef4444;
+  --vermelho-bg: #fee2e2;
+  --laranja: #f97316;
+  --laranja-bg: #ffedd5;
+  --azul: #0ea5e9;
+  --azul-bg: #dbeafe;
+  --amarelo: #ca8a04;
+  --amarelo-bg: #fef9c3;
+}
+* { box-sizing: border-box; }
+body { font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; margin: 0; background: var(--bg); color: var(--texto); }
+
+header.topo { background: #fff; border-bottom: 1px solid var(--borda); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.topo-marca { display: flex; align-items: center; gap: 12px; }
+.topo-icone { width: 40px; height: 40px; border-radius: 10px; background: var(--primario); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.topo-marca h1 { font-size: 17px; margin: 0; font-weight: 800; }
+.topo-marca .subtitulo { font-size: 12px; color: var(--texto-suave); }
+
+nav.abas { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid var(--borda); overflow-x: auto; }
+nav.abas button { border: none; background: none; padding: 14px 16px; font-size: 13px; font-weight: 700; color: var(--texto-suave); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+nav.abas button.ativa { color: var(--primario); border-bottom-color: var(--primario); }
+
+main { padding: 24px; max-width: 1180px; margin: 0 auto; }
+.tela { display: none; }
+.tela.ativa { display: block; }
+
+.pagina-titulo { margin-bottom: 18px; }
+.pagina-titulo h2 { font-size: 22px; margin: 0 0 4px; font-weight: 800; }
+.pagina-titulo p { margin: 0; color: var(--texto-suave); font-size: 13px; }
+
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.stat { background: var(--card-bg); border: 1px solid var(--borda); border-radius: 14px; padding: 16px 18px; }
+.stat .rotulo { font-size: 12px; color: var(--texto-suave); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+.stat .valor { font-size: 22px; font-weight: 800; }
+.stat .valor.verde { color: var(--verde); }
+.stat .valor.vermelho { color: var(--vermelho); }
+.stat .legenda { font-size: 12px; color: var(--texto-suave); margin-top: 4px; }
+
+.card { background: var(--card-bg); border: 1px solid var(--borda); border-radius: 14px; padding: 18px 20px; margin-bottom: 18px; }
+.card h3 { margin: 0 0 14px; font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.card h3 .sub { font-size: 12px; font-weight: 500; color: var(--texto-suave); }
+
+button.primario, button.secundario, button.perigo, button.link {
+  border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+button.primario { background: var(--primario); color: #fff; }
+button.primario:hover { background: var(--primario-escuro); }
+button.secundario { background: #fff; color: var(--texto); border: 1px solid var(--borda); }
+button.perigo { background: #fff; color: var(--vermelho); border: 1px solid var(--vermelho); }
+button.link { background: none; color: var(--primario); padding: 4px 6px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+.grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 14px; margin-bottom: 14px; }
+.campo { display: flex; flex-direction: column; gap: 5px; }
+.campo.span-2 { grid-column: span 2; }
+.campo label { font-size: 12px; font-weight: 700; color: var(--texto-suave); }
+.campo input, .campo select, .campo textarea {
+  padding: 9px 11px; border: 1px solid var(--borda); border-radius: 8px; font-size: 13px; font-family: inherit;
+}
+.campo textarea { resize: vertical; min-height: 60px; }
+.linha-acoes { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+table.tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.tabela th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--borda); color: var(--texto-suave); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+table.tabela td { padding: 9px 10px; border-bottom: 1px solid var(--borda); vertical-align: middle; }
+table.tabela tbody tr:hover { background: #fafafe; }
+.tabela-wrap { overflow-x: auto; }
+
+.tag { display: inline-flex; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.tag.entrada { background: var(--verde-bg); color: var(--verde); }
+.tag.saida { background: var(--vermelho-bg); color: var(--vermelho); }
+.tag.ativo { background: var(--azul-bg); color: var(--azul); }
+.tag.quitado { background: var(--verde-bg); color: var(--verde); }
+
+.barra { height: 8px; border-radius: 999px; background: #eef0f6; overflow: hidden; margin: 6px 0; }
+.barra .preenchida { height: 100%; background: var(--primario); border-radius: 999px; }
+
+.emprestimo-item { border: 1px solid var(--borda); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.emprestimo-item .topo-item { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.emprestimo-item .topo-item h4 { margin: 0; font-size: 14px; font-weight: 800; }
+.emprestimo-item .meta { font-size: 12px; color: var(--texto-suave); display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+
+.comparar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.plano { border: 2px solid var(--borda); border-radius: 14px; padding: 18px; }
+.plano.vencedor { border-color: var(--verde); background: #f7fdf9; }
+.plano .selo { display: inline-block; background: var(--verde); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
+.plano h4 { margin: 4px 0 2px; font-size: 16px; font-weight: 800; }
+.plano .desc { font-size: 12px; color: var(--texto-suave); margin-bottom: 12px; }
+.plano .metrica { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--borda); font-size: 13px; }
+.plano .metrica b { font-size: 15px; }
+.plano ol.ordem { margin: 10px 0 0; padding-left: 18px; font-size: 12px; color: var(--texto); }
+.plano ol.ordem li { margin-bottom: 4px; }
+
+.vazio { text-align: center; padding: 30px 10px; color: var(--texto-suave); font-size: 13px; }
+
+.modal-fundo { display: none; position: fixed; inset: 0; background: rgba(17,24,39,.5); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.modal-fundo.ativo { display: flex; }
+.modal { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; }
+.modal h3 { margin: 0 0 14px; font-size: 16px; }
+
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--texto); color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: 90vw; }
+.toast.mostrar { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+.toast.erro { background: var(--vermelho); }
+
+.aporte-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.aporte-linha input { width: 130px; }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-marca">
+    <div class="topo-icone">💰</div>
+    <div>
+      <h1>Controle Financeiro</h1>
+      <div class="subtitulo">Entradas, saídas e quitação de empréstimos</div>
+    </div>
+  </div>
+</header>
+
+<nav class="abas">
+  <button class="aba-botao ativa" data-tela="painel">Painel</button>
+  <button class="aba-botao" data-tela="lancamentos">Lançamentos</button>
+  <button class="aba-botao" data-tela="emprestimos">Empréstimos</button>
+  <button class="aba-botao" data-tela="comparar">Comparar Estratégias</button>
+</nav>
+
+<main>
+
+<!-- ===================== PAINEL ===================== -->
+<section id="tela-painel" class="tela ativa">
+  <div class="pagina-titulo">
+    <h2>Painel</h2>
+    <p>Resumo do mês atual e o plano para quitar seus empréstimos o quanto antes.</p>
+  </div>
+
+  <div class="grid-cards">
+    <div class="stat"><div class="rotulo">Entradas do mês</div><div class="valor verde" id="stat-entradas">—</div></div>
+    <div class="stat"><div class="rotulo">Saídas do mês</div><div class="valor vermelho" id="stat-saidas">—</div></div>
+    <div class="stat"><div class="rotulo">Saldo do mês</div><div class="valor" id="stat-saldo">—</div></div>
+    <div class="stat"><div class="rotulo">Dívida ativa total</div><div class="valor" id="stat-divida">—</div><div class="legenda" id="stat-divida-legenda"></div></div>
+  </div>
+
+  <div class="card">
+    <h3>Aporte extra disponível por mês <span class="sub" id="aporte-origem"></span></h3>
+    <div class="aporte-linha">
+      <div style="font-size:22px;font-weight:800;" id="aporte-valor">—</div>
+      <button class="link" id="btn-editar-aporte">editar</button>
+    </div>
+    <div id="aporte-editor" style="display:none;margin-top:12px;">
+      <div class="grid-form">
+        <div class="campo">
+          <label>Valor manual (R$) — deixe vazio para calcular automático</label>
+          <input type="number" step="0.01" min="0" id="input-aporte-manual">
+        </div>
+        <div class="campo">
+          <label>Meses de histórico usados na média automática</label>
+          <input type="number" min="1" id="input-meses-historico">
+        </div>
+      </div>
+      <div class="linha-acoes">
+        <button class="secundario" id="btn-cancelar-aporte">Cancelar</button>
+        <button class="primario" id="btn-salvar-aporte">Salvar</button>
+      </div>
+    </div>
+    <p class="legenda" id="aporte-detalhes" style="color:var(--texto-suave);font-size:12px;margin-top:10px;"></p>
+  </div>
+
+  <div class="card" id="card-recomendacao" style="display:none;">
+    <h3>Estratégia recomendada</h3>
+    <div id="recomendacao-conteudo"></div>
+  </div>
+
+  <div class="card">
+    <h3>Empréstimos ativos</h3>
+    <div id="lista-emprestimos-painel"></div>
+  </div>
+</section>
+
+<!-- ===================== LANÇAMENTOS ===================== -->
+<section id="tela-lancamentos" class="tela">
+  <div class="pagina-titulo">
+    <h2>Lançamentos</h2>
+    <p>Registre suas entradas e saídas do dia a dia.</p>
+  </div>
+
+  <div class="card">
+    <h3 id="titulo-form-lancamento">Novo lançamento</h3>
+    <input type="hidden" id="lc-id">
+    <div class="grid-form">
+      <div class="campo"><label>Data</label><input type="date" id="lc-data"></div>
+      <div class="campo"><label>Tipo</label><select id="lc-tipo"></select></div>
+      <div class="campo"><label>Categoria</label><select id="lc-categoria"></select></div>
+      <div class="campo"><label>Valor (R$)</label><input type="number" step="0.01" min="0" id="lc-valor"></div>
+      <div class="campo"><label>Forma de pagamento</label><select id="lc-forma"></select></div>
+      <div class="campo span-2"><label>Descrição</label><input type="text" id="lc-descricao" placeholder="Ex.: Supermercado, salário, etc."></div>
+      <div class="campo span-2"><label>Observações</label><textarea id="lc-observacoes"></textarea></div>
+    </div>
+    <div class="linha-acoes">
+      <button class="secundario" id="btn-limpar-lancamento" style="display:none;">Cancelar edição</button>
+      <button class="primario" id="btn-salvar-lancamento">Salvar lançamento</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Histórico</h3>
+    <div class="grid-form">
+      <div class="campo"><label>Mês</label><input type="month" id="filtro-mes"></div>
+      <div class="campo"><label>Tipo</label><select id="filtro-tipo"><option value="">Todos</option></select></div>
+      <div class="campo span-2"><label>Buscar</label><input type="text" id="filtro-busca" placeholder="Descrição, categoria..."></div>
+    </div>
+    <div class="tabela-wrap">
+      <table class="tabela">
+        <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th></th></tr></thead>
+        <tbody id="corpo-tabela-lancamentos"></tbody>
+      </table>
+      <div class="vazio" id="lancamentos-vazio" style="display:none;">Nenhum lançamento encontrado.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== EMPRÉSTIMOS ===================== -->
+<section id="tela-emprestimos" class="tela">
+  <div class="pagina-titulo">
+    <h2>Empréstimos</h2>
+    <p>Cadastre seus empréstimos e registre os pagamentos feitos.</p>
+  </div>
+
+  <div class="card">
+    <h3 id="titulo-form-emprestimo">Novo empréstimo</h3>
+    <input type="hidden" id="emp-id">
+    <div class="grid-form">
+      <div class="campo"><label>Nome</label><input type="text" id="emp-nome" placeholder="Ex.: Empréstimo consignado"></div>
+      <div class="campo"><label>Credor</label><input type="text" id="emp-credor" placeholder="Banco / instituição"></div>
+      <div class="campo"><label>Valor original (R$)</label><input type="number" step="0.01" min="0" id="emp-valor-original"></div>
+      <div class="campo"><label>Saldo devedor atual (R$) <span style="font-weight:400;">opcional</span></label><input type="number" step="0.01" min="0" id="emp-saldo-devedor" placeholder="Se vazio, usa o valor original"></div>
+      <div class="campo"><label>Taxa de juros mensal (%)</label><input type="number" step="0.01" min="0" id="emp-taxa"></div>
+      <div class="campo"><label>Parcela mínima mensal (R$)</label><input type="number" step="0.01" min="0" id="emp-parcela"></div>
+      <div class="campo"><label>Dia de vencimento</label><input type="number" min="1" max="31" id="emp-dia-vencimento"></div>
+      <div class="campo"><label>Data de início</label><input type="date" id="emp-data-inicio"></div>
+      <div class="campo"><label>Status</label><select id="emp-status"></select></div>
+      <div class="campo span-2"><label>Observações</label><textarea id="emp-observacoes"></textarea></div>
+    </div>
+    <div class="linha-acoes">
+      <button class="secundario" id="btn-limpar-emprestimo" style="display:none;">Cancelar edição</button>
+      <button class="primario" id="btn-salvar-emprestimo">Salvar empréstimo</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Seus empréstimos</h3>
+    <div id="lista-emprestimos-tela"></div>
+    <div class="vazio" id="emprestimos-vazio" style="display:none;">Nenhum empréstimo cadastrado ainda.</div>
+  </div>
+</section>
+
+<!-- ===================== COMPARAR ESTRATÉGIAS ===================== -->
+<section id="tela-comparar" class="tela">
+  <div class="pagina-titulo">
+    <h2>Comparar Estratégias</h2>
+    <p>Avalanche (foca no juro mais alto) x Bola de Neve (foca no menor saldo) — veja qual quita tudo mais rápido e com menos juros.</p>
+  </div>
+
+  <div class="card">
+    <h3>Simular com outro aporte extra</h3>
+    <div class="aporte-linha">
+      <input type="number" step="0.01" min="0" id="input-simular-aporte" placeholder="R$ por mês">
+      <button class="primario" id="btn-simular">Simular</button>
+      <button class="secundario" id="btn-simular-atual">Usar aporte atual do painel</button>
+    </div>
+  </div>
+
+  <div id="comparar-vazio" class="vazio" style="display:none;">Cadastre ao menos um empréstimo ativo para ver a comparação.</div>
+  <div class="comparar-grid" id="comparar-grid"></div>
+</section>
+
+</main>
+
+<!-- ===================== MODAL: REGISTRAR PAGAMENTO ===================== -->
+<div class="modal-fundo" id="modal-pagamento">
+  <div class="modal">
+    <h3>Registrar pagamento</h3>
+    <input type="hidden" id="pag-emprestimo-id">
+    <div class="grid-form" style="grid-template-columns:1fr;">
+      <div class="campo"><label>Data do pagamento</label><input type="date" id="pag-data"></div>
+      <div class="campo"><label>Valor pago (R$)</label><input type="number" step="0.01" min="0" id="pag-valor"></div>
+      <div class="campo"><label>Observações</label><textarea id="pag-observacoes"></textarea></div>
+    </div>
+    <div id="pag-historico" style="margin:14px 0;"></div>
+    <div class="linha-acoes">
+      <button class="secundario" id="btn-fechar-pagamento">Fechar</button>
+      <button class="primario" id="btn-confirmar-pagamento">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var CONTEXTO = null;
+var CACHE_EMPRESTIMOS = [];
+var APORTE_ATUAL = 0;
+
+function formatarMoeda(v) {
+  return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+function formatarData(timestamp) {
+  if (!timestamp) return '—';
+  return new Date(timestamp).toLocaleDateString('pt-BR');
+}
+function dataParaInputDate(timestamp) {
+  var d = timestamp ? new Date(timestamp) : new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function mostrarToast(mensagem, erro) {
+  var el = document.getElementById('toast');
+  el.textContent = mensagem;
+  el.className = 'toast mostrar' + (erro ? ' erro' : '');
+  setTimeout(function () { el.className = 'toast'; }, 3200);
+}
+function preencherSelect(select, opcoes, comVazio) {
+  select.innerHTML = '';
+  if (comVazio) select.appendChild(new Option('Todas', ''));
+  opcoes.forEach(function (o) { select.appendChild(new Option(o, o)); });
+}
+
+// ---------------- Navegação ----------------
+document.querySelectorAll('.aba-botao').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('.aba-botao').forEach(function (b) { b.classList.remove('ativa'); });
+    document.querySelectorAll('.tela').forEach(function (t) { t.classList.remove('ativa'); });
+    btn.classList.add('ativa');
+    document.getElementById('tela-' + btn.dataset.tela).classList.add('ativa');
+    if (btn.dataset.tela === 'painel') carregarPainel();
+    if (btn.dataset.tela === 'lancamentos') carregarLancamentos();
+    if (btn.dataset.tela === 'emprestimos') carregarEmprestimos();
+    if (btn.dataset.tela === 'comparar') carregarComparacaoInicial();
+  });
+});
+
+// ---------------- Inicialização ----------------
+window.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('lc-data').value = dataParaInputDate();
+  document.getElementById('pag-data').value = dataParaInputDate();
+  google.script.run.withSuccessHandler(function (ctx) {
+    CONTEXTO = ctx;
+    preencherSelect(document.getElementById('lc-tipo'), ctx.listas.tipo);
+    atualizarCategoriasLancamento();
+    preencherSelect(document.getElementById('lc-forma'), ctx.listas.formaPagamento);
+    preencherSelect(document.getElementById('filtro-tipo'), ctx.listas.tipo, true);
+    preencherSelect(document.getElementById('emp-status'), ctx.listas.statusEmprestimo);
+    document.getElementById('input-aporte-manual').value = ctx.configuracoes.aporteExtraManual;
+    document.getElementById('input-meses-historico').value = ctx.configuracoes.mesesHistorico;
+    carregarPainel();
+  }).withFailureHandler(erroPadrao).getContextoInicial();
+
+  document.getElementById('lc-tipo').addEventListener('change', atualizarCategoriasLancamento);
+});
+
+function atualizarCategoriasLancamento() {
+  var tipo = document.getElementById('lc-tipo').value;
+  var lista = tipo === 'Saída' ? CONTEXTO.listas.categoriaSaida : CONTEXTO.listas.categoriaEntrada;
+  preencherSelect(document.getElementById('lc-categoria'), lista);
+}
+
+function erroPadrao(erro) {
+  mostrarToast(String(erro.message || erro), true);
+}
+
+// ---------------- PAINEL ----------------
+function carregarPainel() {
+  google.script.run.withSuccessHandler(renderizarPainel).withFailureHandler(erroPadrao).getPainel();
+}
+
+function renderizarPainel(dados) {
+  document.getElementById('stat-entradas').textContent = formatarMoeda(dados.resumoMes.entradas);
+  document.getElementById('stat-saidas').textContent = formatarMoeda(dados.resumoMes.saidas);
+  var saldoEl = document.getElementById('stat-saldo');
+  saldoEl.textContent = formatarMoeda(dados.resumoMes.saldo);
+  saldoEl.className = 'valor ' + (dados.resumoMes.saldo >= 0 ? 'verde' : 'vermelho');
+  document.getElementById('stat-divida').textContent = formatarMoeda(dados.dividas.totalSaldoDevedor);
+  document.getElementById('stat-divida-legenda').textContent = dados.dividas.quantidadeAtiva + ' empréstimo(s) ativo(s) · ' + dados.dividas.quantidadeQuitada + ' quitado(s)';
+
+  APORTE_ATUAL = dados.aporteExtra.valor;
+  document.getElementById('aporte-valor').textContent = formatarMoeda(dados.aporteExtra.valor) + ' /mês';
+  var origem = dados.aporteExtra.origem;
+  document.getElementById('aporte-origem').textContent = origem === 'manual' ? '(definido manualmente)' : '(calculado automaticamente)';
+  if (dados.aporteExtra.detalhes) {
+    var d = dados.aporteExtra.detalhes;
+    document.getElementById('aporte-detalhes').textContent = d.mesesComDados > 0
+      ? 'Baseado na média dos últimos ' + d.mesesComDados + ' mês(es): renda média ' + formatarMoeda(d.rendaMedia) + ' − despesas médias ' + formatarMoeda(d.despesaMedia) + ' − parcelas mínimas ' + formatarMoeda(d.somaParcelasMinimas) + '.'
+      : 'Sem lançamentos de meses anteriores suficientes para calcular a média — registre seus lançamentos ou defina um valor manual.';
+  } else {
+    document.getElementById('aporte-detalhes').textContent = '';
+  }
+
+  var listaEl = document.getElementById('lista-emprestimos-painel');
+  if (dados.emprestimosAtivos.length === 0) {
+    listaEl.innerHTML = '<div class="vazio">Nenhum empréstimo ativo. Cadastre um na aba Empréstimos.</div>';
+  } else {
+    listaEl.innerHTML = dados.emprestimosAtivos.map(function (e) {
+      return '<div class="emprestimo-item">' +
+        '<div class="topo-item"><h4>' + escapeHtml(e.Nome) + '</h4><b>' + formatarMoeda(e.SaldoDevedor) + '</b></div>' +
+        '<div class="meta"><span>Juros: ' + e.TaxaJurosMensal.toFixed(2) + '% a.m.</span><span>Parcela mínima: ' + formatarMoeda(e.ParcelaMinima) + '</span><span>' + e.PercentualQuitado.toFixed(0) + '% quitado</span></div>' +
+        '<div class="barra"><div class="preenchida" style="width:' + e.PercentualQuitado.toFixed(1) + '%"></div></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  var cardRec = document.getElementById('card-recomendacao');
+  if (dados.comparacao) {
+    cardRec.style.display = 'block';
+    var rec = dados.comparacao[dados.comparacao.recomendada === 'avalanche' ? 'avalanche' : 'bolaDeNeve'];
+    var nomeEstrategia = dados.comparacao.recomendada === 'avalanche' ? 'Avalanche (maior juro primeiro)' : 'Bola de Neve (menor saldo primeiro)';
+    var html = '<p style="margin:0 0 10px;">Com o aporte extra atual, a estratégia <b>' + nomeEstrategia + '</b> quita tudo em <b>' + rec.meses + ' mes(es)</b> (' + formatarData(rec.dataQuitacaoEstimada) + '), pagando <b>' + formatarMoeda(rec.totalJurosPago) + '</b> de juros no total.</p>';
+    if (!rec.quitouTudo) {
+      html = '<p style="margin:0 0 10px;color:var(--vermelho);">Com o aporte extra atual, a dívida não é quitada em ' + rec.meses + ' meses — os juros estão maiores que o que sobra por mês. Aumente o aporte extra ou renegocie as taxas.</p>';
+    } else if (rec.ordemQuitacao.length) {
+      html += '<ol class="ordem">' + rec.ordemQuitacao.map(function (o) {
+        return '<li>' + escapeHtml(o.nome) + ' — quitado em ' + o.mes + ' mes(es) (' + formatarData(o.dataEstimada) + ')</li>';
+      }).join('') + '</ol>';
+    }
+    var minimos = dados.comparacao.somenteMinimos;
+    if (rec.quitouTudo && APORTE_ATUAL > 0) {
+      if (!minimos.quitouTudo) {
+        html += '<p style="margin-top:10px;font-size:12px;color:var(--texto-suave);">Pagando só as parcelas mínimas (sem aporte extra), a dívida nunca seria quitada — os juros cresceriam mais rápido do que o pagamento.</p>';
+      } else {
+        var economiaMeses = minimos.meses - rec.meses;
+        var economiaJuros = minimos.totalJurosPago - rec.totalJurosPago;
+        html += '<p style="margin-top:10px;font-size:12px;color:var(--texto-suave);">Pagando só as parcelas mínimas, levaria ' + minimos.meses + ' mes(es) e ' + formatarMoeda(minimos.totalJurosPago) + ' de juros. Com o aporte extra atual, você economiza <b>' + economiaMeses + ' mes(es)</b> e <b>' + formatarMoeda(economiaJuros) + '</b> em juros.</p>';
+      }
+    }
+    document.getElementById('recomendacao-conteudo').innerHTML = html;
+  } else {
+    cardRec.style.display = 'none';
+  }
+}
+
+document.getElementById('btn-editar-aporte').addEventListener('click', function () {
+  document.getElementById('aporte-editor').style.display = 'block';
+});
+document.getElementById('btn-cancelar-aporte').addEventListener('click', function () {
+  document.getElementById('aporte-editor').style.display = 'none';
+});
+document.getElementById('btn-salvar-aporte').addEventListener('click', function () {
+  var dados = {
+    aporteExtraManual: document.getElementById('input-aporte-manual').value,
+    mesesHistorico: document.getElementById('input-meses-historico').value
+  };
+  google.script.run.withSuccessHandler(function (painel) {
+    document.getElementById('aporte-editor').style.display = 'none';
+    renderizarPainel(painel);
+    mostrarToast('Configurações salvas.');
+  }).withFailureHandler(erroPadrao).salvarConfiguracoes(dados);
+});
+
+// ---------------- LANÇAMENTOS ----------------
+function carregarLancamentos() {
+  var filtros = {
+    mesAno: document.getElementById('filtro-mes').value,
+    tipo: document.getElementById('filtro-tipo').value,
+    busca: document.getElementById('filtro-busca').value
+  };
+  google.script.run.withSuccessHandler(renderizarLancamentos).withFailureHandler(erroPadrao).listarLancamentos(filtros);
+}
+['filtro-mes', 'filtro-tipo', 'filtro-busca'].forEach(function (id) {
+  document.getElementById(id).addEventListener('input', carregarLancamentos);
+  document.getElementById(id).addEventListener('change', carregarLancamentos);
+});
+
+function renderizarLancamentos(lista) {
+  var corpo = document.getElementById('corpo-tabela-lancamentos');
+  document.getElementById('lancamentos-vazio').style.display = lista.length ? 'none' : 'block';
+  corpo.innerHTML = lista.map(function (l) {
+    return '<tr>' +
+      '<td>' + formatarData(l.Data) + '</td>' +
+      '<td><span class="tag ' + (l.Tipo === 'Entrada' ? 'entrada' : 'saida') + '">' + l.Tipo + '</span></td>' +
+      '<td>' + escapeHtml(l.Categoria) + '</td>' +
+      '<td>' + escapeHtml(l.Descricao) + '</td>' +
+      '<td>' + formatarMoeda(l.Valor) + '</td>' +
+      '<td style="white-space:nowrap;"><button class="link" onclick="editarLancamento(\'' + l.ID + '\')">editar</button> <button class="link" style="color:var(--vermelho);" onclick="removerLancamento(\'' + l.ID + '\')">excluir</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function editarLancamento(id) {
+  google.script.run.withSuccessHandler(function (lista) {
+    var l = lista.filter(function (x) { return x.ID === id; })[0];
+    if (!l) return;
+    document.getElementById('lc-id').value = l.ID;
+    document.getElementById('lc-data').value = dataParaInputDate(l.Data);
+    document.getElementById('lc-tipo').value = l.Tipo;
+    atualizarCategoriasLancamento();
+    document.getElementById('lc-categoria').value = l.Categoria;
+    document.getElementById('lc-valor').value = l.Valor;
+    document.getElementById('lc-forma').value = l.FormaPagamento;
+    document.getElementById('lc-descricao').value = l.Descricao;
+    document.getElementById('lc-observacoes').value = l.Observacoes;
+    document.getElementById('titulo-form-lancamento').textContent = 'Editar lançamento';
+    document.getElementById('btn-limpar-lancamento').style.display = 'inline-flex';
+    document.getElementById('tela-lancamentos').scrollIntoView({ behavior: 'smooth' });
+  }).withFailureHandler(erroPadrao).listarLancamentos({});
+}
+
+document.getElementById('btn-limpar-lancamento').addEventListener('click', limparFormLancamento);
+function limparFormLancamento() {
+  document.getElementById('lc-id').value = '';
+  document.getElementById('lc-data').value = dataParaInputDate();
+  document.getElementById('lc-valor').value = '';
+  document.getElementById('lc-descricao').value = '';
+  document.getElementById('lc-observacoes').value = '';
+  document.getElementById('titulo-form-lancamento').textContent = 'Novo lançamento';
+  document.getElementById('btn-limpar-lancamento').style.display = 'none';
+}
+
+document.getElementById('btn-salvar-lancamento').addEventListener('click', function () {
+  var dados = {
+    ID: document.getElementById('lc-id').value,
+    Data: document.getElementById('lc-data').value,
+    Tipo: document.getElementById('lc-tipo').value,
+    Categoria: document.getElementById('lc-categoria').value,
+    Valor: document.getElementById('lc-valor').value,
+    FormaPagamento: document.getElementById('lc-forma').value,
+    Descricao: document.getElementById('lc-descricao').value,
+    Observacoes: document.getElementById('lc-observacoes').value
+  };
+  google.script.run.withSuccessHandler(function (resp) {
+    mostrarToast(resp.mensagem);
+    limparFormLancamento();
+    carregarLancamentos();
+  }).withFailureHandler(erroPadrao).salvarLancamento(dados);
+});
+
+function removerLancamento(id) {
+  if (!confirm('Excluir este lançamento?')) return;
+  google.script.run.withSuccessHandler(function (resp) {
+    mostrarToast(resp.mensagem);
+    carregarLancamentos();
+  }).withFailureHandler(erroPadrao).excluirLancamento(id);
+}
+
+// ---------------- EMPRÉSTIMOS ----------------
+function carregarEmprestimos() {
+  google.script.run.withSuccessHandler(function (lista) {
+    CACHE_EMPRESTIMOS = lista;
+    renderizarEmprestimos(lista);
+  }).withFailureHandler(erroPadrao).listarEmprestimos();
+}
+
+function renderizarEmprestimos(lista) {
+  var listaEl = document.getElementById('lista-emprestimos-tela');
+  document.getElementById('emprestimos-vazio').style.display = lista.length ? 'none' : 'block';
+  listaEl.innerHTML = lista.map(function (e) {
+    var tagClasse = e.Status === 'Ativo' ? 'ativo' : 'quitado';
+    return '<div class="emprestimo-item">' +
+      '<div class="topo-item"><h4>' + escapeHtml(e.Nome) + ' <span class="tag ' + tagClasse + '">' + e.Status + '</span></h4><b>' + formatarMoeda(e.SaldoDevedor) + ' <span style="font-weight:400;color:var(--texto-suave);font-size:12px;">de ' + formatarMoeda(e.ValorOriginal) + '</span></b></div>' +
+      '<div class="meta"><span>' + escapeHtml(e.Credor || '—') + '</span><span>Juros: ' + e.TaxaJurosMensal.toFixed(2) + '% a.m.</span><span>Parcela mínima: ' + formatarMoeda(e.ParcelaMinima) + '</span></div>' +
+      '<div class="barra"><div class="preenchida" style="width:' + e.PercentualQuitado.toFixed(1) + '%"></div></div>' +
+      '<div class="linha-acoes" style="justify-content:flex-start;margin-top:8px;">' +
+      '<button class="secundario" onclick="abrirPagamento(\'' + e.ID + '\')">Registrar pagamento</button>' +
+      '<button class="secundario" onclick="editarEmprestimo(\'' + e.ID + '\')">Editar</button>' +
+      '<button class="perigo" onclick="removerEmprestimo(\'' + e.ID + '\')">Excluir</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function editarEmprestimo(id) {
+  var e = CACHE_EMPRESTIMOS.filter(function (x) { return x.ID === id; })[0];
+  if (!e) return;
+  document.getElementById('emp-id').value = e.ID;
+  document.getElementById('emp-nome').value = e.Nome;
+  document.getElementById('emp-credor').value = e.Credor;
+  document.getElementById('emp-valor-original').value = e.ValorOriginal;
+  document.getElementById('emp-saldo-devedor').value = e.SaldoDevedor;
+  document.getElementById('emp-taxa').value = e.TaxaJurosMensal;
+  document.getElementById('emp-parcela').value = e.ParcelaMinima;
+  document.getElementById('emp-dia-vencimento').value = e.DiaVencimento;
+  document.getElementById('emp-data-inicio').value = dataParaInputDate(e.DataInicio);
+  document.getElementById('emp-status').value = e.Status;
+  document.getElementById('emp-observacoes').value = e.Observacoes;
+  document.getElementById('titulo-form-emprestimo').textContent = 'Editar empréstimo';
+  document.getElementById('btn-limpar-emprestimo').style.display = 'inline-flex';
+  document.getElementById('tela-emprestimos').scrollIntoView({ behavior: 'smooth' });
+}
+
+document.getElementById('btn-limpar-emprestimo').addEventListener('click', limparFormEmprestimo);
+function limparFormEmprestimo() {
+  ['emp-id', 'emp-nome', 'emp-credor', 'emp-valor-original', 'emp-saldo-devedor', 'emp-taxa', 'emp-parcela', 'emp-dia-vencimento', 'emp-data-inicio', 'emp-observacoes'].forEach(function (id) {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('titulo-form-emprestimo').textContent = 'Novo empréstimo';
+  document.getElementById('btn-limpar-emprestimo').style.display = 'none';
+}
+
+document.getElementById('btn-salvar-emprestimo').addEventListener('click', function () {
+  var dados = {
+    ID: document.getElementById('emp-id').value,
+    Nome: document.getElementById('emp-nome').value,
+    Credor: document.getElementById('emp-credor').value,
+    ValorOriginal: document.getElementById('emp-valor-original').value,
+    SaldoDevedor: document.getElementById('emp-saldo-devedor').value,
+    TaxaJurosMensal: document.getElementById('emp-taxa').value,
+    ParcelaMinima: document.getElementById('emp-parcela').value,
+    DiaVencimento: document.getElementById('emp-dia-vencimento').value,
+    DataInicio: document.getElementById('emp-data-inicio').value,
+    Status: document.getElementById('emp-status').value,
+    Observacoes: document.getElementById('emp-observacoes').value
+  };
+  google.script.run.withSuccessHandler(function (resp) {
+    mostrarToast(resp.mensagem);
+    limparFormEmprestimo();
+    carregarEmprestimos();
+  }).withFailureHandler(erroPadrao).salvarEmprestimo(dados);
+});
+
+function removerEmprestimo(id) {
+  if (!confirm('Excluir este empréstimo e todo o histórico de pagamentos associado a ele continuará registrado. Deseja continuar?')) return;
+  google.script.run.withSuccessHandler(function (resp) {
+    mostrarToast(resp.mensagem);
+    carregarEmprestimos();
+  }).withFailureHandler(erroPadrao).excluirEmprestimo(id);
+}
+
+// ---------------- MODAL PAGAMENTO ----------------
+function abrirPagamento(emprestimoId) {
+  document.getElementById('pag-emprestimo-id').value = emprestimoId;
+  document.getElementById('pag-data').value = dataParaInputDate();
+  document.getElementById('pag-valor').value = '';
+  document.getElementById('pag-observacoes').value = '';
+  document.getElementById('modal-pagamento').classList.add('ativo');
+  carregarHistoricoPagamentos(emprestimoId);
+}
+document.getElementById('btn-fechar-pagamento').addEventListener('click', function () {
+  document.getElementById('modal-pagamento').classList.remove('ativo');
+});
+function carregarHistoricoPagamentos(emprestimoId) {
+  google.script.run.withSuccessHandler(function (lista) {
+    var el = document.getElementById('pag-historico');
+    if (!lista.length) { el.innerHTML = '<p style="font-size:12px;color:var(--texto-suave);">Nenhum pagamento registrado ainda.</p>'; return; }
+    el.innerHTML = '<p style="font-size:12px;font-weight:700;color:var(--texto-suave);margin-bottom:6px;">Histórico</p>' +
+      lista.map(function (p) {
+        return '<div style="font-size:12px;padding:6px 0;border-bottom:1px dashed var(--borda);">' + formatarData(p.Data) + ' — pago ' + formatarMoeda(p.ValorPago) + ' (juros ' + formatarMoeda(p.ValorJuros) + ', amortizado ' + formatarMoeda(p.ValorAmortizado) + ') — saldo após: ' + formatarMoeda(p.SaldoApos) + '</div>';
+      }).join('');
+  }).withFailureHandler(erroPadrao).listarPagamentos(emprestimoId);
+}
+document.getElementById('btn-confirmar-pagamento').addEventListener('click', function () {
+  var dados = {
+    EmprestimoID: document.getElementById('pag-emprestimo-id').value,
+    Data: document.getElementById('pag-data').value,
+    ValorPago: document.getElementById('pag-valor').value,
+    Observacoes: document.getElementById('pag-observacoes').value
+  };
+  google.script.run.withSuccessHandler(function (resp) {
+    mostrarToast(resp.mensagem);
+    document.getElementById('modal-pagamento').classList.remove('ativo');
+    carregarEmprestimos();
+    carregarPainel();
+  }).withFailureHandler(erroPadrao).registrarPagamentoEmprestimo(dados);
+});
+
+// ---------------- COMPARAR ESTRATÉGIAS ----------------
+function carregarComparacaoInicial() {
+  document.getElementById('input-simular-aporte').value = APORTE_ATUAL;
+  simular(APORTE_ATUAL);
+}
+document.getElementById('btn-simular').addEventListener('click', function () {
+  simular(document.getElementById('input-simular-aporte').value);
+});
+document.getElementById('btn-simular-atual').addEventListener('click', function () {
+  document.getElementById('input-simular-aporte').value = APORTE_ATUAL;
+  simular(APORTE_ATUAL);
+});
+
+function simular(aporte) {
+  google.script.run.withSuccessHandler(renderizarComparacao).withFailureHandler(erroPadrao).simularComparacao(aporte);
+}
+
+function renderizarComparacao(resultado) {
+  var grid = document.getElementById('comparar-grid');
+  document.getElementById('comparar-vazio').style.display = resultado ? 'none' : 'block';
+  if (!resultado) { grid.innerHTML = ''; return; }
+
+  var planos = [
+    { chave: 'avalanche', titulo: 'Avalanche', desc: 'Foca todo aporte extra no empréstimo de MAIOR taxa de juros.' },
+    { chave: 'bolaDeNeve', titulo: 'Bola de Neve', desc: 'Foca todo aporte extra no empréstimo de MENOR saldo devedor.' }
+  ];
+
+  grid.innerHTML = planos.map(function (p) {
+    var r = resultado[p.chave];
+    var venceu = resultado.recomendada === p.chave;
+    var html = '<div class="plano' + (venceu ? ' vencedor' : '') + '">';
+    if (venceu) html += '<span class="selo">Quita mais rápido / menos juros</span><br>';
+    html += '<h4>' + p.titulo + '</h4><p class="desc">' + p.desc + '</p>';
+    if (!r.quitouTudo) {
+      html += '<p style="color:var(--vermelho);font-size:13px;">Não quita a dívida com este aporte — os juros superam o valor pago.</p>';
+    } else {
+      html += '<div class="metrica"><span>Tempo até quitar tudo</span><b>' + r.meses + ' mes(es)</b></div>';
+      html += '<div class="metrica"><span>Data estimada</span><b>' + formatarData(r.dataQuitacaoEstimada) + '</b></div>';
+      html += '<div class="metrica"><span>Total de juros pagos</span><b>' + formatarMoeda(r.totalJurosPago) + '</b></div>';
+      if (r.ordemQuitacao.length) {
+        html += '<ol class="ordem">' + r.ordemQuitacao.map(function (o) {
+          return '<li>' + escapeHtml(o.nome) + ' — mês ' + o.mes + ' (' + formatarData(o.dataEstimada) + ')</li>';
+        }).join('') + '</ol>';
+      }
+    }
+    html += '</div>';
+    return html;
+  }).join('');
+}
+
+function escapeHtml(texto) {
+  return String(texto == null ? '' : texto).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+</script>
+</body>
+</html>
