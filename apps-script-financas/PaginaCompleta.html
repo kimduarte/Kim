@@ -81,6 +81,8 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.tabela th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--borda); color: var(--texto-suave); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
 table.tabela td { padding: 9px 10px; border-bottom: 1px solid var(--borda); vertical-align: middle; }
 table.tabela tbody tr:hover { background: #fafafe; }
+table.tabela tbody tr.linha-clicavel { cursor: pointer; }
+table.tabela tbody tr.linha-clicavel:hover { background: #eef0ff; }
 .tabela-wrap { overflow-x: auto; }
 
 .tag { display: inline-flex; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
@@ -489,13 +491,13 @@ function renderizarLancamentos(lista) {
   var corpo = document.getElementById('corpo-tabela-lancamentos');
   document.getElementById('lancamentos-vazio').style.display = lista.length ? 'none' : 'block';
   corpo.innerHTML = lista.map(function (l) {
-    return '<tr>' +
+    return '<tr class="linha-clicavel" onclick="editarLancamento(\'' + l.ID + '\')">' +
       '<td>' + formatarData(l.Data) + '</td>' +
       '<td><span class="tag ' + (l.Tipo === 'Entrada' ? 'entrada' : 'saida') + '">' + l.Tipo + '</span></td>' +
       '<td>' + escapeHtml(l.Categoria) + '</td>' +
       '<td>' + escapeHtml(l.Descricao) + '</td>' +
       '<td>' + formatarMoeda(l.Valor) + '</td>' +
-      '<td style="white-space:nowrap;"><button class="link" onclick="editarLancamento(\'' + l.ID + '\')">editar</button> <button class="link" style="color:var(--vermelho);" onclick="removerLancamento(\'' + l.ID + '\')">excluir</button></td>' +
+      '<td style="white-space:nowrap;"><button class="link" style="color:var(--vermelho);" onclick="event.stopPropagation(); removerLancamento(\'' + l.ID + '\')">excluir</button></td>' +
       '</tr>';
   }).join('');
 }
