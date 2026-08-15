@@ -383,6 +383,7 @@ function atualizarCategoriasLancamento() {
 }
 
 function erroPadrao(erro) {
+  console.error('Erro do servidor:', erro);
   mostrarToast(String(erro.message || erro), true);
 }
 
@@ -489,7 +490,15 @@ function carregarLancamentos() {
 
 function renderizarLancamentos(lista) {
   var corpo = document.getElementById('corpo-tabela-lancamentos');
-  document.getElementById('lancamentos-vazio').style.display = lista.length ? 'none' : 'block';
+  var vazioEl = document.getElementById('lancamentos-vazio');
+  if (!lista) {
+    corpo.innerHTML = '';
+    vazioEl.textContent = 'O servidor não devolveu os lançamentos (resposta vazia). Tente recarregar a página com Ctrl+Shift+R.';
+    vazioEl.style.display = 'block';
+    return;
+  }
+  vazioEl.textContent = 'Nenhum lançamento encontrado.';
+  vazioEl.style.display = lista.length ? 'none' : 'block';
   corpo.innerHTML = lista.map(function (l) {
     return '<tr class="linha-clicavel" onclick="editarLancamento(\'' + l.ID + '\')">' +
       '<td>' + formatarData(l.Data) + '</td>' +
