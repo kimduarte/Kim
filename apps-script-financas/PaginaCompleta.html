@@ -487,7 +487,9 @@ function carregarLancamentos() {
     tipo: document.getElementById('filtro-tipo').value,
     busca: document.getElementById('filtro-busca').value
   };
-  google.script.run.withSuccessHandler(renderizarLancamentos).withFailureHandler(erroPadrao).listarLancamentos(filtros);
+  google.script.run.withSuccessHandler(function (resposta) {
+    renderizarLancamentos(resposta ? resposta.itens : null);
+  }).withFailureHandler(erroPadrao).listarLancamentos(filtros);
 }
 ['filtro-mes', 'filtro-tipo', 'filtro-busca'].forEach(function (id) {
   document.getElementById(id).addEventListener('input', carregarLancamentos);
@@ -518,8 +520,8 @@ function renderizarLancamentos(lista) {
 }
 
 function editarLancamento(id) {
-  google.script.run.withSuccessHandler(function (lista) {
-    var l = lista.filter(function (x) { return x.ID === id; })[0];
+  google.script.run.withSuccessHandler(function (resposta) {
+    var l = (resposta && resposta.itens ? resposta.itens : []).filter(function (x) { return x.ID === id; })[0];
     if (!l) return;
     document.getElementById('lc-id').value = l.ID;
     document.getElementById('lc-data').value = dataParaInputDate(l.Data);
@@ -608,7 +610,8 @@ function removerLancamento(id) {
 
 // ---------------- EMPRÉSTIMOS ----------------
 function carregarEmprestimos() {
-  google.script.run.withSuccessHandler(function (lista) {
+  google.script.run.withSuccessHandler(function (resposta) {
+    var lista = resposta ? resposta.itens : [];
     CACHE_EMPRESTIMOS = lista;
     renderizarEmprestimos(lista);
   }).withFailureHandler(erroPadrao).listarEmprestimos();
@@ -701,7 +704,8 @@ document.getElementById('btn-fechar-pagamento').addEventListener('click', functi
   document.getElementById('modal-pagamento').classList.remove('ativo');
 });
 function carregarHistoricoPagamentos(emprestimoId) {
-  google.script.run.withSuccessHandler(function (lista) {
+  google.script.run.withSuccessHandler(function (resposta) {
+    var lista = resposta ? resposta.itens : [];
     var el = document.getElementById('pag-historico');
     if (!lista.length) { el.innerHTML = '<p style="font-size:12px;color:var(--texto-suave);">Nenhum pagamento registrado ainda.</p>'; return; }
     el.innerHTML = '<p style="font-size:12px;font-weight:700;color:var(--texto-suave);margin-bottom:6px;">Histórico</p>' +

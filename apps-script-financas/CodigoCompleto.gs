@@ -242,7 +242,15 @@ function getContextoInicial() {
 // LANÇAMENTOS (entradas/saídas do dia a dia)
 // ======================================================================
 
+// Wrapper exposto ao cliente: o google.script.run tem uma falha conhecida
+// em que devolver um array "puro" (sem estar dentro de um objeto) vira
+// `null` no navegador, mesmo a função tendo rodado certinho no servidor —
+// por isso as funções de listagem embrulham o resultado em { itens: [...] }.
 function listarLancamentos(filtros) {
+  return { itens: listarLancamentos_(filtros) };
+}
+
+function listarLancamentos_(filtros) {
   filtros = filtros || {};
   var sheet = getOrCreateSheet_(SHEET_LANCAMENTOS, CABECALHO_LANCAMENTOS);
   var valores = sheet.getDataRange().getValues();
@@ -333,6 +341,10 @@ function excluirLancamento(id) {
 // ======================================================================
 
 function listarEmprestimos() {
+  return { itens: listarEmprestimos_() };
+}
+
+function listarEmprestimos_() {
   var sheet = getOrCreateSheet_(SHEET_EMPRESTIMOS, CABECALHO_EMPRESTIMOS);
   var valores = sheet.getDataRange().getValues();
   var cabecalho = valores[0];
@@ -477,6 +489,10 @@ function registrarPagamentoEmprestimo(dados) {
 }
 
 function listarPagamentos(emprestimoId) {
+  return { itens: listarPagamentos_(emprestimoId) };
+}
+
+function listarPagamentos_(emprestimoId) {
   var sheet = getOrCreateSheet_(SHEET_PAGAMENTOS, CABECALHO_PAGAMENTOS);
   var valores = sheet.getDataRange().getValues();
   var cabecalho = valores[0];
@@ -643,7 +659,7 @@ function simularQuitacao_(emprestimos, aporteExtraMensal, estrategia) {
  * duas simulações (avalanche e bola de neve) lado a lado para comparação.
  */
 function getPainel() {
-  var lancamentos = listarLancamentos({});
+  var lancamentos = listarLancamentos_({});
   var hoje = new Date();
   var chaveMesAtual = formatarChaveMesAno_(hoje);
 
@@ -654,7 +670,7 @@ function getPainel() {
     else if (l.Tipo === TIPO_SAIDA) saidasMes += l.Valor;
   });
 
-  var todosEmprestimos = listarEmprestimos();
+  var todosEmprestimos = listarEmprestimos_();
   var emprestimosAtivos = todosEmprestimos.filter(function (e) { return e.Status === STATUS_EMPRESTIMO_ATIVO && e.SaldoDevedor > TOLERANCIA_CENTAVOS; });
 
   var totalOriginal = todosEmprestimos.reduce(function (s, e) { return s + e.ValorOriginal; }, 0);
@@ -697,7 +713,7 @@ function getPainel() {
  * (sem salvar nada), para o usuário testar cenários na tela de comparação.
  */
 function simularComparacao(aporteExtraOverride) {
-  var emprestimosAtivos = listarEmprestimos().filter(function (e) { return e.Status === STATUS_EMPRESTIMO_ATIVO && e.SaldoDevedor > TOLERANCIA_CENTAVOS; });
+  var emprestimosAtivos = listarEmprestimos_().filter(function (e) { return e.Status === STATUS_EMPRESTIMO_ATIVO && e.SaldoDevedor > TOLERANCIA_CENTAVOS; });
   var aporte = Math.max(0, paraNumero_(aporteExtraOverride));
   if (emprestimosAtivos.length === 0) return null;
 
