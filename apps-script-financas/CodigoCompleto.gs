@@ -224,6 +224,7 @@ function doGet(e) {
 function getContextoInicial() {
   var config = getConfigMap_();
   return {
+    versaoCodigo: 'MARCA-15AGO-ITENS-FIX',
     listas: {
       tipo: TIPOS_LANCAMENTO,
       categoriaEntrada: CATEGORIAS_ENTRADA,
