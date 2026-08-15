@@ -236,6 +236,12 @@ table.tabela tbody tr.linha-clicavel:hover { background: #eef0ff; }
       <div class="vazio" id="lancamentos-vazio" style="display:none;">Nenhum lançamento encontrado.</div>
     </div>
   </div>
+
+  <div class="card">
+    <h3>Diagnóstico <span class="sub">use se algo não estiver aparecendo certo</span></h3>
+    <button class="secundario" id="btn-diagnostico">Testar conexão com o servidor</button>
+    <pre id="saida-diagnostico" style="display:none;margin-top:12px;background:#111827;color:#d1fae5;padding:14px;border-radius:10px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:320px;overflow:auto;"></pre>
+  </div>
 </section>
 
 <!-- ===================== EMPRÉSTIMOS ===================== -->
@@ -557,6 +563,39 @@ document.getElementById('btn-salvar-lancamento').addEventListener('click', funct
     limparFormLancamento();
     carregarLancamentos();
   }).withFailureHandler(erroPadrao).salvarLancamento(dados);
+});
+
+document.getElementById('btn-diagnostico').addEventListener('click', function () {
+  var saida = document.getElementById('saida-diagnostico');
+  saida.style.display = 'block';
+  saida.textContent = 'Chamando o servidor (listarLancamentos)...';
+
+  var filtrosAtuais = {
+    mesAno: document.getElementById('filtro-mes').value,
+    tipo: document.getElementById('filtro-tipo').value,
+    busca: document.getElementById('filtro-busca').value
+  };
+
+  google.script.run
+    .withSuccessHandler(function (r) {
+      var linha1 = '1) listarLancamentos(' + JSON.stringify(filtrosAtuais) + ')\n';
+      linha1 += 'SUCESSO — tipo recebido: ' + (r === null ? 'null' : typeof r) + (Array.isArray(r) ? ' (array com ' + r.length + ' item(ns))' : '') + '\n';
+      linha1 += JSON.stringify(r, null, 2) + '\n\n';
+      saida.textContent = linha1 + 'Chamando getContextoInicial()...';
+
+      google.script.run
+        .withSuccessHandler(function (r2) {
+          saida.textContent = linha1 + '2) getContextoInicial()\nSUCESSO:\n' + JSON.stringify(r2, null, 2);
+        })
+        .withFailureHandler(function (e2) {
+          saida.textContent = linha1 + '2) getContextoInicial()\nERRO: ' + (e2 && e2.message ? e2.message : JSON.stringify(e2));
+        })
+        .getContextoInicial();
+    })
+    .withFailureHandler(function (e) {
+      saida.textContent = '1) listarLancamentos(' + JSON.stringify(filtrosAtuais) + ')\nERRO DO SERVIDOR:\n' + (e && e.message ? e.message : JSON.stringify(e));
+    })
+    .listarLancamentos(filtrosAtuais);
 });
 
 function removerLancamento(id) {
