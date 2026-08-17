@@ -2113,6 +2113,81 @@ function importarOficio470_2026() {
   return { criados: criados.length, jaExistiam: jaExistiam.length, erros: erros.length, mensagem: mensagem };
 }
 
+/**
+ * Importação pontual dos 5 veículos do Ofício nº 480/2026/TRANSV/COLOG/
+ * DGFNSP/SENASP/MJ (Termo de Doação SENASP 439/2026, à Secretaria de
+ * Estado da Segurança Pública do Paraná — SEI 36509302, Processo
+ * 08020.000781/2026-53). Reaproveita salvarVeiculo() pra cada linha —
+ * mesmas validações e checagem de duplicidade do cadastro manual. Rode
+ * manualmente pelo editor (selecione "importarOficio480_2026" no menu de
+ * funções, clique em Executar) — função de uso único, pode apagar depois
+ * de rodada.
+ */
+function importarOficio480_2026() {
+  var comum = {
+    Ano: 2026,
+    Mes: 'AGO',
+    UF: 'PR',
+    Ente: 'Estado',
+    Donataria: 'Secretaria de Estado da Segurança Pública do Paraná',
+    TermoDoacao: 'Termo de Doação SENASP 439/2026',
+    NumeroSei: '36509302',
+    NumeroProcesso: '08020.000781/2026-53',
+    Descricao: 'TRAILBLAZER LT D4A',
+    Marca: 'CHEVROLET',
+    CNPJDonataria: '76.416.932/0001-81',
+    CEP: '80420170',
+    Logradouro: 'Rua Cel. Dulcídio',
+    Numero: '800',
+    Bairro: 'Batel',
+    Municipio: 'Curitiba',
+    ValorVeiculo: 289017.00,
+    Transferido: 'NÃO'
+  };
+
+  // [Chassi, Renavam, Placa, Destinação (vira Observações)] — Anexo I do
+  // Ofício 480/2026 (o mesmo Termo de Doação 439/2026 tinha esses dados
+  // sem o Renavam completo; o ofício trouxe a tabela completa).
+  var veiculos = [
+    ['9BG156FK0TC443806', '1489869651', 'UIZ2B44', 'Corpo de Bombeiros Militar do Estado do Paraná - 1º GBM Curitiba'],
+    ['9BG156FK0TC443819', '1489876089', 'UIZ2B59', 'Polícia Militar do Estado do Paraná - 18º BPM de Cornélio Procópio - PR'],
+    ['9BG156FK0TC444587', '1489889350', 'UIZ2B91', 'Polícia Militar do Estado do Paraná - 15º BPM de Porecatu - PR'],
+    ['9BG156FK0TC444654', '1489898651', 'UIZ2C06', 'Polícia Civil do Estado do Paraná'],
+    ['9BG156FK0TC444581', '1489894010', 'UIZ2C00', 'Polícia Civil do Estado do Paraná']
+  ];
+
+  var criados = [], jaExistiam = [], erros = [];
+  veiculos.forEach(function (v) {
+    var dados = {};
+    for (var campo in comum) dados[campo] = comum[campo];
+    dados.Chassi = v[0];
+    dados.Renavam = v[1];
+    dados.Placa = v[2];
+    dados.Observacoes = 'Destinação (Anexo I do Termo/Ofício): ' + v[3];
+    try {
+      var resp = salvarVeiculo(dados);
+      criados.push(resp.ID + ' — ' + v[2]);
+    } catch (e) {
+      var msg = e.message || String(e);
+      if (msg.indexOf('já existe') !== -1) {
+        jaExistiam.push(v[2]);
+      } else {
+        erros.push(v[2] + ': ' + msg);
+      }
+    }
+  });
+
+  Logger.log('Cadastrados: ' + criados.length + (criados.length ? '\n' + criados.join('\n') : ''));
+  if (jaExistiam.length) Logger.log('Já existiam (ignorados): ' + jaExistiam.length + '\n' + jaExistiam.join(', '));
+  if (erros.length) Logger.log('Erros: ' + erros.length + '\n' + erros.join('\n'));
+
+  var mensagem = criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
+    (jaExistiam.length ? ' ' + jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
+    (erros.length ? ' ' + erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
+  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importar Ofício 480/2026', 15);
+  return { criados: criados.length, jaExistiam: jaExistiam.length, erros: erros.length, mensagem: mensagem };
+}
+
 function atualizarVeiculo_(sheet, perfil, id, registro) {
   // Garante que colunas adicionadas depois da criação original da planilha
   // (como ValorVeiculo) já existem com o cabeçalho certo antes de gravar —
