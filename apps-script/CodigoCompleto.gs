@@ -1974,6 +1974,144 @@ function criarVeiculo_(sheet, perfil, registro) {
   return { ID: id, mensagem: 'Veículo cadastrado com sucesso.' };
 }
 
+/**
+ * Importação pontual dos 67 veículos do Ofício nº 470/2026/TRANSV/COLOG/
+ * DGFNSP/SENASP/MJ (Termo de Doação SENASP 427/2026, à Polícia Militar do
+ * Estado de São Paulo — SEI 36480990, Processo 08020.000791/2026-99).
+ * Reaproveita salvarVeiculo() pra cada linha, então passa pelas mesmas
+ * validações e checagem de duplicidade (chassi/placa) do cadastro manual
+ * — rodar de novo por engano não duplica nada, só devolve erro de
+ * "já existe" pra quem já tiver sido criado da primeira vez. Rode
+ * manualmente pelo editor (selecione "importarOficio470_2026_" no menu de
+ * funções, clique em Executar, depois Ver > Registros/Execuções pra
+ * conferir o resultado) — função de uso único, pode apagar depois de
+ * rodada.
+ */
+function importarOficio470_2026_() {
+  var comum = {
+    Ano: 2026,
+    Mes: 'AGO',
+    UF: 'SP',
+    Ente: 'Estado',
+    Donataria: 'Polícia Militar do Estado de São Paulo',
+    TermoDoacao: 'Termo de Doação SENASP 427/2026',
+    NumeroSei: '36480990',
+    NumeroProcesso: '08020.000791/2026-99',
+    Descricao: 'TRAILBLAZER LT',
+    Marca: 'CHEVROLET',
+    CNPJDonataria: '04.198.514/0038-46',
+    CEP: '03033901',
+    Logradouro: 'Avenida Cruzeiro do Sul',
+    Numero: '260',
+    Complemento: '6º Andar, Sala nº 627',
+    Bairro: 'Canindé',
+    Municipio: 'São Paulo',
+    ValorVeiculo: 289017.00,
+    Transferido: 'NÃO'
+  };
+
+  // [Chassi, Renavam, Placa] — Anexo I do ofício, ordem 1 a 67.
+  var veiculos = [
+    ['9BG156FK0TC443512', '1489903388', 'UIZ2C17'],
+    ['9BG156FK0TC443522', '1489904678', 'UIZ2C23'],
+    ['9BG156FK0TC443532', '1489905607', 'UIZ2C29'],
+    ['9BG156FK0TC443562', '1489906859', 'UIZ2C31'],
+    ['9BG156FK0TC443580', '1489907375', 'UIZ2C32'],
+    ['9BG156FK0TC443741', '1489907936', 'UIZ2C33'],
+    ['9BG156FK0TC443743', '1489908851', 'UIZ2C34'],
+    ['9BG156FK0TC443746', '1489911887', 'UIZ2C46'],
+    ['9BG156FK0TC443748', '1489909750', 'UIZ2C35'],
+    ['9BG156FK0TC443769', '1489911291', 'UIZ2C44'],
+    ['9BG156FK0TC443775', '1489910007', 'UIZ2C37'],
+    ['9BG156FK0TC443781', '1489910473', 'UIZ2C39'],
+    ['9BG156FK0TC443812', '1489912697', 'UIZ2C49'],
+    ['9BG156FK0TC443833', '1489912387', 'UIZ2C47'],
+    ['9BG156FK0TC443988', '1489910791', 'UIZ2C42'],
+    ['9BG156FK0TC443994', '1489912581', 'UIZ2C48'],
+    ['9BG156FK0TC444018', '1489912875', 'UIZ2C50'],
+    ['9BG156FK0TC444023', '1489913243', 'UIZ2C52'],
+    ['9BG156FK0TC444029', '1489913413', 'UIZ2C53'],
+    ['9BG156FK0TC444035', '1489913480', 'UIZ2C54'],
+    ['9BG156FK0TC444047', '1489913839', 'UIZ2C55'],
+    ['9BG156FK0TC444049', '1489914134', 'UIZ2C56'],
+    ['9BG156FK0TC444054', '1489914592', 'UIZ2C57'],
+    ['9BG156FK0TC444057', '1489935263', 'UIZ2D20'],
+    ['9BG156FK0TC444058', '1489935271', 'UIZ2D21'],
+    ['9BG156FK0TC444082', '1489935298', 'UIZ2D22'],
+    ['9BG156FK0TC444083', '1489935310', 'UIZ2D23'],
+    ['9BG156FK0TC444085', '1489935433', 'UIZ2D24'],
+    ['9BG156FK0TC444086', '1489935468', 'UIZ2D25'],
+    ['9BG156FK0TC444089', '1489935514', 'UIZ2D26'],
+    ['9BG156FK0TC444091', '1489935565', 'UIZ2D27'],
+    ['9BG156FK0TC444192', '1489935590', 'UIZ2D28'],
+    ['9BG156FK0TC444196', '1489935689', 'UIZ2D30'],
+    ['9BG156FK0TC444197', '1489935727', 'UIZ2D31'],
+    ['9BG156FK0TC444198', '1489935743', 'UIZ2D32'],
+    ['9BG156FK0TC444199', '1489935760', 'UIZ2D33'],
+    ['9BG156FK0TC444216', '1489935212', 'UIZ2D19'],
+    ['9BG156FK0TC443514', '1491952773', 'UIZ7F25'],
+    ['9BG156FK0TC443518', '1491951700', 'UIZ7F16'],
+    ['9BG156FK0TC443520', '1491950568', 'UIZ7F12'],
+    ['9BG156FK0TC443549', '1491950010', 'UIZ7F11'],
+    ['9BG156FK0TC443555', '1491949179', 'UIZ7F08'],
+    ['9BG156FK0TC443742', '1491947664', 'UIZ7F05'],
+    ['9BG156FK0TC443744', '1491946595', 'UIZ7E99'],
+    ['9BG156FK0TC443750', '1491936166', 'UIZ7E71'],
+    ['9BG156FK0TC443754', '1491935720', 'UIZ7E68'],
+    ['9BG156FK0TC443757', '1491935313', 'UIZ7E65'],
+    ['9BG156FK0TC443763', '1491934171', 'UIZ7E63'],
+    ['9BG156FK0TC443839', '1491932390', 'UIZ7E60'],
+    ['9BG156FK0TC444050', '1491931580', 'UIZ7E58'],
+    ['9BG156FK0TC444053', '1491930060', 'UIZ7D76'],
+    ['9BG156FK0TC444055', '1491929348', 'UIZ7D73'],
+    ['9BG156FK0TC444056', '1491927094', 'UIZ7D70'],
+    ['9BG156FK0TC444080', '1491925989', 'UIZ7D67'],
+    ['9BG156FK0TC444081', '1491925598', 'UIZ7D65'],
+    ['9BG156FK0TC444084', '1491922874', 'UIZ7C85'],
+    ['9BG156FK0TC444090', '1491921223', 'UIZ7C03'],
+    ['9BG156FK0TC443986', '1491799401', 'UIZ7B19'],
+    ['9BG156FK0TC444005', '1491799215', 'UIZ7B18'],
+    ['9BG156FK0TC444011', '1491798308', 'UIZ7B17'],
+    ['9BG156FK0TC444193', '1491796283', 'UIZ7B15'],
+    ['9BG156FK0TC444195', '1491795015', 'UIZ7B11'],
+    ['9BG156FK0TC444200', '1491794345', 'UIZ7B09'],
+    ['9BG156FK0TC444201', '1491793691', 'UIZ7B07'],
+    ['9BG156FK0TC444202', '1491792482', 'UIZ7B04'],
+    ['9BG156FK0TC444204', '1491791761', 'UIZ6I55'],
+    ['9BG156FK0TC444205', '1491791230', 'UIZ6D28']
+  ];
+
+  var criados = [], jaExistiam = [], erros = [];
+  veiculos.forEach(function (v) {
+    var dados = {};
+    for (var campo in comum) dados[campo] = comum[campo];
+    dados.Chassi = v[0];
+    dados.Renavam = v[1];
+    dados.Placa = v[2];
+    try {
+      var resp = salvarVeiculo(dados);
+      criados.push(resp.ID + ' — ' + v[2]);
+    } catch (e) {
+      var msg = e.message || String(e);
+      if (msg.indexOf('Já existe um veículo cadastrado') === 0 || msg.indexOf('já existe') !== -1) {
+        jaExistiam.push(v[2]);
+      } else {
+        erros.push(v[2] + ': ' + msg);
+      }
+    }
+  });
+
+  Logger.log('Cadastrados: ' + criados.length + (criados.length ? '\n' + criados.join('\n') : ''));
+  if (jaExistiam.length) Logger.log('Já existiam (ignorados): ' + jaExistiam.length + '\n' + jaExistiam.join(', '));
+  if (erros.length) Logger.log('Erros: ' + erros.length + '\n' + erros.join('\n'));
+
+  var mensagem = criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
+    (jaExistiam.length ? ' ' + jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
+    (erros.length ? ' ' + erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
+  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importar Ofício 470/2026', 15);
+  return { criados: criados.length, jaExistiam: jaExistiam.length, erros: erros.length, mensagem: mensagem };
+}
+
 function atualizarVeiculo_(sheet, perfil, id, registro) {
   // Garante que colunas adicionadas depois da criação original da planilha
   // (como ValorVeiculo) já existem com o cabeçalho certo antes de gravar —
