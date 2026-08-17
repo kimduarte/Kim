@@ -1645,14 +1645,6 @@
             </select>
           </div>
           <div class="campo">
-            <label for="sinesp_UF">UF</label>
-            <select id="sinesp_UF"><option value="">Todas</option></select>
-          </div>
-          <div class="campo">
-            <label for="sinesp_Ente">Ente</label>
-            <select id="sinesp_Ente"><option value="">Todos</option></select>
-          </div>
-          <div class="campo">
             <label for="sinesp_Ano">Ano</label>
             <select id="sinesp_Ano"><option value="">Todos</option></select>
           </div>
@@ -2957,8 +2949,6 @@
     mostrarSkeleton_('sinespResultado', 3);
     try {
       var filtros = {
-        uf: document.getElementById('sinesp_UF').value,
-        ente: document.getElementById('sinesp_Ente').value,
         ano: document.getElementById('sinesp_Ano').value
       };
       var itens = await chamarServidor_('listarPendentesSinesp', filtros);
@@ -3094,8 +3084,6 @@
     preencherSelect('f_UF', ctx.listas.uf, false, 'Todas');
     preencherSelect('f_Ente', ctx.listas.ente, false, 'Todos');
     preencherSelect('f_Transferido', ctx.listas.transferido, false, 'Todos');
-    preencherSelect('sinesp_UF', ctx.listas.uf, false, 'Todas');
-    preencherSelect('sinesp_Ente', ctx.listas.ente, false, 'Todos');
     preencherSelect('enteStatGeral', ctx.listas.ente, false, 'Todos');
     preencherSelect('pe_Mes', ctx.listas.mes, true);
     preencherSelect('pe_UF', ctx.listas.uf, true);
