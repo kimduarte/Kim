@@ -372,6 +372,16 @@
   .mapa-brasil-semdados { display: flex; align-items: center; gap: 5px; margin-left: 12px; }
   .mapa-brasil-semdados i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: #E7E7E7; border: 1px solid var(--borda); }
 
+  /* Conferência SINESP — cada item do lote com faixa alternada e destaque
+     ao passar o mouse, e o botão logo ao lado do texto (não espalhado até
+     a borda do card) — evita ter que "mirar" longe e clicar na linha
+     errada num card largo. */
+  .sinesp-linha-item { display: flex; align-items: center; gap: 16px; padding: 8px 10px; border-radius: 6px; }
+  .sinesp-linha-item:nth-child(even) { background: var(--bg); }
+  .sinesp-linha-item:hover { background: var(--azul-bg); }
+  .sinesp-linha-item.marcado:hover { background: var(--bg); }
+  .sinesp-linha-botao { flex-shrink: 0; }
+
   .processo-card { border: 1px solid var(--borda); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
   .processo-cabecalho {
     display: flex; align-items: center; gap: 14px;
@@ -2980,11 +2990,12 @@
       var linhasDetalhe = lote.map(function (item, i) {
         var indiceGlobal = indiceLote * TAMANHO_LOTE_SINESP + i;
         var botao = USUARIO_PODE_EDITAR
-          ? '<button type="button" class="secundario" id="sinespBotao_' + indiceGlobal + '" style="padding:2px 10px; font-size:11px;" onclick="marcarTransferidoSinesp_(' + indiceGlobal + ')">Marcar transferido</button>'
+          ? '<button type="button" class="secundario sinesp-linha-botao" id="sinespBotao_' + indiceGlobal + '" style="padding:3px 12px; font-size:11px;" onclick="marcarTransferidoSinesp_(' + indiceGlobal + ')">Marcar transferido</button>'
           : '';
-        return '<div id="sinespItem_' + indiceGlobal + '" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:4px 0;">' +
+        return '<div id="sinespItem_' + indiceGlobal + '" class="sinesp-linha-item">' +
           '<span>' + (indiceGlobal + 1) + '. <strong>' + escaparHtml(item[campo] || '—') + '</strong> — ' +
-          escaparHtml(item.donataria || '') + ' • ' + escaparHtml(item.uf || '') + '</span>' + botao + '</div>';
+          escaparHtml(item.donataria || '') + ' • ' + escaparHtml(item.uf || '') + '</span>' +
+          botao + '</div>';
       }).join('');
       return '<div class="card" style="margin-top:14px;">' +
         '<div class="pagina-titulo" style="margin-bottom:8px;">' +
@@ -3012,6 +3023,7 @@
     botao.textContent = 'Marcando...';
     try {
       await chamarServidor_('atualizarStatusVeiculo', item.id, 'Transferido', 'SIM');
+      linha.classList.add('marcado');
       linha.style.opacity = '0.5';
       linha.querySelector('strong').style.textDecoration = 'line-through';
       botao.textContent = '✓ Transferido';
