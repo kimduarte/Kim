@@ -1982,12 +1982,13 @@ function criarVeiculo_(sheet, perfil, registro) {
  * validações e checagem de duplicidade (chassi/placa) do cadastro manual
  * — rodar de novo por engano não duplica nada, só devolve erro de
  * "já existe" pra quem já tiver sido criado da primeira vez. Rode
- * manualmente pelo editor (selecione "importarOficio470_2026_" no menu de
+ * manualmente pelo editor (selecione "importarOficio470_2026" no menu de
  * funções, clique em Executar, depois Ver > Registros/Execuções pra
  * conferir o resultado) — função de uso único, pode apagar depois de
- * rodada.
+ * rodada. Sem "_" no nome de propósito: funções terminadas em "_" ficam
+ * escondidas do menu "Selecionar função" do editor do Apps Script.
  */
-function importarOficio470_2026_() {
+function importarOficio470_2026() {
   var comum = {
     Ano: 2026,
     Mes: 'AGO',
