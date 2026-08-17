@@ -943,7 +943,7 @@ function listarVeiculos(filtros) {
  * Veículos ainda não transferidos, só com os campos que a tela
  * "Conferência SINESP" usa — usada pra gerar os lotes de chassi/placa que
  * são colados na busca do SINESP na conferência semanal. Devolve todos os
- * pendentes de uma vez (não paginado como listarVeiculosParaExibicao),
+ * pendentes de uma vez (sem limite de página, ao contrário da Listagem),
  * mas com um DTO bem enxuto pra não pesar o payload mesmo com centenas de
  * registros. Ordenado por UF/Donatária/Placa pra os lotes de 10 saírem
  * agrupados por quem recebeu os veículos, em vez de embaralhados.
@@ -964,26 +964,6 @@ function listarPendentesSinesp(filtros) {
   return pendentes.map(function (r) {
     return { id: r.ID, chassi: r.Chassi, placa: r.Placa, uf: r.UF, donataria: r.Donataria };
   });
-}
-
-/**
- * Versão usada pela tela de Listagem: devolve no máximo
- * LIMITE_LISTAGEM_PADRAO registros (os mais recentes) para não travar o
- * navegador com milhares de linhas de uma vez. Use os filtros/busca para
- * encontrar um veículo específico fora desse recorte.
- */
-function listarVeiculosParaExibicao(filtros) {
-  var todos = listarVeiculos(filtros);
-  var truncado = todos.length > LIMITE_LISTAGEM_PADRAO;
-  var recorte = truncado ? todos.slice(0, LIMITE_LISTAGEM_PADRAO) : todos;
-  return {
-    total: todos.length,
-    truncado: truncado,
-    // Sem os campos de data/auditoria: não aparecem na Listagem nem no
-    // modal de edição, e valores Date dentro de listas grandes já
-    // atrapalharam a entrega da resposta ao navegador antes.
-    registros: recorte.map(paraDtoListagem_)
-  };
 }
 
 function paraDtoListagem_(r) {
@@ -1662,53 +1642,6 @@ function salvarObservacaoTep(chaveProcesso, observacao) {
   return { mensagem: 'Observação salva com sucesso.' };
 }
 
-/**
- * SÓ PRA DIAGNÓSTICO — rode manualmente pelo editor (selecione
- * "testarTepDebug" no menu de funções, clique em Executar, depois em Ver >
- * Registros/Execuções pra ler o resultado). Não altera nada na planilha.
- * Mostra, pra cada veículo com "403" no Processo ou Termo de Doação, os
- * valores exatos dos campos que decidem se ele entra no TEP — e o
- * resultado final de getProcessosPendentesTep_().
- */
-function testarTepDebug() {
-  var termoBusca = '403';
-  var todos = listarVeiculos({});
-  var relevantes = todos.filter(function (r) {
-    return String(r.NumeroProcesso || '').indexOf(termoBusca) !== -1 ||
-      String(r.TermoDoacao || '').indexOf(termoBusca) !== -1;
-  });
-
-  Logger.log('=== Veículos com "' + termoBusca + '" no Processo/Termo (' + relevantes.length + ') ===');
-  relevantes.forEach(function (r) {
-    Logger.log('ID=' + r.ID +
-      ' | NumeroProcesso=[' + r.NumeroProcesso + ']' +
-      ' | TermoDoacao=[' + r.TermoDoacao + ']' +
-      ' | chaveProcesso_=[' + chaveProcesso_(r) + ']' +
-      ' | Transferido=' + r.Transferido +
-      ' | DataTransferencia=' + r.DataTransferencia +
-      ' | Ano=' + r.Ano);
-  });
-
-  var todosPendentes = getProcessosPendentesTep_();
-  Logger.log('=== getProcessosPendentesTep_(): ' + todosPendentes.length + ' processo(s) pendente(s) de TEP no total ===');
-  Logger.log('Primeiros 5: ' + JSON.stringify(todosPendentes.slice(0, 5).map(function (p) { return p.chave; })));
-
-  var email = getEmailUsuarioAtual_();
-  var perfil = getPerfilUsuarioAtual_();
-  Logger.log('=== Usuário atual (o mesmo que roda esta função) ===');
-  Logger.log('email=' + email + ' | perfil=' + perfil.perfil + ' | acessoProdutividade=' + perfil.acessoProdutividade);
-
-  var listaWeb = listarTepPendentes();
-  Logger.log('=== listarTepPendentes() (a mesma função que o site chama): ' + listaWeb.length + ' processo(s) ===');
-
-  var ctx = getContextoInicial();
-  Logger.log('=== getContextoInicial().tepPendentes (número que vira o aviso "TEP (N)"): ' + ctx.tepPendentes + ' ===');
-
-  Logger.log('Se os números acima batem com o esperado mas o SITE mostra "Nenhum processo pendente", ' +
-    'o site publicado ainda está numa versão antiga do código — precisa implantar uma NOVA VERSÃO ' +
-    '(Implantar > Gerenciar implantações > editar > Versão: Nova versão > Implantar).');
-}
-
 function chaveRelatorioItens_(dataInicio, dataFim) {
   return dataInicio + '|' + dataFim;
 }
@@ -1975,153 +1908,104 @@ function criarVeiculo_(sheet, perfil, registro) {
 }
 
 /**
- * Importação pontual dos 67 veículos do Ofício nº 470/2026/TRANSV/COLOG/
- * DGFNSP/SENASP/MJ (Termo de Doação SENASP 427/2026, à Polícia Militar do
- * Estado de São Paulo — SEI 36480990, Processo 08020.000791/2026-99).
- * Reaproveita salvarVeiculo() pra cada linha, então passa pelas mesmas
- * validações e checagem de duplicidade (chassi/placa) do cadastro manual
- * — rodar de novo por engano não duplica nada, só devolve erro de
- * "já existe" pra quem já tiver sido criado da primeira vez. Rode
- * manualmente pelo editor (selecione "importarOficio470_2026" no menu de
- * funções, clique em Executar, depois Ver > Registros/Execuções pra
- * conferir o resultado) — função de uso único, pode apagar depois de
- * rodada. Sem "_" no nome de propósito: funções terminadas em "_" ficam
- * escondidas do menu "Selecionar função" do editor do Apps Script.
+ * Motor genérico de importação em lote — usado pelas funções de
+ * importação pontual de ofícios/termos de doação (ex.:
+ * importarOficio480_2026). Ao contrário de chamar salvarVeiculo() num
+ * loop (que relê a planilha inteira do zero a cada veículo só pra
+ * checar duplicidade — com ~3.500 linhas, isso levou mais de 3 minutos
+ * pra importar 67 veículos), lê a planilha UMA VEZ, valida cada linha
+ * em memória com a mesma validarESanitizarVeiculo_() do cadastro
+ * manual (as mesmas regras, os mesmos erros) e grava tudo de uma vez
+ * com um único setValues() — questão de segundos mesmo com centenas de
+ * linhas.
+ *
+ * "comum" são os campos que valem pra todos os veículos do lote (Ano,
+ * UF, Donataria, NumeroSei etc.). "veiculos" é uma lista de objetos só
+ * com os campos que variam por veículo (pelo menos Chassi/Renavam/
+ * Placa) — cada um mesclado com "comum" antes de validar (o que vier
+ * no objeto do veículo tem prioridade, pra poder sobrescrever algo
+ * específico daquele item se precisar). Duplicidade (chassi OU placa
+ * já existente — seja na planilha ou repetido dentro do próprio lote)
+ * é ignorada sem erro, pra poder rodar de novo com segurança se a
+ * execução parar no meio.
  */
-function importarOficio470_2026() {
-  var comum = {
-    Ano: 2026,
-    Mes: 'AGO',
-    UF: 'SP',
-    Ente: 'Estado',
-    Donataria: 'Polícia Militar do Estado de São Paulo',
-    TermoDoacao: 'Termo de Doação SENASP 427/2026',
-    NumeroSei: '36480990',
-    NumeroProcesso: '08020.000791/2026-99',
-    Descricao: 'TRAILBLAZER LT',
-    Marca: 'CHEVROLET',
-    CNPJDonataria: '04.198.514/0038-46',
-    CEP: '03033901',
-    Logradouro: 'Avenida Cruzeiro do Sul',
-    Numero: '260',
-    Complemento: '6º Andar, Sala nº 627',
-    Bairro: 'Canindé',
-    Municipio: 'São Paulo',
-    ValorVeiculo: 289017.00,
-    Transferido: 'NÃO'
-  };
+function importarVeiculosEmLote_(comum, veiculos) {
+  var perfil = getPerfilUsuarioAtual_();
+  if (perfil.perfil !== PERFIL_ADMIN && perfil.perfil !== PERFIL_USUARIO) {
+    throw new Error('Você não tem permissão para cadastrar veículos — visitantes só podem visualizar.');
+  }
 
-  // [Chassi, Renavam, Placa] — Anexo I do ofício, ordem 1 a 67.
-  var veiculos = [
-    ['9BG156FK0TC443512', '1489903388', 'UIZ2C17'],
-    ['9BG156FK0TC443522', '1489904678', 'UIZ2C23'],
-    ['9BG156FK0TC443532', '1489905607', 'UIZ2C29'],
-    ['9BG156FK0TC443562', '1489906859', 'UIZ2C31'],
-    ['9BG156FK0TC443580', '1489907375', 'UIZ2C32'],
-    ['9BG156FK0TC443741', '1489907936', 'UIZ2C33'],
-    ['9BG156FK0TC443743', '1489908851', 'UIZ2C34'],
-    ['9BG156FK0TC443746', '1489911887', 'UIZ2C46'],
-    ['9BG156FK0TC443748', '1489909750', 'UIZ2C35'],
-    ['9BG156FK0TC443769', '1489911291', 'UIZ2C44'],
-    ['9BG156FK0TC443775', '1489910007', 'UIZ2C37'],
-    ['9BG156FK0TC443781', '1489910473', 'UIZ2C39'],
-    ['9BG156FK0TC443812', '1489912697', 'UIZ2C49'],
-    ['9BG156FK0TC443833', '1489912387', 'UIZ2C47'],
-    ['9BG156FK0TC443988', '1489910791', 'UIZ2C42'],
-    ['9BG156FK0TC443994', '1489912581', 'UIZ2C48'],
-    ['9BG156FK0TC444018', '1489912875', 'UIZ2C50'],
-    ['9BG156FK0TC444023', '1489913243', 'UIZ2C52'],
-    ['9BG156FK0TC444029', '1489913413', 'UIZ2C53'],
-    ['9BG156FK0TC444035', '1489913480', 'UIZ2C54'],
-    ['9BG156FK0TC444047', '1489913839', 'UIZ2C55'],
-    ['9BG156FK0TC444049', '1489914134', 'UIZ2C56'],
-    ['9BG156FK0TC444054', '1489914592', 'UIZ2C57'],
-    ['9BG156FK0TC444057', '1489935263', 'UIZ2D20'],
-    ['9BG156FK0TC444058', '1489935271', 'UIZ2D21'],
-    ['9BG156FK0TC444082', '1489935298', 'UIZ2D22'],
-    ['9BG156FK0TC444083', '1489935310', 'UIZ2D23'],
-    ['9BG156FK0TC444085', '1489935433', 'UIZ2D24'],
-    ['9BG156FK0TC444086', '1489935468', 'UIZ2D25'],
-    ['9BG156FK0TC444089', '1489935514', 'UIZ2D26'],
-    ['9BG156FK0TC444091', '1489935565', 'UIZ2D27'],
-    ['9BG156FK0TC444192', '1489935590', 'UIZ2D28'],
-    ['9BG156FK0TC444196', '1489935689', 'UIZ2D30'],
-    ['9BG156FK0TC444197', '1489935727', 'UIZ2D31'],
-    ['9BG156FK0TC444198', '1489935743', 'UIZ2D32'],
-    ['9BG156FK0TC444199', '1489935760', 'UIZ2D33'],
-    ['9BG156FK0TC444216', '1489935212', 'UIZ2D19'],
-    ['9BG156FK0TC443514', '1491952773', 'UIZ7F25'],
-    ['9BG156FK0TC443518', '1491951700', 'UIZ7F16'],
-    ['9BG156FK0TC443520', '1491950568', 'UIZ7F12'],
-    ['9BG156FK0TC443549', '1491950010', 'UIZ7F11'],
-    ['9BG156FK0TC443555', '1491949179', 'UIZ7F08'],
-    ['9BG156FK0TC443742', '1491947664', 'UIZ7F05'],
-    ['9BG156FK0TC443744', '1491946595', 'UIZ7E99'],
-    ['9BG156FK0TC443750', '1491936166', 'UIZ7E71'],
-    ['9BG156FK0TC443754', '1491935720', 'UIZ7E68'],
-    ['9BG156FK0TC443757', '1491935313', 'UIZ7E65'],
-    ['9BG156FK0TC443763', '1491934171', 'UIZ7E63'],
-    ['9BG156FK0TC443839', '1491932390', 'UIZ7E60'],
-    ['9BG156FK0TC444050', '1491931580', 'UIZ7E58'],
-    ['9BG156FK0TC444053', '1491930060', 'UIZ7D76'],
-    ['9BG156FK0TC444055', '1491929348', 'UIZ7D73'],
-    ['9BG156FK0TC444056', '1491927094', 'UIZ7D70'],
-    ['9BG156FK0TC444080', '1491925989', 'UIZ7D67'],
-    ['9BG156FK0TC444081', '1491925598', 'UIZ7D65'],
-    ['9BG156FK0TC444084', '1491922874', 'UIZ7C85'],
-    ['9BG156FK0TC444090', '1491921223', 'UIZ7C03'],
-    ['9BG156FK0TC443986', '1491799401', 'UIZ7B19'],
-    ['9BG156FK0TC444005', '1491799215', 'UIZ7B18'],
-    ['9BG156FK0TC444011', '1491798308', 'UIZ7B17'],
-    ['9BG156FK0TC444193', '1491796283', 'UIZ7B15'],
-    ['9BG156FK0TC444195', '1491795015', 'UIZ7B11'],
-    ['9BG156FK0TC444200', '1491794345', 'UIZ7B09'],
-    ['9BG156FK0TC444201', '1491793691', 'UIZ7B07'],
-    ['9BG156FK0TC444202', '1491792482', 'UIZ7B04'],
-    ['9BG156FK0TC444204', '1491791761', 'UIZ6I55'],
-    ['9BG156FK0TC444205', '1491791230', 'UIZ6D28']
-  ];
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
 
-  var criados = [], jaExistiam = [], erros = [];
+  var dadosAtuais = sheet.getDataRange().getValues();
+  var cabecalho = dadosAtuais[0];
+  var idxChassi = cabecalho.indexOf('Chassi');
+  var idxPlaca = cabecalho.indexOf('Placa');
+  var chassisExistentes = {}, placasExistentes = {};
+  for (var i = 1; i < dadosAtuais.length; i++) {
+    if (dadosAtuais[i][idxChassi]) chassisExistentes[dadosAtuais[i][idxChassi]] = true;
+    if (dadosAtuais[i][idxPlaca]) placasExistentes[dadosAtuais[i][idxPlaca]] = true;
+  }
+
+  var agora = new Date();
+  var criados = [], jaExistiam = [], erros = [], novasLinhas = [];
+
   veiculos.forEach(function (v) {
-    var dados = {};
-    for (var campo in comum) dados[campo] = comum[campo];
-    dados.Chassi = v[0];
-    dados.Renavam = v[1];
-    dados.Placa = v[2];
+    var dadosVeiculo = {};
+    for (var campo in comum) dadosVeiculo[campo] = comum[campo];
+    for (var campoVeiculo in v) dadosVeiculo[campoVeiculo] = v[campoVeiculo];
+
+    var registro;
     try {
-      var resp = salvarVeiculo(dados);
-      criados.push(resp.ID + ' — ' + v[2]);
+      registro = validarESanitizarVeiculo_(dadosVeiculo);
     } catch (e) {
-      var msg = e.message || String(e);
-      if (msg.indexOf('Já existe um veículo cadastrado') === 0 || msg.indexOf('já existe') !== -1) {
-        jaExistiam.push(v[2]);
-      } else {
-        erros.push(v[2] + ': ' + msg);
-      }
+      erros.push((dadosVeiculo.Placa || dadosVeiculo.Chassi || '?') + ': ' + (e.message || String(e)));
+      return;
     }
+
+    if (chassisExistentes[registro.Chassi] || placasExistentes[registro.Placa]) {
+      jaExistiam.push(registro.Placa || registro.Chassi);
+      return;
+    }
+
+    var id = gerarProximoId_();
+    novasLinhas.push(CABECALHO_VEICULOS.map(function (campoCabecalho) {
+      switch (campoCabecalho) {
+        case 'ID': return id;
+        case 'DataCadastro': return agora;
+        case 'DataTransferencia': return registro.Transferido === 'SIM' ? agora : '';
+        case 'DataEmissaoATPVe': return registro.ATPVeEmitido === 'SIM' ? agora : '';
+        case 'CadastradoPor': return perfil.email;
+        case 'UltimaAtualizacao': return agora;
+        case 'AtualizadoPor': return perfil.email;
+        default: return registro[campoCabecalho] !== undefined ? registro[campoCabecalho] : '';
+      }
+    }));
+    chassisExistentes[registro.Chassi] = true;
+    placasExistentes[registro.Placa] = true;
+    criados.push(id + ' — ' + (registro.Placa || registro.Chassi));
   });
 
-  Logger.log('Cadastrados: ' + criados.length + (criados.length ? '\n' + criados.join('\n') : ''));
-  if (jaExistiam.length) Logger.log('Já existiam (ignorados): ' + jaExistiam.length + '\n' + jaExistiam.join(', '));
-  if (erros.length) Logger.log('Erros: ' + erros.length + '\n' + erros.join('\n'));
+  if (novasLinhas.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, novasLinhas.length, CABECALHO_VEICULOS.length).setValues(novasLinhas);
+    registrarLog_('CRIAR_LOTE', '-', criados.length + ' veículo(s) importado(s) em lote: ' + criados.join(', '));
+    invalidarCacheDashboard_();
+  }
 
-  var mensagem = criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
-    (jaExistiam.length ? ' ' + jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
-    (erros.length ? ' ' + erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
-  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importar Ofício 470/2026', 15);
-  return { criados: criados.length, jaExistiam: jaExistiam.length, erros: erros.length, mensagem: mensagem };
+  return { criados: criados, jaExistiam: jaExistiam, erros: erros };
 }
 
 /**
  * Importação pontual dos 5 veículos do Ofício nº 480/2026/TRANSV/COLOG/
  * DGFNSP/SENASP/MJ (Termo de Doação SENASP 439/2026, à Secretaria de
  * Estado da Segurança Pública do Paraná — SEI 36509302, Processo
- * 08020.000781/2026-53). Reaproveita salvarVeiculo() pra cada linha —
- * mesmas validações e checagem de duplicidade do cadastro manual. Rode
- * manualmente pelo editor (selecione "importarOficio480_2026" no menu de
- * funções, clique em Executar) — função de uso único, pode apagar depois
- * de rodada.
+ * 08020.000781/2026-53). Usa importarVeiculosEmLote_ — lê a planilha
+ * uma vez só e grava tudo de uma vez, então roda em segundos mesmo com
+ * a base já grande. Rode manualmente pelo editor (selecione
+ * "importarOficio480_2026" no menu de funções, clique em Executar,
+ * depois Ver > Registros/Execuções pra conferir) — função de uso
+ * único, pode apagar depois de rodada.
  */
 function importarOficio480_2026() {
   var comum = {
@@ -2145,47 +2029,27 @@ function importarOficio480_2026() {
     Transferido: 'NÃO'
   };
 
-  // [Chassi, Renavam, Placa, Destinação (vira Observações)] — Anexo I do
-  // Ofício 480/2026 (o mesmo Termo de Doação 439/2026 tinha esses dados
-  // sem o Renavam completo; o ofício trouxe a tabela completa).
+  // Anexo I do Ofício 480/2026 (o mesmo Termo de Doação 439/2026 tinha
+  // esses dados sem o Renavam completo; o ofício trouxe a tabela
+  // completa) — Destinação vira Observações, só de referência.
   var veiculos = [
-    ['9BG156FK0TC443806', '1489869651', 'UIZ2B44', 'Corpo de Bombeiros Militar do Estado do Paraná - 1º GBM Curitiba'],
-    ['9BG156FK0TC443819', '1489876089', 'UIZ2B59', 'Polícia Militar do Estado do Paraná - 18º BPM de Cornélio Procópio - PR'],
-    ['9BG156FK0TC444587', '1489889350', 'UIZ2B91', 'Polícia Militar do Estado do Paraná - 15º BPM de Porecatu - PR'],
-    ['9BG156FK0TC444654', '1489898651', 'UIZ2C06', 'Polícia Civil do Estado do Paraná'],
-    ['9BG156FK0TC444581', '1489894010', 'UIZ2C00', 'Polícia Civil do Estado do Paraná']
+    { Chassi: '9BG156FK0TC443806', Renavam: '1489869651', Placa: 'UIZ2B44', Observacoes: 'Destinação (Anexo I): Corpo de Bombeiros Militar do Estado do Paraná - 1º GBM Curitiba' },
+    { Chassi: '9BG156FK0TC443819', Renavam: '1489876089', Placa: 'UIZ2B59', Observacoes: 'Destinação (Anexo I): Polícia Militar do Estado do Paraná - 18º BPM de Cornélio Procópio - PR' },
+    { Chassi: '9BG156FK0TC444587', Renavam: '1489889350', Placa: 'UIZ2B91', Observacoes: 'Destinação (Anexo I): Polícia Militar do Estado do Paraná - 15º BPM de Porecatu - PR' },
+    { Chassi: '9BG156FK0TC444654', Renavam: '1489898651', Placa: 'UIZ2C06', Observacoes: 'Destinação (Anexo I): Polícia Civil do Estado do Paraná' },
+    { Chassi: '9BG156FK0TC444581', Renavam: '1489894010', Placa: 'UIZ2C00', Observacoes: 'Destinação (Anexo I): Polícia Civil do Estado do Paraná' }
   ];
 
-  var criados = [], jaExistiam = [], erros = [];
-  veiculos.forEach(function (v) {
-    var dados = {};
-    for (var campo in comum) dados[campo] = comum[campo];
-    dados.Chassi = v[0];
-    dados.Renavam = v[1];
-    dados.Placa = v[2];
-    dados.Observacoes = 'Destinação (Anexo I do Termo/Ofício): ' + v[3];
-    try {
-      var resp = salvarVeiculo(dados);
-      criados.push(resp.ID + ' — ' + v[2]);
-    } catch (e) {
-      var msg = e.message || String(e);
-      if (msg.indexOf('já existe') !== -1) {
-        jaExistiam.push(v[2]);
-      } else {
-        erros.push(v[2] + ': ' + msg);
-      }
-    }
-  });
+  var resultado = importarVeiculosEmLote_(comum, veiculos);
+  Logger.log('Cadastrados: ' + resultado.criados.length + (resultado.criados.length ? '\n' + resultado.criados.join('\n') : ''));
+  if (resultado.jaExistiam.length) Logger.log('Já existiam (ignorados): ' + resultado.jaExistiam.length + '\n' + resultado.jaExistiam.join(', '));
+  if (resultado.erros.length) Logger.log('Erros: ' + resultado.erros.length + '\n' + resultado.erros.join('\n'));
 
-  Logger.log('Cadastrados: ' + criados.length + (criados.length ? '\n' + criados.join('\n') : ''));
-  if (jaExistiam.length) Logger.log('Já existiam (ignorados): ' + jaExistiam.length + '\n' + jaExistiam.join(', '));
-  if (erros.length) Logger.log('Erros: ' + erros.length + '\n' + erros.join('\n'));
-
-  var mensagem = criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
-    (jaExistiam.length ? ' ' + jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
-    (erros.length ? ' ' + erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
+  var mensagem = resultado.criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
+    (resultado.jaExistiam.length ? ' ' + resultado.jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
+    (resultado.erros.length ? ' ' + resultado.erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
   SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importar Ofício 480/2026', 15);
-  return { criados: criados.length, jaExistiam: jaExistiam.length, erros: erros.length, mensagem: mensagem };
+  return { criados: resultado.criados.length, jaExistiam: resultado.jaExistiam.length, erros: resultado.erros.length, mensagem: mensagem };
 }
 
 function atualizarVeiculo_(sheet, perfil, id, registro) {
@@ -3176,15 +3040,6 @@ function notificarPorEmail_() {
   }
 }
 
-/**
- * Só para testar manualmente pelo editor (menu de funções > Executar):
- * funções terminadas em "_" (como notificarPorEmail_) não aparecem nesse
- * menu — essa função pública existe só para poder disparar o teste.
- */
-function testarNotificacaoEmail() {
-  notificarPorEmail_();
-}
-
 // ======================================================================
 // INTEGRAÇÃO DIRETA COM O ONEDRIVE (Microsoft Graph, sem Power Automate)
 // ======================================================================
@@ -3854,21 +3709,6 @@ function listarVeiculosPassivo(filtros) {
 
   resultado.sort(function (a, b) { return String(b.ID).localeCompare(String(a.ID)); });
   return resultado;
-}
-
-function getVeiculoPassivo(id) {
-  var perfil = getPerfilUsuarioAtual_();
-  if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
-  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxId = cabecalho.indexOf('ID');
-  for (var i = 1; i < valores.length; i++) {
-    if (valores[i][idxId] === id) {
-      return linhaParaObjeto_(cabecalho, valores[i]);
-    }
-  }
-  throw new Error('Veículo não encontrado.');
 }
 
 // Usado no cadastro de infração — devolve null (em vez de lançar erro)
@@ -4626,13 +4466,3 @@ function listarEnviosDaInfracaoPassivo(idInfracao) {
   return envios;
 }
 
-function getResumoInfracoesPassivo(filtros) {
-  var lista = listarInfracoesPassivo(filtros);
-  var resumo = { total: lista.length, porStatus: {}, porOrgao: {} };
-  PV_STATUS_CANCELAMENTO.forEach(function (s) { resumo.porStatus[s] = 0; });
-  lista.forEach(function (inf) {
-    resumo.porStatus[inf.StatusCancelamento] = (resumo.porStatus[inf.StatusCancelamento] || 0) + 1;
-    if (inf.OrgaoAutuador) resumo.porOrgao[inf.OrgaoAutuador] = (resumo.porOrgao[inf.OrgaoAutuador] || 0) + 1;
-  });
-  return resumo;
-}
