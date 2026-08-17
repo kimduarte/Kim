@@ -352,10 +352,20 @@
   /* Mapa do Brasil: silhueta real dos estados, colorida por intensidade
      (mesmo princípio do heat-h1..h5, só que contínuo). Passe o mouse num
      estado pra ver o total exato; clique pra ver a lista de veículos. */
-  .mapa-brasil-svg { display: block; width: 100%; max-width: 760px; height: auto; margin: 10px auto 6px; }
+  .mapa-brasil-svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 10px auto 6px; }
   .mapa-br-uf { stroke: #fff; stroke-width: 1.2; vector-effect: non-scaling-stroke; cursor: pointer; transition: opacity 0.1s; }
   .mapa-br-uf:hover { opacity: 0.8; stroke: var(--primario-escuro); }
-  .mapa-br-rotulo { font-size: 13px; font-family: Verdana, Arial, sans-serif; fill: var(--primario-escuro); text-anchor: middle; pointer-events: none; }
+  .mapa-br-numero { font-size: 15px; font-weight: 800; font-family: Verdana, Arial, sans-serif; text-anchor: middle; pointer-events: none; }
+  .mapa-br-numero.clara { fill: #fff; }
+  .mapa-br-numero.escura { fill: var(--primario-escuro); }
+  /* Rótulos "de fora" dos estados apertados (BR_UF_CALLOUT) — linha fina
+     em cotovelo até a margem direita, com sigla + número clicáveis (mesma
+     ação de clicar no estado, útil pra quem tem contorno pequeno demais
+     pra acertar o clique). */
+  .mapa-br-callout-linha { stroke: #9CA9BC; stroke-width: 1; fill: none; pointer-events: none; }
+  .mapa-br-callout-ponto { fill: #9CA9BC; pointer-events: none; }
+  .mapa-br-callout-sigla { font-size: 12px; font-weight: 700; font-family: Verdana, Arial, sans-serif; fill: var(--texto-suave); cursor: pointer; }
+  .mapa-br-callout-numero { font-size: 14px; font-weight: 800; font-family: Verdana, Arial, sans-serif; fill: var(--primario-escuro); cursor: pointer; }
   .mapa-brasil-legenda { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: 11.5px; color: var(--texto-suave); }
   .mapa-brasil-gradiente { width: 130px; height: 10px; border-radius: 5px; border: 1px solid var(--borda); background: linear-gradient(to right, #EAF1FB, #0B2D57); }
   .mapa-brasil-semdados { display: flex; align-items: center; gap: 5px; margin-left: 12px; }
@@ -5722,7 +5732,17 @@
   // de uma grade. Contornos (BR_UF_PATHS) simplificados a partir de dados
   // públicos do IBGE, gerados uma vez fora do Apps Script — não recalcula
   // nada disso em tempo de execução. ----------
-  var BR_MAPA_LARGURA = 640.0, BR_MAPA_ALTURA = 653.0;
+  // A largura do mapa em si (o contorno do Brasil) é 640 — a margem extra
+  // (BR_MAPA_MARGEM_CALLOUT) fica em branco à direita, reservada pros
+  // rótulos "de fora" dos estados do aglomerado nordestino (ver
+  // BR_UF_CALLOUT), que não têm espaço pro número caber dentro deles.
+  var BR_MAPA_TERRENO_LARGURA = 640.0, BR_MAPA_MARGEM_CALLOUT = 150.0, BR_MAPA_ALTURA = 653.0;
+  var BR_MAPA_LARGURA = BR_MAPA_TERRENO_LARGURA + BR_MAPA_MARGEM_CALLOUT;
+  // Estados pequenos e espremidos entre vizinhos (o aglomerado no litoral
+  // nordestino) — apertados demais pro número caber legível dentro do
+  // contorno, então ganham uma linha fina apontando pra um rótulo "de
+  // fora", na margem à direita do mapa (ver montarCalloutsMapaBrasil_).
+  var BR_UF_CALLOUT = ['RN', 'PB', 'PE', 'AL', 'SE'];
   var BR_UF_NOMES = { AC: 'Acre', AL: 'Alagoas', AM: 'Amazonas', AP: 'Amapá', BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal', ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MG: 'Minas Gerais', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', PA: 'Pará', PB: 'Paraíba', PE: 'Pernambuco', PI: 'Piauí', PR: 'Paraná', RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte', RO: 'Rondônia', RR: 'Roraima', RS: 'Rio Grande do Sul', SC: 'Santa Catarina', SE: 'Sergipe', SP: 'São Paulo', TO: 'Tocantins' };
   var BR_UF_CENTROIDES = { AC: [58.0, 243.9], AL: [610.3, 247.5], AM: [151.6, 158.1], AP: [359.5, 64.1], BA: [526.8, 297.2], CE: [561.5, 173.3], DF: [427.6, 352.3], ES: [544.1, 416.1], GO: [397.9, 356.7], MA: [468.8, 173.1], MG: [478.7, 397.2], MS: [312.8, 428.3], MT: [295.1, 304.9], PA: [341.6, 154.8], PB: [606.3, 207.2], PE: [588.0, 227.6], PI: [506.4, 211.8], PR: [365.5, 500.5], RJ: [511.6, 459.8], RN: [609.2, 186.1], RO: [181.9, 270.8], RR: [205.7, 53.8], RS: [337.6, 585.3], SC: [383.9, 544.3], SE: [601.0, 268.1], SP: [412.5, 460.9], TO: [418.7, 258.2] };
   var BR_UF_PATHS = {
@@ -5767,6 +5787,22 @@
     return 'rgb(' + rgb.join(',') + ')';
   }
 
+  // Posição de cada rótulo "de fora" (callout) — empilhados verticalmente
+  // na margem à direita do terreno, na mesma ordem de cima pra baixo em
+  // que os estados aparecem no mapa (pela coordenada Y original de cada
+  // um), pra a linha de cada um não cruzar com a do vizinho.
+  function calcularPosicoesCalloutMapaBrasil_() {
+    var ordenados = BR_UF_CALLOUT.slice().sort(function (a, b) {
+      return BR_UF_CENTROIDES[a][1] - BR_UF_CENTROIDES[b][1];
+    });
+    var yInicial = 150, espacamento = 34;
+    var posicoes = {};
+    ordenados.forEach(function (sigla, i) {
+      posicoes[sigla] = { x: BR_MAPA_TERRENO_LARGURA + 55, y: yInicial + i * espacamento };
+    });
+    return posicoes;
+  }
+
   function renderizarMapaBrasil_(itens) {
     var container = document.getElementById('mapaBrasil');
     if (!itens.length) {
@@ -5788,16 +5824,41 @@
         '<title>' + escaparHtml(tituloTip) + '</title></path>';
     }).join('');
 
-    // Sigla como rótulo direto em cima do estado — exceto DF, pequeno
-    // demais pra caber um texto legível (fica só no tooltip/clique).
-    var rotulos = Object.keys(BR_UF_CENTROIDES).filter(function (sigla) { return sigla !== 'DF'; }).map(function (sigla) {
-      var c = BR_UF_CENTROIDES[sigla];
-      return '<text class="mapa-br-rotulo" x="' + c[0] + '" y="' + c[1] + '">' + sigla + '</text>';
+    // Número direto em cima do estado (cor clara ou escura, conforme o
+    // quão escuro está o preenchimento por baixo, pra nunca ficar
+    // ilegível) — exceto DF (pequeno demais até pro número sozinho, sem
+    // sigla junto, fica só no tooltip/clique) e os estados de
+    // BR_UF_CALLOUT, que ganham rótulo "de fora" (ver abaixo).
+    var numeros = Object.keys(BR_UF_CENTROIDES)
+      .filter(function (sigla) { return sigla !== 'DF' && BR_UF_CALLOUT.indexOf(sigla) === -1; })
+      .map(function (sigla) {
+        var c = BR_UF_CENTROIDES[sigla];
+        var total = porUf[sigla] ? porUf[sigla].total : 0;
+        var classe = (max ? total / max : 0) >= 0.45 ? 'clara' : 'escura';
+        return '<text class="mapa-br-numero ' + classe + '" x="' + c[0] + '" y="' + (c[1] + 5) + '">' + total + '</text>';
+      }).join('');
+
+    // Rótulos "de fora": linha fina em cotovelo saindo do centro do
+    // estado até a margem, terminando na sigla + número — clicáveis
+    // igual ao resto do mapa, pra ajudar justamente nos estados cujo
+    // contorno é pequeno demais pra acertar o clique com precisão.
+    var posicoesCallout = calcularPosicoesCalloutMapaBrasil_();
+    var callouts = BR_UF_CALLOUT.map(function (sigla) {
+      var origem = BR_UF_CENTROIDES[sigla];
+      var destino = posicoesCallout[sigla];
+      var total = porUf[sigla] ? porUf[sigla].total : 0;
+      var meioX = BR_MAPA_TERRENO_LARGURA - 10;
+      var caminho = 'M' + origem[0] + ',' + origem[1] + ' L' + meioX + ',' + destino.y + ' L' + (destino.x - 34) + ',' + destino.y;
+      var onclick = 'onclick="abrirDetalheUF_(\'' + sigla + '\', \'mapa\')"';
+      return '<path class="mapa-br-callout-linha" d="' + caminho + '"></path>' +
+        '<circle class="mapa-br-callout-ponto" cx="' + origem[0] + '" cy="' + origem[1] + '" r="2"></circle>' +
+        '<text class="mapa-br-callout-sigla" x="' + (destino.x - 30) + '" y="' + (destino.y + 4) + '" ' + onclick + '>' + sigla + '</text>' +
+        '<text class="mapa-br-callout-numero" x="' + destino.x + '" y="' + (destino.y + 4) + '" ' + onclick + '>' + total + '</text>';
     }).join('');
 
     container.innerHTML =
       '<svg class="mapa-brasil-svg" viewBox="0 0 ' + BR_MAPA_LARGURA + ' ' + BR_MAPA_ALTURA + '" xmlns="http://www.w3.org/2000/svg">' +
-      caminhos + rotulos + '</svg>' +
+      caminhos + numeros + callouts + '</svg>' +
       '<div class="mapa-brasil-legenda">' +
       '<span>Menos</span><div class="mapa-brasil-gradiente"></div><span>Mais</span>' +
       '<span class="mapa-brasil-semdados"><i></i>Sem doações</span>' +
