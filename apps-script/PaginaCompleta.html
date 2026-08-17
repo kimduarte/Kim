@@ -1541,6 +1541,10 @@
             </select>
           </div>
           <div class="campo">
+            <label for="enteStatGeral">Ente</label>
+            <select id="enteStatGeral"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
             <button type="button" class="primario" onclick="atualizarVisualizacaoStat_()">Filtrar</button>
           </div>
         </div>
@@ -3081,6 +3085,7 @@
     preencherSelect('f_Transferido', ctx.listas.transferido, false, 'Todos');
     preencherSelect('sinesp_UF', ctx.listas.uf, false, 'Todas');
     preencherSelect('sinesp_Ente', ctx.listas.ente, false, 'Todos');
+    preencherSelect('enteStatGeral', ctx.listas.ente, false, 'Todos');
     preencherSelect('pe_Mes', ctx.listas.mes, true);
     preencherSelect('pe_UF', ctx.listas.uf, true);
     preencherSelect('pe_Ente', ctx.listas.ente, true);
@@ -5618,10 +5623,11 @@
   async function atualizarVisualizacaoStat_() {
     var anos = ANOS_STAT_SELECIONADOS;
     var transferido = document.getElementById('transfStatGeral').value;
+    var ente = document.getElementById('enteStatGeral').value;
     var idContainer = MODO_VISUALIZACAO_STAT === 'regiao' ? 'mapaRegional' : (MODO_VISUALIZACAO_STAT === 'mapa' ? 'mapaBrasil' : 'rankUF');
     document.getElementById(idContainer).innerHTML = '<div class="carregando">Carregando...</div>';
     try {
-      var itens = await chamarServidor_('getVeiculosPorUFAno', anos, transferido);
+      var itens = await chamarServidor_('getVeiculosPorUFAno', anos, transferido, null, ente);
       if (MODO_VISUALIZACAO_STAT === 'regiao') renderizarMapaRegional_(itens);
       else if (MODO_VISUALIZACAO_STAT === 'mapa') renderizarMapaBrasil_(itens);
       else renderizarRankUF_(itens);
@@ -5806,7 +5812,7 @@
   // clicável por processo (igual à tela de Processos), que expande e mostra
   // os veículos dele.
   var DADOS_DETALHE_UF = [];
-  var CONTEXTO_DETALHE_UF = { uf: '', ano: [], transferido: '', campoFiltro: 'uf' };
+  var CONTEXTO_DETALHE_UF = { uf: '', ano: [], transferido: '', campoFiltro: 'uf', ente: '' };
   var DETALHE_UF_EXPANDIDOS = {};
   var MODO_DETALHE_UF = 'resumido';
 
@@ -5816,14 +5822,16 @@
   function abrirDetalheUF_(valor, origem) {
     var anos = ANOS_STAT_SELECIONADOS;
     var transferido = document.getElementById('transfStatGeral').value;
-    CONTEXTO_DETALHE_UF = { uf: valor, ano: anos, transferido: transferido, campoFiltro: 'uf' };
+    var ente = document.getElementById('enteStatGeral').value;
+    CONTEXTO_DETALHE_UF = { uf: valor, ano: anos, transferido: transferido, campoFiltro: 'uf', ente: ente };
     DETALHE_UF_EXPANDIDOS = {};
     MODO_DETALHE_UF = 'resumido';
     document.getElementById('botaoModoResumido').className = 'primario';
     document.getElementById('botaoModoDetalhado').className = 'secundario';
 
     document.getElementById('painelDetalheUFTitulo').textContent =
-      'Veículos — ' + valor + ' • Ano: ' + (anos.length ? anos.join(', ') : 'Todos') + ' • Transferidos: ' + (transferido || 'Todos');
+      'Veículos — ' + valor + ' • Ano: ' + (anos.length ? anos.join(', ') : 'Todos') + ' • Transferidos: ' + (transferido || 'Todos') +
+      (ente ? ' • Ente: ' + ente : '');
     document.getElementById('totalDetalheUF').textContent = '';
     document.getElementById('listaDetalheUF').innerHTML = '<div class="carregando">Carregando...</div>';
     document.getElementById('painelEstatisticasConteudo').style.display = 'none';
@@ -5836,7 +5844,7 @@
         document.getElementById('listaDetalheUF').innerHTML =
           '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
       })
-      .getVeiculosPorUFDetalhado(valor, anos, transferido, 'uf');
+      .getVeiculosPorUFDetalhado(valor, anos, transferido, 'uf', ente);
   }
 
   function fecharDetalheUF_() {
@@ -5981,6 +5989,7 @@
     return 'Veiculos_' + (c.uf || 'Todos') +
       (c.ano && c.ano.length ? '_' + c.ano.join('-') : '') +
       (c.transferido ? '_Transferido-' + c.transferido : '') +
+      (c.ente ? '_' + c.ente : '') +
       '.' + extensao;
   }
 
@@ -6019,7 +6028,7 @@
       return;
     }
     mostrarMensagem('mensagemGlobal', 'sucesso', 'Gerando o arquivo XLSX, aguarde...');
-    chamarServidor_('exportarDetalheUFXlsx', CONTEXTO_DETALHE_UF.uf, CONTEXTO_DETALHE_UF.ano, CONTEXTO_DETALHE_UF.transferido, CONTEXTO_DETALHE_UF.campoFiltro)
+    chamarServidor_('exportarDetalheUFXlsx', CONTEXTO_DETALHE_UF.uf, CONTEXTO_DETALHE_UF.ano, CONTEXTO_DETALHE_UF.transferido, CONTEXTO_DETALHE_UF.campoFiltro, CONTEXTO_DETALHE_UF.ente)
       .then(function (resp) {
         var binario = atob(resp.conteudoBase64);
         var bytes = new Uint8Array(binario.length);

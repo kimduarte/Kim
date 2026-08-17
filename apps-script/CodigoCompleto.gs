@@ -3070,10 +3070,11 @@ function getEstatisticas() {
  * um filtro), diferente do painel geral que é recalculado toda hora que
  * alguém abre a tela.
  */
-function getVeiculosPorUFAno(ano, transferido, campo) {
+function getVeiculosPorUFAno(ano, transferido, campo, ente) {
   var filtros = {};
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
+  if (ente) filtros.ente = ente;
   var registros = listarVeiculos(filtros);
   return contarESomarValorPor_(registros, campo || 'UF');
 }
@@ -3111,11 +3112,12 @@ function contarESomarValorPor_(registros, campo) {
  * do Termo de Doação como referência (dá pra achar o documento no SEI
  * mesmo sem o número do processo formal).
  */
-function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro) {
+function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente) {
   var filtros = {};
   filtros[campoFiltro || 'uf'] = valor;
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
+  if (ente) filtros.ente = ente;
   var registros = listarVeiculos(filtros);
 
   // "Qtd" = quantos veículos do mesmo processo aparecem neste recorte (UF +
@@ -3160,8 +3162,8 @@ function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro) {
  * grupo é o total de veículos; qtdTransferidos é quantos já estão
  * Transferido: SIM — a tela monta o "X/Y" a partir desses dois números.
  */
-function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro) {
-  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro);
+function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro, ente) {
+  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente);
   var grupos = {};
   var ordem = [];
 
@@ -3203,8 +3205,8 @@ function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro) {
  * exportação do Google Sheets (mesmo truque de exportarPlanilhaComoXlsx_),
  * e apaga a planilha temporária logo em seguida.
  */
-function exportarDetalheUFXlsx(valor, ano, transferido, campoFiltro) {
-  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro);
+function exportarDetalheUFXlsx(valor, ano, transferido, campoFiltro, ente) {
+  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente);
   var cabecalho = ['Processo', 'Número SEI', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
     'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferência', 'Valor'];
   var linhas = registros.map(function (r) {
