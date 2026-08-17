@@ -355,9 +355,10 @@
   .mapa-brasil-svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 10px auto 6px; }
   .mapa-br-uf { stroke: #fff; stroke-width: 1.2; vector-effect: non-scaling-stroke; cursor: pointer; transition: opacity 0.1s; }
   .mapa-br-uf:hover { opacity: 0.8; stroke: var(--primario-escuro); }
-  .mapa-br-numero { font-size: 15px; font-weight: 800; font-family: Verdana, Arial, sans-serif; text-anchor: middle; pointer-events: none; }
-  .mapa-br-numero.clara { fill: #fff; }
-  .mapa-br-numero.escura { fill: var(--primario-escuro); }
+  .mapa-br-sigla { font-size: 11px; font-weight: 700; font-family: Verdana, Arial, sans-serif; text-anchor: middle; pointer-events: none; opacity: 0.85; }
+  .mapa-br-numero { font-size: 13px; font-weight: 800; font-family: Verdana, Arial, sans-serif; text-anchor: middle; pointer-events: none; }
+  .mapa-br-sigla.clara, .mapa-br-numero.clara { fill: #fff; }
+  .mapa-br-sigla.escura, .mapa-br-numero.escura { fill: var(--primario-escuro); }
   /* Rótulos "de fora" dos estados apertados (BR_UF_CALLOUT) — linha fina
      em cotovelo até a margem direita, com sigla + número clicáveis (mesma
      ação de clicar no estado, útil pra quem tem contorno pequeno demais
@@ -5824,10 +5825,10 @@
         '<title>' + escaparHtml(tituloTip) + '</title></path>';
     }).join('');
 
-    // Número direto em cima do estado (cor clara ou escura, conforme o
-    // quão escuro está o preenchimento por baixo, pra nunca ficar
-    // ilegível) — exceto DF (pequeno demais até pro número sozinho, sem
-    // sigla junto, fica só no tooltip/clique) e os estados de
+    // Sigla + número em cima do estado, empilhados (cor clara ou escura,
+    // conforme o quão escuro está o preenchimento por baixo, pra nunca
+    // ficar ilegível) — exceto DF (pequeno demais até pro número sozinho,
+    // sem sigla junto, fica só no tooltip/clique) e os estados de
     // BR_UF_CALLOUT, que ganham rótulo "de fora" (ver abaixo).
     var numeros = Object.keys(BR_UF_CENTROIDES)
       .filter(function (sigla) { return sigla !== 'DF' && BR_UF_CALLOUT.indexOf(sigla) === -1; })
@@ -5835,7 +5836,8 @@
         var c = BR_UF_CENTROIDES[sigla];
         var total = porUf[sigla] ? porUf[sigla].total : 0;
         var classe = (max ? total / max : 0) >= 0.45 ? 'clara' : 'escura';
-        return '<text class="mapa-br-numero ' + classe + '" x="' + c[0] + '" y="' + (c[1] + 5) + '">' + total + '</text>';
+        return '<text class="mapa-br-sigla ' + classe + '" x="' + c[0] + '" y="' + (c[1] - 6) + '">' + sigla + '</text>' +
+          '<text class="mapa-br-numero ' + classe + '" x="' + c[0] + '" y="' + (c[1] + 9) + '">' + total + '</text>';
       }).join('');
 
     // Rótulos "de fora": linha fina em cotovelo saindo do centro do
