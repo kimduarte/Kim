@@ -1681,7 +1681,7 @@
 
       <div class="card">
         <h2>Filtros</h2>
-        <p style="margin:0 0 10px; font-size:12px; color:var(--texto-suave);">A lista completa pode ficar grande — filtre por Ano e/ou Mês pra ver só uma parte por vez.</p>
+        <p style="margin:0 0 10px; font-size:12px; color:var(--texto-suave);">A lista completa pode ficar grande — filtre por Ano, Mês e/ou Ente pra ver só uma parte por vez.</p>
         <div class="filtros">
           <div class="campo">
             <label for="cob_Ano">Ano</label>
@@ -1690,6 +1690,10 @@
           <div class="campo">
             <label for="cob_Mes">Mês</label>
             <select id="cob_Mes"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label for="cob_Ente">Ente</label>
+            <select id="cob_Ente"><option value="">Todos</option></select>
           </div>
           <div class="botoes" style="margin-top:0;">
             <button type="button" class="primario" onclick="carregarCobranca_()">Filtrar</button>
@@ -3141,16 +3145,22 @@
   var COBRANCA_PROCESSO_ATUAL = null; // processo com o modal aberto no momento
   var COBRANCA_PENDENTE_CONFIRMACAO = null; // processo cujo "Copiar texto" foi clicado e ainda não foi confirmado como enviado
 
+  function popularSelectComLista_(idSelect, opcoes) {
+    var select = document.getElementById(idSelect);
+    if (select.dataset.populado || !opcoes) return;
+    opcoes.forEach(function (opcao) {
+      var el = document.createElement('option');
+      el.value = opcao; el.textContent = opcao;
+      select.appendChild(el);
+    });
+    select.dataset.populado = '1';
+  }
+
   function configurarFiltrosCobranca_() {
     carregarAnosFiltro_('cob_Ano');
-    var selectMes = document.getElementById('cob_Mes');
-    if (!selectMes.dataset.populado && LISTAS_CONTEXTO_ATUAL) {
-      (LISTAS_CONTEXTO_ATUAL.mes || []).forEach(function (mes) {
-        var el = document.createElement('option');
-        el.value = mes; el.textContent = mes;
-        selectMes.appendChild(el);
-      });
-      selectMes.dataset.populado = '1';
+    if (LISTAS_CONTEXTO_ATUAL) {
+      popularSelectComLista_('cob_Mes', LISTAS_CONTEXTO_ATUAL.mes);
+      popularSelectComLista_('cob_Ente', LISTAS_CONTEXTO_ATUAL.ente);
     }
   }
 
@@ -3158,7 +3168,11 @@
     configurarFiltrosCobranca_();
     mostrarSkeleton_('cobrancaResultado', 4);
     try {
-      var filtros = { ano: document.getElementById('cob_Ano').value, mes: document.getElementById('cob_Mes').value };
+      var filtros = {
+        ano: document.getElementById('cob_Ano').value,
+        mes: document.getElementById('cob_Mes').value,
+        ente: document.getElementById('cob_Ente').value
+      };
       var dados = await chamarServidor_('getCobrancaPorProcesso', filtros);
       renderizarResumoCobranca_(dados);
       renderizarCobranca_(dados.processos);

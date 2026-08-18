@@ -1012,6 +1012,7 @@ function getCobrancaPorProcesso(filtros) {
   var pendentesFiltrados = pendentesTotal.filter(function (v) {
     if (filtros.ano && String(v.Ano) !== String(filtros.ano)) return false;
     if (filtros.mes && v.Mes !== filtros.mes) return false;
+    if (filtros.ente && v.Ente !== filtros.ente) return false;
     return true;
   });
 
