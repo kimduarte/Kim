@@ -2148,11 +2148,12 @@
       </div>
       <p id="cobrancaModalSubtitulo" style="font-size:14px; color:var(--texto-suave);"></p>
       <div id="cobrancaJaEnviadoAviso" style="display:none; margin-bottom:10px;"></div>
+      <div id="cobrancaSemEmailAviso" style="display:none; margin-bottom:10px;"></div>
       <div id="mensagemCobranca"></div>
       <div class="grid-form">
         <div class="campo span-2">
           <label for="cob_Destinatario">Para (e-mail) *</label>
-          <input type="email" id="cob_Destinatario" placeholder="exemplo@orgao.gov.br">
+          <input type="text" id="cob_Destinatario" placeholder="exemplo@orgao.gov.br — pode informar mais de um, separados por ;">
         </div>
         <div class="campo span-2">
           <label for="cob_Assunto">Assunto *</label>
@@ -3169,7 +3170,7 @@
   // ---------- Cobrança de Transferência (e-mail de reiteração por Processo) ----------
   var COBRANCA_ITENS_ATUAL = [];
   var COBRANCA_PROCESSO_ATUAL = null; // processo com o modal aberto no momento
-  var COBRANCA_PENDENTE_CONFIRMACAO = null; // processo cujo "Copiar texto" foi clicado e ainda não foi confirmado como enviado
+  var COBRANCA_MODAL_JA_REGISTRADO = false; // true assim que "Marcar como enviado" ou "Enviar e-mail direto" tiver sucesso nesta sessão do modal
 
   function popularSelectComLista_(idSelect, opcoes) {
     var select = document.getElementById(idSelect);
@@ -3247,16 +3248,14 @@
     var item = COBRANCA_ITENS_ATUAL[indice];
     if (!item) return;
 
-    if (COBRANCA_PENDENTE_CONFIRMACAO && COBRANCA_PENDENTE_CONFIRMACAO.chave !== item.chave) {
-      await confirmarEnvioAnteriorCobranca_();
-    }
-
     COBRANCA_PROCESSO_ATUAL = item;
+    COBRANCA_MODAL_JA_REGISTRADO = false;
     document.getElementById('cobrancaModalTitulo').textContent = 'E-mail de cobrança — ' + item.donataria;
     document.getElementById('cobrancaModalSubtitulo').textContent =
       'Processo ' + (item.numeroProcesso || '(sem número de processo — use o SEI do Termo)') +
       (item.numeroSei ? ' — SEI ' + item.numeroSei : '');
     document.getElementById('cobrancaJaEnviadoAviso').style.display = 'none';
+    document.getElementById('cobrancaSemEmailAviso').style.display = 'none';
     document.getElementById('mensagemCobranca').innerHTML = '';
     document.getElementById('cob_Destinatario').value = '';
     document.getElementById('cob_Assunto').value = '';
@@ -3277,6 +3276,13 @@
           (dados.numeroSeiEmailAnterior ? ' (SEI do e-mail: ' + escaparHtml(dados.numeroSeiEmailAnterior) + ')' : '') +
           '.</div>';
       }
+      if (!dados.destinatario) {
+        var avisoEmail = document.getElementById('cobrancaSemEmailAviso');
+        avisoEmail.style.display = 'block';
+        avisoEmail.innerHTML = '<div class="mensagem aviso">Nenhum e-mail cadastrado ainda para esta Donatária — ' +
+          'informe abaixo pra cadastrar (pode ser mais de um destinatário, separados por ";").</div>';
+        document.getElementById('cob_Destinatario').focus();
+      }
     } catch (erro) {
       document.getElementById('mensagemCobranca').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
@@ -3285,32 +3291,31 @@
     }
   }
 
-  // Chamada ao tentar abrir a cobrança de OUTRO processo enquanto o anterior
-  // ainda está "em aberto" (copiou o texto mas não confirmou o envio nem
-  // marcou como enviado). Pergunta se já foi mandado; se sim, pede o número
-  // SEI do e-mail e registra antes de seguir pro próximo.
-  async function confirmarEnvioAnteriorCobranca_() {
-    var anterior = COBRANCA_PENDENTE_CONFIRMACAO;
-    COBRANCA_PENDENTE_CONFIRMACAO = null;
-    if (!anterior) return;
-    var jaEnviou = confirm('Você já enviou o e-mail de cobrança do processo anterior (' +
-      (anterior.numeroProcesso || anterior.donataria) + ')?');
-    if (!jaEnviou) return;
-
-    var numeroSeiEmail = prompt('Número SEI do e-mail enviado (processo ' + (anterior.numeroProcesso || anterior.donataria) + '):', '');
-    if (!numeroSeiEmail) return; // cancelou o prompt — não registra, mas também não bloqueia seguir em frente
-    try {
-      await chamarServidor_('marcarCobrancaProcessoEnviada', anterior.chave, anterior.numeroProcesso, anterior.donataria, anterior.destinatario, numeroSeiEmail);
-      mostrarMensagem('mensagemGlobal', 'sucesso', 'Processo anterior marcado como cobrado.');
-      carregarCobranca_();
-    } catch (erro) {
-      mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
+  // Ao fechar a janela (X), se ninguém confirmou o envio por aqui ainda
+  // ("Marcar como enviado" ou "Enviar e-mail direto"), pergunta antes de
+  // fechar — evita perder o registro de uma cobrança que foi mandada pelo
+  // Copilot/SEI mas nunca voltou pra ser marcada no sistema.
+  async function fecharModalCobranca_() {
+    var processo = COBRANCA_PROCESSO_ATUAL;
+    if (processo && !COBRANCA_MODAL_JA_REGISTRADO) {
+      var jaEnviou = confirm('O e-mail foi enviado?');
+      if (jaEnviou) {
+        var numeroSeiEmail = prompt('Número SEI do e-mail enviado:', '');
+        if (numeroSeiEmail) {
+          try {
+            var destinatario = document.getElementById('cob_Destinatario').value.trim();
+            await chamarServidor_('marcarCobrancaProcessoEnviada', processo.chave, processo.numeroProcesso, processo.donataria, destinatario, numeroSeiEmail);
+            mostrarMensagem('mensagemGlobal', 'sucesso', 'Processo marcado como cobrado.');
+            carregarCobranca_();
+          } catch (erro) {
+            mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
+          }
+        }
+      }
     }
-  }
-
-  function fecharModalCobranca_() {
     document.getElementById('modalCobrancaFundo').classList.remove('ativo');
     COBRANCA_PROCESSO_ATUAL = null;
+    COBRANCA_MODAL_JA_REGISTRADO = false;
   }
 
   var URL_SEI = 'https://sei.mj.gov.br/sei/';
@@ -3319,10 +3324,19 @@
     window.open(URL_SEI, '_blank');
   }
 
+  // "Copiar texto" copia um script pronto pra colar no Copilot institucional
+  // (Microsoft 365 Copilot, no Outlook/Teams/copilot.microsoft.com) — como
+  // ele já roda autenticado na conta @mj.gov.br da pessoa, consegue redigir
+  // E enviar o e-mail direto por ali, sem precisar da integração via Azure
+  // (que exigiria registrar um aplicativo com a TI — ver conversa anterior).
   function copiarTextoCobranca_() {
+    var destinatario = document.getElementById('cob_Destinatario').value.trim();
     var assunto = document.getElementById('cob_Assunto').value;
     var corpo = document.getElementById('cob_Corpo').value;
-    var texto = 'Assunto: ' + assunto + '\n\n' + corpo;
+    var texto = 'Envie um e-mail pelo Outlook com os dados abaixo e me avise quando enviar:\n\n' +
+      'Para: ' + (destinatario || '(preencher)') + '\n' +
+      'Assunto: ' + assunto + '\n\n' +
+      'Corpo do e-mail:\n' + corpo;
     var copiado = false;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -3341,15 +3355,10 @@
       document.body.removeChild(areaTemp);
     }
     mostrarMensagem('mensagemCobranca', copiado ? 'sucesso' : 'erro',
-      copiado ? 'Texto copiado!' : 'Não consegui copiar automaticamente — selecione o texto na Mensagem e use Ctrl+C.');
+      copiado ? 'Script copiado! Cole no Copilot institucional (Outlook/Teams) pra ele redigir e enviar.' :
+      'Não consegui copiar automaticamente — selecione o texto na Mensagem e use Ctrl+C.');
 
     if (COBRANCA_PROCESSO_ATUAL) {
-      COBRANCA_PENDENTE_CONFIRMACAO = {
-        chave: COBRANCA_PROCESSO_ATUAL.chave,
-        numeroProcesso: COBRANCA_PROCESSO_ATUAL.numeroProcesso,
-        donataria: COBRANCA_PROCESSO_ATUAL.donataria,
-        destinatario: document.getElementById('cob_Destinatario').value.trim()
-      };
       var temNumeroProcesso = !!COBRANCA_PROCESSO_ATUAL.numeroProcesso;
       document.getElementById('cobrancaReferenciaRotulo').textContent =
         temNumeroProcesso ? 'Número do processo:' : 'Sem número de processo — use o SEI do Termo de Doação:';
@@ -3366,15 +3375,20 @@
   function configurarModalCobranca_() {
     document.getElementById('botaoCobrancaMarcarEnviado').addEventListener('click', async function () {
       if (!COBRANCA_PROCESSO_ATUAL) return;
+      var destinatario = document.getElementById('cob_Destinatario').value.trim();
+      if (!destinatario) {
+        document.getElementById('mensagemCobranca').innerHTML =
+          '<div class="mensagem erro">Informe o e-mail do destinatário antes de marcar como enviado.</div>';
+        return;
+      }
       var numeroSeiEmail = prompt('Número SEI do e-mail enviado:', '');
       if (!numeroSeiEmail) return;
-      var destinatario = document.getElementById('cob_Destinatario').value.trim();
       var botao = this;
       botao.disabled = true;
       try {
         await chamarServidor_('marcarCobrancaProcessoEnviada', COBRANCA_PROCESSO_ATUAL.chave,
           COBRANCA_PROCESSO_ATUAL.numeroProcesso, COBRANCA_PROCESSO_ATUAL.donataria, destinatario, numeroSeiEmail);
-        COBRANCA_PENDENTE_CONFIRMACAO = null;
+        COBRANCA_MODAL_JA_REGISTRADO = true;
         fecharModalCobranca_();
         mostrarMensagem('mensagemGlobal', 'sucesso', 'Processo marcado como cobrado.');
         carregarCobranca_();
@@ -3404,7 +3418,7 @@
       try {
         await chamarServidor_('enviarEmailCobranca', COBRANCA_PROCESSO_ATUAL.chave,
           COBRANCA_PROCESSO_ATUAL.numeroProcesso, COBRANCA_PROCESSO_ATUAL.donataria, destinatario, assunto, corpo);
-        COBRANCA_PENDENTE_CONFIRMACAO = null;
+        COBRANCA_MODAL_JA_REGISTRADO = true;
         fecharModalCobranca_();
         mostrarMensagem('mensagemGlobal', 'sucesso', 'E-mail de cobrança enviado com sucesso.');
         carregarCobranca_();

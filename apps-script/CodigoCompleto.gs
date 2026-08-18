@@ -1138,15 +1138,27 @@ function montarEmailCobrancaProcesso(chave) {
  * como enviado" quanto pela confirmação que aparece ao abrir a cobrança de
  * outro processo.
  */
+// Valida uma lista de e-mails separados por ";" — permite cobrar mais de um
+// destinatário do mesmo processo (ex.: gabinete + secretaria de patrimônio).
+// Devolve a lista já normalizada (sem espaços em volta de cada endereço).
+function validarEmailsMultiplos_(texto) {
+  var enderecos = String(texto || '').split(';').map(function (e) { return e.trim(); }).filter(Boolean);
+  if (!enderecos.length) throw new Error('Informe ao menos um e-mail do destinatário.');
+  var invalido = enderecos.filter(function (e) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); })[0];
+  if (invalido) throw new Error('E-mail inválido: ' + invalido);
+  return enderecos.join('; ');
+}
+
 function marcarCobrancaProcessoEnviada(chave, numeroProcesso, donataria, email, numeroSeiEmail) {
   var perfil = exigirPerfilEditor_();
+  var emailValidado = validarEmailsMultiplos_(email);
   numeroSeiEmail = String(numeroSeiEmail || '').trim();
   if (!numeroSeiEmail) throw new Error('Informe o número SEI do e-mail enviado.');
 
   var sheet = getOrCreateSheet_(SHEET_COBRANCA_PROCESSOS, CABECALHO_COBRANCA_PROCESSOS);
   var valores = sheet.getDataRange().getValues();
   var agora = new Date();
-  var linha = [chave, numeroProcesso || '', donataria || '', String(email || '').trim(), agora, numeroSeiEmail, perfil.email];
+  var linha = [chave, numeroProcesso || '', donataria || '', emailValidado, agora, numeroSeiEmail, perfil.email];
 
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][0] === chave) {
@@ -1170,22 +1182,19 @@ function marcarCobrancaProcessoEnviada(chave, numeroProcesso, donataria, email, 
  */
 function enviarEmailCobranca(chave, numeroProcesso, donataria, destinatario, assunto, corpo) {
   var perfil = exigirPerfilEditor_();
-  destinatario = String(destinatario || '').trim();
-  if (!destinatario || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
-    throw new Error('E-mail do destinatário inválido: ' + destinatario);
-  }
+  var destinatarioValidado = validarEmailsMultiplos_(destinatario);
   if (!assunto || !corpo) throw new Error('Assunto e corpo do e-mail são obrigatórios.');
 
-  var enviadoPeloOutlook = enviarEmailViaGraph_(destinatario, perfil.email, assunto, corpo);
+  var enviadoPeloOutlook = enviarEmailViaGraph_(destinatarioValidado, perfil.email, assunto, corpo);
   if (!enviadoPeloOutlook) {
-    MailApp.sendEmail({ to: destinatario, cc: perfil.email, subject: assunto, body: corpo });
+    MailApp.sendEmail({ to: destinatarioValidado.split(';').join(','), cc: perfil.email, subject: assunto, body: corpo });
   }
 
   var sheet = getOrCreateSheet_(SHEET_COBRANCA_PROCESSOS, CABECALHO_COBRANCA_PROCESSOS);
   var valores = sheet.getDataRange().getValues();
   var agora = new Date();
   var origem = enviadoPeloOutlook ? 'Outlook institucional' : 'Gmail';
-  var linha = [chave, numeroProcesso || '', donataria || '', destinatario, agora, 'Enviado automaticamente pelo sistema (' + origem + ')', perfil.email];
+  var linha = [chave, numeroProcesso || '', donataria || '', destinatarioValidado, agora, 'Enviado automaticamente pelo sistema (' + origem + ')', perfil.email];
   var encontrado = false;
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][0] === chave) {
@@ -1196,9 +1205,9 @@ function enviarEmailCobranca(chave, numeroProcesso, donataria, destinatario, ass
   }
   if (!encontrado) sheet.appendRow(linha);
 
-  registrarLog_('ENVIAR_COBRANCA', numeroProcesso || chave, 'E-mail de cobrança enviado para ' + destinatario + ' (via ' + origem + ')');
+  registrarLog_('ENVIAR_COBRANCA', numeroProcesso || chave, 'E-mail de cobrança enviado para ' + destinatarioValidado + ' (via ' + origem + ')');
 
-  return { mensagem: 'E-mail enviado para ' + destinatario + ' pelo ' + origem + '.' };
+  return { mensagem: 'E-mail enviado para ' + destinatarioValidado + ' pelo ' + origem + '.' };
 }
 
 function paraDtoListagem_(r) {
@@ -3562,7 +3571,8 @@ function enviarEmailViaGraph_(destinatario, cc, assunto, corpo) {
     message: {
       subject: assunto,
       body: { contentType: 'Text', content: corpo },
-      toRecipients: [{ emailAddress: { address: destinatario } }],
+      toRecipients: String(destinatario).split(';').map(function (e) { return e.trim(); }).filter(Boolean)
+        .map(function (e) { return { emailAddress: { address: e } }; }),
       ccRecipients: cc ? [{ emailAddress: { address: cc } }] : []
     },
     saveToSentItems: true
