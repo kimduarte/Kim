@@ -3110,6 +3110,7 @@
   }
 
   function renderizarCobranca_(itens) {
+    itens = itens || [];
     COBRANCA_ITENS_ATUAL = itens;
     var container = document.getElementById('cobrancaResultado');
     if (!itens.length) {

@@ -1049,7 +1049,9 @@ function montarEmailCobranca(donataria) {
     'permanecem PENDENTES de efetivação:\n\n';
 
   ordemTermos.forEach(function (termo) {
-    corpo += 'Termo de Doação SENASP nº ' + termo + ':\n';
+    var numeroSeiTermo = porTermo[termo].map(function (v) { return v.NumeroSei; }).filter(Boolean)[0] || '';
+    corpo += 'Termo de Doação SENASP nº ' + termo +
+      (numeroSeiTermo ? ' (Processo SEI nº ' + numeroSeiTermo + ')' : '') + ':\n';
     porTermo[termo].forEach(function (v, i) {
       var descricaoVeiculo = [v.Marca, v.Descricao].filter(Boolean).join(' ');
       corpo += '  ' + (i + 1) + '. Placa ' + (v.Placa || '—') + ' — Chassi ' + (v.Chassi || '—') +
