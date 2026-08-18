@@ -1004,25 +1004,50 @@ function listarCobrancaProcessos_() {
  * resumo (total de veículos e de processos pendentes) calculado sobre a
  * base INTEIRA, sem os filtros de Ano/Mês — assim a tela mostra o panorama
  * geral mesmo que a lista abaixo esteja filtrada pra não ficar enorme.
+ *
+ * A parte cara (varrer a planilha inteira de veículos) fica cacheada em
+ * getCobrancaBaseCache_ — os filtros de Ano/Mês/Ente são aplicados DEPOIS,
+ * em cima do resultado já cacheado, então qualquer combinação de filtro
+ * reaproveita a mesma varredura em vez de repeti-la a cada clique em
+ * "Filtrar".
  */
 function getCobrancaPorProcesso(filtros) {
   filtros = filtros || {};
-  var pendentesTotal = listarVeiculos({ transferido: 'NÃO' });
-  var enviosPorChave = listarCobrancaProcessos_();
+  var base = getCobrancaBaseCache_();
 
-  var chavesDistintas = {};
-  pendentesTotal.forEach(function (v) { chavesDistintas[chaveProcesso_(v)] = true; });
-
-  var pendentesFiltrados = pendentesTotal.filter(function (v) {
-    if (filtros.ano && String(v.Ano) !== String(filtros.ano)) return false;
-    if (filtros.mes && v.Mes !== filtros.mes) return false;
-    if (filtros.ente && v.Ente !== filtros.ente) return false;
+  var processosFiltrados = base.processos.filter(function (p) {
+    if (filtros.ano && String(p.ano) !== String(filtros.ano)) return false;
+    if (filtros.mes && p.mes !== filtros.mes) return false;
+    if (filtros.ente && p.ente !== filtros.ente) return false;
     return true;
   });
 
+  return {
+    totalVeiculosPendentes: base.totalVeiculosPendentes,
+    totalProcessosPendentes: base.totalProcessosPendentes,
+    processos: processosFiltrados
+  };
+}
+
+/**
+ * Base (sem filtro) usada por getCobrancaPorProcesso — é a parte cara de
+ * verdade (varre TODA a planilha de veículos pra achar os pendentes de
+ * transferência). Fica em cache por CACHE_DASHBOARD_SEGUNDOS, invalidado
+ * automaticamente por invalidarCacheDashboard_() a cada gravação relevante
+ * (inclui marcar/enviar cobrança — ver marcarCobrancaProcessoEnviada,
+ * salvarEmailCobrancaProcesso e enviarEmailCobranca).
+ */
+function getCobrancaBaseCache_() {
+  var cache = CacheService.getDocumentCache();
+  var cacheado = cache.get('cobranca_base');
+  if (cacheado) return JSON.parse(cacheado);
+
+  var pendentesTotal = listarVeiculos({ transferido: 'NÃO' });
+  var enviosPorChave = listarCobrancaProcessos_();
+
   var grupos = {};
   var ordem = [];
-  pendentesFiltrados.forEach(function (v) {
+  pendentesTotal.forEach(function (v) {
     var chave = chaveProcesso_(v);
     if (!grupos[chave]) {
       var envio = enviosPorChave[chave];
@@ -1051,11 +1076,21 @@ function getCobrancaPorProcesso(filtros) {
     return grupos[a].donataria.localeCompare(grupos[b].donataria) || String(a).localeCompare(String(b));
   });
 
-  return {
+  var resultado = {
     totalVeiculosPendentes: pendentesTotal.length,
-    totalProcessosPendentes: Object.keys(chavesDistintas).length,
+    totalProcessosPendentes: ordem.length,
     processos: ordem.map(function (chave) { return grupos[chave]; })
   };
+
+  // CacheService recusa valores acima de 100KB — como esse limite só cresce
+  // junto com a base, checa o tamanho antes de tentar gravar em vez de
+  // confiar num try/catch genérico (que também engoliria, em silêncio,
+  // qualquer outro erro real que acontecesse aqui).
+  var json = JSON.stringify(resultado);
+  if (json.length < 100 * 1024) {
+    cache.put('cobranca_base', json, CACHE_DASHBOARD_SEGUNDOS);
+  }
+  return resultado;
 }
 
 /**
@@ -1159,10 +1194,12 @@ function salvarEmailCobrancaProcesso(chave, numeroProcesso, donataria, email) {
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][0] === chave) {
       sheet.getRange(i + 1, 4).setValue(emailValidado); // coluna D = Email
+      invalidarCacheDashboard_();
       return { mensagem: 'E-mail cadastrado.' };
     }
   }
   sheet.appendRow([chave, numeroProcesso || '', donataria || '', emailValidado, '', '', '']);
+  invalidarCacheDashboard_();
   return { mensagem: 'E-mail cadastrado.' };
 }
 
@@ -1188,11 +1225,13 @@ function marcarCobrancaProcessoEnviada(chave, numeroProcesso, donataria, email, 
     if (valores[i][0] === chave) {
       sheet.getRange(i + 1, 1, 1, CABECALHO_COBRANCA_PROCESSOS.length).setValues([linha]);
       registrarLog_('COBRANCA_ENVIADA', numeroProcesso || chave, 'E-mail de cobrança registrado como enviado (SEI ' + numeroSeiEmail + ').');
+      invalidarCacheDashboard_();
       return { mensagem: 'Registrado — processo marcado como cobrado.' };
     }
   }
   sheet.appendRow(linha);
   registrarLog_('COBRANCA_ENVIADA', numeroProcesso || chave, 'E-mail de cobrança registrado como enviado (SEI ' + numeroSeiEmail + ').');
+  invalidarCacheDashboard_();
   return { mensagem: 'Registrado — processo marcado como cobrado.' };
 }
 
@@ -1230,6 +1269,7 @@ function enviarEmailCobranca(chave, numeroProcesso, donataria, destinatario, ass
   if (!encontrado) sheet.appendRow(linha);
 
   registrarLog_('ENVIAR_COBRANCA', numeroProcesso || chave, 'E-mail de cobrança enviado para ' + destinatarioValidado + ' (via ' + origem + ')');
+  invalidarCacheDashboard_();
 
   return { mensagem: 'E-mail enviado para ' + destinatarioValidado + ' pelo ' + origem + '.' };
 }
@@ -3420,7 +3460,7 @@ var CACHE_DASHBOARD_SEGUNDOS = 300;
 var CACHE_ANOS_SEGUNDOS = 21600; // 6h (máximo do CacheService) — anos disponíveis raríssimo mudam
 
 function invalidarCacheDashboard_() {
-  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis']);
+  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base']);
 }
 
 /**
