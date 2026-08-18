@@ -2102,26 +2102,29 @@ function atualizarVeiculo_(sheet, perfil, id, registro) {
 /**
  * Salva de uma vez TODOS os veículos de um processo sendo editado
  * (existentes + novos) — em vez de uma chamada salvarVeiculo() por
- * veículo, que fazia a tela reler a planilha inteira (checagem de
- * duplicidade) e ir/voltar ao servidor uma vez PRA CADA veículo do
- * processo (um processo com 20+ veículos editava rápido, mas a resposta
- * demorava, porque eram 20+ idas e vindas, cada uma relendo ~3.500
- * linhas). Lê a planilha uma vez, valida cada veículo em memória com a
- * mesma validarESanitizarVeiculo_() de sempre (os mesmos erros, as
- * mesmas regras), atualiza os existentes e acrescenta os novos, e grava
- * tudo de uma vez com um único setValues.
+ * veículo, que fazia a tela ir/voltar ao servidor uma vez PRA CADA
+ * veículo do processo, cada ida relendo a planilha inteira (checagem de
+ * duplicidade). "comuns" são os campos que valem pra todos os veículos
+ * do processo (Contrato, UF, Donataria, endereço etc.). "veiculos" é a
+ * lista de veículos do processo, cada um com os campos que só ele tem
+ * (Chassi, Placa, Marca...) e, se já existir, o ID (indica atualização;
+ * sem ID é veículo novo).
  *
- * "comuns" são os campos que valem pra todos os veículos do processo
- * (Contrato, UF, Donataria, endereço etc.) — os mesmos que a tela hoje
- * repete em cada chamada. "veiculos" é a lista de veículos do processo,
- * cada um com os campos que só ele tem (Chassi, Placa, Marca...) e,
- * se já existir, o ID (indica atualização; sem ID é veículo novo).
- *
- * Replica o comportamento de atualizarVeiculo_/criarVeiculo_ campo a
- * campo (inclusive a regra de DataTransferencia: só é atualizada pra
- * "agora" quando Transferido é salvo como SIM, nunca apagada quando
- * Transferido é NÃO — e DataEmissaoATPVe nunca é tocada numa edição,
- * só na criação, pra não sobrescrever a data real da primeira emissão).
+ * Lê só as 3 colunas necessárias pra achar a linha de cada ID e checar
+ * duplicidade (ID/Chassi/Placa — bem mais leve que ler as 42 colunas de
+ * ~3.500 linhas por inteiro), depois lê/grava APENAS as linhas dos
+ * veículos que de fato mudam — nunca a planilha inteira. Assim o custo
+ * fica proporcional a quantos veículos o PROCESSO tem, não a quantos
+ * veículos existem no sistema todo (que só cresce, processo grande ou
+ * pequeno). Valida cada veículo em memória com a mesma
+ * validarESanitizarVeiculo_() de sempre (os mesmos erros, as mesmas
+ * regras) e replica o comportamento de atualizarVeiculo_/criarVeiculo_
+ * campo a campo (inclusive a regra de DataTransferencia: só é
+ * atualizada pra "agora" quando Transferido é salvo como SIM pela
+ * primeira vez, nunca apagada quando Transferido é NÃO nem
+ * re-carimbada numa reedição — e DataEmissaoATPVe nunca é tocada numa
+ * edição, só na criação, pra não sobrescrever a data real da primeira
+ * emissão).
  */
 function salvarProcessoEditado(comuns, veiculos) {
   var perfil = exigirPerfilEditor_();
@@ -2130,27 +2133,33 @@ function salvarProcessoEditado(comuns, veiculos) {
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
   garantirColunasVeiculos_();
 
-  var dadosAtuais = sheet.getDataRange().getValues();
-  var cabecalho = dadosAtuais[0];
-  var idxId = cabecalho.indexOf('ID');
-  var idxChassi = cabecalho.indexOf('Chassi');
-  var idxPlaca = cabecalho.indexOf('Placa');
+  var idxId = colunaParaIndice_('ID');
+  var idxChassi = colunaParaIndice_('Chassi');
+  var idxPlaca = colunaParaIndice_('Placa');
+  var idxTransferencia = colunaParaIndice_('DataTransferencia');
+  var idxUltimaAtualizacao = colunaParaIndice_('UltimaAtualizacao');
+  var idxAtualizadoPor = colunaParaIndice_('AtualizadoPor');
 
-  // Linha de cada ID já existente, e quem "dono" cada chassi/placa hoje —
-  // pra checar duplicidade em memória em vez de reler a planilha a cada
-  // veículo (mesma lógica de encontrarDuplicado_, só que pré-calculada).
+  var ultimaLinha = sheet.getLastRow();
+  var largura = Math.max(idxId, idxChassi, idxPlaca) + 1;
+  var referencia = ultimaLinha >= 2 ? sheet.getRange(2, 1, ultimaLinha - 1, largura).getValues() : [];
+
+  // Linha de cada ID já existente, e quem é "dono" de cada chassi/placa
+  // hoje — pra checar duplicidade em memória (mesma lógica de
+  // encontrarDuplicado_, só que pré-calculada de uma leitura só).
   var linhaPorId = {};
   var donoChassi = {}, donoPlaca = {};
-  for (var i = 1; i < dadosAtuais.length; i++) {
-    var idLinha = dadosAtuais[i][idxId];
+  for (var i = 0; i < referencia.length; i++) {
+    var idLinha = referencia[i][idxId];
     if (!idLinha) continue;
-    linhaPorId[idLinha] = i;
-    if (dadosAtuais[i][idxChassi]) donoChassi[dadosAtuais[i][idxChassi]] = idLinha;
-    if (dadosAtuais[i][idxPlaca]) donoPlaca[dadosAtuais[i][idxPlaca]] = idLinha;
+    linhaPorId[idLinha] = i + 2; // linha real na planilha (1 = cabeçalho)
+    if (referencia[i][idxChassi]) donoChassi[referencia[i][idxChassi]] = idLinha;
+    if (referencia[i][idxPlaca]) donoPlaca[referencia[i][idxPlaca]] = idLinha;
   }
 
   var agora = new Date();
   var idsNovos = [];
+  var novasLinhas = [];
 
   for (var v = 0; v < veiculos.length; v++) {
     var veiculo = veiculos[v];
@@ -2176,20 +2185,23 @@ function salvarProcessoEditado(comuns, veiculos) {
     if (idAtual) {
       var linhaIdx = linhaPorId[idAtual];
       if (!linhaIdx) throw new Error('Veículo ' + (v + 1) + ' (ID ' + idAtual + ') não encontrado.');
+      var faixaLinha = sheet.getRange(linhaIdx, 1, 1, CABECALHO_VEICULOS.length);
+      var linhaAtual = faixaLinha.getValues()[0];
       CABECALHO_VEICULOS.forEach(function (campo, colIdx) {
         if (['ID', 'DataCadastro', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor', 'DataTransferencia'].indexOf(campo) !== -1) return;
-        if (registro[campo] !== undefined) dadosAtuais[linhaIdx][colIdx] = registro[campo];
+        if (registro[campo] !== undefined) linhaAtual[colIdx] = registro[campo];
       });
       // Só grava a data na primeira vez que o veículo vira "Transferido:
       // SIM" — reeditar um processo já transferido (pra corrigir só o
       // Contrato, por exemplo) não pode empurrar a data de transferência
       // pra hoje de novo, senão o Relatório de Produtividade passaria a
       // contar esse veículo como "transferido" no período errado.
-      if (registro.Transferido === 'SIM' && !dadosAtuais[linhaIdx][cabecalho.indexOf('DataTransferencia')]) {
-        dadosAtuais[linhaIdx][cabecalho.indexOf('DataTransferencia')] = agora;
+      if (registro.Transferido === 'SIM' && !linhaAtual[idxTransferencia]) {
+        linhaAtual[idxTransferencia] = agora;
       }
-      dadosAtuais[linhaIdx][cabecalho.indexOf('UltimaAtualizacao')] = agora;
-      dadosAtuais[linhaIdx][cabecalho.indexOf('AtualizadoPor')] = perfil.email;
+      linhaAtual[idxUltimaAtualizacao] = agora;
+      linhaAtual[idxAtualizadoPor] = perfil.email;
+      faixaLinha.setValues([linhaAtual]);
     } else {
       var novoId = gerarProximoId_();
       var novaLinha = CABECALHO_VEICULOS.map(function (campo) {
@@ -2204,7 +2216,7 @@ function salvarProcessoEditado(comuns, veiculos) {
           default: return registro[campo] !== undefined ? registro[campo] : '';
         }
       });
-      dadosAtuais.push(novaLinha);
+      novasLinhas.push(novaLinha);
       idsNovos.push({ indice: v, id: novoId });
       idAtual = novoId;
     }
@@ -2213,7 +2225,10 @@ function salvarProcessoEditado(comuns, veiculos) {
     donoPlaca[registro.Placa] = idAtual;
   }
 
-  sheet.getRange(1, 1, dadosAtuais.length, CABECALHO_VEICULOS.length).setValues(dadosAtuais);
+  if (novasLinhas.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, novasLinhas.length, CABECALHO_VEICULOS.length).setValues(novasLinhas);
+  }
+
   registrarLog_('EDITAR_PROCESSO', comuns.NumeroProcesso || '-', veiculos.length + ' veículo(s) do processo salvos em lote.');
   invalidarCacheDashboard_();
 
