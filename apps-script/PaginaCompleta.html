@@ -1067,6 +1067,7 @@
       <div class="app-nav-item" data-tela="painel" onclick="irParaTela('painel')">📊 Estatísticas</div>
       <div class="app-nav-item" data-tela="atpve" onclick="irParaTela('atpve')">📄 2ª Via ATPVe</div>
       <div class="app-nav-item" data-tela="sinesp" onclick="irParaTela('sinesp')">🔍 Conferência SINESP</div>
+      <div class="app-nav-item" data-tela="cobranca" onclick="irParaTela('cobranca')">✉️ Cobrança</div>
       <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="irParaTela('relatorioProdutividade')">📈 Produtividade</div>
       <div class="app-nav-item" data-tela="usuarios" onclick="irParaTela('usuarios')">👤 Usuários</div>
       <div class="app-nav-item" data-tela="lixeira" onclick="irParaTela('lixeira')">🗑️ Lixeira</div>
@@ -1667,6 +1668,17 @@
       <div id="sinespResultado"></div>
     </section>
 
+    <section id="tela-cobranca" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Cobrança de Transferência</h2>
+          <p>Donatárias com veículos ainda pendentes de transferência — envie o e-mail de reiteração com um clique.</p>
+        </div>
+      </div>
+
+      <div id="cobrancaResultado"><div class="carregando">Carregando...</div></div>
+    </section>
+
     <section id="tela-relatorioProdutividade" class="tela">
       <div class="pagina-titulo">
         <div>
@@ -2103,6 +2115,34 @@
     </div>
   </div>
 
+  <div class="modal-fundo" id="modalCobrancaFundo">
+    <div class="modal" style="max-width:640px;">
+      <h2 id="cobrancaModalTitulo">E-mail de cobrança</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">
+        Revise o texto antes de enviar. Uma cópia (Cc) vai pra sua própria caixa de entrada.
+      </p>
+      <div id="mensagemCobranca"></div>
+      <div class="grid-form">
+        <div class="campo span-2">
+          <label for="cob_Destinatario">Para (e-mail) *</label>
+          <input type="email" id="cob_Destinatario" placeholder="exemplo@orgao.gov.br">
+        </div>
+        <div class="campo span-2">
+          <label for="cob_Assunto">Assunto *</label>
+          <input type="text" id="cob_Assunto">
+        </div>
+        <div class="campo span-2">
+          <label for="cob_Corpo">Mensagem *</label>
+          <textarea id="cob_Corpo" rows="14" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--borda); border-radius:6px; resize:vertical; box-sizing:border-box;"></textarea>
+        </div>
+      </div>
+      <div class="botoes">
+        <button class="secundario" id="botaoCobrancaCancelar">Cancelar</button>
+        <button class="primario" id="botaoCobrancaEnviar" style="margin-left:auto;">Enviar e-mail</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="modalErroCadastroFundo">
     <div class="modal" style="max-width:480px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
@@ -2151,6 +2191,7 @@
     configurarModalErroCadastro_();
     configurarModalNovoUsuario_();
     configurarModalNumeroSei_();
+    configurarModalCobranca_();
   });
 
   // ---------- Seletor de painéis (Doações Veiculares / Passivo Veicular) ----------
@@ -2944,6 +2985,7 @@
     // que precisa carregar mesmo pra já mostrar o processo recém-salvo.
     if (nome === 'painel') carregarPainel();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
+    if (nome === 'cobranca') carregarCobranca_();
     if (nome === 'usuarios') irParaTelaUsuarios_();
     if (nome === 'lixeira') irParaTelaLixeira_();
     if (nome === 'tep') carregarListaTep_();
@@ -3051,6 +3093,109 @@
     }
     mostrarMensagem('mensagemGlobal', copiado ? 'sucesso' : 'erro',
       copiado ? 'Lote ' + (indiceLote + 1) + ' copiado! Já pode colar no SINESP.' : 'Não consegui copiar automaticamente — o texto já está selecionado, use Ctrl+C.');
+  }
+
+  // ---------- Cobrança de Transferência (e-mail de reiteração por Donatária) ----------
+  var COBRANCA_ITENS_ATUAL = [];
+
+  async function carregarCobranca_() {
+    mostrarSkeleton_('cobrancaResultado', 4);
+    try {
+      var itens = await chamarServidor_('getCobrancaPorEnte');
+      renderizarCobranca_(itens);
+    } catch (erro) {
+      document.getElementById('cobrancaResultado').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  function renderizarCobranca_(itens) {
+    COBRANCA_ITENS_ATUAL = itens;
+    var container = document.getElementById('cobrancaResultado');
+    if (!itens.length) {
+      container.innerHTML = '<div class="card"><p>Nenhum veículo pendente de transferência encontrado. 🎉</p></div>';
+      return;
+    }
+
+    var linhas = itens.map(function (item, i) {
+      var ultimoEnvio = item.ultimoEnvio
+        ? 'Última cobrança enviada em ' + new Date(item.ultimoEnvio).toLocaleDateString('pt-BR')
+        : 'Ainda não cobrado por aqui';
+      var emailInfo = item.email
+        ? escaparHtml(item.email)
+        : '<span style="color:var(--vermelho);">sem e-mail cadastrado — informe ao enviar</span>';
+      var botao = USUARIO_PODE_EDITAR
+        ? '<button type="button" class="secundario sinesp-linha-botao" style="padding:6px 16px; font-size:12px;" onclick="abrirModalCobranca_(' + i + ')">✉️ Enviar cobrança</button>'
+        : '';
+      return '<div class="sinesp-linha-item">' +
+        '<span>' + (i + 1) + '. <strong>' + escaparHtml(item.donataria) + '</strong> — ' + escaparHtml(item.uf || '') +
+        ' • ' + item.total + ' veículo(s) pendente(s)<br>' +
+        '<span style="font-size:12px; color:var(--texto-suave);">' + emailInfo + ' • ' + ultimoEnvio + '</span></span>' +
+        botao + '</div>';
+    }).join('');
+
+    container.innerHTML = '<div class="card"><p style="margin:0 0 10px; font-weight:700;">' +
+      itens.length + ' donatária(s) com veículos pendentes de transferência.</p>' + linhas + '</div>';
+  }
+
+  async function abrirModalCobranca_(indice) {
+    var item = COBRANCA_ITENS_ATUAL[indice];
+    if (!item) return;
+    COBRANCA_DONATARIA_ATUAL = item.donataria;
+    document.getElementById('cobrancaModalTitulo').textContent = 'E-mail de cobrança — ' + item.donataria;
+    document.getElementById('mensagemCobranca').innerHTML = '';
+    document.getElementById('cob_Destinatario').value = '';
+    document.getElementById('cob_Assunto').value = '';
+    document.getElementById('cob_Corpo').value = 'Carregando...';
+    document.getElementById('botaoCobrancaEnviar').disabled = true;
+    document.getElementById('modalCobrancaFundo').classList.add('ativo');
+    try {
+      var dados = await chamarServidor_('montarEmailCobranca', item.donataria);
+      document.getElementById('cob_Destinatario').value = dados.destinatario || '';
+      document.getElementById('cob_Assunto').value = dados.assunto || '';
+      document.getElementById('cob_Corpo').value = dados.corpo || '';
+    } catch (erro) {
+      document.getElementById('mensagemCobranca').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    } finally {
+      document.getElementById('botaoCobrancaEnviar').disabled = false;
+    }
+  }
+
+  function fecharModalCobranca_() {
+    document.getElementById('modalCobrancaFundo').classList.remove('ativo');
+    COBRANCA_DONATARIA_ATUAL = '';
+  }
+
+  function configurarModalCobranca_() {
+    document.getElementById('botaoCobrancaCancelar').addEventListener('click', fecharModalCobranca_);
+    document.getElementById('botaoCobrancaEnviar').addEventListener('click', async function () {
+      var destinatario = document.getElementById('cob_Destinatario').value.trim();
+      var assunto = document.getElementById('cob_Assunto').value.trim();
+      var corpo = document.getElementById('cob_Corpo').value.trim();
+      if (!destinatario || !assunto || !corpo) {
+        document.getElementById('mensagemCobranca').innerHTML =
+          '<div class="mensagem erro">Preencha destinatário, assunto e mensagem antes de enviar.</div>';
+        return;
+      }
+      if (!confirm('Confirma o envio deste e-mail de cobrança para ' + destinatario + '?')) return;
+
+      var botao = this;
+      botao.disabled = true;
+      botao.textContent = 'Enviando...';
+      try {
+        await chamarServidor_('enviarEmailCobranca', COBRANCA_DONATARIA_ATUAL, destinatario, assunto, corpo);
+        fecharModalCobranca_();
+        mostrarMensagem('mensagemGlobal', 'sucesso', 'E-mail de cobrança enviado com sucesso.');
+        carregarCobranca_();
+      } catch (erro) {
+        document.getElementById('mensagemCobranca').innerHTML =
+          '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+      } finally {
+        botao.disabled = false;
+        botao.textContent = 'Enviar e-mail';
+      }
+    });
   }
 
   // ---------- Contexto / listas ----------

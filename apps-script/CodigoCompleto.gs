@@ -966,6 +966,160 @@ function listarPendentesSinesp(filtros) {
   });
 }
 
+// ======================================================================
+// COBRANÇA DE TRANSFERÊNCIA — e-mail de reiteração pras Donatárias
+// (Entes/órgãos) com veículos ainda pendentes de transferência. Reproduz,
+// com um clique, o e-mail que hoje é redigido manualmente e anexado ao
+// processo no SEI.
+// ======================================================================
+
+var SHEET_CONTATOS_COBRANCA = 'ContatosCobranca';
+var CABECALHO_CONTATOS_COBRANCA = ['Donataria', 'Email', 'UltimoEnvio', 'AtualizadoPor'];
+
+/**
+ * Veículos ainda não transferidos, agrupados por Donatária — usado pela
+ * tela "Cobrança" pra listar quem ainda deve providenciar a transferência.
+ * Cada grupo traz o e-mail de contato já cadastrado anteriormente (se
+ * houver, ver salvarContatoCobranca_) e a data do último envio.
+ */
+function getCobrancaPorEnte() {
+  var pendentes = listarVeiculos({ transferido: 'NÃO' });
+  var contatos = listarContatosCobranca_();
+
+  var grupos = {};
+  var ordem = [];
+  pendentes.forEach(function (v) {
+    var chave = v.Donataria || '(sem donatária)';
+    if (!grupos[chave]) {
+      grupos[chave] = {
+        donataria: chave,
+        uf: v.UF,
+        ente: v.Ente,
+        total: 0,
+        email: (contatos[chave] && contatos[chave].email) || '',
+        ultimoEnvio: (contatos[chave] && contatos[chave].ultimoEnvio) || ''
+      };
+      ordem.push(chave);
+    }
+    grupos[chave].total++;
+  });
+
+  ordem.sort(function (a, b) { return grupos[b].total - grupos[a].total; });
+  return ordem.map(function (chave) { return grupos[chave]; });
+}
+
+function listarContatosCobranca_() {
+  var sheet = getOrCreateSheet_(SHEET_CONTATOS_COBRANCA, CABECALHO_CONTATOS_COBRANCA);
+  var valores = sheet.getDataRange().getValues();
+  var mapa = {};
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[0]) continue;
+    mapa[linha[0]] = { email: linha[1] || '', ultimoEnvio: linha[2] || '' };
+  }
+  return mapa;
+}
+
+/**
+ * Monta o assunto e o corpo (já prontos pra revisão) do e-mail de cobrança
+ * de uma Donatária específica, listando os veículos pendentes agrupados
+ * por Termo de Doação. O destinatário vem do cadastro salvo em
+ * ContatosCobranca — a partir do segundo envio pra essa Donatária, já
+ * chega preenchido (ver enviarEmailCobranca).
+ */
+function montarEmailCobranca(donataria) {
+  var perfil = getPerfilUsuarioAtual_();
+  var pendentes = listarVeiculos({ transferido: 'NÃO' }).filter(function (v) {
+    return (v.Donataria || '(sem donatária)') === donataria;
+  });
+  if (!pendentes.length) throw new Error('Não há veículos pendentes para "' + donataria + '".');
+
+  var porTermo = {};
+  var ordemTermos = [];
+  pendentes.forEach(function (v) {
+    var termo = v.TermoDoacao || '(sem termo informado)';
+    if (!porTermo[termo]) { porTermo[termo] = []; ordemTermos.push(termo); }
+    porTermo[termo].push(v);
+  });
+
+  var corpo = 'Prezado(a) responsável,\n\n' +
+    'Cumprimentando-o(a) cordialmente, venho por meio deste REITERAR a necessidade de adoção das devidas ' +
+    'providências quanto à TRANSFERÊNCIA DE PROPRIEDADE dos veículos doados a esse Ente/órgão pelo Ministério ' +
+    'da Justiça e Segurança Pública, por meio da Secretaria Nacional de Segurança Pública (SENASP), e que ' +
+    'permanecem PENDENTES de efetivação:\n\n';
+
+  ordemTermos.forEach(function (termo) {
+    corpo += 'Termo de Doação SENASP nº ' + termo + ':\n';
+    porTermo[termo].forEach(function (v, i) {
+      var descricaoVeiculo = [v.Marca, v.Descricao].filter(Boolean).join(' ');
+      corpo += '  ' + (i + 1) + '. Placa ' + (v.Placa || '—') + ' — Chassi ' + (v.Chassi || '—') +
+        (v.Renavam ? ', Renavam ' + v.Renavam : '') +
+        (descricaoVeiculo ? ' (' + descricaoVeiculo + ')' : '') + '\n';
+    });
+    corpo += '\n';
+  });
+
+  corpo += 'Ressalto a necessidade de adoção das devidas providências quanto à transferência de propriedade ' +
+    'dos veículos acima relacionados, ainda pendente de efetivação.\n\n' +
+    'Certo(a) da atenção, renovo protestos de estima e consideração.\n\n' +
+    'Atenciosamente,\n' +
+    (perfil.nome || perfil.email) + '\n' +
+    'Serviço de Gestão de Patrimônio\n' +
+    'Coordenação de Logística\n' +
+    'Diretoria de Gestão do Fundo Nacional de Segurança Pública\n' +
+    'Secretaria Nacional de Segurança Pública\n' +
+    'Ministério da Justiça e Segurança Pública';
+
+  var contatos = listarContatosCobranca_();
+  return {
+    destinatario: (contatos[donataria] && contatos[donataria].email) || '',
+    assunto: 'REITERAÇÃO Pertinente à Transferência de Propriedade de Veículos — ' + donataria,
+    corpo: corpo,
+    total: pendentes.length
+  };
+}
+
+/**
+ * Envia de fato o e-mail de cobrança (já revisado pela pessoa na tela),
+ * com cópia (Cc) pra quem enviou — fica registrado na própria caixa de
+ * entrada, pra anexar ao processo no SEI depois. Salva/atualiza o contato
+ * daquela Donatária em ContatosCobranca, pra já vir preenchido da
+ * próxima vez que alguém for cobrar o mesmo Ente.
+ */
+function enviarEmailCobranca(donataria, destinatario, assunto, corpo) {
+  var perfil = exigirPerfilEditor_();
+  destinatario = String(destinatario || '').trim();
+  if (!destinatario || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
+    throw new Error('E-mail do destinatário inválido: ' + destinatario);
+  }
+  if (!assunto || !corpo) throw new Error('Assunto e corpo do e-mail são obrigatórios.');
+
+  MailApp.sendEmail({
+    to: destinatario,
+    cc: perfil.email,
+    subject: assunto,
+    body: corpo
+  });
+
+  salvarContatoCobranca_(donataria, destinatario, perfil.email);
+  registrarLog_('ENVIAR_COBRANCA', donataria, 'E-mail de cobrança enviado para ' + destinatario);
+
+  return { mensagem: 'E-mail enviado para ' + destinatario + ' (com cópia pra você, pra anexar no SEI se precisar).' };
+}
+
+function salvarContatoCobranca_(donataria, email, autorEmail) {
+  var sheet = getOrCreateSheet_(SHEET_CONTATOS_COBRANCA, CABECALHO_CONTATOS_COBRANCA);
+  var valores = sheet.getDataRange().getValues();
+  var agora = new Date();
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][0] === donataria) {
+      sheet.getRange(i + 1, 1, 1, 4).setValues([[donataria, email, agora, autorEmail]]);
+      return;
+    }
+  }
+  sheet.appendRow([donataria, email, agora, autorEmail]);
+}
+
 function paraDtoListagem_(r) {
   return {
     ID: r.ID,
