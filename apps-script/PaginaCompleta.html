@@ -2119,7 +2119,7 @@
     <div class="modal" style="max-width:640px;">
       <h2 id="cobrancaModalTitulo">E-mail de cobrança</h2>
       <p style="font-size:14px; color:var(--texto-suave);">
-        Revise o texto antes de enviar. Uma cópia (Cc) vai pra sua própria caixa de entrada.
+        Revise o texto antes de enviar direto por aqui, ou copie e cole no "Novo E-mail" de dentro do próprio processo no SEI.
       </p>
       <div id="mensagemCobranca"></div>
       <div class="grid-form">
@@ -2128,16 +2128,23 @@
           <input type="email" id="cob_Destinatario" placeholder="exemplo@orgao.gov.br">
         </div>
         <div class="campo span-2">
-          <label for="cob_Assunto">Assunto *</label>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <label for="cob_Assunto" style="margin:0;">Assunto *</label>
+            <button type="button" class="secundario" style="padding:2px 10px; font-size:11px;" onclick="copiarCampoCobranca_('cob_Assunto')">Copiar</button>
+          </div>
           <input type="text" id="cob_Assunto">
         </div>
         <div class="campo span-2">
-          <label for="cob_Corpo">Mensagem *</label>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <label for="cob_Corpo" style="margin:0;">Mensagem *</label>
+            <button type="button" class="secundario" style="padding:2px 10px; font-size:11px;" onclick="copiarCampoCobranca_('cob_Corpo')">Copiar</button>
+          </div>
           <textarea id="cob_Corpo" rows="14" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--borda); border-radius:6px; resize:vertical; box-sizing:border-box;"></textarea>
         </div>
       </div>
       <div class="botoes">
         <button class="secundario" id="botaoCobrancaCancelar">Cancelar</button>
+        <button type="button" class="secundario" onclick="abrirSei_()">Abrir SEI ↗</button>
         <button class="primario" id="botaoCobrancaEnviar" style="margin-left:auto;">Enviar e-mail</button>
       </div>
     </div>
@@ -3166,6 +3173,30 @@
   function fecharModalCobranca_() {
     document.getElementById('modalCobrancaFundo').classList.remove('ativo');
     COBRANCA_DONATARIA_ATUAL = '';
+  }
+
+  var URL_SEI = 'https://sei.mj.gov.br/sei/';
+
+  function abrirSei_() {
+    window.open(URL_SEI, '_blank');
+  }
+
+  function copiarCampoCobranca_(idCampo) {
+    var campo = document.getElementById(idCampo);
+    campo.select();
+    campo.setSelectionRange(0, 999999);
+    var copiado = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(campo.value);
+        copiado = true;
+      }
+    } catch (e) { /* cai no fallback abaixo */ }
+    if (!copiado) {
+      try { copiado = document.execCommand('copy'); } catch (e2) { /* segue sem copiar */ }
+    }
+    mostrarMensagem('mensagemCobranca', copiado ? 'sucesso' : 'erro',
+      copiado ? 'Copiado! Já pode colar no SEI.' : 'Não consegui copiar automaticamente — o texto já está selecionado, use Ctrl+C.');
   }
 
   function configurarModalCobranca_() {
