@@ -3186,6 +3186,7 @@
         ente: document.getElementById('cob_Ente').value
       };
       var dados = await chamarServidor_('getCobrancaPorProcesso', filtros);
+      if (!dados) throw new Error('Não recebi resposta do servidor — clique em "Filtrar" pra tentar de novo.');
       renderizarResumoCobranca_(dados);
       renderizarCobranca_(dados.processos);
     } catch (erro) {
@@ -3195,9 +3196,10 @@
   }
 
   function renderizarResumoCobranca_(dados) {
+    dados = dados || {};
     document.getElementById('cobrancaResumo').innerHTML =
-      '<div class="kpi amarelo"><div class="rotulo">🚗 VEÍCULOS PENDENTES (NO TOTAL)</div><div class="valor">' + dados.totalVeiculosPendentes + '</div></div>' +
-      '<div class="kpi azul"><div class="rotulo">✉️ PROCESSOS A COBRAR (NO TOTAL)</div><div class="valor">' + dados.totalProcessosPendentes + '</div></div>';
+      '<div class="kpi amarelo"><div class="rotulo">🚗 VEÍCULOS PENDENTES (NO TOTAL)</div><div class="valor">' + (dados.totalVeiculosPendentes || 0) + '</div></div>' +
+      '<div class="kpi azul"><div class="rotulo">✉️ PROCESSOS A COBRAR (NO TOTAL)</div><div class="valor">' + (dados.totalProcessosPendentes || 0) + '</div></div>';
   }
 
   function renderizarCobranca_(itens) {
