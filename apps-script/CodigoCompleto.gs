@@ -62,7 +62,11 @@ var CABECALHO_VEICULOS = [
   // restaurar em "Lixeira" se alguém excluir por engano, e o histórico
   // completo do veículo (quem cadastrou, quando foi transferido etc.)
   // não se perde.
-  'Excluido', 'ExcluidoPor', 'DataExclusao'
+  'Excluido', 'ExcluidoPor', 'DataExclusao',
+  // Data da primeira vez que ATPVeEnviado virou SIM (toggle direto ou
+  // cascata ao marcar Transferido) — companheira de DataEmissaoATPVe, pro
+  // dia informado na caixa "Que data o ATPVe foi enviado?" não se perder.
+  'DataEnvioATPVe'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -1376,7 +1380,21 @@ function getAnosDisponiveis() {
  * transferência de um veículo, sem reenviar/validar o cadastro inteiro —
  * usado pelos toggles dentro de um processo expandido na Listagem.
  */
-function atualizarStatusVeiculo(id, campo, valor) {
+// Converte uma data "AAAA-MM-DD" (vinda de <input type="date">) num Date
+// LOCAL ao meio-dia — em vez de new Date('AAAA-MM-DD') puro, que interpreta
+// como meia-noite UTC e pode "voltar um dia" em fusos negativos como o do
+// Brasil. Devolve null se vier vazio/ inválido (quem chamar deve cair pra
+// "agora" nesse caso).
+function parseDataLocal_(valor) {
+  if (!valor) return null;
+  var partes = String(valor).split('-');
+  if (partes.length !== 3) return null;
+  var ano = parseInt(partes[0], 10), mes = parseInt(partes[1], 10), dia = parseInt(partes[2], 10);
+  if (!ano || !mes || !dia) return null;
+  return new Date(ano, mes - 1, dia, 12, 0, 0);
+}
+
+function atualizarStatusVeiculo(id, campo, valor, dataEmissaoAtpve, dataEnvioAtpve) {
   if (['ATPVeEmitido', 'ATPVeEnviado', 'Transferido'].indexOf(campo) === -1) {
     throw new Error('Campo inválido: ' + campo);
   }
@@ -1406,17 +1424,27 @@ function atualizarStatusVeiculo(id, campo, valor) {
   }
 
   var agora = new Date();
+  // A data informada na caixa "Que data o ATPVe foi emitido/enviado?" (ver
+  // tela) tem prioridade sobre "agora" — permite registrar hoje uma emissão
+  // que na prática aconteceu num dia anterior, sem distorcer o Relatório de
+  // Produtividade (que conta pela data real, não pela data do clique).
+  var dataEmissaoEscolhida = parseDataLocal_(dataEmissaoAtpve) || agora;
+  var dataEnvioEscolhida = parseDataLocal_(dataEnvioAtpve) || agora;
   var cascataTransferido = campo === 'Transferido' && valorNormalizado === 'SIM';
   var celulaDataEmissaoAtpve = sheet.getRange(linhaIdx, colunaParaIndice_('DataEmissaoATPVe') + 1);
+  var celulaDataEnvioAtpve = sheet.getRange(linhaIdx, colunaParaIndice_('DataEnvioATPVe') + 1);
 
   sheet.getRange(linhaIdx, colunaParaIndice_(campo) + 1).setValue(valorNormalizado);
-  // Só grava a data de emissão do ATPVe na primeira vez que ele vira SIM —
-  // o relatório de produtividade conta pela data real da emissão, então
-  // não pode ser sobrescrita depois por uma cascata de Transferido (senão
-  // a emissão passaria a contar na semana da transferência, não na semana
-  // em que o ATPVe foi de fato emitido).
+  // Só grava a data de emissão/envio do ATPVe na primeira vez que cada campo
+  // vira SIM — o relatório de produtividade conta pela data real, então não
+  // pode ser sobrescrita depois por uma cascata de Transferido (senão a
+  // emissão passaria a contar na semana da transferência, não na semana em
+  // que o ATPVe foi de fato emitido/enviado).
   if (campo === 'ATPVeEmitido' && valorNormalizado === 'SIM' && !celulaDataEmissaoAtpve.getValue()) {
-    celulaDataEmissaoAtpve.setValue(agora);
+    celulaDataEmissaoAtpve.setValue(dataEmissaoEscolhida);
+  }
+  if (campo === 'ATPVeEnviado' && valorNormalizado === 'SIM' && !celulaDataEnvioAtpve.getValue()) {
+    celulaDataEnvioAtpve.setValue(dataEnvioEscolhida);
   }
   if (cascataTransferido) {
     // Marcar como transferido também marca o ATPVe como emitido e enviado —
@@ -1424,7 +1452,10 @@ function atualizarStatusVeiculo(id, campo, valor) {
     sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEmitido') + 1).setValue('SIM');
     sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEnviado') + 1).setValue('SIM');
     if (!celulaDataEmissaoAtpve.getValue()) {
-      celulaDataEmissaoAtpve.setValue(agora);
+      celulaDataEmissaoAtpve.setValue(dataEmissaoEscolhida);
+    }
+    if (!celulaDataEnvioAtpve.getValue()) {
+      celulaDataEnvioAtpve.setValue(dataEnvioEscolhida);
     }
     // Mesmo comportamento do cadastro/edição completa: registra a data da
     // primeira vez que o veículo é marcado como transferido; não apaga essa

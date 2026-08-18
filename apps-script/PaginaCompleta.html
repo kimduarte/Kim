@@ -2187,6 +2187,32 @@
     </div>
   </div>
 
+  <div class="modal-fundo" id="modalDataAtpveFundo">
+    <div class="modal" style="max-width:420px;">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+        <h2 style="margin:0;">Datas do ATPVe</h2>
+        <button type="button" class="secundario" style="padding:2px 10px;" onclick="fecharModalDataAtpve_(false)">✕</button>
+      </div>
+      <p style="font-size:13px; color:var(--texto-suave);" id="dataAtpveTexto">
+        Se a emissão/envio aconteceu num dia anterior, informe a data certa aqui — assim o Relatório de Produtividade não conta errado.
+      </p>
+      <div class="grid-form">
+        <div class="campo span-2">
+          <label for="dataAtpveEmissao">Que data o ATPVe foi emitido?</label>
+          <input type="date" id="dataAtpveEmissao">
+        </div>
+        <div class="campo span-2">
+          <label for="dataAtpveEnvio">Que data o ATPVe foi enviado?</label>
+          <input type="date" id="dataAtpveEnvio">
+        </div>
+      </div>
+      <div class="botoes">
+        <button class="secundario" onclick="fecharModalDataAtpve_(false)">Cancelar</button>
+        <button class="primario" style="margin-left:auto;" onclick="fecharModalDataAtpve_(true)">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="modalErroCadastroFundo">
     <div class="modal" style="max-width:480px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
@@ -4962,8 +4988,41 @@
     }
   }
 
-  function alternarStatusAtpve_(id, campo, valorAtual) {
+  // ---------- Caixa "Que data o ATPVe foi emitido/enviado?" ----------
+  // Usada pelo toggle individual e pelo "Marcar todos" — só aparece ao
+  // MARCAR (SIM) ATPVeEmitido/ATPVeEnviado, nunca ao desmarcar (não há o
+  // que retroagir nesse caso). Permite registrar hoje uma emissão/envio que
+  // na prática aconteceu num dia anterior, sem distorcer a data usada pelo
+  // Relatório de Produtividade.
+  var RESOLVER_DATA_ATPVE = null;
+
+  function pedirDatasAtpve_() {
+    var hoje = formatarDataISO_(new Date());
+    document.getElementById('dataAtpveEmissao').value = hoje;
+    document.getElementById('dataAtpveEnvio').value = hoje;
+    document.getElementById('modalDataAtpveFundo').classList.add('ativo');
+    return new Promise(function (resolve) { RESOLVER_DATA_ATPVE = resolve; });
+  }
+
+  function fecharModalDataAtpve_(confirmado) {
+    document.getElementById('modalDataAtpveFundo').classList.remove('ativo');
+    if (!RESOLVER_DATA_ATPVE) return;
+    var resolver = RESOLVER_DATA_ATPVE;
+    RESOLVER_DATA_ATPVE = null;
+    resolver(confirmado ? {
+      dataEmissao: document.getElementById('dataAtpveEmissao').value,
+      dataEnvio: document.getElementById('dataAtpveEnvio').value
+    } : null);
+  }
+
+  async function alternarStatusAtpve_(id, campo, valorAtual) {
     var novoValor = valorAtual === 'SIM' ? 'NÃO' : 'SIM';
+    var datas = {};
+    if (novoValor === 'SIM' && (campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado')) {
+      var escolhidas = await pedirDatasAtpve_();
+      if (!escolhidas) return; // cancelou a caixa de datas — não faz nada
+      datas = escolhidas;
+    }
     google.script.run
       .withSuccessHandler(function (resp) {
         // Marcar Transferido como SIM também marca ATPVe Emitido/Enviado no
@@ -4997,7 +5056,7 @@
       .withFailureHandler(function (erro) {
         mostrarMensagem('mensagemListagem', 'erro', erro.message || String(erro));
       })
-      .atualizarStatusVeiculo(id, campo, novoValor);
+      .atualizarStatusVeiculo(id, campo, novoValor, datas.dataEmissao, datas.dataEnvio);
   }
 
   async function marcarTodosAtpve_(indiceProcesso, campo) {
@@ -5017,13 +5076,20 @@
     var acao = alvo === 'SIM' ? 'Marcar' : 'Desmarcar';
     if (!confirm(acao + ' os ' + pendentes.length + ' veículo(s) deste processo como "' + rotulo + ': ' + alvo + '"?')) return;
 
+    var datas = {};
+    if (alvo === 'SIM' && (campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado')) {
+      var escolhidas = await pedirDatasAtpve_();
+      if (!escolhidas) return; // cancelou a caixa de datas — não marca nenhum
+      datas = escolhidas;
+    }
+
     var acaoGerundio = alvo === 'SIM' ? 'Marcando' : 'Desmarcando';
     mostrarLoader_(acaoGerundio + ' 1 de ' + pendentes.length + ' veículo(s), aguarde...');
     var erros = [];
     for (var i = 0; i < pendentes.length; i++) {
       atualizarTextoLoader_(acaoGerundio + ' ' + (i + 1) + ' de ' + pendentes.length + ' veículo(s), aguarde...');
       try {
-        await chamarServidor_('atualizarStatusVeiculo', pendentes[i].ID, campo, alvo);
+        await chamarServidor_('atualizarStatusVeiculo', pendentes[i].ID, campo, alvo, datas.dataEmissao, datas.dataEnvio);
       } catch (erro) {
         erros.push(pendentes[i].ID + ': ' + (erro.message || String(erro)));
       }
