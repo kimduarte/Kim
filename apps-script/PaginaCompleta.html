@@ -1094,6 +1094,7 @@
           <button type="button" class="action-btn primary" onclick="irParaTela('painel')">📊 Painel Geral</button>
           <button type="button" class="action-btn success" onclick="abrirModalEscolhaCadastro_()">🚗 Novo Veículo</button>
           <button type="button" class="action-btn info" onclick="irParaTela('listagem')">📋 Processos</button>
+          <button type="button" class="action-btn success" onclick="irParaTela('transferidos')">✅ Ver transferidos</button>
           <button type="button" class="action-btn warning" id="inicioBotaoTep" style="display:none;" onclick="irParaTela('tep')">⚠️ TEP (<span id="inicioBannerTepContagem">0</span>)</button>
         </div>
       </div>
@@ -1702,6 +1703,17 @@
       </div>
 
       <div id="cobrancaResultado"></div>
+    </section>
+
+    <section id="tela-transferidos" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Últimos Veículos Transferidos</h2>
+          <p>Os veículos mais recentemente marcados como transferidos, do mais novo pro mais antigo.</p>
+        </div>
+      </div>
+
+      <div id="transferidosResultado"><div class="carregando">Carregando...</div></div>
     </section>
 
     <section id="tela-relatorioProdutividade" class="tela">
@@ -3043,6 +3055,7 @@
     if (nome === 'painel') carregarPainel();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
     if (nome === 'cobranca') carregarCobranca_();
+    if (nome === 'transferidos') carregarTransferidos_();
     if (nome === 'usuarios') irParaTelaUsuarios_();
     if (nome === 'lixeira') irParaTelaLixeira_();
     if (nome === 'tep') carregarListaTep_();
@@ -3423,6 +3436,45 @@
         botao.textContent = 'Enviar e-mail direto';
       }
     });
+  }
+
+  // ---------- Últimos Veículos Transferidos ----------
+  async function carregarTransferidos_() {
+    mostrarSkeleton_('transferidosResultado', 4);
+    try {
+      var itens = await chamarServidor_('listarUltimosTransferidos');
+      renderizarTransferidos_(itens);
+    } catch (erro) {
+      document.getElementById('transferidosResultado').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  function renderizarTransferidos_(itens) {
+    itens = itens || [];
+    var container = document.getElementById('transferidosResultado');
+    if (!itens.length) {
+      container.innerHTML = '<div class="card"><p>Nenhum veículo transferido ainda.</p></div>';
+      return;
+    }
+
+    var linhas = itens.map(function (item, i) {
+      var referencia = item.numeroProcesso || item.termoDoacao || '(sem referência)';
+      var descricaoVeiculo = [item.marca, item.descricao].filter(Boolean).join(' ');
+      var dataTransferencia = item.dataTransferencia
+        ? new Date(item.dataTransferencia).toLocaleDateString('pt-BR')
+        : '—';
+      return '<div class="sinesp-linha-item">' +
+        '<span>' + (i + 1) + '. <strong>' + escaparHtml(item.placa || item.chassi || '—') + '</strong>' +
+        (descricaoVeiculo ? ' — ' + escaparHtml(descricaoVeiculo) : '') + '<br>' +
+        '<span style="font-size:12px; color:var(--texto-suave);">' +
+        escaparHtml(item.donataria || '') + ' • ' + escaparHtml(item.uf || '') + ' • Processo ' + escaparHtml(referencia) +
+        ' • Transferido em ' + dataTransferencia + '</span></span>' +
+        '</div>';
+    }).join('');
+
+    container.innerHTML = '<div class="card"><p style="margin:0 0 10px; font-weight:700;">' +
+      itens.length + ' veículo(s) transferido(s) mais recentemente.</p>' + linhas + '</div>';
   }
 
   // ---------- Contexto / listas ----------

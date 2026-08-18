@@ -3460,7 +3460,7 @@ var CACHE_DASHBOARD_SEGUNDOS = 300;
 var CACHE_ANOS_SEGUNDOS = 21600; // 6h (máximo do CacheService) — anos disponíveis raríssimo mudam
 
 function invalidarCacheDashboard_() {
-  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base']);
+  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base', 'ultimos_transferidos']);
 }
 
 /**
@@ -3655,6 +3655,43 @@ function enviarEmailViaGraph_(destinatario, cc, assunto, corpo) {
     throw new Error('Falha ao enviar pelo Outlook institucional (' + codigo + '): ' + resposta.getContentText());
   }
   return true;
+}
+
+/**
+ * Últimos veículos transferidos, do mais recente pro mais antigo — usado
+ * pelo atalho "Ver transferidos" da tela Início. Limita a 50 pra não
+ * pesar a tela (é uma lista de "atividade recente", não um relatório
+ * completo). A parte cara (achar todos os transferidos) fica em cache,
+ * mesma técnica de getCobrancaBaseCache_/getEstatisticas.
+ */
+function listarUltimosTransferidos() {
+  var cache = CacheService.getDocumentCache();
+  var cacheado = cache.get('ultimos_transferidos');
+  if (cacheado) return JSON.parse(cacheado);
+
+  var transferidos = listarVeiculos({ transferido: 'SIM' });
+  transferidos.sort(function (a, b) {
+    return new Date(b.DataTransferencia || 0) - new Date(a.DataTransferencia || 0);
+  });
+
+  var resultado = transferidos.slice(0, 50).map(function (v) {
+    return {
+      id: v.ID,
+      placa: v.Placa,
+      chassi: v.Chassi,
+      marca: v.Marca,
+      descricao: v.Descricao,
+      donataria: v.Donataria,
+      uf: v.UF,
+      dataTransferencia: v.DataTransferencia,
+      numeroProcesso: v.NumeroProcesso,
+      termoDoacao: v.TermoDoacao
+    };
+  });
+
+  var json = JSON.stringify(resultado);
+  if (json.length < 100 * 1024) cache.put('ultimos_transferidos', json, CACHE_DASHBOARD_SEGUNDOS);
+  return resultado;
 }
 
 function getEstatisticas() {
