@@ -2165,25 +2165,10 @@
         </div>
       </div>
       <div class="botoes" style="flex-wrap:wrap;">
-        <button type="button" class="secundario" onclick="abrirSei_()">Abrir SEI ↗</button>
+        <button type="button" class="secundario" onclick="abrirCopilot_()">Abrir Copilot ↗</button>
         <button type="button" class="secundario" onclick="copiarTextoCobranca_()">📋 Copiar texto</button>
         <button type="button" class="secundario" id="botaoCobrancaMarcarEnviado">✓ Marcar como enviado</button>
         <button class="primario" id="botaoCobrancaEnviar" style="margin-left:auto;">Enviar e-mail direto</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-fundo" id="modalReferenciaCobrancaFundo">
-    <div class="modal" style="max-width:420px;">
-      <div style="display:flex; align-items:flex-start; justify-content:space-between;">
-        <h2 style="margin:0;">Busque pelo SEI</h2>
-        <button type="button" class="secundario" style="padding:2px 10px;" onclick="fecharModalReferenciaCobranca_()">✕</button>
-      </div>
-      <p style="font-size:13px; color:var(--texto-suave);" id="cobrancaReferenciaRotulo">Número do processo:</p>
-      <p style="font-size:22px; font-weight:800; word-break:break-all;" id="cobrancaReferenciaNumero"></p>
-      <p style="font-size:12px; color:var(--texto-suave);">Texto do e-mail já copiado — cole no "Novo E-mail" desse processo dentro do SEI.</p>
-      <div class="botoes">
-        <button class="primario" style="margin-left:auto;" onclick="fecharModalReferenciaCobranca_()">Entendi</button>
       </div>
     </div>
   </div>
@@ -3267,7 +3252,6 @@
       document.getElementById('cob_Destinatario').value = dados.destinatario || '';
       document.getElementById('cob_Assunto').value = dados.assunto || '';
       document.getElementById('cob_Corpo').value = dados.corpo || '';
-      COBRANCA_PROCESSO_ATUAL.referenciaBusca = dados.referenciaBusca;
       if (dados.jaEnviado) {
         var aviso = document.getElementById('cobrancaJaEnviadoAviso');
         aviso.style.display = 'block';
@@ -3318,18 +3302,21 @@
     COBRANCA_MODAL_JA_REGISTRADO = false;
   }
 
-  var URL_SEI = 'https://sei.mj.gov.br/sei/';
+  var URL_COPILOT = 'https://copilot.cloud.microsoft/chat?redirfrom=userTypeCookie';
 
-  function abrirSei_() {
-    window.open(URL_SEI, '_blank');
+  function abrirCopilot_() {
+    window.open(URL_COPILOT, '_blank');
   }
 
   // "Copiar texto" copia um script pronto pra colar no Copilot institucional
-  // (Microsoft 365 Copilot, no Outlook/Teams/copilot.microsoft.com) — como
+  // (Microsoft 365 Copilot, no Outlook/Teams/copilot.cloud.microsoft) — como
   // ele já roda autenticado na conta @mj.gov.br da pessoa, consegue redigir
   // E enviar o e-mail direto por ali, sem precisar da integração via Azure
   // (que exigiria registrar um aplicativo com a TI — ver conversa anterior).
-  function copiarTextoCobranca_() {
+  // Também aproveita o clique pra CADASTRAR o(s) e-mail(s) digitados em
+  // "Para" (se ainda não havia nenhum salvo), pra já virem preenchidos na
+  // próxima cobrança do mesmo processo/Donatária.
+  async function copiarTextoCobranca_() {
     var destinatario = document.getElementById('cob_Destinatario').value.trim();
     var assunto = document.getElementById('cob_Assunto').value;
     var corpo = document.getElementById('cob_Corpo').value;
@@ -3358,18 +3345,16 @@
       copiado ? 'Script copiado! Cole no Copilot institucional (Outlook/Teams) pra ele redigir e enviar.' :
       'Não consegui copiar automaticamente — selecione o texto na Mensagem e use Ctrl+C.');
 
-    if (COBRANCA_PROCESSO_ATUAL) {
-      var temNumeroProcesso = !!COBRANCA_PROCESSO_ATUAL.numeroProcesso;
-      document.getElementById('cobrancaReferenciaRotulo').textContent =
-        temNumeroProcesso ? 'Número do processo:' : 'Sem número de processo — use o SEI do Termo de Doação:';
-      document.getElementById('cobrancaReferenciaNumero').textContent =
-        COBRANCA_PROCESSO_ATUAL.referenciaBusca || '(não disponível)';
-      document.getElementById('modalReferenciaCobrancaFundo').classList.add('ativo');
+    if (COBRANCA_PROCESSO_ATUAL && destinatario) {
+      try {
+        await chamarServidor_('salvarEmailCobrancaProcesso', COBRANCA_PROCESSO_ATUAL.chave,
+          COBRANCA_PROCESSO_ATUAL.numeroProcesso, COBRANCA_PROCESSO_ATUAL.donataria, destinatario);
+        document.getElementById('cobrancaSemEmailAviso').style.display = 'none';
+      } catch (erro) {
+        // Não desfaz a cópia (já aconteceu) — só avisa que o cadastro do e-mail falhou.
+        mostrarMensagem('mensagemCobranca', 'erro', 'Copiado, mas não consegui cadastrar o e-mail: ' + (erro.message || String(erro)));
+      }
     }
-  }
-
-  function fecharModalReferenciaCobranca_() {
-    document.getElementById('modalReferenciaCobrancaFundo').classList.remove('ativo');
   }
 
   function configurarModalCobranca_() {

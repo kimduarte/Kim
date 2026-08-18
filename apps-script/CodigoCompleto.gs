@@ -1131,13 +1131,6 @@ function montarEmailCobrancaProcesso(chave) {
   };
 }
 
-/**
- * Registra que o e-mail de cobrança de um processo foi enviado (por fora do
- * sistema, direto pelo SEI) — pede o número SEI do próprio e-mail enviado,
- * pra manter rastreável dentro do processo. Usado tanto pelo botão "Marcar
- * como enviado" quanto pela confirmação que aparece ao abrir a cobrança de
- * outro processo.
- */
 // Valida uma lista de e-mails separados por ";" — permite cobrar mais de um
 // destinatário do mesmo processo (ex.: gabinete + secretaria de patrimônio).
 // Devolve a lista já normalizada (sem espaços em volta de cada endereço).
@@ -1149,6 +1142,37 @@ function validarEmailsMultiplos_(texto) {
   return enderecos.join('; ');
 }
 
+/**
+ * Cadastra/atualiza só o e-mail de contato de um processo, sem marcar nada
+ * como enviado — usado pelo "Copiar texto" pra já guardar o(s) e-mail(s)
+ * digitados em "Para" na hora, mesmo que o envio em si aconteça por fora do
+ * sistema (Copilot/SEI). Preserva DataEnvio/NumeroSeiEmail já existentes, se
+ * houver — só troca a coluna de e-mail.
+ */
+function salvarEmailCobrancaProcesso(chave, numeroProcesso, donataria, email) {
+  exigirPerfilEditor_();
+  var emailValidado = validarEmailsMultiplos_(email);
+
+  var sheet = getOrCreateSheet_(SHEET_COBRANCA_PROCESSOS, CABECALHO_COBRANCA_PROCESSOS);
+  var valores = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][0] === chave) {
+      sheet.getRange(i + 1, 4).setValue(emailValidado); // coluna D = Email
+      return { mensagem: 'E-mail cadastrado.' };
+    }
+  }
+  sheet.appendRow([chave, numeroProcesso || '', donataria || '', emailValidado, '', '', '']);
+  return { mensagem: 'E-mail cadastrado.' };
+}
+
+/**
+ * Registra que o e-mail de cobrança de um processo foi enviado (por fora do
+ * sistema, via Copilot/SEI) — pede o número SEI do próprio e-mail enviado,
+ * pra manter rastreável dentro do processo. Usado tanto pelo botão "Marcar
+ * como enviado" quanto pela confirmação que aparece ao fechar a janela sem
+ * ter marcado nada ainda.
+ */
 function marcarCobrancaProcessoEnviada(chave, numeroProcesso, donataria, email, numeroSeiEmail) {
   var perfil = exigirPerfilEditor_();
   var emailValidado = validarEmailsMultiplos_(email);
