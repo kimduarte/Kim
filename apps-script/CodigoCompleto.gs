@@ -1127,10 +1127,17 @@ function getVeiculosDoProcesso(chave, filtros) {
  * filtro.
  */
 function getAnosDisponiveis() {
+  var cache = CacheService.getDocumentCache();
+  var cacheado = cache.get('anos_disponiveis');
+  if (cacheado) return JSON.parse(cacheado);
+
   var registros = listarVeiculos({});
   var anos = {};
   registros.forEach(function (r) { anos[String(r.Ano)] = true; });
-  return Object.keys(anos).sort();
+  var resultado = Object.keys(anos).sort();
+
+  cache.put('anos_disponiveis', JSON.stringify(resultado), CACHE_ANOS_SEGUNDOS);
+  return resultado;
 }
 
 /**
@@ -3115,9 +3122,10 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
 // ======================================================================
 
 var CACHE_DASHBOARD_SEGUNDOS = 300;
+var CACHE_ANOS_SEGUNDOS = 21600; // 6h (máximo do CacheService) — anos disponíveis raríssimo mudam
 
 function invalidarCacheDashboard_() {
-  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral']);
+  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis']);
 }
 
 /**
