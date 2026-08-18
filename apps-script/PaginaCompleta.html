@@ -258,6 +258,7 @@
   .mensagem { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; white-space: pre-wrap; }
   .mensagem.erro { background: #fee2e2; color: var(--vermelho); }
   .mensagem.sucesso { background: #dcfce7; color: var(--verde); }
+  .mensagem.aviso { background: var(--amarelo-bg); color: var(--amarelo-fg); }
 
   .filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
   .filtros .campo { min-width: 150px; }
@@ -1672,11 +1673,31 @@
       <div class="pagina-titulo">
         <div>
           <h2>Cobrança de Transferência</h2>
-          <p>Donatárias com veículos ainda pendentes de transferência — envie o e-mail de reiteração com um clique.</p>
+          <p>Processos com veículos ainda pendentes de transferência — monte o e-mail de reiteração e cobre pelo SEI.</p>
         </div>
       </div>
 
-      <div id="cobrancaResultado"><div class="carregando">Carregando...</div></div>
+      <div id="cobrancaResumo" class="kpis" style="margin-bottom:14px;"></div>
+
+      <div class="card">
+        <h2>Filtros</h2>
+        <p style="margin:0 0 10px; font-size:12px; color:var(--texto-suave);">A lista completa pode ficar grande — filtre por Ano e/ou Mês pra ver só uma parte por vez.</p>
+        <div class="filtros">
+          <div class="campo">
+            <label for="cob_Ano">Ano</label>
+            <select id="cob_Ano"><option value="">Todos</option></select>
+          </div>
+          <div class="campo">
+            <label for="cob_Mes">Mês</label>
+            <select id="cob_Mes"><option value="">Todos</option></select>
+          </div>
+          <div class="botoes" style="margin-top:0;">
+            <button type="button" class="primario" onclick="carregarCobranca_()">Filtrar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="cobrancaResultado"></div>
     </section>
 
     <section id="tela-relatorioProdutividade" class="tela">
@@ -2117,10 +2138,12 @@
 
   <div class="modal-fundo" id="modalCobrancaFundo">
     <div class="modal" style="max-width:640px;">
-      <h2 id="cobrancaModalTitulo">E-mail de cobrança</h2>
-      <p style="font-size:14px; color:var(--texto-suave);">
-        Revise o texto antes de enviar direto por aqui, ou copie e cole no "Novo E-mail" de dentro do próprio processo no SEI.
-      </p>
+      <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+        <h2 id="cobrancaModalTitulo" style="margin:0;">E-mail de cobrança</h2>
+        <button type="button" class="secundario" style="padding:2px 10px;" onclick="fecharModalCobranca_()">✕</button>
+      </div>
+      <p id="cobrancaModalSubtitulo" style="font-size:14px; color:var(--texto-suave);"></p>
+      <div id="cobrancaJaEnviadoAviso" style="display:none; margin-bottom:10px;"></div>
       <div id="mensagemCobranca"></div>
       <div class="grid-form">
         <div class="campo span-2">
@@ -2128,24 +2151,34 @@
           <input type="email" id="cob_Destinatario" placeholder="exemplo@orgao.gov.br">
         </div>
         <div class="campo span-2">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <label for="cob_Assunto" style="margin:0;">Assunto *</label>
-            <button type="button" class="secundario" style="padding:2px 10px; font-size:11px;" onclick="copiarCampoCobranca_('cob_Assunto')">Copiar</button>
-          </div>
+          <label for="cob_Assunto">Assunto *</label>
           <input type="text" id="cob_Assunto">
         </div>
         <div class="campo span-2">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <label for="cob_Corpo" style="margin:0;">Mensagem *</label>
-            <button type="button" class="secundario" style="padding:2px 10px; font-size:11px;" onclick="copiarCampoCobranca_('cob_Corpo')">Copiar</button>
-          </div>
+          <label for="cob_Corpo">Mensagem *</label>
           <textarea id="cob_Corpo" rows="14" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--borda); border-radius:6px; resize:vertical; box-sizing:border-box;"></textarea>
         </div>
       </div>
-      <div class="botoes">
-        <button class="secundario" id="botaoCobrancaCancelar">Cancelar</button>
+      <div class="botoes" style="flex-wrap:wrap;">
         <button type="button" class="secundario" onclick="abrirSei_()">Abrir SEI ↗</button>
-        <button class="primario" id="botaoCobrancaEnviar" style="margin-left:auto;">Enviar e-mail</button>
+        <button type="button" class="secundario" onclick="copiarTextoCobranca_()">📋 Copiar texto</button>
+        <button type="button" class="secundario" id="botaoCobrancaMarcarEnviado">✓ Marcar como enviado</button>
+        <button class="primario" id="botaoCobrancaEnviar" style="margin-left:auto;">Enviar e-mail direto</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalReferenciaCobrancaFundo">
+    <div class="modal" style="max-width:420px;">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+        <h2 style="margin:0;">Busque pelo SEI</h2>
+        <button type="button" class="secundario" style="padding:2px 10px;" onclick="fecharModalReferenciaCobranca_()">✕</button>
+      </div>
+      <p style="font-size:13px; color:var(--texto-suave);" id="cobrancaReferenciaRotulo">Número do processo:</p>
+      <p style="font-size:22px; font-weight:800; word-break:break-all;" id="cobrancaReferenciaNumero"></p>
+      <p style="font-size:12px; color:var(--texto-suave);">Texto do e-mail já copiado — cole no "Novo E-mail" desse processo dentro do SEI.</p>
+      <div class="botoes">
+        <button class="primario" style="margin-left:auto;" onclick="fecharModalReferenciaCobranca_()">Entendi</button>
       </div>
     </div>
   </div>
@@ -2169,6 +2202,7 @@
   var USUARIO_E_ADMIN = false;
   var USUARIO_PODE_EDITAR = false;
   var USUARIO_ACESSO_PRODUTIVIDADE = false;
+  var LISTAS_CONTEXTO_ATUAL = null;
   var CACHE_REGISTROS = {};
   var ETAPA_ATUAL = 1;
   var TOTAL_ETAPAS = 4;
@@ -3102,18 +3136,42 @@
       copiado ? 'Lote ' + (indiceLote + 1) + ' copiado! Já pode colar no SINESP.' : 'Não consegui copiar automaticamente — o texto já está selecionado, use Ctrl+C.');
   }
 
-  // ---------- Cobrança de Transferência (e-mail de reiteração por Donatária) ----------
+  // ---------- Cobrança de Transferência (e-mail de reiteração por Processo) ----------
   var COBRANCA_ITENS_ATUAL = [];
+  var COBRANCA_PROCESSO_ATUAL = null; // processo com o modal aberto no momento
+  var COBRANCA_PENDENTE_CONFIRMACAO = null; // processo cujo "Copiar texto" foi clicado e ainda não foi confirmado como enviado
+
+  function configurarFiltrosCobranca_() {
+    carregarAnosFiltro_('cob_Ano');
+    var selectMes = document.getElementById('cob_Mes');
+    if (!selectMes.dataset.populado && LISTAS_CONTEXTO_ATUAL) {
+      (LISTAS_CONTEXTO_ATUAL.mes || []).forEach(function (mes) {
+        var el = document.createElement('option');
+        el.value = mes; el.textContent = mes;
+        selectMes.appendChild(el);
+      });
+      selectMes.dataset.populado = '1';
+    }
+  }
 
   async function carregarCobranca_() {
+    configurarFiltrosCobranca_();
     mostrarSkeleton_('cobrancaResultado', 4);
     try {
-      var itens = await chamarServidor_('getCobrancaPorEnte');
-      renderizarCobranca_(itens);
+      var filtros = { ano: document.getElementById('cob_Ano').value, mes: document.getElementById('cob_Mes').value };
+      var dados = await chamarServidor_('getCobrancaPorProcesso', filtros);
+      renderizarResumoCobranca_(dados);
+      renderizarCobranca_(dados.processos);
     } catch (erro) {
       document.getElementById('cobrancaResultado').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     }
+  }
+
+  function renderizarResumoCobranca_(dados) {
+    document.getElementById('cobrancaResumo').innerHTML =
+      '<div class="kpi amarelo"><div class="rotulo">🚗 VEÍCULOS PENDENTES (NO TOTAL)</div><div class="valor">' + dados.totalVeiculosPendentes + '</div></div>' +
+      '<div class="kpi azul"><div class="rotulo">✉️ PROCESSOS A COBRAR (NO TOTAL)</div><div class="valor">' + dados.totalProcessosPendentes + '</div></div>';
   }
 
   function renderizarCobranca_(itens) {
@@ -3121,36 +3179,44 @@
     COBRANCA_ITENS_ATUAL = itens;
     var container = document.getElementById('cobrancaResultado');
     if (!itens.length) {
-      container.innerHTML = '<div class="card"><p>Nenhum veículo pendente de transferência encontrado. 🎉</p></div>';
+      container.innerHTML = '<div class="card"><p>Nenhum processo pendente encontrado com esse filtro.</p></div>';
       return;
     }
 
     var linhas = itens.map(function (item, i) {
-      var ultimoEnvio = item.ultimoEnvio
-        ? 'Última cobrança enviada em ' + new Date(item.ultimoEnvio).toLocaleDateString('pt-BR')
-        : 'Ainda não cobrado por aqui';
-      var emailInfo = item.email
-        ? escaparHtml(item.email)
-        : '<span style="color:var(--vermelho);">sem e-mail cadastrado — informe ao enviar</span>';
+      var referencia = item.numeroProcesso || item.numeroSei || item.termoDoacao || '(sem referência)';
+      var status = item.dataEnvio
+        ? '<span style="color:var(--verde);">✅ Já cobrado em ' + new Date(item.dataEnvio).toLocaleDateString('pt-BR') +
+          (item.numeroSeiEmail ? ' (SEI do e-mail: ' + escaparHtml(item.numeroSeiEmail) + ')' : '') + '</span>'
+        : '<span style="color:var(--texto-suave);">Ainda não cobrado</span>';
       var botao = USUARIO_PODE_EDITAR
         ? '<button type="button" class="secundario sinesp-linha-botao" style="padding:6px 16px; font-size:12px;" onclick="abrirModalCobranca_(' + i + ')">✉️ Enviar cobrança</button>'
         : '';
       return '<div class="sinesp-linha-item">' +
         '<span>' + (i + 1) + '. <strong>' + escaparHtml(item.donataria) + '</strong> — ' + escaparHtml(item.uf || '') +
-        ' • ' + item.total + ' veículo(s) pendente(s)<br>' +
-        '<span style="font-size:12px; color:var(--texto-suave);">' + emailInfo + ' • ' + ultimoEnvio + '</span></span>' +
+        ' • Processo ' + escaparHtml(referencia) + ' • ' + item.total + ' veículo(s) pendente(s)<br>' +
+        '<span style="font-size:12px;">' + status + '</span></span>' +
         botao + '</div>';
     }).join('');
 
     container.innerHTML = '<div class="card"><p style="margin:0 0 10px; font-weight:700;">' +
-      itens.length + ' donatária(s) com veículos pendentes de transferência.</p>' + linhas + '</div>';
+      itens.length + ' processo(s) pendente(s) com esse filtro.</p>' + linhas + '</div>';
   }
 
   async function abrirModalCobranca_(indice) {
     var item = COBRANCA_ITENS_ATUAL[indice];
     if (!item) return;
-    COBRANCA_DONATARIA_ATUAL = item.donataria;
+
+    if (COBRANCA_PENDENTE_CONFIRMACAO && COBRANCA_PENDENTE_CONFIRMACAO.chave !== item.chave) {
+      await confirmarEnvioAnteriorCobranca_();
+    }
+
+    COBRANCA_PROCESSO_ATUAL = item;
     document.getElementById('cobrancaModalTitulo').textContent = 'E-mail de cobrança — ' + item.donataria;
+    document.getElementById('cobrancaModalSubtitulo').textContent =
+      'Processo ' + (item.numeroProcesso || '(sem número de processo — use o SEI do Termo)') +
+      (item.numeroSei ? ' — SEI ' + item.numeroSei : '');
+    document.getElementById('cobrancaJaEnviadoAviso').style.display = 'none';
     document.getElementById('mensagemCobranca').innerHTML = '';
     document.getElementById('cob_Destinatario').value = '';
     document.getElementById('cob_Assunto').value = '';
@@ -3158,10 +3224,19 @@
     document.getElementById('botaoCobrancaEnviar').disabled = true;
     document.getElementById('modalCobrancaFundo').classList.add('ativo');
     try {
-      var dados = await chamarServidor_('montarEmailCobranca', item.donataria);
+      var dados = await chamarServidor_('montarEmailCobrancaProcesso', item.chave);
       document.getElementById('cob_Destinatario').value = dados.destinatario || '';
       document.getElementById('cob_Assunto').value = dados.assunto || '';
       document.getElementById('cob_Corpo').value = dados.corpo || '';
+      COBRANCA_PROCESSO_ATUAL.referenciaBusca = dados.referenciaBusca;
+      if (dados.jaEnviado) {
+        var aviso = document.getElementById('cobrancaJaEnviadoAviso');
+        aviso.style.display = 'block';
+        aviso.innerHTML = '<div class="mensagem aviso">⚠️ Este processo já foi cobrado em ' +
+          new Date(dados.dataEnvioAnterior).toLocaleDateString('pt-BR') +
+          (dados.numeroSeiEmailAnterior ? ' (SEI do e-mail: ' + escaparHtml(dados.numeroSeiEmailAnterior) + ')' : '') +
+          '.</div>';
+      }
     } catch (erro) {
       document.getElementById('mensagemCobranca').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
@@ -3170,9 +3245,32 @@
     }
   }
 
+  // Chamada ao tentar abrir a cobrança de OUTRO processo enquanto o anterior
+  // ainda está "em aberto" (copiou o texto mas não confirmou o envio nem
+  // marcou como enviado). Pergunta se já foi mandado; se sim, pede o número
+  // SEI do e-mail e registra antes de seguir pro próximo.
+  async function confirmarEnvioAnteriorCobranca_() {
+    var anterior = COBRANCA_PENDENTE_CONFIRMACAO;
+    COBRANCA_PENDENTE_CONFIRMACAO = null;
+    if (!anterior) return;
+    var jaEnviou = confirm('Você já enviou o e-mail de cobrança do processo anterior (' +
+      (anterior.numeroProcesso || anterior.donataria) + ')?');
+    if (!jaEnviou) return;
+
+    var numeroSeiEmail = prompt('Número SEI do e-mail enviado (processo ' + (anterior.numeroProcesso || anterior.donataria) + '):', '');
+    if (!numeroSeiEmail) return; // cancelou o prompt — não registra, mas também não bloqueia seguir em frente
+    try {
+      await chamarServidor_('marcarCobrancaProcessoEnviada', anterior.chave, anterior.numeroProcesso, anterior.donataria, anterior.destinatario, numeroSeiEmail);
+      mostrarMensagem('mensagemGlobal', 'sucesso', 'Processo anterior marcado como cobrado.');
+      carregarCobranca_();
+    } catch (erro) {
+      mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
+    }
+  }
+
   function fecharModalCobranca_() {
     document.getElementById('modalCobrancaFundo').classList.remove('ativo');
-    COBRANCA_DONATARIA_ATUAL = '';
+    COBRANCA_PROCESSO_ATUAL = null;
   }
 
   var URL_SEI = 'https://sei.mj.gov.br/sei/';
@@ -3181,27 +3279,75 @@
     window.open(URL_SEI, '_blank');
   }
 
-  function copiarCampoCobranca_(idCampo) {
-    var campo = document.getElementById(idCampo);
-    campo.select();
-    campo.setSelectionRange(0, 999999);
+  function copiarTextoCobranca_() {
+    var assunto = document.getElementById('cob_Assunto').value;
+    var corpo = document.getElementById('cob_Corpo').value;
+    var texto = 'Assunto: ' + assunto + '\n\n' + corpo;
     var copiado = false;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(campo.value);
+        navigator.clipboard.writeText(texto);
         copiado = true;
       }
     } catch (e) { /* cai no fallback abaixo */ }
     if (!copiado) {
+      var areaTemp = document.createElement('textarea');
+      areaTemp.value = texto;
+      areaTemp.style.position = 'fixed';
+      areaTemp.style.opacity = '0';
+      document.body.appendChild(areaTemp);
+      areaTemp.select();
       try { copiado = document.execCommand('copy'); } catch (e2) { /* segue sem copiar */ }
+      document.body.removeChild(areaTemp);
     }
     mostrarMensagem('mensagemCobranca', copiado ? 'sucesso' : 'erro',
-      copiado ? 'Copiado! Já pode colar no SEI.' : 'Não consegui copiar automaticamente — o texto já está selecionado, use Ctrl+C.');
+      copiado ? 'Texto copiado!' : 'Não consegui copiar automaticamente — selecione o texto na Mensagem e use Ctrl+C.');
+
+    if (COBRANCA_PROCESSO_ATUAL) {
+      COBRANCA_PENDENTE_CONFIRMACAO = {
+        chave: COBRANCA_PROCESSO_ATUAL.chave,
+        numeroProcesso: COBRANCA_PROCESSO_ATUAL.numeroProcesso,
+        donataria: COBRANCA_PROCESSO_ATUAL.donataria,
+        destinatario: document.getElementById('cob_Destinatario').value.trim()
+      };
+      var temNumeroProcesso = !!COBRANCA_PROCESSO_ATUAL.numeroProcesso;
+      document.getElementById('cobrancaReferenciaRotulo').textContent =
+        temNumeroProcesso ? 'Número do processo:' : 'Sem número de processo — use o SEI do Termo de Doação:';
+      document.getElementById('cobrancaReferenciaNumero').textContent =
+        COBRANCA_PROCESSO_ATUAL.referenciaBusca || '(não disponível)';
+      document.getElementById('modalReferenciaCobrancaFundo').classList.add('ativo');
+    }
+  }
+
+  function fecharModalReferenciaCobranca_() {
+    document.getElementById('modalReferenciaCobrancaFundo').classList.remove('ativo');
   }
 
   function configurarModalCobranca_() {
-    document.getElementById('botaoCobrancaCancelar').addEventListener('click', fecharModalCobranca_);
+    document.getElementById('botaoCobrancaMarcarEnviado').addEventListener('click', async function () {
+      if (!COBRANCA_PROCESSO_ATUAL) return;
+      var numeroSeiEmail = prompt('Número SEI do e-mail enviado:', '');
+      if (!numeroSeiEmail) return;
+      var destinatario = document.getElementById('cob_Destinatario').value.trim();
+      var botao = this;
+      botao.disabled = true;
+      try {
+        await chamarServidor_('marcarCobrancaProcessoEnviada', COBRANCA_PROCESSO_ATUAL.chave,
+          COBRANCA_PROCESSO_ATUAL.numeroProcesso, COBRANCA_PROCESSO_ATUAL.donataria, destinatario, numeroSeiEmail);
+        COBRANCA_PENDENTE_CONFIRMACAO = null;
+        fecharModalCobranca_();
+        mostrarMensagem('mensagemGlobal', 'sucesso', 'Processo marcado como cobrado.');
+        carregarCobranca_();
+      } catch (erro) {
+        document.getElementById('mensagemCobranca').innerHTML =
+          '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+      } finally {
+        botao.disabled = false;
+      }
+    });
+
     document.getElementById('botaoCobrancaEnviar').addEventListener('click', async function () {
+      if (!COBRANCA_PROCESSO_ATUAL) return;
       var destinatario = document.getElementById('cob_Destinatario').value.trim();
       var assunto = document.getElementById('cob_Assunto').value.trim();
       var corpo = document.getElementById('cob_Corpo').value.trim();
@@ -3216,7 +3362,9 @@
       botao.disabled = true;
       botao.textContent = 'Enviando...';
       try {
-        await chamarServidor_('enviarEmailCobranca', COBRANCA_DONATARIA_ATUAL, destinatario, assunto, corpo);
+        await chamarServidor_('enviarEmailCobranca', COBRANCA_PROCESSO_ATUAL.chave,
+          COBRANCA_PROCESSO_ATUAL.numeroProcesso, COBRANCA_PROCESSO_ATUAL.donataria, destinatario, assunto, corpo);
+        COBRANCA_PENDENTE_CONFIRMACAO = null;
         fecharModalCobranca_();
         mostrarMensagem('mensagemGlobal', 'sucesso', 'E-mail de cobrança enviado com sucesso.');
         carregarCobranca_();
@@ -3225,7 +3373,7 @@
           '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
       } finally {
         botao.disabled = false;
-        botao.textContent = 'Enviar e-mail';
+        botao.textContent = 'Enviar e-mail direto';
       }
     });
   }
@@ -3267,6 +3415,7 @@
     document.getElementById('inicioData').textContent = dataPorExtenso.charAt(0).toUpperCase() + dataPorExtenso.slice(1);
     carregarInicio();
 
+    LISTAS_CONTEXTO_ATUAL = ctx.listas;
     preencherSelect('c_Mes', ctx.listas.mes, true);
     preencherSelect('c_UF', ctx.listas.uf, true);
     preencherSelect('c_Ente', ctx.listas.ente, true);

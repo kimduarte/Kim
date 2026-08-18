@@ -967,101 +967,126 @@ function listarPendentesSinesp(filtros) {
 }
 
 // ======================================================================
-// COBRANÇA DE TRANSFERÊNCIA — e-mail de reiteração pras Donatárias
-// (Entes/órgãos) com veículos ainda pendentes de transferência. Reproduz,
-// com um clique, o e-mail que hoje é redigido manualmente e anexado ao
-// processo no SEI.
+// COBRANÇA DE TRANSFERÊNCIA — e-mail de reiteração por PROCESSO (não por
+// Donatária) pros processos com veículos ainda pendentes de transferência.
+// Reproduz, com um clique, o e-mail que hoje é redigido manualmente e
+// anexado ao processo no SEI. O envio em si continua manual (a pessoa vai
+// até o SEI e manda de lá) — o sistema só guarda quando cada processo foi
+// cobrado pela última vez, pra não cobrar duas vezes sem perceber.
 // ======================================================================
 
-var SHEET_CONTATOS_COBRANCA = 'ContatosCobranca';
-var CABECALHO_CONTATOS_COBRANCA = ['Donataria', 'Email', 'UltimoEnvio', 'AtualizadoPor'];
+var SHEET_COBRANCA_PROCESSOS = 'CobrancaProcessos';
+var CABECALHO_COBRANCA_PROCESSOS = ['Chave', 'NumeroProcesso', 'Donataria', 'Email', 'DataEnvio', 'NumeroSeiEmail', 'EnviadoPor'];
 
-/**
- * Veículos ainda não transferidos, agrupados por Donatária — usado pela
- * tela "Cobrança" pra listar quem ainda deve providenciar a transferência.
- * Cada grupo traz o e-mail de contato já cadastrado anteriormente (se
- * houver, ver salvarContatoCobranca_) e a data do último envio.
- */
-function getCobrancaPorEnte() {
-  var pendentes = listarVeiculos({ transferido: 'NÃO' });
-  var contatos = listarContatosCobranca_();
-
-  var grupos = {};
-  var ordem = [];
-  pendentes.forEach(function (v) {
-    var chave = v.Donataria || '(sem donatária)';
-    if (!grupos[chave]) {
-      grupos[chave] = {
-        donataria: chave,
-        uf: v.UF,
-        ente: v.Ente,
-        total: 0,
-        email: (contatos[chave] && contatos[chave].email) || '',
-        ultimoEnvio: (contatos[chave] && contatos[chave].ultimoEnvio) || ''
-      };
-      ordem.push(chave);
-    }
-    grupos[chave].total++;
-  });
-
-  ordem.sort(function (a, b) { return grupos[b].total - grupos[a].total; });
-  return ordem.map(function (chave) { return grupos[chave]; });
-}
-
-function listarContatosCobranca_() {
-  var sheet = getOrCreateSheet_(SHEET_CONTATOS_COBRANCA, CABECALHO_CONTATOS_COBRANCA);
+function listarCobrancaProcessos_() {
+  var sheet = getOrCreateSheet_(SHEET_COBRANCA_PROCESSOS, CABECALHO_COBRANCA_PROCESSOS);
   var valores = sheet.getDataRange().getValues();
   var mapa = {};
   for (var i = 1; i < valores.length; i++) {
     var linha = valores[i];
     if (!linha[0]) continue;
-    mapa[linha[0]] = { email: linha[1] || '', ultimoEnvio: linha[2] || '' };
+    mapa[linha[0]] = {
+      numeroProcesso: linha[1] || '', donataria: linha[2] || '',
+      email: linha[3] || '', dataEnvio: linha[4] || '', numeroSeiEmail: linha[5] || '', enviadoPor: linha[6] || ''
+    };
   }
   return mapa;
 }
 
 /**
- * Monta o assunto e o corpo (já prontos pra revisão) do e-mail de cobrança
- * de uma Donatária específica, listando os veículos pendentes agrupados
- * por Termo de Doação. O destinatário vem do cadastro salvo em
- * ContatosCobranca — a partir do segundo envio pra essa Donatária, já
- * chega preenchido (ver enviarEmailCobranca).
+ * Veículos ainda não transferidos, agrupados por processo (mesma noção de
+ * "processo" usada em listarProcessos: NumeroProcesso, ou Ano+SEI/Termo pra
+ * registros antigos sem esse campo — ver chaveProcesso_). Devolve também um
+ * resumo (total de veículos e de processos pendentes) calculado sobre a
+ * base INTEIRA, sem os filtros de Ano/Mês — assim a tela mostra o panorama
+ * geral mesmo que a lista abaixo esteja filtrada pra não ficar enorme.
  */
-function montarEmailCobranca(donataria) {
-  var perfil = getPerfilUsuarioAtual_();
-  var pendentes = listarVeiculos({ transferido: 'NÃO' }).filter(function (v) {
-    return (v.Donataria || '(sem donatária)') === donataria;
-  });
-  if (!pendentes.length) throw new Error('Não há veículos pendentes para "' + donataria + '".');
+function getCobrancaPorProcesso(filtros) {
+  filtros = filtros || {};
+  var pendentesTotal = listarVeiculos({ transferido: 'NÃO' });
+  var enviosPorChave = listarCobrancaProcessos_();
 
-  var porTermo = {};
-  var ordemTermos = [];
-  pendentes.forEach(function (v) {
-    var termo = v.TermoDoacao || '(sem termo informado)';
-    if (!porTermo[termo]) { porTermo[termo] = []; ordemTermos.push(termo); }
-    porTermo[termo].push(v);
+  var chavesDistintas = {};
+  pendentesTotal.forEach(function (v) { chavesDistintas[chaveProcesso_(v)] = true; });
+
+  var pendentesFiltrados = pendentesTotal.filter(function (v) {
+    if (filtros.ano && String(v.Ano) !== String(filtros.ano)) return false;
+    if (filtros.mes && v.Mes !== filtros.mes) return false;
+    return true;
   });
+
+  var grupos = {};
+  var ordem = [];
+  pendentesFiltrados.forEach(function (v) {
+    var chave = chaveProcesso_(v);
+    if (!grupos[chave]) {
+      var envio = enviosPorChave[chave];
+      grupos[chave] = {
+        chave: chave,
+        numeroProcesso: v.NumeroProcesso || '',
+        numeroSei: '',
+        termoDoacao: v.TermoDoacao || '',
+        donataria: v.Donataria || '(sem donatária)',
+        uf: v.UF,
+        ente: v.Ente,
+        ano: v.Ano,
+        mes: v.Mes,
+        total: 0,
+        email: (envio && envio.email) || '',
+        dataEnvio: (envio && envio.dataEnvio) || '',
+        numeroSeiEmail: (envio && envio.numeroSeiEmail) || ''
+      };
+      ordem.push(chave);
+    }
+    if (!grupos[chave].numeroSei && v.NumeroSei) grupos[chave].numeroSei = v.NumeroSei;
+    grupos[chave].total++;
+  });
+
+  ordem.sort(function (a, b) {
+    return grupos[a].donataria.localeCompare(grupos[b].donataria) || String(a).localeCompare(String(b));
+  });
+
+  return {
+    totalVeiculosPendentes: pendentesTotal.length,
+    totalProcessosPendentes: Object.keys(chavesDistintas).length,
+    processos: ordem.map(function (chave) { return grupos[chave]; })
+  };
+}
+
+/**
+ * Monta o assunto e o corpo (já prontos pra revisão) do e-mail de cobrança
+ * de UM processo específico. O destinatário vem do último e-mail salvo pra
+ * esse processo (ver marcarCobrancaProcessoEnviada) ou, na falta desse, do
+ * último e-mail usado em QUALQUER outro processo da mesma Donatária.
+ */
+function montarEmailCobrancaProcesso(chave) {
+  var perfil = getPerfilUsuarioAtual_();
+  var pendentes = listarVeiculos({ transferido: 'NÃO' }).filter(function (v) { return chaveProcesso_(v) === chave; });
+  if (!pendentes.length) throw new Error('Não há veículos pendentes para este processo.');
+
+  var primeiro = pendentes[0];
+  var donataria = primeiro.Donataria || '(sem donatária)';
+  var numeroProcesso = primeiro.NumeroProcesso || '';
+  var numeroSei = pendentes.map(function (v) { return v.NumeroSei; }).filter(Boolean)[0] || '';
+  var termoDoacao = primeiro.TermoDoacao || '';
+  var referenciaBusca = numeroProcesso || numeroSei || termoDoacao || '(sem referência disponível)';
 
   var corpo = 'Prezado(a) responsável,\n\n' +
     'Cumprimentando-o(a) cordialmente, venho por meio deste REITERAR a necessidade de adoção das devidas ' +
     'providências quanto à TRANSFERÊNCIA DE PROPRIEDADE dos veículos doados a esse Ente/órgão pelo Ministério ' +
-    'da Justiça e Segurança Pública, por meio da Secretaria Nacional de Segurança Pública (SENASP), e que ' +
-    'permanecem PENDENTES de efetivação:\n\n';
+    'da Justiça e Segurança Pública, por meio da Secretaria Nacional de Segurança Pública (SENASP), referentes ' +
+    'ao Termo de Doação SENASP nº ' + (termoDoacao || '(não informado)') +
+    (numeroSei ? ' (Processo SEI nº ' + numeroSei + ')' : '') +
+    ', e que permanecem PENDENTES de efetivação:\n\n';
 
-  ordemTermos.forEach(function (termo) {
-    var numeroSeiTermo = porTermo[termo].map(function (v) { return v.NumeroSei; }).filter(Boolean)[0] || '';
-    corpo += 'Termo de Doação SENASP nº ' + termo +
-      (numeroSeiTermo ? ' (Processo SEI nº ' + numeroSeiTermo + ')' : '') + ':\n';
-    porTermo[termo].forEach(function (v, i) {
-      var descricaoVeiculo = [v.Marca, v.Descricao].filter(Boolean).join(' ');
-      corpo += '  ' + (i + 1) + '. Placa ' + (v.Placa || '—') + ' — Chassi ' + (v.Chassi || '—') +
-        (v.Renavam ? ', Renavam ' + v.Renavam : '') +
-        (descricaoVeiculo ? ' (' + descricaoVeiculo + ')' : '') + '\n';
-    });
-    corpo += '\n';
+  pendentes.forEach(function (v, i) {
+    var descricaoVeiculo = [v.Marca, v.Descricao].filter(Boolean).join(' ');
+    corpo += '  ' + (i + 1) + '. Placa ' + (v.Placa || '—') + ' — Chassi ' + (v.Chassi || '—') +
+      (v.Renavam ? ', Renavam ' + v.Renavam : '') +
+      (descricaoVeiculo ? ' (' + descricaoVeiculo + ')' : '') + '\n';
   });
 
-  corpo += 'Ressalto a necessidade de adoção das devidas providências quanto à transferência de propriedade ' +
+  corpo += '\nRessalto a necessidade de adoção das devidas providências quanto à transferência de propriedade ' +
     'dos veículos acima relacionados, ainda pendente de efetivação.\n\n' +
     'Certo(a) da atenção, renovo protestos de estima e consideração.\n\n' +
     'Atenciosamente,\n' +
@@ -1072,23 +1097,73 @@ function montarEmailCobranca(donataria) {
     'Secretaria Nacional de Segurança Pública\n' +
     'Ministério da Justiça e Segurança Pública';
 
-  var contatos = listarContatosCobranca_();
+  var envios = listarCobrancaProcessos_();
+  var envioAtual = envios[chave];
+  var emailSugerido = envioAtual && envioAtual.email;
+  if (!emailSugerido) {
+    // Nenhum envio registrado ainda pra ESTE processo — tenta reaproveitar o
+    // e-mail de outro processo já cobrado da mesma Donatária.
+    var chaveComMesmaDonataria = Object.keys(envios).filter(function (outraChave) {
+      return envios[outraChave].donataria === donataria && envios[outraChave].email;
+    })[0];
+    if (chaveComMesmaDonataria) emailSugerido = envios[chaveComMesmaDonataria].email;
+  }
+
   return {
-    destinatario: (contatos[donataria] && contatos[donataria].email) || '',
-    assunto: 'REITERAÇÃO Pertinente à Transferência de Propriedade de Veículos — ' + donataria,
+    chave: chave,
+    numeroProcesso: numeroProcesso,
+    numeroSei: numeroSei,
+    donataria: donataria,
+    referenciaBusca: referenciaBusca,
+    destinatario: emailSugerido || '',
+    assunto: 'REITERAÇÃO Pertinente à Transferência de Propriedade de Veículos — ' + donataria +
+      (numeroProcesso ? ' — Processo ' + numeroProcesso : ''),
     corpo: corpo,
-    total: pendentes.length
+    total: pendentes.length,
+    jaEnviado: !!(envioAtual && envioAtual.dataEnvio),
+    dataEnvioAnterior: (envioAtual && envioAtual.dataEnvio) || '',
+    numeroSeiEmailAnterior: (envioAtual && envioAtual.numeroSeiEmail) || ''
   };
 }
 
 /**
- * Envia de fato o e-mail de cobrança (já revisado pela pessoa na tela),
- * com cópia (Cc) pra quem enviou — fica registrado na própria caixa de
- * entrada, pra anexar ao processo no SEI depois. Salva/atualiza o contato
- * daquela Donatária em ContatosCobranca, pra já vir preenchido da
- * próxima vez que alguém for cobrar o mesmo Ente.
+ * Registra que o e-mail de cobrança de um processo foi enviado (por fora do
+ * sistema, direto pelo SEI) — pede o número SEI do próprio e-mail enviado,
+ * pra manter rastreável dentro do processo. Usado tanto pelo botão "Marcar
+ * como enviado" quanto pela confirmação que aparece ao abrir a cobrança de
+ * outro processo.
  */
-function enviarEmailCobranca(donataria, destinatario, assunto, corpo) {
+function marcarCobrancaProcessoEnviada(chave, numeroProcesso, donataria, email, numeroSeiEmail) {
+  var perfil = exigirPerfilEditor_();
+  numeroSeiEmail = String(numeroSeiEmail || '').trim();
+  if (!numeroSeiEmail) throw new Error('Informe o número SEI do e-mail enviado.');
+
+  var sheet = getOrCreateSheet_(SHEET_COBRANCA_PROCESSOS, CABECALHO_COBRANCA_PROCESSOS);
+  var valores = sheet.getDataRange().getValues();
+  var agora = new Date();
+  var linha = [chave, numeroProcesso || '', donataria || '', String(email || '').trim(), agora, numeroSeiEmail, perfil.email];
+
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][0] === chave) {
+      sheet.getRange(i + 1, 1, 1, CABECALHO_COBRANCA_PROCESSOS.length).setValues([linha]);
+      registrarLog_('COBRANCA_ENVIADA', numeroProcesso || chave, 'E-mail de cobrança registrado como enviado (SEI ' + numeroSeiEmail + ').');
+      return { mensagem: 'Registrado — processo marcado como cobrado.' };
+    }
+  }
+  sheet.appendRow(linha);
+  registrarLog_('COBRANCA_ENVIADA', numeroProcesso || chave, 'E-mail de cobrança registrado como enviado (SEI ' + numeroSeiEmail + ').');
+  return { mensagem: 'Registrado — processo marcado como cobrado.' };
+}
+
+/**
+ * Envio direto (sem passar pelo SEI) pra quem preferir — pela conta
+ * institucional (Outlook/Microsoft 365) já autorizada em autorizarMicrosoft(),
+ * ou pelo Gmail (MailApp) como alternativa se aquela não estiver disponível.
+ * Como o envio é verificado pelo próprio sistema (não é um "confio que a
+ * pessoa mandou"), não pede o número SEI do e-mail — grava o registro na
+ * hora, automaticamente.
+ */
+function enviarEmailCobranca(chave, numeroProcesso, donataria, destinatario, assunto, corpo) {
   var perfil = exigirPerfilEditor_();
   destinatario = String(destinatario || '').trim();
   if (!destinatario || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
@@ -1096,40 +1171,29 @@ function enviarEmailCobranca(donataria, destinatario, assunto, corpo) {
   }
   if (!assunto || !corpo) throw new Error('Assunto e corpo do e-mail são obrigatórios.');
 
-  // Prioriza a conta institucional (Outlook/Microsoft 365) já autorizada em
-  // autorizarMicrosoft() — se não estiver configurada/autorizada (ou faltar
-  // o escopo Mail.Send), cai pro Gmail do Google (MailApp) como alternativa.
   var enviadoPeloOutlook = enviarEmailViaGraph_(destinatario, perfil.email, assunto, corpo);
   if (!enviadoPeloOutlook) {
-    MailApp.sendEmail({
-      to: destinatario,
-      cc: perfil.email,
-      subject: assunto,
-      body: corpo
-    });
+    MailApp.sendEmail({ to: destinatario, cc: perfil.email, subject: assunto, body: corpo });
   }
 
-  salvarContatoCobranca_(donataria, destinatario, perfil.email);
-  registrarLog_('ENVIAR_COBRANCA', donataria, 'E-mail de cobrança enviado para ' + destinatario +
-    (enviadoPeloOutlook ? ' (via Outlook institucional)' : ' (via Gmail)'));
-
-  return {
-    mensagem: 'E-mail enviado para ' + destinatario + ' pelo ' +
-      (enviadoPeloOutlook ? 'Outlook institucional' : 'Gmail') + ' (com cópia pra você, pra anexar no SEI se precisar).'
-  };
-}
-
-function salvarContatoCobranca_(donataria, email, autorEmail) {
-  var sheet = getOrCreateSheet_(SHEET_CONTATOS_COBRANCA, CABECALHO_CONTATOS_COBRANCA);
+  var sheet = getOrCreateSheet_(SHEET_COBRANCA_PROCESSOS, CABECALHO_COBRANCA_PROCESSOS);
   var valores = sheet.getDataRange().getValues();
   var agora = new Date();
+  var origem = enviadoPeloOutlook ? 'Outlook institucional' : 'Gmail';
+  var linha = [chave, numeroProcesso || '', donataria || '', destinatario, agora, 'Enviado automaticamente pelo sistema (' + origem + ')', perfil.email];
+  var encontrado = false;
   for (var i = 1; i < valores.length; i++) {
-    if (valores[i][0] === donataria) {
-      sheet.getRange(i + 1, 1, 1, 4).setValues([[donataria, email, agora, autorEmail]]);
-      return;
+    if (valores[i][0] === chave) {
+      sheet.getRange(i + 1, 1, 1, CABECALHO_COBRANCA_PROCESSOS.length).setValues([linha]);
+      encontrado = true;
+      break;
     }
   }
-  sheet.appendRow([donataria, email, agora, autorEmail]);
+  if (!encontrado) sheet.appendRow(linha);
+
+  registrarLog_('ENVIAR_COBRANCA', numeroProcesso || chave, 'E-mail de cobrança enviado para ' + destinatario + ' (via ' + origem + ')');
+
+  return { mensagem: 'E-mail enviado para ' + destinatario + ' pelo ' + origem + '.' };
 }
 
 function paraDtoListagem_(r) {
