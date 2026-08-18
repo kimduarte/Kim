@@ -2079,8 +2079,16 @@ function atualizarVeiculo_(sheet, perfil, id, registro) {
       sheet.getRange(linhaIdx, colunaParaIndice_(campo) + 1).setValue(valor);
     }
   });
+  // Só grava a data na primeira vez que o veículo vira "Transferido: SIM"
+  // — reeditar um processo já transferido (pra corrigir só o Contrato,
+  // por exemplo) não pode empurrar a data de transferência pra hoje de
+  // novo, senão o Relatório de Produtividade passaria a contar esse
+  // veículo como "transferido" no período errado.
   if (registro.Transferido === 'SIM') {
-    sheet.getRange(linhaIdx, colunaParaIndice_('DataTransferencia') + 1).setValue(agora);
+    var celulaDataTransferencia = sheet.getRange(linhaIdx, colunaParaIndice_('DataTransferencia') + 1);
+    if (!celulaDataTransferencia.getValue()) {
+      celulaDataTransferencia.setValue(agora);
+    }
   }
 
   sheet.getRange(linhaIdx, colunaParaIndice_('UltimaAtualizacao') + 1).setValue(agora);
@@ -2172,7 +2180,12 @@ function salvarProcessoEditado(comuns, veiculos) {
         if (['ID', 'DataCadastro', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor', 'DataTransferencia'].indexOf(campo) !== -1) return;
         if (registro[campo] !== undefined) dadosAtuais[linhaIdx][colIdx] = registro[campo];
       });
-      if (registro.Transferido === 'SIM') {
+      // Só grava a data na primeira vez que o veículo vira "Transferido:
+      // SIM" — reeditar um processo já transferido (pra corrigir só o
+      // Contrato, por exemplo) não pode empurrar a data de transferência
+      // pra hoje de novo, senão o Relatório de Produtividade passaria a
+      // contar esse veículo como "transferido" no período errado.
+      if (registro.Transferido === 'SIM' && !dadosAtuais[linhaIdx][cabecalho.indexOf('DataTransferencia')]) {
         dadosAtuais[linhaIdx][cabecalho.indexOf('DataTransferencia')] = agora;
       }
       dadosAtuais[linhaIdx][cabecalho.indexOf('UltimaAtualizacao')] = agora;
