@@ -2197,11 +2197,11 @@
         Se a emissão/envio aconteceu num dia anterior, informe a data certa aqui — assim o Relatório de Produtividade não conta errado.
       </p>
       <div class="grid-form">
-        <div class="campo span-2">
+        <div class="campo span-2" id="campoDataAtpveEmissao">
           <label for="dataAtpveEmissao">Que data o ATPVe foi emitido?</label>
           <input type="date" id="dataAtpveEmissao">
         </div>
-        <div class="campo span-2">
+        <div class="campo span-2" id="campoDataAtpveEnvio">
           <label for="dataAtpveEnvio">Que data o ATPVe foi enviado?</label>
           <input type="date" id="dataAtpveEnvio">
         </div>
@@ -4996,8 +4996,16 @@
   // Relatório de Produtividade.
   var RESOLVER_DATA_ATPVE = null;
 
-  function pedirDatasAtpve_() {
+  // campo: 'ATPVeEmitido' mostra só a pergunta de emissão; 'ATPVeEnviado'
+  // mostra só a de envio — cada uma pode ter uma data diferente, e pedir as
+  // duas junto quando só uma foi clicada confundia (e fazia parecer que
+  // estavam vinculadas).
+  function pedirDatasAtpve_(campo) {
     var hoje = formatarDataISO_(new Date());
+    var mostraEmissao = campo === 'ATPVeEmitido';
+    var mostraEnvio = campo === 'ATPVeEnviado';
+    document.getElementById('campoDataAtpveEmissao').style.display = mostraEmissao ? '' : 'none';
+    document.getElementById('campoDataAtpveEnvio').style.display = mostraEnvio ? '' : 'none';
     document.getElementById('dataAtpveEmissao').value = hoje;
     document.getElementById('dataAtpveEnvio').value = hoje;
     document.getElementById('modalDataAtpveFundo').classList.add('ativo');
@@ -5019,7 +5027,7 @@
     var novoValor = valorAtual === 'SIM' ? 'NÃO' : 'SIM';
     var datas = {};
     if (novoValor === 'SIM' && (campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado')) {
-      var escolhidas = await pedirDatasAtpve_();
+      var escolhidas = await pedirDatasAtpve_(campo);
       if (!escolhidas) return; // cancelou a caixa de datas — não faz nada
       datas = escolhidas;
     }
@@ -5078,7 +5086,7 @@
 
     var datas = {};
     if (alvo === 'SIM' && (campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado')) {
-      var escolhidas = await pedirDatasAtpve_();
+      var escolhidas = await pedirDatasAtpve_(campo);
       if (!escolhidas) return; // cancelou a caixa de datas — não marca nenhum
       datas = escolhidas;
     }
