@@ -3186,7 +3186,13 @@
         ente: document.getElementById('cob_Ente').value
       };
       var dados = await chamarServidor_('getCobrancaPorProcesso', filtros);
-      if (!dados) throw new Error('Não recebi resposta do servidor — clique em "Filtrar" pra tentar de novo.');
+      if (!dados) {
+        // Resposta veio vazia (instabilidade pontual de conexão, já que o
+        // servidor de fato processa normal — ver Execuções) — tenta mais
+        // uma vez, em silêncio, antes de desistir.
+        dados = await chamarServidor_('getCobrancaPorProcesso', filtros);
+      }
+      if (!dados) throw new Error('Não recebi resposta do servidor mesmo após tentar de novo — aguarde um momento e clique em "Filtrar".');
       renderizarResumoCobranca_(dados);
       renderizarCobranca_(dados.processos);
     } catch (erro) {
