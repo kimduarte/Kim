@@ -2091,6 +2091,122 @@ function atualizarVeiculo_(sheet, perfil, id, registro) {
   return { ID: id, mensagem: 'Veículo atualizado com sucesso.' };
 }
 
+/**
+ * Salva de uma vez TODOS os veículos de um processo sendo editado
+ * (existentes + novos) — em vez de uma chamada salvarVeiculo() por
+ * veículo, que fazia a tela reler a planilha inteira (checagem de
+ * duplicidade) e ir/voltar ao servidor uma vez PRA CADA veículo do
+ * processo (um processo com 20+ veículos editava rápido, mas a resposta
+ * demorava, porque eram 20+ idas e vindas, cada uma relendo ~3.500
+ * linhas). Lê a planilha uma vez, valida cada veículo em memória com a
+ * mesma validarESanitizarVeiculo_() de sempre (os mesmos erros, as
+ * mesmas regras), atualiza os existentes e acrescenta os novos, e grava
+ * tudo de uma vez com um único setValues.
+ *
+ * "comuns" são os campos que valem pra todos os veículos do processo
+ * (Contrato, UF, Donataria, endereço etc.) — os mesmos que a tela hoje
+ * repete em cada chamada. "veiculos" é a lista de veículos do processo,
+ * cada um com os campos que só ele tem (Chassi, Placa, Marca...) e,
+ * se já existir, o ID (indica atualização; sem ID é veículo novo).
+ *
+ * Replica o comportamento de atualizarVeiculo_/criarVeiculo_ campo a
+ * campo (inclusive a regra de DataTransferencia: só é atualizada pra
+ * "agora" quando Transferido é salvo como SIM, nunca apagada quando
+ * Transferido é NÃO — e DataEmissaoATPVe nunca é tocada numa edição,
+ * só na criação, pra não sobrescrever a data real da primeira emissão).
+ */
+function salvarProcessoEditado(comuns, veiculos) {
+  var perfil = exigirPerfilEditor_();
+  if (!veiculos || !veiculos.length) throw new Error('O processo precisa ter ao menos um veículo.');
+
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
+
+  var dadosAtuais = sheet.getDataRange().getValues();
+  var cabecalho = dadosAtuais[0];
+  var idxId = cabecalho.indexOf('ID');
+  var idxChassi = cabecalho.indexOf('Chassi');
+  var idxPlaca = cabecalho.indexOf('Placa');
+
+  // Linha de cada ID já existente, e quem "dono" cada chassi/placa hoje —
+  // pra checar duplicidade em memória em vez de reler a planilha a cada
+  // veículo (mesma lógica de encontrarDuplicado_, só que pré-calculada).
+  var linhaPorId = {};
+  var donoChassi = {}, donoPlaca = {};
+  for (var i = 1; i < dadosAtuais.length; i++) {
+    var idLinha = dadosAtuais[i][idxId];
+    if (!idLinha) continue;
+    linhaPorId[idLinha] = i;
+    if (dadosAtuais[i][idxChassi]) donoChassi[dadosAtuais[i][idxChassi]] = idLinha;
+    if (dadosAtuais[i][idxPlaca]) donoPlaca[dadosAtuais[i][idxPlaca]] = idLinha;
+  }
+
+  var agora = new Date();
+  var idsNovos = [];
+
+  for (var v = 0; v < veiculos.length; v++) {
+    var veiculo = veiculos[v];
+    var dadosVeiculo = {};
+    for (var campoComum in comuns) dadosVeiculo[campoComum] = comuns[campoComum];
+    for (var campoVeiculo in veiculo) dadosVeiculo[campoVeiculo] = veiculo[campoVeiculo];
+
+    var registro;
+    try {
+      registro = validarESanitizarVeiculo_(dadosVeiculo);
+    } catch (e) {
+      throw new Error('Veículo ' + (v + 1) + ' (' + (veiculo.Placa || veiculo.Chassi || '?') + '): ' + (e.message || String(e)));
+    }
+
+    var idAtual = veiculo.ID || null;
+    var donoAtualChassi = donoChassi[registro.Chassi];
+    var donoAtualPlaca = donoPlaca[registro.Placa];
+    if ((donoAtualChassi && donoAtualChassi !== idAtual) || (donoAtualPlaca && donoAtualPlaca !== idAtual)) {
+      throw new Error('Veículo ' + (v + 1) + ': já existe outro veículo cadastrado com este chassi ou placa (ID ' +
+        (donoAtualChassi || donoAtualPlaca) + ').');
+    }
+
+    if (idAtual) {
+      var linhaIdx = linhaPorId[idAtual];
+      if (!linhaIdx) throw new Error('Veículo ' + (v + 1) + ' (ID ' + idAtual + ') não encontrado.');
+      CABECALHO_VEICULOS.forEach(function (campo, colIdx) {
+        if (['ID', 'DataCadastro', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor', 'DataTransferencia'].indexOf(campo) !== -1) return;
+        if (registro[campo] !== undefined) dadosAtuais[linhaIdx][colIdx] = registro[campo];
+      });
+      if (registro.Transferido === 'SIM') {
+        dadosAtuais[linhaIdx][cabecalho.indexOf('DataTransferencia')] = agora;
+      }
+      dadosAtuais[linhaIdx][cabecalho.indexOf('UltimaAtualizacao')] = agora;
+      dadosAtuais[linhaIdx][cabecalho.indexOf('AtualizadoPor')] = perfil.email;
+    } else {
+      var novoId = gerarProximoId_();
+      var novaLinha = CABECALHO_VEICULOS.map(function (campo) {
+        switch (campo) {
+          case 'ID': return novoId;
+          case 'DataCadastro': return agora;
+          case 'DataTransferencia': return registro.Transferido === 'SIM' ? agora : '';
+          case 'DataEmissaoATPVe': return registro.ATPVeEmitido === 'SIM' ? agora : '';
+          case 'CadastradoPor': return perfil.email;
+          case 'UltimaAtualizacao': return agora;
+          case 'AtualizadoPor': return perfil.email;
+          default: return registro[campo] !== undefined ? registro[campo] : '';
+        }
+      });
+      dadosAtuais.push(novaLinha);
+      idsNovos.push({ indice: v, id: novoId });
+      idAtual = novoId;
+    }
+
+    donoChassi[registro.Chassi] = idAtual;
+    donoPlaca[registro.Placa] = idAtual;
+  }
+
+  sheet.getRange(1, 1, dadosAtuais.length, CABECALHO_VEICULOS.length).setValues(dadosAtuais);
+  registrarLog_('EDITAR_PROCESSO', comuns.NumeroProcesso || '-', veiculos.length + ' veículo(s) do processo salvos em lote.');
+  invalidarCacheDashboard_();
+
+  return { mensagem: 'Processo atualizado com sucesso.', idsNovos: idsNovos };
+}
+
 // Exclusão lógica: a linha nunca é apagada de verdade, só marcada como
 // excluída e filtrada das telas normais (ver listarVeiculos). O log grava
 // o registro inteiro (igual ATUALIZAR) — sem isso, restaurar não bastaria,

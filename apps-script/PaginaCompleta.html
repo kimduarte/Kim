@@ -5023,33 +5023,42 @@
     botao.disabled = true;
     mostrarMensagem('mensagemModalProcesso', 'sucesso', 'Salvando processo (' + VEICULOS_PROCESSO_EDICAO.length + ' veículo(s))...');
 
+    // Um único veículo por item, sem repetir os campos comuns (o servidor
+    // mescla) — e uma única chamada ao servidor pro processo inteiro, em
+    // vez de uma chamada por veículo (o que relia a planilha inteira uma
+    // vez PRA CADA veículo só pra checar duplicidade — processos com
+    // muitos veículos demoravam bastante pra salvar).
+    var veiculosParaSalvar = VEICULOS_PROCESSO_EDICAO.map(function (veiculo) {
+      return {
+        ID: veiculo.ID || undefined,
+        Marca: veiculo.Marca,
+        Descricao: veiculo.Descricao,
+        Chassi: veiculo.Chassi,
+        Placa: veiculo.Placa,
+        Renavam: veiculo.Renavam,
+        ValorVeiculo: veiculo.ValorVeiculo,
+        ATPVeEmitido: veiculo.ATPVeEmitido,
+        ATPVeEnviado: veiculo.ATPVeEnviado,
+        Transferido: veiculo.Transferido,
+        Observacoes: veiculo.Observacoes,
+        MotivoInclusaoPosterior: veiculo.novo ? (veiculo.Motivo || '') : undefined
+      };
+    });
+
     try {
-      for (var k = 0; k < VEICULOS_PROCESSO_EDICAO.length; k++) {
-        var veiculo = VEICULOS_PROCESSO_EDICAO[k];
-        var dados = Object.assign({}, comuns, {
-          ID: veiculo.ID || undefined,
-          Marca: veiculo.Marca,
-          Descricao: veiculo.Descricao,
-          Chassi: veiculo.Chassi,
-          Placa: veiculo.Placa,
-          Renavam: veiculo.Renavam,
-          ValorVeiculo: veiculo.ValorVeiculo,
-          ATPVeEmitido: veiculo.ATPVeEmitido,
-          ATPVeEnviado: veiculo.ATPVeEnviado,
-          Transferido: veiculo.Transferido,
-          Observacoes: veiculo.Observacoes,
-          MotivoInclusaoPosterior: veiculo.novo ? (veiculo.Motivo || '') : undefined
-        });
-        var resp = await chamarServidor_('salvarVeiculo', dados);
-        if (!veiculo.ID) { veiculo.ID = resp.ID; veiculo.novo = false; }
-      }
+      var resp = await chamarServidor_('salvarProcessoEditado', comuns, veiculosParaSalvar);
+      resp.idsNovos.forEach(function (item) {
+        var veiculo = VEICULOS_PROCESSO_EDICAO[item.indice];
+        veiculo.ID = item.id;
+        veiculo.novo = false;
+      });
       botao.disabled = false;
       fecharModalEditarProcesso_();
       mostrarMensagem('mensagemListagem', 'sucesso', 'Processo atualizado com sucesso.');
       carregarListagem();
     } catch (erro) {
       botao.disabled = false;
-      mostrarErroCadastro_('Erro ao salvar o veículo ' + (k + 1) + ':\n' + (erro.message || String(erro)));
+      mostrarErroCadastro_(erro.message || String(erro));
     }
   }
 
