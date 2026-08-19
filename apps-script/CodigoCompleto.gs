@@ -1111,7 +1111,15 @@ function montarEmailCobrancaProcesso(chave) {
   var termoDoacao = primeiro.TermoDoacao || '';
   var referenciaBusca = numeroProcesso || numeroSei || termoDoacao || '(sem referência disponível)';
 
-  var corpo = 'Prezado(a) responsável,\n\n' +
+  // Contato de referência (base ContatosMunicipios) — só usado como
+  // sugestão de saudação/destinatário quando ainda não existe um e-mail já
+  // usado antes numa cobrança real deste processo/Donatária (ver abaixo).
+  var contatoMunicipio = buscarContatoMunicipio_(primeiro.UF, donataria);
+  var saudacao = contatoMunicipio && contatoMunicipio.autoridade
+    ? 'Prezado(a) Senhor(a) ' + paraTitleCasePortugues_(contatoMunicipio.autoridade) + ','
+    : 'Prezado(a) responsável,';
+
+  var corpo = saudacao + '\n\n' +
     'Cumprimentando-o(a) cordialmente, venho por meio deste REITERAR a necessidade de adoção das devidas ' +
     'providências quanto à TRANSFERÊNCIA DE PROPRIEDADE dos veículos doados a esse Ente/órgão pelo Ministério ' +
     'da Justiça e Segurança Pública, por meio da Secretaria Nacional de Segurança Pública (SENASP), referentes ' +
@@ -1147,6 +1155,11 @@ function montarEmailCobrancaProcesso(chave) {
       return envios[outraChave].donataria === donataria && envios[outraChave].email;
     })[0];
     if (chaveComMesmaDonataria) emailSugerido = envios[chaveComMesmaDonataria].email;
+  }
+  if (!emailSugerido && contatoMunicipio) {
+    // Nem esse processo nem outro da mesma Donatária foram cobrados antes —
+    // usa a sugestão da base de contatos (e-mail geral + pessoal juntos).
+    emailSugerido = [contatoMunicipio.emailGerais, contatoMunicipio.emailPessoal].filter(Boolean).join('; ');
   }
 
   return {
@@ -1272,6 +1285,112 @@ function enviarEmailCobranca(chave, numeroProcesso, donataria, destinatario, ass
   invalidarCacheDashboard_();
 
   return { mensagem: 'E-mail enviado para ' + destinatarioValidado + ' pelo ' + origem + '.' };
+}
+
+// ======================================================================
+// CONTATOS DOS MUNICÍPIOS — base de referência (autoridade responsável,
+// e-mails, telefone) usada só pra SUGERIR o destinatário e personalizar a
+// saudação do e-mail de cobrança quando ainda não existe um contato salvo
+// de uso anterior (ver montarEmailCobrancaProcesso). Editável direto na
+// aba "ContatosMunicipios" da planilha — sem tela própria no site.
+// ======================================================================
+
+var SHEET_CONTATOS_MUNICIPIOS = 'ContatosMunicipios';
+var CABECALHO_CONTATOS_MUNICIPIOS = ['UF', 'Municipio', 'Autoridade', 'AtoNomeacao', 'EmailPessoal', 'EmailGerais', 'Telefone'];
+
+// Só considera "muito desatualizada" e avisa na tela depois desse tanto de
+// dias sem ninguém confirmar que revisou a base — ver
+// getStatusRevisaoContatosMunicipios/marcarContatosMunicipiosRevisados.
+var CONTATOS_MUNICIPIOS_DIAS_PARA_AVISO = 180;
+
+function listarContatosMunicipios_() {
+  var sheet = getOrCreateSheet_(SHEET_CONTATOS_MUNICIPIOS, CABECALHO_CONTATOS_MUNICIPIOS);
+  var valores = sheet.getDataRange().getValues();
+  var lista = [];
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[0] || !linha[1]) continue;
+    lista.push({
+      uf: linha[0], municipio: linha[1], autoridade: linha[2] || '', ato: linha[3] || '',
+      emailPessoal: linha[4] || '', emailGerais: linha[5] || '', telefone: linha[6] || ''
+    });
+  }
+  return lista;
+}
+
+/**
+ * Reduz um nome de município/órgão a uma forma "canônica" só pra comparar
+ * — maiúsculas, sem acento, sem prefixo tipo "MUNICÍPIO DE"/"PREFEITURA
+ * DE"/"GUARDA MUNICIPAL DE", e corta tudo a partir de "/" ou "-" (que na
+ * base normalmente introduz a UF, não faz parte do nome da cidade). Usada
+ * dos dois lados (Donataria do veículo E Órgão da base de contatos) pra
+ * ligar os dois mesmo com grafias/formatações diferentes.
+ */
+function normalizarNomeMunicipioParaMatch_(texto) {
+  return String(texto || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/ /g, ' ')
+    .replace(/\bMUNICIPIO\s+DE\b/g, '')
+    .replace(/\bPREFEITURA\s+MUNICIPAL\s+DE\b/g, '')
+    .replace(/\bPREFEITURA\s+DE\b/g, '')
+    .replace(/\bGUARDA\s+CIVIL\s+MUNICIPAL\s+DE\b/g, '')
+    .replace(/\bGUARDA\s+MUNICIPAL\s+DE\b/g, '')
+    .replace(/[\/\-,].*$/, '')
+    .replace(/[^A-Z ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// "RODRIGO SANTOS CUNHA" -> "Rodrigo Santos Cunha" (conectores como
+// de/da/do ficam minúsculos) — só pra deixar o nome apresentável na
+// saudação do e-mail, já que a planilha de origem vem tudo em maiúsculas.
+function paraTitleCasePortugues_(texto) {
+  var conectores = { DE: 1, DA: 1, DO: 1, DAS: 1, DOS: 1, E: 1 };
+  return String(texto || '').toLowerCase().split(' ').map(function (palavra, i) {
+    var maiusc = palavra.toUpperCase();
+    if (i > 0 && conectores[maiusc]) return palavra;
+    return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+  }).join(' ');
+}
+
+/**
+ * Acha o contato de referência de um município pela UF + nome (Donataria)
+ * — usado só como sugestão quando ainda não existe um e-mail já usado
+ * antes numa cobrança real daquele processo (ver montarEmailCobrancaProcesso).
+ * Devolve null se não achar ligação nenhuma (base incompleta, ou doação
+ * pra um órgão estadual em vez de município, por exemplo).
+ */
+function buscarContatoMunicipio_(uf, donataria) {
+  var chaveAlvo = normalizarNomeMunicipioParaMatch_(donataria);
+  if (!chaveAlvo) return null;
+  var contatos = listarContatosMunicipios_();
+  for (var i = 0; i < contatos.length; i++) {
+    if (contatos[i].uf !== uf) continue;
+    if (normalizarNomeMunicipioParaMatch_(contatos[i].municipio) === chaveAlvo) return contatos[i];
+  }
+  return null;
+}
+
+/**
+ * Situação da revisão da base de contatos — usada pra mostrar o aviso "base
+ * desatualizada" na tela de Cobrança quando ninguém confirma uma revisão há
+ * mais de CONTATOS_MUNICIPIOS_DIAS_PARA_AVISO dias.
+ */
+function getStatusRevisaoContatosMunicipios() {
+  var props = PropertiesService.getScriptProperties();
+  var revisadoEm = props.getProperty('CONTATOS_MUNICIPIOS_REVISADO_EM');
+  if (!revisadoEm) return { revisadoEm: null, dias: null, desatualizada: true };
+  var dias = Math.floor((Date.now() - new Date(revisadoEm).getTime()) / 86400000);
+  return { revisadoEm: revisadoEm, dias: dias, desatualizada: dias >= CONTATOS_MUNICIPIOS_DIAS_PARA_AVISO };
+}
+
+function marcarContatosMunicipiosRevisados() {
+  var perfil = exigirPerfilEditor_();
+  var agora = new Date();
+  PropertiesService.getScriptProperties().setProperty('CONTATOS_MUNICIPIOS_REVISADO_EM', agora.toISOString());
+  registrarLog_('CONTATOS_MUNICIPIOS_REVISADOS', '-', 'Base de contatos dos municípios marcada como revisada.');
+  return { mensagem: 'Base marcada como revisada hoje.' };
 }
 
 function paraDtoListagem_(r) {
@@ -2336,6 +2455,185 @@ function importarVeiculosEmLote_(comum, veiculos) {
   }
 
   return { criados: criados, jaExistiam: jaExistiam, erros: erros };
+}
+
+/**
+ * Importação/atualização em lote da base de contatos dos municípios
+ * (autoridade responsável, e-mails, telefone), a partir da planilha
+ * "CONTATOS_MUNICIPIOS.xlsx" enviada em 19/08/2026 — 133 municípios com
+ * dados preenchidos. Rode manualmente pelo editor (selecione
+ * "importarContatosMunicipios" no menu de funções e clique em Executar)
+ * sempre que receber uma base atualizada — identifica cada linha por
+ * UF + Município (normalizado), então já existentes são ATUALIZADOS em
+ * vez de duplicados, e pode rodar quantas vezes precisar.
+ */
+var CONTATOS_MUNICIPIOS_IMPORTAR_ = [
+  { uf: 'AL', orgao: 'MACEIÓ/AL', autoridade: 'RODRIGO SANTOS CUNHA', ato: 'conforme Termo de Posse da Câmara Municipal de Maceió, de 05 de abril de 2026 (35426038)', emailPessoal: 'rodrigocunha@gp.maceio.al.gov.br', emailGerais: 'gabinete@gp.maceio.al.gov.br; gabinete@arser.maceio.al.gov.br; gabinete@semsc.maceio.al.gov.br; gabcivil@gp.maceio.al.gov.br', telefone: '' },
+  { uf: 'AP', orgao: 'MUNICÍPIO DE MACAPÁ/AP', autoridade: 'ANTÔNIO PAULO DE OLIVEIRA FURLAN', ato: 'Nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (33635826)', emailPessoal: 'daluadorota@gmail.com', emailGerais: 'comando.gcmm@gmail.com; gabinete@macapa.ap.gov.br', telefone: '' },
+  { uf: 'BA', orgao: 'MUNICÍPIO DE ALAGOINHAS - BA', autoridade: 'GUSTAVO AUGUSTO DE SOUZA CARMO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31988707).', emailPessoal: 'gustavocarmo@alagoinhas.ba.gov.br', emailGerais: 'cmt.gcm@alagoinhas.com.br', telefone: '' },
+  { uf: 'BA', orgao: 'MUNICÍPIO DE AMARGOSA -BA', autoridade: 'GETÚLIO ALMEIDA SAMPAIO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31871542)', emailPessoal: 'getulioalmeidasampaio@gmail.com', emailGerais: 'convenios@amargosa.ba.gov.br', telefone: '' },
+  { uf: 'BA', orgao: 'MUNICÍPIO DE LUÍS EDUARDO MAGALHÃES -BA', autoridade: 'ONDUMAR FERREIRA BORGES JUNIOR', ato: 'Nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31768735)', emailPessoal: 'ondumarferreira@gmail.com', emailGerais: 'gcm@pmlem.ba.gov.br', telefone: '' },
+  { uf: 'BA', orgao: 'MUNICÍPIO DE SALVADOR -BA', autoridade: 'BRUNO SOARES REIS', ato: 'Nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32492970)', emailPessoal: 'bruno.reis@salvador.ba.gov.br', emailGerais: 'ricardo.571@salvador.ba.gov.br; flavia.nascimento@salvador.ba.gov.br; prefeito@salvador.ba.gov.br', telefone: ': Palácio Thomé de Souza, Praça Municipal, s/n, Centro, Salvador/BA, CEP: 40020-010' },
+  { uf: 'CE', orgao: 'MUNICÍPIO DE ARACATI/CE', autoridade: 'ROBERTA CARDOSO BARBOSA DE ALMEIDA', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34916861)', emailPessoal: '', emailGerais: 'comando.gma@aracati.ce.gov.br', telefone: '' },
+  { uf: 'CE', orgao: 'MUNICÍPIO DE CAUCAIA/CE', autoridade: 'NAUMI GOMES DE AMORIM', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34911198).', emailPessoal: 'amorimnaumi55@gmail.com', emailGerais: 'secretaria.seguranca@caucaia.ce.gov.br', telefone: '' },
+  { uf: 'CE', orgao: 'MUNICÍPIO DE FORTALEZA/CE', autoridade: 'EVANDRO SÁ BARRETO LEITÃO', ato: 'posse da Câmara Municipal de Fortaleza - CE, no dia 01 de janeiro de 2025 (30424166).', emailPessoal: 'evandro.leitao@gabpref.fortaleza.ce.gov.br', emailGerais: 'pmpu@sesec.fortaleza.ce.gov.br', telefone: '' },
+  { uf: 'CE', orgao: 'MUNICÍPIO DE RUSSAS/CE', autoridade: 'SÁVIO GURGEL NOGUEIRA', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34911705)', emailPessoal: 'saviogurgel@hotmail.com', emailGerais: 'chefe_gabinete@russas.ce.gov.br', telefone: '' },
+  { uf: 'ES', orgao: 'MUNICÍPIO DE CARIACICA - ES', autoridade: 'EUCLERIO DE AZEVEDO SAMPAIO JUNIOR', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31795478).', emailPessoal: 'euclerio.sampaio@cariacica.es.gov.br', emailGerais: 'lauedis.tomazelli@cariacica.es.gov.br; guilherme.oliveira2@mj.gov.br', telefone: '' },
+  { uf: 'ES', orgao: 'MUNICÍPIO DE SERRA - ES', autoridade: 'WEVERSON VALCKER MEIRELES', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32137020)', emailPessoal: 'weversonmeireles.serra@gmail.com', emailGerais: 'lais.matos@serra.es.gov.br; diego.costa@serra.es.gov.br', telefone: '' },
+  { uf: 'ES', orgao: 'Vila Velha - ES', autoridade: 'ARNALDO BORGO FILHO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31432215).', emailPessoal: 'arnaldo.filho@vilavelha.es.gov.br', emailGerais: 'semdest@vilavelha.es.gov.br; gabinete@vilavelha.es.gov.br; gilberto.araujo@vilavelha.es.gov.br', telefone: '' },
+  { uf: 'GO', orgao: 'MUNICÍPIO DE APARECIDA DE GOIÂNIA/GO', autoridade: 'LEANDRO VILELA VELLOSO', ato: 'Nomeado conforme ato de posse da Câmara Municipal de Aparecida de Goiânia, no dia 01 de janeiro de 2025 (30315749).', emailPessoal: 'v.vilela2025@gmail.com', emailGerais: 'casacivilap@gmail.com;', telefone: '' },
+  { uf: 'GO', orgao: 'MUNICÍPIO DE CALDAS NOVAS/GO', autoridade: 'KLEBER LUIZ MARRA', ato: 'conforme Diploma do Prefeito (36220518)', emailPessoal: '', emailGerais: 'willenrcs@gmail.com; gabineteklebermarra@caldasnovas.go.gov.br; smt@caldasnovas.go.gov.br', telefone: '' },
+  { uf: 'GO', orgao: 'MUNICÍPIO DE FORMOSA/GO', autoridade: 'SIMONE DIAS DE SOUSA RIBEIRO', ato: 'conforme ato de posse da Câmara Municipal de Formosa/GO (34620082)', emailPessoal: 'prefeitasimoneribeiro@gmail.com', emailGerais: 'guarda@formosa.go.gov.br; gabinete@formosa.go.gov.br', telefone: '' },
+  { uf: 'GO', orgao: 'MUNICÍPIO DE GOIÂNIA/GO', autoridade: 'SANDRO DA MABEL ANTONIO SCODRO', ato: 'comunicado de posse nº 15610/2025 da prefeitura de Goiânia, em 01/01/2025. (34760492)', emailPessoal: 'sandro.mabel@scodro.com.br', emailGerais: 'gabpresidente@goiania.go.gov.br; secger.gcmgoiania@gmail.com; gabinete.prefeito@goiania.go.go', telefone: '' },
+  { uf: 'GO', orgao: 'MUNICÍPIO DE PALMEIRAS DE GOIÁS/GO', autoridade: 'OSVALDO CASSIANO DE FARIA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32095102)', emailPessoal: '', emailGerais: 'chefedegabinete@palmeirasdegoias.go.gov.br; gcr.sme.pmpg@gmail.com', telefone: '' },
+  { uf: 'GO', orgao: 'MUNICÍPIO DE SENADOR CANEDO/GO', autoridade: 'FERNANDO PELLOZO', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Senador canedo/GO, no dia 01 de janeiro de 2021.', emailPessoal: 'fernandopellozo@gmail.com', emailGerais: 'gabineteprefeito@senadorcanedo.go.gov.br', telefone: '' },
+  { uf: 'GO', orgao: 'MUNICÍPIO DE PALMEIRAS DE GOIÁS/GO', autoridade: 'OSVALDO CASSIANO DE FARIA', ato: 'nomeado conforme Termo de Posse do Prefeito, de 01 de Janeiro de 2025 (32360382)', emailPessoal: 'cassianodefariaosvaldo@gmail.com', emailGerais: 'gabinete@palmeirasdegoias.go.gov.br; chefedegabinete@palmeirasdegoias.go.gov.br; gcr.smepmpg@gmail.com', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE ANAPURUS - MA', autoridade: 'TÂNIOS MATIAS LIMA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (31946610).', emailPessoal: 'prefeitotanios@anapurus.ma.gov.br', emailGerais: 'prefeitura.anapurus@gmail.com; gamonteles@gmail.com', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE BARREIRINHAS - MA', autoridade: 'MARCUS VINICIUS VALE LIMA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32600526)', emailPessoal: 'marcusvvl97@gmail.com', emailGerais: 'seguranca@barreirinhas.ma.gov.br; prefeito@barreirinhas.ma.gov.br', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE GOVERNADOR EUGÊNIO BARROS', autoridade: 'FRANCISCO CARNEIRO RIBEIRO', ato: 'nomeado conforme SessãoEspecial de Posse em 01 de janeiro de 2025 (3498111).', emailPessoal: 'franciscocdob21@gmail.com', emailGerais: 'pmgeb@hotmail.com; prefeiturageb@outlook.com', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE LAGO DA PEDRA - MA', autoridade: 'MAURA JORGE ALVES DE MELO RIBEIRO', ato: 'Nomeada conforme ato de posse no dia 01 de janeiro de 2025 (30392467).', emailPessoal: 'maura.prefeita@gmail.com', emailGerais: 'prefeituralp@lagodapedra.ma.gov.br; secdeseguranca@lagodapedra.ma.gov.br', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE LAJEADO NOVO/MA', autoridade: 'ATAÍRES LOBO SANTOS DE ANDRADE', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Lajeado Novo/MA datado de 01/01/2025 (30571502).', emailPessoal: 'prefeitoitairestratozao@gmail.com', emailGerais: 'admlajeadonovo@gmail.com; gabiente@lajeadonovo.ma.gov.br; prefeitura@lajeadonovo.ma.gov.br', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE PENALVA - MA', autoridade: 'LUIZ HENRIQUE ALVES GUERRA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Penalva - MA, em 1º de janeiro de 2025 (32221258)', emailPessoal: '', emailGerais: 'prefeiturapenalva45@gmail.com; gabsspma@gmail.com; prefeiturapenalva.ma@gmail.com', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE PERITORÓ - MA', autoridade: 'JOSUÉ PINHO DA SILVA JUNIOR', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Peritoró - MA, no dia 1º de janeiro de 2025 (32854041).', emailPessoal: 'drjuniorprefeito@peritoro.ma.gov.br', emailGerais: 'gabinete@peritoro.ma.gov.br', telefone: '' },
+  { uf: 'MA', orgao: 'MUNICÍPIO DE VIANA -MA', autoridade: 'CARLOS AUGUSTO FURTADO CIDREIRA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Viana - MA, no dia 1º de janeiro de 2025 (32862672)', emailPessoal: 'carlosaugustofurtadocidreira@gmail.com', emailGerais: 'Prefeituradevianama@gmail.com', telefone: 'Rua Praça Ozimo de Carvalho, 141, Centro, Viana - MA, 65.215-000' },
+  { uf: 'MS', orgao: 'MUNICÍPIO DE BONITO/MS', autoridade: 'JOSMAIL RODRIGUES', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Bonito/MS datado de 01/01/2021.', emailPessoal: 'josmailrodrigues.ms@gmail.com', emailGerais: 'gabinete.prefeito@bonito.ms.gov.br', telefone: '(67) 3255-1351 (67) 3255-1471' },
+  { uf: 'MS', orgao: 'MUNICÍPIO DE DOURADOS - MS', autoridade: 'MARÇAL GONÇALVES LEITE FILHO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32025146).', emailPessoal: 'marcal.filho@dourados.ms.gov.br', emailGerais: 'gmd@dourados.ms.gov.br', telefone: '' },
+  { uf: 'MG', orgao: 'MUNICÍPIO DE PLANURA/MG', autoridade: 'ANTONIO LUIZ BOTELHO', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Planura/MG, em 01 de janeiro de 2025 (32665570).', emailPessoal: 'antonioluizbotelho@planura.mg.br', emailGerais: 'PREFEITURA@PLANURA.MG.GOV.BR', telefone: '' },
+  { uf: 'MG', orgao: 'MUNICÍPIO DE SANTA LUZIA/MG', autoridade: 'PAULO HENRIQUE PAULINO E SILVA', ato: 'conforme Termo de Posse (34505792)', emailPessoal: 'paulobigodinho@santaluzia.mg.gov.br', emailGerais: 'guardamunicipal@santaluzia.mg.gov.br; felipemendescarvalho@santaluzia.mg.gov.br', telefone: '' },
+  { uf: 'PB', orgao: 'MUNICÍPIO DE JOÃO PESSOA - PB', autoridade: 'CICERO DE LUCENA FILHO', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de João Pessoa - PB, no dia 1º de janeiro de 2025 (32709871).', emailPessoal: 'cicerolucena11@outlook.com', emailGerais: 'semusb.comando@joaopessoa.pb.gov.br gapre@joaopessoa.pb.gov.br; gabinetesemusbjp@gmail.com', telefone: '' },
+  { uf: 'PB', orgao: 'MUNICÍPIO DE POCINHOS - PB', autoridade: 'ELIANE MOURA DOS SANTOS GALDINO', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal no dia 01 de janeiro de 2025 (34393335)', emailPessoal: 'elianemourasgaldino@gmail.com', emailGerais: 'prefmunicipalpocinhospb@gmail.com', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE APUCARANA - PR', autoridade: 'RODOLFO MOTA DA SILVA', ato: 'Nomeado no dia 01 de janeiro de 2025 (33360970).', emailPessoal: 'rodolfoapucarana@gmail.com/rodolfomota@outlook.com', emailGerais: 'gcm@apucarana.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE ARAPONGAS - PR', autoridade: 'RAFAEL FELIPE CITA', ato: 'Posse do Cine Teatro Mauá de Arapongas -PR, em 01 de janeiro de 2025 (30895619).', emailPessoal: 'sei.rafaelcita@gmail.com', emailGerais: 'gabinete@arapongas.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE ARAUCÁRIA - PR', autoridade: 'LUIZ GUSTAVO BOTOGOSKI', ato: '', emailPessoal: 'gustavo.botogoski@araucaria.pr.gov.br', emailGerais: 'prefeito@araucaria.pr.gov.br; prefeitura@araucaria.pr.gov.br; guardamunicipal@araucaria.pr.gov.br', telefone: '(41) 3614-1511 (Gabinete do Prefeito)' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE CAMPO LARGO - PR', autoridade: 'MAURÍCIO ROBERTO RIVABEM', ato: 'nomeado conforme ata da reunião solene de posse da Câmara Municipal de Campo Largo PR, de 01 de janeiro de 2025 (35239873)', emailPessoal: 'mauriciorivabem@campolargo.pr.gov.br', emailGerais: 'messiasgmcl11@gmail.com; guardamunicipal@campolargo.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE CASCAVEL - PR', autoridade: 'RENATO DA SILVA', ato: 'Nomeado no dia 01 de Janeiro de 2025 (30297220)', emailPessoal: 'renato-silva@cascavel.pr.gov.br', emailGerais: 'cristianob@cascavel.pr.gov.br casacivil@cascavel.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE LONDRINA - PR', autoridade: 'JOSÉ TIAGO CAMARGO DO AMARAL', ato: 'nomeado conforme ato de posse da Câmara Municipal de Londrina - PR, no dia 01 de janeiro de 2025 (30994611).', emailPessoal: 'tiago.prefeito@londrina.pr.gov.br', emailGerais: 'gabprefeito@londrina.pr.gov.br; defesa.convenio@londrina.pr.gov.br; defesa.social@londrina.pr.gov.br; seplan@londrina.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE MARINGÁ - PR', autoridade: 'SILVIO MAGALHÃES BARROS II', ato: 'Nomeado conforme ato de posse da Câmara Municipal de Maringá - PR, no dia 01 de janeiro de 2025 (30900434).', emailPessoal: 'contato@silviobarros.com.br', emailGerais: 'prefeito@maringa.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE PONTA GROSSA - PR', autoridade: 'ELIZABETH SILVEIRA SCHMIDT', ato: 'Termo de posse da Câmara Municipal de Ponta Grossa - PR, no dia 01 de janeiro de 2025 (33695145)', emailPessoal: 'prefeitaelizabeth@pontagrossa.pr.gov.br', emailGerais: 'emmanuel.santos@pontagrossa.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE SANDARI - PR', autoridade: 'CARLOS ALBERTO DE PAULA JÚNIOR', ato: 'posse da Câmara Municipal de Sarandi - PR, no dia 01 de janeiro de 2025 (30927131)', emailPessoal: 'gap@sarandi.pr.gov.br', emailGerais: 'gap@sarandi.pr.gov.br; sec.adm@sarandi.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE SAO JOSÉ DOS PINHAIS - PR', autoridade: 'MARGARIDA MARIA SINGER', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (36535192)', emailPessoal: 'nina.singer@sjp.pr.gov.br', emailGerais: 'mario.kosiol@sjp.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE SIQUEIRA CAMPOS - PR', autoridade: 'LUIZ HENRIQUE GERMANO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (33689813)', emailPessoal: 'luizhenriquegermano@siqueiracampos.pr.gov.br', emailGerais: 'gabinete@siqueiracampos.pr.gov.br; administracao@siqueiracampos.pr.gov.br; siqueiracampos@bm.pr.gov.br; pbc-siqueiracampos@bbm.pr.gov.br', telefone: '' },
+  { uf: 'PR', orgao: 'MUNICÍPIO DE UMUARAMA - PR', autoridade: 'ANTÔNIO FERNANDO SCANAVACA', ato: 'conforme ato de transmissão de cargo de Prefeito, publicado no Umuarama Ilustrado de 03 de janeiro de 2025 de nº 13.206 (34213416)', emailPessoal: 'deputado@fernandoscanavaca.com.br', emailGerais: 'gmu@umuarama.pr.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE BELO JARDIM - PE', autoridade: 'GILVANDRO ESTRELA DE OLIVEIRA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Belo Jardim - PE, no dia 01 de janeiro de 2025 (31809106).', emailPessoal: 'gilvandroestrela@belojardim.pe.gov.br', emailGerais: 'ouvidoria@belojardim.pe.gov.br; sedec@belojardim.pe.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE CAMARAGIBE/PE', autoridade: 'DIEGO DA ROCHA CABRAL', ato: 'Nomeado no dia 01 de janeiro de 2025 (30315500).', emailPessoal: 'diego.cabral@camaragibe.pe.gov.br', emailGerais: 'sesep@camaragibe.pe.gov.br; gabinete@camaragibe.pe.gov.br; segov@camaragibe.pe.gov.br; dranadegi@camaragibe.pe.gov.br; secad@camaragibe.pe.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE CARUARU - PE', autoridade: 'RODRIGO ANSELMO PINHEIRO DOS SANTOS', ato: 'nomeado conforme Termo de Compromisso de Posse do dia 01 de janeiro de 2025 (32682824)', emailPessoal: 'rodrigo.pinheiro@caruaru.pe.gov.br', emailGerais: 'guarda.municipal@caruaru.pe.gov.br; ouvidoria@caruaru.pe.gov.br; secop@caruaru.pe.gov.br; alinealana2009@hotmail.com', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DA ILHA DE ITAMARACÁ - PE', autoridade: 'PAULO FERNANDO PIMENTEL GALVÃO,', ato: 'conforme Diploma expedido pelo Presidente da 131ª Junta Eleitoral do TRE de Pernambuco, 17 de dezembro de 2024. (33329816)', emailPessoal: '', emailGerais: 'seguranca@ilhadeitamaraca.pe.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE ITAPISSUMA - PE', autoridade: 'VALDEMIR LOURENÇO DOS SANTOS JÚNIOR', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Itapissuma - PE, no dia 01 de janeiro de 2025 (332878).', emailPessoal: 'juniorsanttos2@yahoo.com.br', emailGerais: 'gerconvenios.pmi@itapissuma.pe.gov.br; guardamunicipaldeitapissuma@hotmail.com', telefone: 'Telefone: (81) 3548-1647' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE JABOATÃO DOS GUARARAPES/PE', autoridade: 'LUIZ JOSÉ INOJOSA DE MEDEIROS', ato: 'nomeado conforme Ata da Reunião Solene de Posse em 01 de janeiro de 2025 (34392804)', emailPessoal: 'luiz.medeiros@jaboatao.pe.gov.br', emailGerais: 'comandodaguardajaboatao@gmail.com; sesc.jaboatao@gmail.com; defesacivil@jaboatao.pe.gov.br; defesaautuacao.transito@jaboatao.pe.gov.br; gab.semob.pmjg@gmail.com; ouvidoria@jaboatao.pe.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE OLINDA/PE', autoridade: 'MIRELLA FERNANDA BEZERRA DE ALMEIDA', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (30674539).', emailPessoal: 'prefeitamirella@olinda.pe.gov.br', emailGerais: 'admgabineteolinda@gmail.com; secretariosesc@olinda.pe.gov.br;', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE PALMARES/PE', autoridade: 'JOSÉ BARTOLOMEU DE ALMEIDA MELO JUNIOR', ato: 'nomeado conforme Diploma no dia 01 de janeiro de 2025 (32586495)', emailPessoal: 'juniormelo.pmp@gmail.com', emailGerais: 'mdestran@palmares.pe.gov.br; notificacao@1doc.com.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE PASSIRA/PE', autoridade: 'SEVERINO SILVESTRE DE ALBUQUERQUE', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Passira/PE, no dia 01 de janeiro de 2021.', emailPessoal: 'silvestrepassira@hotmail.com', emailGerais: 'secadm.passira@gmail.com', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DO PAULISTA - PE', autoridade: 'SEVERINO RAMOS DE SANTANA', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Paulista/PE, no dia 01 de janeiro de 2025 (30461081).', emailPessoal: 'ramosgabinete.paulista@gmail.com', emailGerais: 'ssmdcpaulista.pe@gmail.com; gabinetedoprefeito@paulista.pe.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE POMBOS - PE', autoridade: 'ELIAS BATISTA DE LIMA', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Pombos - PE, no dia 01 de janeiro de 2025 (31655856).', emailPessoal: 'gabinetedoprefeitoeliasmeufii@gmail.com', emailGerais: 'adm@pombos.pe.gov.br; prefeitura@pombos.pe.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE SANTA CRUZ DO CAPIBARIBE - PE', autoridade: 'HELIO LIMA ARAGÃO FILHO', ato: 'nomeado conforme Sessão Solene de Posse da Câmara de Vereadores de Santa Cruz do Capibaribe -PE em 01 de janeiro de 2025 (32970404).', emailPessoal: 'heliolimaaragaofilho@gmail.com', emailGerais: 'leticiastevam51@gmail.com; secretariosds.scc@gmail.com; contato@santacruzdocapibaribe.pe.gov.br; segov@santacruzdocapibaribe.pe.gov.br; sedes@santacruzdocapibaribe.pe.gov.br; gabinete@santacruzdocapibaribe.pe.gov.br', telefone: 'Gabinete do Prefeito: (81) 3731-1479' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE SÃO VICENTE FERRER - PE', autoridade: 'MARCONE VICENTE DOS SANTOS', ato: 'nomeado conforme Sessão Solene de Posse da Câmara Municipal de São Vicente Ferrer - PE, de 01 de janeiro de 2025 (33206938​​​​​​​)', emailPessoal: 'pref.marcone@gmail.com', emailGerais: 'prefeiturasaovicenteferrer@gmail.com.br', telefone: '81 - 3655-1133 (Gabinete do Prefeito)' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE TORITAMA - PE', autoridade: 'SERGIO PROCOPIO COLIN DA SILVA CARVALHO', ato: 'nomeado conforme ata da reunião solene de posse da Câmara Municipal de Toritama - PE, de 01 de janeiro de 2025 (31695932, 31695934).', emailPessoal: 'gabinetesergiocollin@gmail.com', emailGerais: 'chefiadegabinete@toritama.pe.gov.br; administracao@toritama.pe.gov.br; ordemsocial@toritama.pe.gov.br', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE VENTUROSA - PE', autoridade: 'KELVIN DOUGLAS CAVALCANTI ALMEIDA', ato: 'nomeado conforme Ata da Sessão Solene de Posse da Câmara Municipal de Venturosa - PE, no dia 01 de janeiro de 2025 (32593741)', emailPessoal: 'kelvincavalcantioficial@gmail.com', emailGerais: 'administracao@venturosa.pe.gov.br; luizfbfilho@hotmail.com', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE VITÓRIA DE SANTO ANTÃO - PE', autoridade: 'PAULO ROBERTO LEITE DE ARRUD', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (30342880).', emailPessoal: 'paulorobertoleitedearruda6@gmail.com', emailGerais: 'ouvidoria@prefeituradavitoria.pe.gov.br; gabinete@prefeituradavitoria.pe.gov.br;', telefone: '' },
+  { uf: 'PE', orgao: 'MUNICÍPIO DE JABOATÃO DOS GUARARAPES - PE.', autoridade: 'LUIZ JOSÉ INOJOSA DE MEDEIROS', ato: 'nomeado conforme Ata da Reunião Solene de Posse em 01 de janeiro de 2025 (32643988).', emailPessoal: 'luiz.medeiros@jaboatao.pe.gov.br', emailGerais: 'comandodaguardajaboatao@gmail.com; sesc.jaboatao@gmail.com', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO DE BELFORD ROXO - RJ', autoridade: 'MARCIO CORREIA DE OLIVEIRA', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31869746).', emailPessoal: 'marciocanellabr@gmail.com', emailGerais: 'smsp@prefeituradebelfordroxo.rj.gov.br; semsep@prefeituradebelfordroxo.rj.gov.br; gabineteprefeito@prefeituradebelfordroxo.rj.gov.br; broxo.semsep@gmail.com; comunicacao@prefeituradebelfordroxo.rj.gov.br; gabcompras@prefeituradebelfordroxo.rj.gov.br; licitacao@prefeituradebelfordroxo.rj.gov.br', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO DE BOM JESUS DE ITABAPOANA/RJ', autoridade: 'PAULO SERGIO CYRILLO', ato: 'Conforme termo de posse, datada de 01 de janeiro de 2025 (30342980).', emailPessoal: 'paulosergiocyrillo@gmail.com', emailGerais: 'gabinete@bomjesus.rj.gov.br', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO DE ITAGUAÍ - RJ', autoridade: 'HAROLDO RODRIGUES JESUS NETO', ato: 'Nomeado conforme ato de posse da Câmara Municipal de Itaguaí - RJ, no dia 01 de janeiro de 2025 (30282684).', emailPessoal: 'haroldorjn@gmail.com', emailGerais: '', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO DE ITATIAIA - RJ', autoridade: 'KAIO MARCIO RESENDE DE PAIVA', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34962404)', emailPessoal: 'kaiomarcio.itatiaia@gmail.com', emailGerais: 'convenios.itatiaia@gmail.com', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNÍCIPIO DE NOVA FRIBURGO - RJ', autoridade: 'JOHNNY MAYCON CORDEIRO RIBEIRO', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Nova Friburgo/RJ, no dia 01 de janeiro de 2021 (30329563).', emailPessoal: 'johnnyieq441@gmail.com', emailGerais: 'sgabinete@pmnf.rj.gov.br; mayrasecgab@gmail.com', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO DE PETRÓPOLIS - RJ', autoridade: 'HINGO HAMMES', ato: 'Nomeado conforme termo de compromisso e posse da Câmara Municipal de Petrópolis - RJ, no dia 01 de janeiro de 2025 (33025859).', emailPessoal: '', emailGerais: 'petropolisconvenios@gmail.com; gap@petropolis.rj.gov.br; rubensbomtempo@petropolis.rj.gov.br;', telefone: 'Av. Koeller 260 – Centro – Petrópolis/RJ CEP: 25680-060 - telefone (24) 2246-9240' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO DE RIO DAS OSTRAS - RJ', autoridade: 'CARLOS AUGUSTO CARVALHO BALTAZAR', ato: 'posse da Câmara Municipal de Rio das Ostras/RJ, no dia 01 de janeiro de 2025 (30423946).', emailPessoal: '', emailGerais: 'cissa.pmro@gmail.com', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO SÃO JOÃO DA BARRA - RJ', autoridade: 'KARLA CHAGAS MAIA', ato: 'nomeada conforme ato de posse no dia 01 de janeiro de 2025 (30356260).', emailPessoal: '', emailGerais: 'gabinete@sjb.rj.gov.br', telefone: '' },
+  { uf: 'RJ', orgao: 'MUNICÍPIO TANGUÁ - RJ', autoridade: 'RODRIGO DA COSTA MEDEIROS', ato: 'nomeado conforme Termo de Posse (33939962)', emailPessoal: '', emailGerais: 'gabinete@tangua.rj.gov.br; secmsop@tangua.rj.gov.br; gcm@tangua.rj.gov.br', telefone: '' },
+  { uf: 'RN', orgao: 'MUNICÍPIO DE VERA CRUZ - RN​​', autoridade: 'JOSÉ JUNIOR DE OLIVEIRA', ato: 'Nomeado no dia 01 de Janeiro de 2025 (31040047).', emailPessoal: '', emailGerais: 'gabineteveracruz2025@hotmail.com', telefone: '' },
+  { uf: 'RS', orgao: 'MUNICÍPIO DE SAPUCAIA DO SUL/RS', autoridade: 'VOLMIR RODRIGUES', ato: 'Nomeado pela Camara de Vereadores de Sapucaia do Sul/RS conforme Termo de transmissão de cargo datado de 01 de janeiro de 2021.', emailPessoal: 'volmirrodrigues@terra.com.br', emailGerais: 'gabinete@sapucaiadosul.rs.gov.br; contato@sapucaiadosul.rs.gov.br; volmirrodrigues@terra.com.br', telefone: '' },
+  { uf: 'RS', orgao: 'MUNICÍPIO DE PORTO ALEGRE/RS', autoridade: 'SEBASTIÃO DE ARAÚJO MELO', ato: 'Nomeado conforme Termo de Posse emitido pela Câmara Municipal de Porto Alegre, no primeiro dia de janeiro de 2025 (30681060).', emailPessoal: 'sebastiao.melo@portoalegre.rs.gov.br', emailGerais: 'prefeito@portoalegre.rs.gov.br; ricardo.gomes@portoalegre.rs.gov.br; veridiana.carpes@portoalegre.rs.gov.br; marcoa.filho@portoalegre.rs.gov.br; richard.rodrigues@portoalegre.rs.gov.br; carmenlucia@portoalegre.rs.gov.br', telefone: '' },
+  { uf: 'RR', orgao: 'MUNICÍPIO DE BOA VISTA - RR', autoridade: 'MARCELO ZEITOUNE', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (35453230).', emailPessoal: 'marcelo.zeitoune@prefeitura.boavista.br', emailGerais: 'cappsmst@outlook.com; smgov@prefeitura.boavista.br; smst.gab@boavista.rr.gov.br; leda.paixao@boavista.rr.gov.br', telefone: '' },
+  { uf: 'RR', orgao: 'MUNICÍPIO DE BONFIM - RR', autoridade: 'ROMUALDO FEITOSA SILVA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32416891)', emailPessoal: 'romualdofeitosa32@gmail.com', emailGerais: 'bell.pinheiros@gmail.com; gcmbonfim21@gmail.com; pmbonfimrr@gmail.com', telefone: '' },
+  { uf: 'RR', orgao: 'MUNICÍPIO DE CANTÁ -RR', autoridade: 'ANDRE LUIS COSTA DE CASTRO', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (33707833)', emailPessoal: 'ac623698@gmail.com/castroecastro.cc.ltda@gmail.com', emailGerais: 'prefeitura.canta@gmail.com', telefone: '' },
+  { uf: 'RR', orgao: 'MUNICÍPIO DE CARACARAÍ - RR', autoridade: 'DIANIERY DE SOUZA COELHO', ato: 'nomeada conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32600313)', emailPessoal: 'diane.coelho@caracarai.rr.gov.br / dianecoelho.cci@gmail.com', emailGerais: 'gcm@caracarai.rr.gov.br; gapre@caracarai.rr.gov.br; raimundo.figueiredo@caracarai.rr.gov.br', telefone: '' },
+  { uf: 'RR', orgao: 'MUNICÍPIO DE MUCAJAÍ - RR', autoridade: 'FRANCISCO RUFINO DE SOUZA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Mucajaí - RR em 01 de janeiro de 2025 (32533850).', emailPessoal: 'chiquinhorufino10@gmail.com', emailGerais: 'prefeiturademucajairr@gmail.com; segurancamucajai@gmail.com; segurancamucajai@outlook.com', telefone: '' },
+  { uf: 'RR', orgao: 'MUNICÍPIO DE PACARAIMA - RR', autoridade: 'WALDERY DAVILA SAMPAIO', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (33811804)', emailPessoal: 'walderydavila@gmail.com', emailGerais: 'segop@pacaraima.rr.gov.br; gabinete@pacaraima.rr.gov.br', telefone: '' },
+  { uf: 'SC', orgao: 'Florianópolis - SC', autoridade: 'TOPÁZIO SILVEIRA NETO', ato: 'conforme Diploma expedido pela Justiça Eleitoral de santa Catarina, em 17 de dezembro de 2024 (34266888)', emailPessoal: 'topazio.neto@pmf.sc.gov.br', emailGerais: 'topazio.neto@floripa.sc.gov.br; guardaflorianopolis@floripa.sc.gov.br.', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE AGUDOS -SP', autoridade: 'RAFAEL LIMA FERNANDES', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Agudos/SP no dia 01 de janeiro de 2025 (34652851)', emailPessoal: 'rafaellimaf@uol.com.br', emailGerais: 'vagner.dias@agudos.sp.gov.br; convenios@agudos.sp.gov.br; gabinete@agudos.sp.gov.br; cesar.alpaniez@agudos.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE APARECIDA -SP', autoridade: 'JOSÉ LUIZ RODRIGUES', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Aparecida/SP, no dia 01 de janeiro de 2025 (34664340)', emailPessoal: 'zelouquinho@uol.com.br', emailGerais: 'convenios@aparecida.sp.gov.br; admtransito@aparecida.sp.gov.br; gabinete@aparecida.sp.gov.br', telefone: '(19) 3547-3150 - GABINETE DO PREFEITO' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE ARARAS -SP', autoridade: 'IRINEU NORIVAL MARETTO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32315976).', emailPessoal: 'irineumaretto2025@gmail.com', emailGerais: 'seguranca@araras.sp.gov.br', telefone: '(19) 3547-3150 - GABINETE DO PREFEITO' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE ARTHUR NOGUEIRA - SP.', autoridade: 'LUCAS SIA RISSATO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31469135).', emailPessoal: 'lucassiarissato@gmail.com', emailGerais: 'contato@arturnogueira.sp.gov.br; gabinete@arturnogueira.sp.gov.br; seguranca.sec@arturnogueira.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE ATIBAIA - SP', autoridade: 'DANIEL DA ROCHA MARTINI', ato: 'nomeado no dia 01 de janeiro de 2025 (33879951)', emailPessoal: 'daniel.martini@atibaia.sp.gov.br', emailGerais: 'prefeito@atibaia.sp.gov.br; tsiqueira@atibaia.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE CAÇAPAVA - SP', autoridade: 'YAN LOPES DE ALMEIDA', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Caçapava/SP, no dia 01 de janeiro de 2025 (35142092).', emailPessoal: 'yanlopes2k@gmail.com', emailGerais: 'gabinete.prefeito@cacapava.sp.gov.br; silvana.gcm@cacapava.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE CAIEIRAS - SP', autoridade: 'GILMAR SOARES VICENTE', ato: 'nomeado conforme ato de posse, de 1º de janeiro de 2025 (34617029)', emailPessoal: 'gilmar.soares@caieiras.sp.gov.br', emailGerais: 'guarda@caieiras.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE CAMPO LIMPO PAULISTA/SP', autoridade: 'ADEILDO NOGUERIA DA SILVA', ato: 'Nomeado pela Câmara Municipal de Campo Limpo Paulista por meio do Termo de Posse de 1º de janeiro de 2025 (30510920).', emailPessoal: 'nogueira.adeildo@gmail.com; prefeito.adeildo@campolimpopaulista.sp.gov.br', emailGerais: 'jonascespedes@gmail.com; jonas.cespedes@campolimpopauklista.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE COSMÓPOLIS - SP', autoridade: 'ANTONIO CLAUDIO FELISBINO JUNIOR', ato: 'Nomeado no dia 01 de janeiro de 2025 (30360691).', emailPessoal: 'antonioclaudiofelisbinojunior@gmail.com', emailGerais: 'sspt@cosmopolis.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE DIADEMA - SP', autoridade: 'TAKAHARU YAMAUCHI', ato: 'nomeado conforme ato de posse, de 1º de janeiro de 2025 (35094939)', emailPessoal: 'taka.yamauchi@diadema.sp.gov.br', emailGerais: 'anderson.celso@diadema.sp.gov.br; segurancacidada@diadema.sp.gov.br; nilton.dias@diadema.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE EMBU-GUAÇU -SP', autoridade: 'FRANCISCO JOSÉ DO NASCIMENTO', ato: 'nomeado conforme ato de posse no dia 21 de julho de 2025 (33817281).', emailPessoal: 'francisco.nascimento@eg.sp.gov.br', emailGerais: 'gabinete@eg.sp.gov.br; administracao@eg.sp.gov.br; gcm@eg.sp.gov.br; desenvolvimento@eg.sp.gov.br', telefone: 'Rua Coronel Luiz Tenório de Brito, número 458, no bairro Centro, com o CEP 06900-000 - (11) 4662-7351' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE FRANCISCO MORATO - SP', autoridade: 'ILDO DA SILVA GUSMÃO', ato: 'conforme Termo de Posse da Câmara Municipal de Francisco Morato - SP, em 01 de janeiro de 2025 (32189417)', emailPessoal: 'ildo.gusmao@franciscomorato.sp.gov.br', emailGerais: 'jucineide.santos@franciscomorato.sp.gov.br; luigi.molon@franciscomorato.sp.gov.br; seguranca.cidada@franciscomorato.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE FRANCO DA ROCHA - SP', autoridade: 'LORENA RODRIGUES DE OLIVEIRA', ato: 'conforme Termo de Posse nº 002/2025 da Câmara Municipal de Franco da Rocha - SP, em 01 de janeiro de 2025 (34339308)', emailPessoal: 'lorena.oliveira@francodarocha.sp.gov.br', emailGerais: 'marcio.coelho@francodarocha.sp.gov.br; jose.cardoso@francodarocha.sp.gov.br; izabele.brazhighim@francodarocha.sp.gov.br', telefone: 'situado à Avenida Liberdade, 250 - Centro, Franco da Rocha - SP, CEP 07.850-325' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE ITAPETININGA/SP', autoridade: 'JEFERSON RODRIGO BRUN', ato: 'conforme termo de Posse (34807902)', emailPessoal: 'jefersonbrun@itapetininga.sp.gov.br', emailGerais: 'seguranapublica@itapetininga.sp.gov.br; governo@itapetininga.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE ITAPEVI/SP', autoridade: 'MARCOS FERREIRA GODOY', ato: 'nomeado conforme ato de posse, de 1º de janeiro de 2025 (34339995)', emailPessoal: '', emailGerais: 'sec.seguranca@itapevi.sp.gov.br; priscila.camargo@itapevi.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE ITAPIRA/SP', autoridade: 'ANTONIO HELIO NICOLATI', ato: 'Termo de Posse e Compromisso no dia 01 de janeiro de 2025 (330159239)', emailPessoal: 'toninho.bellini@hotmail.com', emailGerais: 'prefeito@itapira.sp.gov.br; gabinetedoprefeito@itapira.sp.gov.br; adm.secretario@itapira.sp.gov.br; gov.secretario@itapira.sp.gov.br; convenios@itapira.sp.gov.br; convenios.itapira@gmail.com', telefone: 'Rua João de Moraes, 490 centro. Itapira/SP - CEP. 13.970-903 - Telefone: (19) 3843-9100' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE JAGUARIÚNA/SP', autoridade: 'DAVID HILARIO NETO', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal da Jaguariúna/SP no dia 01 de janeiro de 2025 (33417562).', emailPessoal: '(david.liiiiihhh@gmail.com', emailGerais: 'segurancapublica@jaguariuna.sp.gov.br; convenios@jaguariuna.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE JUNDIAÍ - SP', autoridade: 'GUSTAVO MARTINELLI', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31469135).', emailPessoal: 'gmartinelli@jundiai.sp.gov.br', emailGerais: 'comandantegm@jundiai.sp.gov.br;fzarantonello@jundiai.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE LEME- SP', autoridade: 'CLAUDEMIR APARECIDO BORGES', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31571828).', emailPessoal: 'claudemirapborges@ig.com.br', emailGerais: 'gabinete@leme.sp.gov.br; corregedoria@gcmleme.sp.gov.br; cmtgcm@leme.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE LENÇOIS PAULISTA - SP', autoridade: 'ANDRÉ PACCOLA SASS', ato: '', emailPessoal: 'segurancapublica@lencoispaulista.sp.gov.br', emailGerais: '', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE LOUVEIRA - SP', autoridade: 'PAULO ALBERTO FINAMORE', ato: 'conforme Termo de Posse nº 2 da Câmara Municipal da Louveira/SP, de 01 de janeiro de 2025 (33365318)', emailPessoal: 'paulo.finamore@yahoo.com.br', emailGerais: 'gislaine.chiquetto@louveira.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE MOGI DAS CRUZES - SP', autoridade: 'RODRIGO FALSETTI', ato: 'nomeado conforme Ata da Sessão Solene no dia 01 de janeiro de 2025 (33361258).', emailPessoal: 'rodrigofalsetti@hotmail.com', emailGerais: 'diretoriagcmmg@mogiguacu.sp.gov.br; gabinete@mogidascruzes.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE MONTE ALTO - SP', autoridade: 'MARIA HELENA AGUIAR RETTONDINI', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal no dia 01 de janeiro de 2025 (33365403).', emailPessoal: 'luiz_nunes@yahoo.com', emailGerais: 'seguranca.publica@montealto.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE OLIMPIA - SP', autoridade: 'EUGENIO JOSÉ ZULIANI', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Olímpia/SP no dia 01 de janeiro de 2025 (33367107', emailPessoal: 'geninhozuliani@terra.com.br', emailGerais: 'gcm@olimpia.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE ORLÂNDIA- SP', autoridade: 'JORGE GABRIEL GRASI', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Orlândia/SP, no dia 01 de janeiro de 2025 (35179503)', emailPessoal: 'gabrielthor89@hotmail.com', emailGerais: 'carlos.mattiuzzo@orlandia.sp.gov.br; segurancapublica@orlandia.sp.gov.br andreza.miranda@orlandia.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE PAULÍNEA -SP', autoridade: 'DANILO HENRIQUE MACEDO DE BARROS', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31655759).', emailPessoal: 'danilobarrosprefeito@gmail.com', emailGerais: 'seguranca@paulinia.sp.gov.br; gabinete@paulinia.sp.gov.br; sspcompras@paulinia.sp.gov.br;gm@paulinia.sp.gov.br; smsp@paulinia.sp.gov.br', telefone: 'Av. Prefeito José Lazano Araújo, 1551 - Parque Brasil - Cep 13141-901 - Paulínea /SP Tel: (19)38745600' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE PEDREIRA/SP', autoridade: 'FABIO VINICIUS POLIDORO', ato: 'Nomeado no dia 04 de abril de 2022 (33429481).', emailPessoal: 'fabioviniciuspolidoro@gmail.com', emailGerais: 'gm@pedreira.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE PIRAPORA DO BOM JESUS - SP', autoridade: 'GREGÓRIO RODRIGUES PONTES MAGLIO', ato: 'conforme termo de posse de Prefeito da Câmara Municipal de Pirapora do Bom Jesus, de 01 de janeiro de 2025 (36039514)', emailPessoal: 'gregoriomaglio2019@gmail.com', emailGerais: 'defesacivil@piraporadobomjesus.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE PITANGUEIRAS/SP', autoridade: 'DIMAS TADEU BOLZAN', ato: 'Nomeado no dia 01 de Janeiro de 2025 (30904400).', emailPessoal: 'dimasbolzan@yahoo.com.br', emailGerais: '', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE PORTO FERREIRA/SP', autoridade: 'ANDRÉ LUIZ ANCHÃO BRAGA', ato: 'Termo de Posse e Compromisso no dia 31 de dezembro de 2024 (33295758)', emailPessoal: '', emailGerais: 'ouvidoria@portoferreira.sp.gov.br; miguel.bragioni@portoferreira.sp.gov.br; gustavo.freitas@portoferreira.sp.gov.br; Jose.ruiz@portoferreira.sp.gov.br; lucas.lima@portoferreira.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE QUADRA -SP', autoridade: 'LHEONIDES DE OLIVEIRA ANDRADE', ato: 'nomeada conforme ato de posse no dia 01 de janeiro de 2025 (32432115).', emailPessoal: 'gabinete1@quadra.sp.gov.br', emailGerais: 'gabinete1@quadra.sp.gov.br administracao@quadra.sp.gov.br; protocolo@quadra.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE RIBEIRÃO PRETO - SP', autoridade: 'RICARDO AUGUSTO MACHADO DA SILVA', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31501855).', emailPessoal: 'prefeitoricardosilva@ribeiraopreto.sp.gov.br', emailGerais: 'superintendencia@guarda.ribeiraopreto.sp.gov.br; ouvidoria@guarda.ribeiraopreto.sp.gov.br; rsluiz@guarda.ribeiraopreto.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SANTA CRUZ DO RIO PARDO - SP', autoridade: 'OTACÍLIO PARRAS ASSIS', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (34535174)', emailPessoal: 'clinicamedicinadotransito@gmail.com', emailGerais: 'relacoesinstitucionais@santacruzdoriopardo.sp.gov.br; convenios@santacruzdoriopardo.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SANTO ANDRÉ - SP', autoridade: 'GILVAN FERREIRA DE SOUZA JÚNIOR', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Londrina/PR no dia 01 de janeiro de 2025 (34322881)', emailPessoal: 'gfsouza@santoandre.sp.gov.br', emailGerais: 'sscidada@santoandre.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SANTO ANTONIO DE POSSE - SP', autoridade: 'JOSÉ RICARDO CORTEZ,', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Santo Antônio de Posse/SP, no dia 01 de janeiro de 2025 (33360349)', emailPessoal: 'prefeitojrcortez@gmail.com', emailGerais: 'segurancapublica@pmsaposse.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO CAETANO DO SUL-SP', autoridade: 'ANACLETO CAMPANELLA JÚNIOR', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (33598785)', emailPessoal: 'anacleto.campanella@saocaetanodosul.sp.gov.br', emailGerais: 'rogerio.dourado@saocaetanodosul.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO JOAQUIM DA BARRA-SP', autoridade: 'WAGNER JOSÉ SCHIMIDT', ato: 'conforme ata da Sessão solene de Posse em 01 de janeiro de 2025 (34729602)', emailPessoal: '', emailGerais: 'chefedegabinete@saojoaquimdabarra.sp.gov.br; demutran@saojoaquimdabarra.sp.gov.br; convenios@saojoaquimdabarra.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO JOSÉ DOS CAMPOS - SP', autoridade: 'ANDERSON FARIAS FERREIRA', ato: 'Nomeado no dia 01 de janeiro de 2025 (30316058).', emailPessoal: 'andersonfariasferreira@gmail.com', emailGerais: '', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO JOSÉ DO RIO PRETO - SP', autoridade: 'FÁBIO ROGÉRIO CÂNDIDO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (30440532)', emailPessoal: '', emailGerais: 'gabinete@riopreto.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO PAULO-SP', autoridade: 'RICARDO LUIS REIS NUNES', ato: 'nomeado conforme Certidão de Posse da Câmara Municipal de São Paulo - SP, de 01 de Janeiro de 2025 (31471462).', emailPessoal: 'ricardo.nunes@prefeitura.sp.gov.br', emailGerais: 'casacivil@prefeitura.sp.gov.br; casacivil.emendas@prefeitura.sp.gov.br; chgprefeito@prefeitura.sp.gov.br; carlosmachadosilva@prefeitura.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE TABOÃO DA SERRA - SP', autoridade: 'DANIEL PLANA BOGALHO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32561019).', emailPessoal: 'prefeito.daniel@ts.sp.gov.br', emailGerais: 'gabinete.prefeito@ts.sp.gov.br; gabinete.vice-prefeita@ts.sp.gov; smag@ts.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE TAPIRATIBA - SP', autoridade: 'RAMON JESUS VIEIRA', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Tapiratiba/SP no dia 01 de janeiro de 2025 (34670195)', emailPessoal: 'ramonvieira.pref@gmail.com', emailGerais: 'gcm@tapiratiba.sp.gov.br', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE TAUBATÉ - SP', autoridade: 'SÉRGIO LUIZ VICTOR JUNIOR', ato: 'Nomeado conforme Termo de posse da Câmara Municipal de Taubaté, no dia 01 de janeiro de 2025 (30315897).', emailPessoal: 'sergio.victor@taubate.sp.gov.br', emailGerais: 'cgp.gabinetetaubate@gmail.com; gcmwagneroliveira@gmail.com', telefone: '' },
+  { uf: 'SP', orgao: 'MUNICÍPIO DE VOTORAMTIM - SP', autoridade: 'WEBER MAGANHATO JUNIOR', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Votoramtim no dia 01 de janeiro de 2025 (35302766)', emailPessoal: 'webermanga2024@gmail.com; (agendaprefeitoweber@gmail.com', emailGerais: 'cleber.abreu@votorantim.sp.gov.br; convenios.gcm@votorantim.sp.gov.br; dtt@votorantim.sp.gov.br; seg@votorantim.sp.gov.br', telefone: '' },
+  { uf: 'SE', orgao: 'MUNICÍPIO DE ESTÂNCIA/SE', autoridade: 'ANDRÉ GRAÇA SANTOS', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Estância/SE datado de 01/01/2025.', emailPessoal: '', emailGerais: 'gabinete@estancia.se.gov.br; guardamunicipal@estancia.se.gov.br', telefone: '' },
+  { uf: 'SE', orgao: 'MUNICÍPIO DE TOBIAS BARRETO/SE', autoridade: 'ADILSON DE JESUS SANTOS', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Tobias Barreto/SE datado de 01/01/2021.', emailPessoal: 'dilsondeagripino@hotmail.com', emailGerais: 'gabinetecivilpmtb@gmail.com', telefone: '' },
+  { uf: 'SE', orgao: 'MUNICÍPIO DE NOSSA SENHORA DO SOCORRO/SE', autoridade: 'SAMUEL CARVALHO DOS SANTOS', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Nossa Senhora do Socorro/SE datado de 01/01/2025.', emailPessoal: '', emailGerais: 'gabinete@socorro.se.gov.br; prefeito@socorro.se.gov.br', telefone: '' },
+  { uf: 'SE', orgao: 'MUNICÍPIO DE CARMÓPOLIS - SE', autoridade: 'WELBER ANDRADE LEITE', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (30593343).', emailPessoal: 'welberleite@hotmail.com', emailGerais: 'planejamento@carmopolis.se.gov.br administracao@carmopolis.se.gov.br', telefone: '' },
+  { uf: 'SE', orgao: 'MUNICÍPIO DE PRÓPRIA - SE', autoridade: 'JOSÉ LUCIANO NASCIMENTO LIMA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32325069)', emailPessoal: 'jluciano1708@gmail.com', emailGerais: 'gabinete@propria.se.gov.br guardamunicipal@propria.se.gov.brsmtt@propria.se.gov.br', telefone: '' },
+  { uf: 'SE', orgao: 'MUNICÍPIO DE PORTO DA FOLHA/SE', autoridade: 'EVERTON LIMA GOIS', ato: 'Nomeado conforme Ata de Posse da Câmara Municipal de Porto da Folha/SE datado de 01/01/2025.', emailPessoal: 'evertonlimagoisgois@yahoo.com.br', emailGerais: 'gabinete.portodafolha@gmail.com; gabinete@portodafolha.se.gov.br; camarapfolh@gmail.com', telefone: '' },
+  { uf: 'TO', orgao: 'MUNICÍPIO DE ARAGUAÍNA - TO', autoridade: 'WAGNER RODRIGUES BARROS', ato: 'Nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31737156).', emailPessoal: 'wagner.rodrigues@araguaina.to.gov.br', emailGerais: 'dir-compras-astt@araguaina.to.gov.br', telefone: '' },
+];
+
+function importarContatosMunicipios() {
+  var sheet = getOrCreateSheet_(SHEET_CONTATOS_MUNICIPIOS, CABECALHO_CONTATOS_MUNICIPIOS);
+  var valores = sheet.getDataRange().getValues();
+
+  var linhaPorChave = {};
+  for (var i = 1; i < valores.length; i++) {
+    var chave = valores[i][0] + '|' + normalizarNomeMunicipioParaMatch_(valores[i][1]);
+    linhaPorChave[chave] = i + 1; // linha real na planilha
+  }
+
+  var atualizados = 0, novos = 0;
+  var novasLinhas = [];
+  CONTATOS_MUNICIPIOS_IMPORTAR_.forEach(function (c) {
+    var linha = [c.uf, c.orgao, c.autoridade, c.ato, c.emailPessoal, c.emailGerais, c.telefone];
+    var chave = c.uf + '|' + normalizarNomeMunicipioParaMatch_(c.orgao);
+    if (linhaPorChave[chave]) {
+      sheet.getRange(linhaPorChave[chave], 1, 1, CABECALHO_CONTATOS_MUNICIPIOS.length).setValues([linha]);
+      atualizados++;
+    } else {
+      novasLinhas.push(linha);
+      novos++;
+    }
+  });
+
+  if (novasLinhas.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, novasLinhas.length, CABECALHO_CONTATOS_MUNICIPIOS.length).setValues(novasLinhas);
+  }
+
+  PropertiesService.getScriptProperties().setProperty('CONTATOS_MUNICIPIOS_REVISADO_EM', new Date().toISOString());
+  registrarLog_('IMPORTAR_CONTATOS_MUNICIPIOS', '-', novos + ' novo(s), ' + atualizados + ' atualizado(s).');
+  Logger.log('Contatos dos municípios: ' + novos + ' novo(s), ' + atualizados + ' atualizado(s).');
 }
 
 /**

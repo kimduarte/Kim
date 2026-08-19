@@ -1680,6 +1680,8 @@
 
       <div id="cobrancaResumo" class="kpis" style="margin-bottom:14px;"></div>
 
+      <div id="cobrancaAvisoContatos" style="display:none; margin-bottom:14px;"></div>
+
       <div class="card">
         <h2>Filtros</h2>
         <p style="margin:0 0 10px; font-size:12px; color:var(--texto-suave);">A lista completa pode ficar grande — filtre por Ano, Mês e/ou Ente pra ver só uma parte por vez.</p>
@@ -3211,6 +3213,40 @@
     } catch (erro) {
       document.getElementById('cobrancaResultado').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+    verificarStatusContatosMunicipios_();
+  }
+
+  // Aviso "base de contatos desatualizada" — não trava o carregamento da
+  // lista principal se falhar (por isso roda à parte, sem estar dentro do
+  // try/catch de cima).
+  async function verificarStatusContatosMunicipios_() {
+    var aviso = document.getElementById('cobrancaAvisoContatos');
+    try {
+      var status = await chamarServidor_('getStatusRevisaoContatosMunicipios');
+      if (!status || !status.desatualizada) {
+        aviso.style.display = 'none';
+        return;
+      }
+      var textoData = status.revisadoEm
+        ? 'não é revisada há ' + status.dias + ' dias (desde ' + new Date(status.revisadoEm).toLocaleDateString('pt-BR') + ')'
+        : 'ainda não foi revisada nenhuma vez';
+      aviso.style.display = 'block';
+      aviso.innerHTML = '<div class="mensagem aviso">⚠️ A base de contatos dos municípios ' + textoData +
+        ' — os nomes/e-mails sugeridos podem estar desatualizados (troca de prefeito, novo mandato etc.). ' +
+        '<button type="button" class="secundario" style="padding:2px 10px; margin-left:8px;" onclick="marcarContatosRevisados_()">Marcar como revisada hoje</button></div>';
+    } catch (erro) {
+      aviso.style.display = 'none'; // best-effort — não é crítico pra tela de Cobrança funcionar
+    }
+  }
+
+  async function marcarContatosRevisados_() {
+    try {
+      await chamarServidor_('marcarContatosMunicipiosRevisados');
+      document.getElementById('cobrancaAvisoContatos').style.display = 'none';
+      mostrarMensagem('mensagemGlobal', 'sucesso', 'Base de contatos marcada como revisada hoje.');
+    } catch (erro) {
+      mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
     }
   }
 
