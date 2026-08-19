@@ -66,7 +66,13 @@ var CABECALHO_VEICULOS = [
   // Data da primeira vez que ATPVeEnviado virou SIM (toggle direto ou
   // cascata ao marcar Transferido) — companheira de DataEmissaoATPVe, pro
   // dia informado na caixa "Que data o ATPVe foi enviado?" não se perder.
-  'DataEnvioATPVe'
+  'DataEnvioATPVe',
+  // 'COMPLETO' ou 'RASCUNHO' — permite criar o processo com o veículo ainda
+  // em branco (Novo Veículo > "Salvar rascunho") e completar os dados
+  // depois, sem perder o lugar na fila. Recalculado a cada salvarVeiculo_/
+  // salvarProcessoEditado a partir dos campos realmente preenchidos (ver
+  // validarESanitizarVeiculo_) — nunca precisa ser setado manualmente.
+  'StatusCadastro'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -880,8 +886,23 @@ function getContextoInicial() {
     orgaosPorUF: ORGAOS_POR_UF,
     // Só os "novos" desde a última vez que esse usuário viu a aba TEP —
     // não o total de pendentes (esses continuam todos visíveis na aba).
-    tepPendentes: contarTepNovos_(perfil.email)
+    tepPendentes: contarTepNovos_(perfil.email),
+    processosEmAberto: contarProcessosEmAberto_()
   };
+}
+
+// Processos com pelo menos um veículo salvo como rascunho (ver "Salvar
+// rascunho" no cadastro e StatusCadastro em validarESanitizarVeiculo_) —
+// alimenta o aviso "Você tem X processo(s) em aberto" ao lado do TEP na
+// tela Início.
+function contarProcessosEmAberto_() {
+  var registros = listarVeiculos({});
+  var chaves = {};
+  registros.forEach(function (r) {
+    if ((r.StatusCadastro || 'COMPLETO') !== 'RASCUNHO') return;
+    chaves[chaveProcesso_(r)] = true;
+  });
+  return Object.keys(chaves).length;
 }
 
 // Mapeia o seletor "Buscar em" da tela de Listagem para o campo real do
@@ -928,6 +949,7 @@ function listarVeiculos(filtros) {
       if (anosFiltro.indexOf(String(registro.Ano)) === -1) continue;
     }
     if (filtros.transferido && registro.Transferido !== filtros.transferido) continue;
+    if (filtros.somenteRascunho && (registro.StatusCadastro || 'COMPLETO') !== 'RASCUNHO') continue;
     if (busca) {
       var camposAlvo = campoBusca
         ? [registro[campoBusca]]
@@ -1426,7 +1448,8 @@ function paraDtoListagem_(r) {
     QtdVeiculosAditivo: r.QtdVeiculosAditivo,
     NumeroProcesso: r.NumeroProcesso,
     MotivoInclusaoPosterior: r.MotivoInclusaoPosterior,
-    ValorVeiculo: r.ValorVeiculo
+    ValorVeiculo: r.ValorVeiculo,
+    StatusCadastro: r.StatusCadastro || 'COMPLETO'
   };
 }
 
@@ -1486,7 +1509,8 @@ function listarProcessos(filtros) {
         totalEmitidos: 0,
         totalEnviados: 0,
         totalTransferidos: 0,
-        totalValor: 0
+        totalValor: 0,
+        totalRascunhos: 0
       };
       ordem.push(chave);
       maiorIdPorChave[chave] = '';
@@ -1496,6 +1520,7 @@ function listarProcessos(filtros) {
     if (v.ATPVeEmitido === 'SIM') grupo.totalEmitidos++;
     if (v.ATPVeEnviado === 'SIM') grupo.totalEnviados++;
     if (v.Transferido === 'SIM') grupo.totalTransferidos++;
+    if ((v.StatusCadastro || 'COMPLETO') === 'RASCUNHO') grupo.totalRascunhos++;
     grupo.totalValor += Number(v.ValorVeiculo) || 0;
     var idAtual = String(v.ID || '');
     if (idAtual > maiorIdPorChave[chave]) maiorIdPorChave[chave] = idAtual;
@@ -1512,6 +1537,7 @@ function listarProcessos(filtros) {
     var qtdContrato = parseInt(p.qtdVeiculosContrato, 10) || 0;
     var qtdAditivo = (p.aditivo === 'SIM') ? (parseInt(p.qtdVeiculosAditivo, 10) || 0) : 0;
     p.qtdEsperada = qtdContrato + qtdAditivo;
+    p.temRascunho = p.totalRascunhos > 0;
   });
   var totalPaginas = Math.max(1, Math.ceil(processos.length / LIMITE_LISTAGEM_PADRAO));
   var pagina = Math.min(totalPaginas, Math.max(1, parseInt(filtros && filtros.pagina, 10) || 1));
@@ -2274,19 +2300,36 @@ function validarESanitizarVeiculo_(dados) {
   var ano = parseInt(dados.Ano, 10);
   var cep = normalizarTexto_(dados.CEP).replace(/\D/g, '');
 
+  // Salvar como rascunho (só vale pra cadastro novo — dados.SalvarRascunho)
+  // permite criar o processo com o veículo em branco, pra completar depois
+  // em "Editar processo". Formato ainda é validado quando o campo foi
+  // preenchido; só a OBRIGATORIEDADE de cada campo fica de lado.
+  var rascunho = !ehEdicao && !!dados.SalvarRascunho;
+
   if (!ehEdicao) {
-    if (UFS_VALIDAS.indexOf(uf) === -1 && CODIGOS_ORGAO_FEDERAL.indexOf(uf) === -1) {
+    if (uf && UFS_VALIDAS.indexOf(uf) === -1 && CODIGOS_ORGAO_FEDERAL.indexOf(uf) === -1) {
       erros.push('UF inválida: ' + dados.UF);
     }
-    if (ENTES_VALIDOS.indexOf(ente) === -1) erros.push('Ente inválido: ' + dados.Ente);
-    if (MESES_VALIDOS.indexOf(mes) === -1) erros.push('Mês inválido: ' + dados.Mes);
-    if (!ano || ano < 2000 || ano > 2100) erros.push('Ano inválido: ' + dados.Ano);
-    if (!validarChassi_(chassi)) erros.push('Chassi inválido (17 caracteres, sem I/O/Q): ' + chassi);
-    if (!validarPlaca_(placa)) erros.push('Placa inválida: ' + placa);
-    if (!validarRenavam_(renavam)) erros.push('Renavam inválido: ' + renavam);
-    if (!normalizarTexto_(dados.Donataria)) erros.push('Donatária é obrigatória.');
-    if (!normalizarTexto_(dados.TermoDoacao)) erros.push('Termo de doação é obrigatório.');
-    if (!normalizarTexto_(dados.NumeroSei)) erros.push('Número SEI do Termo é obrigatório.');
+    if (ente && ENTES_VALIDOS.indexOf(ente) === -1) erros.push('Ente inválido: ' + dados.Ente);
+    if (mes && MESES_VALIDOS.indexOf(mes) === -1) erros.push('Mês inválido: ' + dados.Mes);
+    if (dados.Ano && !ano) erros.push('Ano inválido: ' + dados.Ano);
+    if (ano && (ano < 2000 || ano > 2100)) erros.push('Ano inválido: ' + dados.Ano);
+    if (chassi && !validarChassi_(chassi)) erros.push('Chassi inválido (17 caracteres, sem I/O/Q): ' + chassi);
+    if (placa && !validarPlaca_(placa)) erros.push('Placa inválida: ' + placa);
+    if (renavam && !validarRenavam_(renavam)) erros.push('Renavam inválido: ' + renavam);
+
+    if (!rascunho) {
+      if (!uf) erros.push('UF é obrigatória.');
+      if (!ente) erros.push('Ente é obrigatório.');
+      if (!mes) erros.push('Mês é obrigatório.');
+      if (!dados.Ano) erros.push('Ano é obrigatório.');
+      if (!chassi) erros.push('Chassi inválido (17 caracteres, sem I/O/Q): ' + chassi);
+      if (!placa) erros.push('Placa inválida: ' + placa);
+      if (!renavam) erros.push('Renavam inválido: ' + renavam);
+      if (!normalizarTexto_(dados.Donataria)) erros.push('Donatária é obrigatória.');
+      if (!normalizarTexto_(dados.TermoDoacao)) erros.push('Termo de doação é obrigatório.');
+      if (!normalizarTexto_(dados.NumeroSei)) erros.push('Número SEI do Termo é obrigatório.');
+    }
   }
   // CEP só é validado no formato quando informado — não é exigido aqui para
   // não travar a edição de veículos antigos (migrados sem endereço).
@@ -2296,7 +2339,25 @@ function validarESanitizarVeiculo_(dados) {
     throw new Error(erros.join('\n'));
   }
 
+  // Processo "completo" = todos os campos essenciais presentes e válidos.
+  // Recalculado sempre (não só na criação) pra um rascunho virar COMPLETO
+  // sozinho assim que "Editar processo" preencher o que faltava, e pra uma
+  // edição que apague um campo essencial voltar a aparecer como rascunho.
+  var completo = !!(
+    (UFS_VALIDAS.indexOf(uf) !== -1 || CODIGOS_ORGAO_FEDERAL.indexOf(uf) !== -1) &&
+    ENTES_VALIDOS.indexOf(ente) !== -1 &&
+    MESES_VALIDOS.indexOf(mes) !== -1 &&
+    ano && ano >= 2000 && ano <= 2100 &&
+    validarChassi_(chassi) &&
+    validarPlaca_(placa) &&
+    validarRenavam_(renavam) &&
+    normalizarTexto_(dados.Donataria) &&
+    normalizarTexto_(dados.TermoDoacao) &&
+    normalizarTexto_(dados.NumeroSei)
+  );
+
   return {
+    StatusCadastro: completo ? 'COMPLETO' : 'RASCUNHO',
     Ano: ano || dados.Ano,
     Mes: mes,
     UF: uf,
@@ -2815,8 +2876,11 @@ function salvarProcessoEditado(comuns, veiculos) {
     }
 
     var idAtual = veiculo.ID || null;
-    var donoAtualChassi = donoChassi[registro.Chassi];
-    var donoAtualPlaca = donoPlaca[registro.Placa];
+    // Chassi/placa em branco (veículo ainda em rascunho) nunca contam como
+    // duplicidade — nem contra a planilha, nem entre dois rascunhos do
+    // mesmo processo salvos juntos neste lote.
+    var donoAtualChassi = registro.Chassi ? donoChassi[registro.Chassi] : null;
+    var donoAtualPlaca = registro.Placa ? donoPlaca[registro.Placa] : null;
     if ((donoAtualChassi && donoAtualChassi !== idAtual) || (donoAtualPlaca && donoAtualPlaca !== idAtual)) {
       throw new Error('Veículo ' + (v + 1) + ': já existe outro veículo cadastrado com este chassi ou placa (ID ' +
         (donoAtualChassi || donoAtualPlaca) + ').');
@@ -2861,8 +2925,8 @@ function salvarProcessoEditado(comuns, veiculos) {
       idAtual = novoId;
     }
 
-    donoChassi[registro.Chassi] = idAtual;
-    donoPlaca[registro.Placa] = idAtual;
+    if (registro.Chassi) donoChassi[registro.Chassi] = idAtual;
+    if (registro.Placa) donoPlaca[registro.Placa] = idAtual;
   }
 
   if (novasLinhas.length) {
@@ -2963,7 +3027,10 @@ function encontrarDuplicado_(sheet, chassi, placa, ignorarId) {
   for (var i = 1; i < dados.length; i++) {
     var linha = dados[i];
     if (ignorarId && linha[idCol] === ignorarId) continue;
-    if (linha[chassiCol] === chassi || linha[placaCol] === placa) {
+    // Chassi/placa em branco (veículo salvo como rascunho) nunca contam como
+    // duplicidade entre si — senão o segundo rascunho sem chassi/placa
+    // preenchidos seria barrado por "já existe" apontando pro primeiro.
+    if ((chassi && linha[chassiCol] === chassi) || (placa && linha[placaCol] === placa)) {
       return linha[idCol];
     }
   }

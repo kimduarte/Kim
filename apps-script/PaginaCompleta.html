@@ -1096,6 +1096,7 @@
           <button type="button" class="action-btn info" onclick="irParaTela('listagem')">📋 Processos</button>
           <button type="button" class="action-btn success" onclick="irParaTela('transferidos')">✅ Últimos transferidos</button>
           <button type="button" class="action-btn warning" id="inicioBotaoTep" style="display:none;" onclick="irParaTela('tep')">⚠️ TEP (<span id="inicioBannerTepContagem">0</span>)</button>
+          <button type="button" class="action-btn warning" id="inicioBotaoProcessosAbertos" style="display:none;" onclick="irParaProcessosEmAberto_()">📝 Você tem <span id="inicioBannerProcessosAbertosContagem">0</span> processo(s) em aberto</button>
         </div>
       </div>
 
@@ -1262,6 +1263,7 @@
             <button type="button" class="secundario" id="botaoEtapaVoltar">‹ Voltar</button>
             <div class="direita">
               <button type="button" class="secundario" id="botaoLimparCadastro">Limpar</button>
+              <button type="button" class="secundario" id="botaoSalvarRascunhoCadastro">💾 Salvar rascunho e completar depois</button>
               <button type="button" class="primario" id="botaoEtapaProximo">Próximo ›</button>
               <button type="submit" class="primario" id="botaoSalvarCadastro" style="display:none;">Salvar processo</button>
             </div>
@@ -1374,6 +1376,12 @@
           <div class="campo" style="min-width:220px;">
             <label for="f_busca">Buscar</label>
             <input type="text" id="f_busca" placeholder="Digite para buscar...">
+          </div>
+          <div class="campo" style="justify-content:flex-end;">
+            <label>&nbsp;</label>
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+              <input type="checkbox" id="f_SomenteRascunho" style="width:auto;"> Somente processos em aberto (rascunho)
+            </label>
           </div>
           <div class="botoes" style="margin-top:0;">
             <button class="primario" id="botaoFiltrar">Filtrar</button>
@@ -3544,6 +3552,7 @@
     // (ver abrirModalEscolhaCadastro_, abrirTelaRelatorioProdutividade_ e
     // irParaTelaUsuarios_), em vez de a opção simplesmente desaparecer.
     atualizarContagemTep_(ctx.tepPendentes || 0);
+    atualizarContagemProcessosAbertos_(ctx.processosEmAberto || 0);
 
     document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
     var dataPorExtenso = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
@@ -4144,6 +4153,25 @@
     }
   }
 
+  // Processos criados como rascunho (ver "Salvar rascunho" no cadastro) e
+  // ainda não completados — aviso ao lado do TEP na tela Início.
+  function atualizarContagemProcessosAbertos_(total) {
+    var botaoBanner = document.getElementById('inicioBotaoProcessosAbertos');
+    if (total > 0) {
+      botaoBanner.style.display = '';
+      document.getElementById('inicioBannerProcessosAbertosContagem').textContent = total;
+    } else {
+      botaoBanner.style.display = 'none';
+    }
+  }
+
+  function irParaProcessosEmAberto_() {
+    document.getElementById('f_SomenteRascunho').checked = true;
+    PAGINA_ATUAL_LISTAGEM = 1;
+    irParaTela('listagem');
+    carregarListagem();
+  }
+
   var TEP_MOSTRANDO_TODOS = false;
 
   async function carregarListaTep_(mostrarTodos) {
@@ -4665,6 +4693,65 @@
       document.getElementById('mensagemCadastro').innerHTML = '';
       reiniciarFormularioCadastro_();
     });
+
+    // Salva o processo com o que já foi preenchido até agora (mesmo tudo em
+    // branco) e vira rascunho — pula toda a validação obrigatória das
+    // etapas, pra poder completar os dados depois em "Editar processo". Só
+    // grava UM veículo (o primeiro já coletado, se houver, senão em
+    // branco) — é só a "vaga" do processo; os demais entram na hora de
+    // completar.
+    document.getElementById('botaoSalvarRascunhoCadastro').addEventListener('click', async function () {
+      if (!NUMERO_PROCESSO_ATUAL) return;
+      var comuns = {
+        NumeroProcesso: NUMERO_PROCESSO_ATUAL,
+        Ano: document.getElementById('c_Ano').value,
+        Mes: document.getElementById('c_Mes').value,
+        UF: document.getElementById('c_UF').value,
+        Ente: document.getElementById('c_Ente').value,
+        Donataria: document.getElementById('c_Donataria').value,
+        TermoDoacao: document.getElementById('c_TermoDoacao').value,
+        NumeroSei: document.getElementById('c_NumeroSei').value,
+        Observacoes: document.getElementById('c_Observacoes').value,
+        CNPJDonataria: document.getElementById('c_CNPJDonataria').value,
+        CEP: document.getElementById('c_CEP').value,
+        Logradouro: document.getElementById('c_Logradouro').value,
+        Numero: document.getElementById('c_Numero').value,
+        Complemento: document.getElementById('c_Complemento').value,
+        Bairro: document.getElementById('c_Bairro').value,
+        Municipio: document.getElementById('c_Municipio').value,
+        Contrato: document.getElementById('c_Contrato').value,
+        Aditivo: document.getElementById('c_TemAditivo').value,
+        NumeroAditivo: document.getElementById('c_NumeroAditivo').value,
+        QtdVeiculosContrato: document.getElementById('c_QtdContrato').value,
+        QtdVeiculosAditivo: document.getElementById('c_QtdAditivo').value
+      };
+      var veiculoColetado = VEICULOS_COLETADOS[0] || {};
+      var dadosVeiculo = Object.assign({}, comuns, {
+        Marca: veiculoColetado.Marca,
+        Descricao: veiculoColetado.Descricao,
+        Chassi: veiculoColetado.Chassi,
+        Placa: veiculoColetado.Placa,
+        Renavam: veiculoColetado.Renavam,
+        ValorVeiculo: veiculoColetado.ValorVeiculo,
+        SalvarRascunho: true
+      });
+
+      var botaoRascunho = this;
+      botaoRascunho.disabled = true;
+      try {
+        var respRascunho = await chamarServidor_('salvarVeiculo', dadosVeiculo);
+        var numeroProcessoSalvo = NUMERO_PROCESSO_ATUAL;
+        mostrarMensagem('mensagemGlobal', 'sucesso',
+          'Processo nº ' + numeroProcessoSalvo + ' salvo como rascunho (' + respRascunho.ID +
+          '). Complete os dados quando quiser em "Editar processo".');
+        reiniciarFormularioCadastro_();
+        irParaProcessoRecemCriado_(numeroProcessoSalvo);
+      } catch (erro) {
+        mostrarErroCadastro_(erro.message || String(erro));
+      } finally {
+        botaoRascunho.disabled = false;
+      }
+    });
   }
 
   function mostrarMensagem(idContainer, tipo, texto) {
@@ -4727,6 +4814,7 @@
       ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
       document.getElementById('f_busca').value = '';
       document.getElementById('f_busca').disabled = false;
+      document.getElementById('f_SomenteRascunho').checked = false;
       PAGINA_ATUAL_LISTAGEM = 1;
       carregarListagem();
     });
@@ -4763,6 +4851,7 @@
       transferido: document.getElementById('f_Transferido').value,
       busca: document.getElementById('f_busca').value,
       buscaCampo: document.getElementById('f_buscaCampo').value,
+      somenteRascunho: document.getElementById('f_SomenteRascunho').checked,
       pagina: PAGINA_ATUAL_LISTAGEM
     };
   }
@@ -4910,6 +4999,7 @@
     ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
     document.getElementById('f_busca').value = '';
     document.getElementById('f_busca').disabled = false;
+    document.getElementById('f_SomenteRascunho').checked = false;
     PAGINA_ATUAL_LISTAGEM = 1;
     PROCESSO_DESTACAR_APOS_CADASTRO = numeroProcesso;
     irParaTela('listagem');
@@ -4944,6 +5034,9 @@
   // fechado (sem p.veiculos carregado) — por isso usa os totais que
   // listarProcessos já manda prontos, em vez de olhar veículo por veículo.
   function obterStatusProcesso_(p) {
+    if (p.temRascunho) {
+      return { texto: '📝 Rascunho — dados pendentes', classe: 'selo-vermelho' };
+    }
     if (faltamVeiculosProcesso_(p) > 0) {
       return { texto: 'Faltam veículos', classe: 'selo-vermelho' };
     }
@@ -5002,7 +5095,8 @@
     var veiculosCarregados = !!p.veiculos;
     var linhasVeiculos = veiculosCarregados ? p.veiculos.map(function (v) {
       return '<tr>' +
-        '<td>' + destacarBusca_(v.Marca, 'marca') + ' — ' + destacarBusca_(v.Descricao, 'descricao') + '</td>' +
+        '<td>' + (v.StatusCadastro === 'RASCUNHO' ? '<span class="selo selo-vermelho" style="margin-right:6px;">Rascunho</span>' : '') +
+          destacarBusca_(v.Marca, 'marca') + ' — ' + destacarBusca_(v.Descricao, 'descricao') + '</td>' +
         '<td>' + destacarBusca_(v.Chassi, 'chassi') + '</td>' +
         '<td>' + destacarBusca_(v.Placa, 'placa') + '</td>' +
         '<td>' + destacarBusca_(v.Renavam, 'renavam') + '</td>' +
@@ -6633,6 +6727,7 @@
     ['f_UF', 'f_Ente', 'f_Ano', 'f_Transferido', 'f_buscaCampo'].forEach(function (id) { document.getElementById(id).value = ''; });
     document.getElementById('f_busca').value = '';
     document.getElementById('f_busca').disabled = false;
+    document.getElementById('f_SomenteRascunho').checked = false;
 
     if (campo === 'uf') {
       document.getElementById('f_UF').value = valor;
