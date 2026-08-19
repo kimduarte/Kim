@@ -2698,6 +2698,82 @@ function importarContatosMunicipios() {
 }
 
 /**
+ * Marca ATPVeEmitido e ATPVeEnviado como 'SIM' em massa para todos os
+ * veículos de 2024 e 2025 que ainda estavam com algum dos dois em aberto —
+ * SEM preencher DataEmissaoATPVe/DataEnvioATPVe (ficam como estavam, em
+ * branco), pra essa marcação não entrar como emissão/envio no Relatório de
+ * Produtividade (que soma por essas datas, não pelo clique).
+ *
+ * NUNCA mexe em veículo já marcado como Transferido — só lê o campo pra
+ * decidir se pula a linha, nenhuma célula de um veículo transferido é
+ * escrita. Também pula veículos na lixeira (Excluido = SIM) e os que já
+ * estavam com os dois campos SIM (idempotente — pode rodar de novo sem
+ * problema).
+ *
+ * Rode manualmente pelo editor (selecione
+ * "marcarAtpveEmitidoEnviado2024e2025_" no menu de funções, clique em
+ * Executar) e confira o resumo em Ver > Registros de execução.
+ */
+function marcarAtpveEmitidoEnviado2024e2025_() {
+  var perfil = exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
+
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxAno = cabecalho.indexOf('Ano');
+  var idxTransferido = cabecalho.indexOf('Transferido');
+  var idxExcluido = cabecalho.indexOf('Excluido');
+  var idxEmitido = cabecalho.indexOf('ATPVeEmitido');
+  var idxEnviado = cabecalho.indexOf('ATPVeEnviado');
+  var idxId = cabecalho.indexOf('ID');
+  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
+  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
+
+  var agora = new Date();
+  var idsAtualizados = [];
+  var totalTransferidosIgnorados = 0;
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[idxId]) continue;
+
+    var ano = parseInt(linha[idxAno], 10);
+    if (ano !== 2024 && ano !== 2025) continue;
+    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
+
+    // NUNCA mexe em veículo já transferido — pedido explícito do usuário.
+    if (String(linha[idxTransferido]).toUpperCase() === 'SIM') {
+      totalTransferidosIgnorados++;
+      continue;
+    }
+
+    var jaEmitido = String(linha[idxEmitido]).toUpperCase() === 'SIM';
+    var jaEnviado = String(linha[idxEnviado]).toUpperCase() === 'SIM';
+    if (jaEmitido && jaEnviado) continue; // já estava com os dois SIM, nada a fazer.
+
+    var linhaAtualizada = linha.slice();
+    linhaAtualizada[idxEmitido] = 'SIM';
+    linhaAtualizada[idxEnviado] = 'SIM';
+    linhaAtualizada[idxUltimaAtualizacao] = agora;
+    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (marcação em massa ATPVe 2024/2025)';
+    // Propositalmente NÃO mexe em DataEmissaoATPVe/DataEnvioATPVe.
+
+    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
+    idsAtualizados.push(linha[idxId]);
+  }
+
+  registrarLog_('MARCAR_ATPVE_EM_MASSA', '-',
+    idsAtualizados.length + ' veículo(s) de 2024/2025 marcados como ATPVe emitido/enviado, sem data (' +
+    totalTransferidosIgnorados + ' já transferido(s) foram ignorados/preservados). IDs: ' + idsAtualizados.join(', '));
+  invalidarCacheDashboard_();
+
+  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s): ' + idsAtualizados.join(', '));
+  Logger.log(totalTransferidosIgnorados + ' veículo(s) já transferido(s) foram ignorados (não mexidos).');
+  return { atualizados: idsAtualizados.length, transferidosIgnorados: totalTransferidosIgnorados };
+}
+
+/**
  * Importação pontual dos 5 veículos do Ofício nº 480/2026/TRANSV/COLOG/
  * DGFNSP/SENASP/MJ (Termo de Doação SENASP 439/2026, à Secretaria de
  * Estado da Segurança Pública do Paraná — SEI 36509302, Processo
