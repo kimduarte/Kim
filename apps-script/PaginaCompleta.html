@@ -330,6 +330,14 @@
   .rank-barra { background: var(--primario); height: 100%; border-radius: 3px 0 0 3px; }
   .rank-valor { font-size: 12px; color: var(--texto-suave); text-align: right; white-space: nowrap; }
 
+  /* Veículos por Donatária: nomes longos não cabem na coluna de 40px feita
+     pra sigla de UF — cada linha empilha nome em cima e barra embaixo,
+     em vez do grid de 3 colunas usado no rank por UF. */
+  .rank-linha-donataria { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; cursor: pointer; border-radius: 4px; }
+  .rank-linha-donataria:hover { background: var(--azul-bg); }
+  .rank-donataria-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .rank-donataria-nome { font-weight: 700; font-size: 12.5px; }
+
   /* Veículos por Região/Estado: agrupado pelas 5 regiões + órgãos federais,
      com intensidade de cor (mesma tonalidade institucional, mais escura
      quanto maior o valor) numa grade — o "Mapa do Brasil" (mais abaixo)
@@ -6330,10 +6338,13 @@
     var max = itens[0].total || 0;
     container.innerHTML = itens.map(function (item, i) {
       var pct = max ? Math.round((item.total / max) * 100) : 0;
-      return '<div class="rank-linha" onclick="abrirDetalheDonataria_(' + i + ')">' +
-        '<span class="rank-uf">' + escaparHtml(item.chave) + '</span>' +
+      return '<div class="rank-linha-donataria" onclick="abrirDetalheDonataria_(' + i + ')">' +
+        '<div class="rank-donataria-topo">' +
+          '<span class="rank-donataria-nome">' + escaparHtml(item.chave) + '</span>' +
+          '<span class="rank-valor mono">' + item.total + ' • ' + formatarMoeda_(item.valorTotal) + '</span>' +
+        '</div>' +
         '<div class="rank-trilha"><div class="rank-barra" style="width:' + pct + '%;"></div></div>' +
-        '<span class="rank-valor mono">' + item.total + ' • ' + formatarMoeda_(item.valorTotal) + '</span></div>';
+      '</div>';
     }).join('');
   }
 
