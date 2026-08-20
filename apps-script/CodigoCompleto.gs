@@ -3492,6 +3492,134 @@ function preencherNumeroProcesso2026() {
   return { atualizados: atualizados.length, jaTinham: jaTinhamProcesso.length, naoEncontrados: idsNaoEncontrados.length };
 }
 
+var PREENCHER_NUMERO_PROCESSO_2026_LOTE2_ = [
+  { id: 'VC-002932', numeroProcesso: '08020.004253/2025-92' },
+  { id: 'VC-002933', numeroProcesso: '08020.004253/2025-92' },
+  { id: 'VC-002934', numeroProcesso: '08020.004181/2025-83' },
+  { id: 'VC-002935', numeroProcesso: '08020.006636/2025-03' },
+  { id: 'VC-002936', numeroProcesso: '08020.006625/2025-15' },
+  { id: 'VC-002937', numeroProcesso: '08020.009407/2024-51' },
+  { id: 'VC-002938', numeroProcesso: '08020.007921/2025-33' },
+  { id: 'VC-002939', numeroProcesso: '08020.007935/2025-57' },
+  { id: 'VC-002940', numeroProcesso: '08020.007935/2025-57' },
+  { id: 'VC-002941', numeroProcesso: '08020.007935/2025-57' },
+  { id: 'VC-002942', numeroProcesso: '08020.007935/2025-57' },
+  { id: 'VC-002943', numeroProcesso: '08020.007861/2025-59' },
+  { id: 'VC-002944', numeroProcesso: '08020.007861/2025-59' },
+  { id: 'VC-002945', numeroProcesso: '08020.007861/2025-59' },
+  { id: 'VC-002946', numeroProcesso: '08020.007861/2025-59' },
+  { id: 'VC-002947', numeroProcesso: '08020.007861/2025-59' },
+  { id: 'VC-002948', numeroProcesso: '08020.007861/2025-59' },
+  { id: 'VC-002949', numeroProcesso: '08020.009100/2025-31' },
+  { id: 'VC-002950', numeroProcesso: '08020.009100/2025-31' },
+  { id: 'VC-002951', numeroProcesso: '08020.009100/2025-31' },
+  { id: 'VC-002952', numeroProcesso: '08020.009100/2025-31' },
+  { id: 'VC-002953', numeroProcesso: '08020.006814/2025-98' },
+  { id: 'VC-002954', numeroProcesso: '08020.006814/2025-98' },
+  { id: 'VC-002955', numeroProcesso: '08020.006814/2025-98' },
+  { id: 'VC-002956', numeroProcesso: '08020.006814/2025-98' },
+  { id: 'VC-002957', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002958', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002959', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002960', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002961', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002962', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002963', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002964', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002965', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002966', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002967', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002968', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002969', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002970', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002971', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002972', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002973', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002974', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002975', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002976', numeroProcesso: '08020.004137/2025-73' },
+  { id: 'VC-002985', numeroProcesso: '08020.006713/2025-17' },
+  { id: 'VC-002986', numeroProcesso: '08020.006713/2025-17' },
+  { id: 'VC-002987', numeroProcesso: '08020.006713/2025-17' },
+  { id: 'VC-002988', numeroProcesso: '08020.006713/2025-17' },
+  { id: 'VC-002989', numeroProcesso: '08020.008621/2025-71' },
+  { id: 'VC-002990', numeroProcesso: '08020.006624/2025-71' },
+  { id: 'VC-002991', numeroProcesso: '08020.008527/2025-12' },
+  { id: 'VC-003009', numeroProcesso: '08020.006826/2025-12' },
+  { id: 'VC-003010', numeroProcesso: '08020.006826/2025-12' },
+  { id: 'VC-003017', numeroProcesso: '08020.001907/2025-26' },
+  { id: 'VC-003018', numeroProcesso: '08020.001907/2025-26' },
+  { id: 'VC-003019', numeroProcesso: '08020.007858/2025-35' },
+  { id: 'VC-003020', numeroProcesso: '08020.006771/2025-41' },
+  { id: 'VC-003021', numeroProcesso: '08020.010788/2025-01' },
+  { id: 'VC-003022', numeroProcesso: '08020.006789/2025-42' },
+  { id: 'VC-003023', numeroProcesso: '08020.006789/2025-42' },
+  { id: 'VC-003024', numeroProcesso: '08020.006717/2025-03' },
+  { id: 'VC-003025', numeroProcesso: '08020.005653/2025-15' },
+  { id: 'VC-003346', numeroProcesso: '08020.008530/2025-36' },
+];
+
+/**
+ * Segundo lote do preenchimento de Número do Processo (2026) — os 24
+ * processos (64 veículos) que não bateram nas duas primeiras planilhas de
+ * referência, agora cruzados contra uma terceira planilha (935 termos,
+ * todos numerados em 2025). Fechou 100% dos que faltavam.
+ *
+ * Mesmas regras do lote 1 (ver preencherNumeroProcesso2026): só grava
+ * onde NumeroProcesso está vazio, não mexe em NumeroSei nem em outro
+ * campo. Rode manualmente pelo editor (selecione
+ * "preencherNumeroProcesso2026Lote2" no menu de funções, clique em
+ * Executar) — seguro rodar mais de uma vez.
+ */
+function preencherNumeroProcesso2026Lote2() {
+  var perfil = exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
+
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxId = cabecalho.indexOf('ID');
+  var idxNumeroProcesso = cabecalho.indexOf('NumeroProcesso');
+  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
+  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
+
+  var linhaPorId = {};
+  for (var i = 1; i < valores.length; i++) {
+    var id = valores[i][idxId];
+    if (id) linhaPorId[id] = i;
+  }
+
+  var agora = new Date();
+  var atualizados = [];
+  var jaTinhamProcesso = [];
+  var idsNaoEncontrados = [];
+
+  PREENCHER_NUMERO_PROCESSO_2026_LOTE2_.forEach(function (item) {
+    var i = linhaPorId[item.id];
+    if (i === undefined) { idsNaoEncontrados.push(item.id); return; }
+    if (valores[i][idxNumeroProcesso]) { jaTinhamProcesso.push(item.id); return; }
+    valores[i][idxNumeroProcesso] = item.numeroProcesso;
+    valores[i][idxUltimaAtualizacao] = agora;
+    valores[i][idxAtualizadoPor] = perfil.email + ' (preenchimento em massa de Número do Processo - lote 2)';
+    atualizados.push({ id: item.id, linha: i + 1 });
+  });
+
+  atualizados.forEach(function (a) {
+    sheet.getRange(a.linha, 1, 1, cabecalho.length).setValues([valores[a.linha - 1]]);
+  });
+
+  registrarLog_('PREENCHER_NUMERO_PROCESSO_LOTE2', '-',
+    atualizados.length + ' veículo(s) tiveram o Número do Processo preenchido (lote 2). ' +
+    jaTinhamProcesso.length + ' já tinham (ignorados). ' + idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base.');
+  invalidarCacheDashboard_();
+
+  Logger.log(atualizados.length + ' veículo(s) atualizado(s): ' + atualizados.map(function (a) { return a.id; }).join(', '));
+  if (jaTinhamProcesso.length) Logger.log(jaTinhamProcesso.length + ' já tinham processo (ignorados): ' + jaTinhamProcesso.join(', '));
+  if (idsNaoEncontrados.length) Logger.log(idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base: ' + idsNaoEncontrados.join(', '));
+
+  return { atualizados: atualizados.length, jaTinham: jaTinhamProcesso.length, naoEncontrados: idsNaoEncontrados.length };
+}
+
 /**
  * Importação pontual dos 5 veículos do Ofício nº 480/2026/TRANSV/COLOG/
  * DGFNSP/SENASP/MJ (Termo de Doação SENASP 439/2026, à Secretaria de
