@@ -2774,6 +2774,203 @@ function marcarAtpveEmitidoEnviado2024e2025_() {
 }
 
 /**
+ * De-Para de unificação de nomenclatura de Donatária — só para Ente =
+ * "Estado" (União/Município ficam de fora por enquanto, por pedido
+ * explícito). Cada entrada foi revisada manualmente (comparando com a
+ * lista oficial de CNPJ por UF, quando disponível) antes de entrar aqui —
+ * NÃO foi gerada e aplicada automaticamente por similaridade de texto, que
+ * erra em casos como confundir duas secretarias diferentes do mesmo
+ * estado (ex.: Segurança Pública x Administração Penitenciária do DF,
+ * removido desta lista de propósito).
+ */
+var UNIFICACAO_DONATARIA_ESTADO_ = [
+  { uf: 'DF', de: 'Secretaria de Estado da Segurança Pública do Distrito Federal', para: 'Secretaria de Estado de Segurança Pública do Distrito Federal' },
+  { uf: 'DF', de: 'Secretária de Segurança Pública do Distrito Federal', para: 'Secretaria de Estado de Segurança Pública do Distrito Federal' },
+  { uf: 'DF', de: 'Secretaria de Estado de Segurança Pública do distrito Federal', para: 'Secretaria de Estado de Segurança Pública do Distrito Federal' },
+  { uf: 'SP', de: 'Secretaria da Segurança Pública de São Paulo', para: 'Secretaria da Segurança Pública do Estado de São Paulo' },
+  { uf: 'SP', de: 'Secretaria da Segurança Publica de São Paulo - SP', para: 'Secretaria da Segurança Pública do Estado de São Paulo' },
+  { uf: 'SP', de: 'Secretária de Estado da Segurança Pública de São Paulo', para: 'Secretaria da Segurança Pública do Estado de São Paulo' },
+  { uf: 'SP', de: 'Secretaria de Segurança Pública do Estado de São Paulo', para: 'Secretaria da Segurança Pública do Estado de São Paulo' },
+  { uf: 'SP', de: 'Secretaria de Estado da Segurança Pública de São Paulo', para: 'Secretaria da Segurança Pública do Estado de São Paulo' },
+  { uf: 'SP', de: 'Secretaria de Estado da Segurança Pública do Estado de São Paulo', para: 'Secretaria da Segurança Pública do Estado de São Paulo' },
+  { uf: 'RO', de: 'Secretaria de Estado da Segurança​, Defesa e Cidadania do Estado de Rondônia', para: 'Secretaria de Estado da Segurança, Defesa e Cidadania de Rondônia' },
+  { uf: 'RO', de: 'SECRETARIA DE ESTADO DA SEGURANÇA​, DEFESA E CIDADANIA DE RONDONIA', para: 'Secretaria de Estado da Segurança, Defesa e Cidadania de Rondônia' },
+  { uf: 'AP', de: 'SECRETARIA DE ESTADO DA JUSTIÇA E SEGURANÇA PÚBLICA DO AMAPÁ', para: 'Secretaria de Estado da Justiça e Segurança Pública do Amapá' },
+  { uf: 'AP', de: 'Secretaria de Estado de Segurança Pública do Amapá', para: 'Secretaria de Estado da Justiça e Segurança Pública do Amapá' },
+  { uf: 'PB', de: 'Secretaria de Estado da Segurança Pública e Defesa Social da Paraíba', para: 'Secretaria de Estado da Segurança e da Defesa Social da Paraíba' },
+  { uf: 'PB', de: 'Secretaria de Estado da Segurança Pública e da Defesa Social da Paraíba', para: 'Secretaria de Estado da Segurança e da Defesa Social da Paraíba' },
+  { uf: 'PB', de: 'Secr. de Est. da Segurança e da Def. Soc. da Paraíba', para: 'Secretaria de Estado da Segurança e da Defesa Social da Paraíba' },
+  { uf: 'TO', de: 'Polícia Militar do Estado do Tocantins', para: 'Polícia Militar' },
+  { uf: 'TO', de: 'Polícia Militar do Estado do Tocantins​', para: 'Polícia Militar' },
+  { uf: 'TO', de: 'Polícia Militar do Estado do Tocantins - TO', para: 'Polícia Militar' },
+  { uf: 'TO', de: 'Policia Militar do Estado do Tocantins', para: 'Polícia Militar' },
+  { uf: 'MS', de: 'Secretaria de Estado de Justiça e Segurança Pública de Mato Grosso do Sul', para: 'Secretaria de Estado de Justiça e Segurança Pública do Mato Grosso do Sul' },
+  { uf: 'MS', de: 'Secretaria de Est. de Justiça e Segurança Pública do Mato Grosso do Sul', para: 'Secretaria de Estado de Justiça e Segurança Pública do Mato Grosso do Sul' },
+  { uf: 'MS', de: 'Secretaria de Estado de Justiça e Segurança Pública', para: 'Secretaria de Estado de Justiça e Segurança Pública do Mato Grosso do Sul' },
+  { uf: 'MS', de: 'Secretaria de Estado de Justiça e Segurança Pública - MS', para: 'Secretaria de Estado de Justiça e Segurança Pública do Mato Grosso do Sul' },
+  { uf: 'MS', de: 'Secretaria Est. Just. e Segurança Pública do Mato Grosso do Sul', para: 'Secretaria de Estado de Justiça e Segurança Pública do Mato Grosso do Sul' },
+  { uf: 'PE', de: 'Secretaria de Defesa Social de Pernambuco', para: 'Secretaria de Defesa Social do Estado de Pernambuco' },
+  { uf: 'PE', de: 'SECRETARIA DE DEFESA SOCIAL DE PERNAMBUCO', para: 'Secretaria de Defesa Social do Estado de Pernambuco' },
+  { uf: 'TO', de: 'Secretaria da Segurança Pública do Estado do Tocantins', para: 'Secretaria de Estado da Segurança Pública do Tocantins' },
+  { uf: 'TO', de: 'Secretaria da Segurança Pública do Tocantins', para: 'Secretaria de Estado da Segurança Pública do Tocantins' },
+  { uf: 'TO', de: 'Secretaria de Estado de Segurança Pública de Tocantins', para: 'Secretaria de Estado da Segurança Pública do Tocantins' },
+  { uf: 'AC', de: 'Secretaria de Estado de Justiça e Segurança Pública do Acre', para: 'Secretaria de Estado da Justiça e Segurança Pública do Acre' },
+  { uf: 'AC', de: 'Secretaria de Estado da Justiça e Segurança Publicado Acre', para: 'Secretaria de Estado da Justiça e Segurança Pública do Acre' },
+  { uf: 'RR', de: 'Secretaria de Estado da Segurança Publica de Roraima', para: 'Secretaria de Estado da Segurança Pública de Roraima' },
+  { uf: 'RR', de: 'Secretaria de Est. da Segurança Publica de Roraima', para: 'Secretaria de Estado da Segurança Pública de Roraima' },
+  { uf: 'RR', de: 'Secretária de Segurança Pública de Roraima', para: 'Secretaria de Estado da Segurança Pública de Roraima' },
+  { uf: 'MT', de: 'Secretaria de Estado de Segurança Pública do Mato Grosso', para: 'Secretaria de Estado de Segurança Pública de Mato Grosso' },
+  { uf: 'MT', de: 'Secretaria de Estado de Segurança Pública - MT', para: 'Secretaria de Estado de Segurança Pública de Mato Grosso' },
+  { uf: 'MT', de: 'Secretaria de Estado da Segurança Pública do Mato Grosso', para: 'Secretaria de Estado de Segurança Pública de Mato Grosso' },
+  { uf: 'MT', de: 'Secretaria de Estado de Segurança Pública​​​ de Mato Grosso - MT', para: 'Secretaria de Estado de Segurança Pública de Mato Grosso' },
+  { uf: 'SC', de: 'Secretaria de Est. da Seg. Pública de Santa Catarina', para: 'Secretaria de Estado da Segurança Pública de Santa Catarina' },
+  { uf: 'SC', de: 'Secretaria de estado da Segurança Pública de Santa Catarina', para: 'Secretaria de Estado da Segurança Pública de Santa Catarina' },
+  { uf: 'AM', de: 'Secretaria de Estado da Segurança Pública do Amazonas', para: 'Secretaria de Estado de Segurança Pública do Amazonas' },
+  { uf: 'AM', de: 'Secretaria de Estado de Segurança Pública do Estado do Amazonas', para: 'Secretaria de Estado de Segurança Pública do Amazonas' },
+  { uf: 'AM', de: 'Secretaria de Estado de Segurança Pública do Amazonas.', para: 'Secretaria de Estado de Segurança Pública do Amazonas' },
+  { uf: 'RS', de: 'Secretaria da Segurança Pública do Estado do Rio Grande do Sul', para: 'Secretaria de Estado da Segurança Pública do Rio Grande do Sul' },
+  { uf: 'RS', de: 'Secretaria da Segurança Pública do Rio Grande do Sul', para: 'Secretaria de Estado da Segurança Pública do Rio Grande do Sul' },
+  { uf: 'RS', de: 'Secretaria de Est. da Seg. Públ. do Rio Grande do Sul', para: 'Secretaria de Estado da Segurança Pública do Rio Grande do Sul' },
+  { uf: 'SE', de: 'Secretaria de Estado de Segurança Pública de Sergipe', para: 'Secretaria de Estado da Segurança Pública de Sergipe' },
+  { uf: 'SE', de: 'Secretaria de Estado da Segurança Pública de Sergipe​', para: 'Secretaria de Estado da Segurança Pública de Sergipe' },
+  { uf: 'SE', de: 'Secretaria de Estado da Segurança Pública do Estado de Sergipe', para: 'Secretaria de Estado da Segurança Pública de Sergipe' },
+  { uf: 'SE', de: 'Secretaria de Est. da Segurança Pública de Sergipe', para: 'Secretaria de Estado da Segurança Pública de Sergipe' },
+  { uf: 'RJ', de: 'Secretaria de Estado da Polícia Militar do Rio de Janeiro', para: 'Secretaria de Estado de Polícia Militar do Rio de Janeiro' },
+  { uf: 'RJ', de: 'Secretaria de Estado de Polícia Militar do Rio de Janeiro - RJ', para: 'Secretaria de Estado de Polícia Militar do Rio de Janeiro' },
+  { uf: 'RJ', de: 'Secretaria de Estado de Polícia Militar do Estado do Rio de Janeiro', para: 'Secretaria de Estado de Polícia Militar do Rio de Janeiro' },
+  { uf: 'RJ', de: 'Secretaria de Estado da Polícia Militar - RJ', para: 'Secretaria de Estado de Polícia Militar do Rio de Janeiro' },
+  { uf: 'RJ', de: 'Secretaria de Estado de Policia Militar do Rio de Janeiro', para: 'Secretaria de Estado de Polícia Militar do Rio de Janeiro' },
+  { uf: 'RJ', de: 'SECRETARIA DE ESTADO DE POLICIA MILITAR do Rio de janeiro', para: 'Secretaria de Estado de Polícia Militar do Rio de Janeiro' },
+  { uf: 'PA', de: 'Sec. Est. Seg. Públ. Def. Social do Est. do Pará', para: 'Secretaria de Estado de Segurança Pública e Defesa Social do Pará' },
+  { uf: 'PA', de: 'Secretaria de Estado de Segurança Pública e Defesa Social da Pará', para: 'Secretaria de Estado de Segurança Pública e Defesa Social do Pará' },
+  { uf: 'PR', de: 'Secretaria de Estado da Segurança Pública do Estado do Paraná', para: 'Secretaria de Estado da Segurança Pública do Paraná' },
+  { uf: 'PR', de: 'Secretaria de Estado da Segurança Publica do Paraná', para: 'Secretaria de Estado da Segurança Pública do Paraná' },
+  { uf: 'PR', de: 'Secretaria de Est. da Segurança Pública do Paraná', para: 'Secretaria de Estado da Segurança Pública do Paraná' },
+  { uf: 'PR', de: 'Secretaria de Estado da Segurança Pública', para: 'Secretaria de Estado da Segurança Pública do Paraná' },
+  { uf: 'PR', de: 'SECRETARIA DE ESTADO DA SEGURANÇA PÚBLICA DO PARANA', para: 'Secretaria de Estado da Segurança Pública do Paraná' },
+  { uf: 'MA', de: 'Secretaria de Estado da Segurança Pública do Estado do Maranhão', para: 'Secretaria de Estado da Segurança Pública do Maranhão' },
+  { uf: 'MA', de: 'Secretaria de Segurança Público do Maranhão', para: 'Secretaria de Estado da Segurança Pública do Maranhão' },
+  { uf: 'MA', de: 'Secretaria de Estado de Segurança Pública do Maranhão', para: 'Secretaria de Estado da Segurança Pública do Maranhão' },
+  { uf: 'MA', de: 'Segurança Pública do Maranhão', para: 'Secretaria de Estado da Segurança Pública do Maranhão' },
+  { uf: 'PI', de: 'Secretaria de Estado da Segurança Pública do Piauí', para: 'Secretaria de Segurança Pública do Estado do Piauí' },
+  { uf: 'PI', de: 'Secretaria de Segurança do Piauí', para: 'Secretaria de Segurança Pública do Estado do Piauí' },
+  { uf: 'PI', de: 'Secretaria de Segurança - PI', para: 'Secretaria de Segurança Pública do Estado do Piauí' },
+  { uf: 'PI', de: 'Secretaria de Segurança Pública do Piauí', para: 'Secretaria de Segurança Pública do Estado do Piauí' },
+  { uf: 'PI', de: 'Secretaria de Estado de Segurança Pública do Piauí', para: 'Secretaria de Segurança Pública do Estado do Piauí' },
+  { uf: 'RN', de: 'Secretaria de Estado da Segurança Publica e da Defesa Social do Rio Grande do Norte', para: 'Secretaria de Estado da Segurança Pública e da Defesa Social do Rio Grande do Norte' },
+  { uf: 'RN', de: 'Secr. Est. Seg. Públ. Def. Soc. Rio Grande do Norte', para: 'Secretaria de Estado da Segurança Pública e da Defesa Social do Rio Grande do Norte' },
+  { uf: 'RN', de: 'Secretária de Estado da Segurança e da Defesa Social do Rio Grande do Norte', para: 'Secretaria de Estado da Segurança Pública e da Defesa Social do Rio Grande do Norte' },
+  { uf: 'RN', de: 'Secretária de Segurança Pública do Rio Grande do Norte', para: 'Secretaria de Estado da Segurança Pública e da Defesa Social do Rio Grande do Norte' },
+  { uf: 'MG', de: 'Polícia Militar do Estado de Minas Gerais', para: 'Polícia Militar' },
+  { uf: 'MG', de: 'Polícia Militar de Minas Gerais', para: 'Polícia Militar' },
+  { uf: 'AL', de: 'Secretaria de Estado da Segurança Pública - AL', para: 'Secretaria de Estado da Segurança Pública de Alagoas' },
+  { uf: 'AL', de: 'Secretaria de Estado da Segurança Pública do Estado de Alagoas', para: 'Secretaria de Estado da Segurança Pública de Alagoas' },
+  { uf: 'CE', de: 'Secretaria da Segurança Pública e Defesa Social do Ceará', para: 'Secretaria da Segurança Pública e Defesa Social do Estado do Ceará' },
+  { uf: 'CE', de: 'Secretaria da Segurança Pública e Def. Soc. do Estado do Ceará', para: 'Secretaria da Segurança Pública e Defesa Social do Estado do Ceará' },
+  { uf: 'CE', de: 'Secretaria de Segurança Pública e Defesa Social do Ceará', para: 'Secretaria da Segurança Pública e Defesa Social do Estado do Ceará' },
+  { uf: 'CE', de: 'Secr. da Segurança Pública e Defesa Social do Estado do Ceará', para: 'Secretaria da Segurança Pública e Defesa Social do Estado do Ceará' },
+  { uf: 'ES', de: 'Sec. Est. Seg. Públ. Def. Social do Espírito Santo', para: 'Secretaria de Estado da Segurança Pública e Defesa Social do Espírito Santo' },
+  { uf: 'ES', de: 'Secr. de Est. Seg. Públ. e Def. Soc. do Espírito Santo', para: 'Secretaria de Estado da Segurança Pública e Defesa Social do Espírito Santo' },
+  { uf: 'ES', de: 'Secretaria da Segurança Pública e Defesa Social do Espírito Santo', para: 'Secretaria de Estado da Segurança Pública e Defesa Social do Espírito Santo' },
+  { uf: 'ES', de: 'Secretaria de Estado da Segurança e Defesa Social Espírito Santo', para: 'Secretaria de Estado da Segurança Pública e Defesa Social do Espírito Santo' },
+  { uf: 'ES', de: 'Secretaria de Estado de Estado da Segurança Pública e Defesa Social do Espírito Santo', para: 'Secretaria de Estado da Segurança Pública e Defesa Social do Espírito Santo' },
+  { uf: 'GO', de: 'Secretaria de Estado da Segurança Pública Goiás', para: 'Secretaria de Estado da Segurança Pública de Goiás' },
+  { uf: 'GO', de: 'Secretaria de Estado da Segurança Pública do Estado de Goiás', para: 'Secretaria de Estado da Segurança Pública de Goiás' },
+  { uf: 'MG', de: 'Polícia Civil de Minas Gerais', para: 'Polícia Civil' },
+  { uf: 'MG', de: 'Polícia Civil do Estado de Minas Gerais', para: 'Polícia Civil' },
+  { uf: 'RJ', de: 'Secretaria de Estado de Polícia Civil do Rio de Janeiro', para: 'Polícia Civil' },
+  { uf: 'RJ', de: 'Secretaria de Estado da Polícia Civil do Rio de Janeiro', para: 'Polícia Civil' },
+  { uf: 'RJ', de: 'Secretaria de Est. de Polícia Civil do Rio de Janeiro', para: 'Polícia Civil' },
+  { uf: 'RJ', de: 'SECRETARIA DE ESTADO DA POLÍCIA CIVIL - RJ (PCERJ)', para: 'Polícia Civil' },
+  { uf: 'BA', de: 'Secretaria da Segurança Pública da Bahia', para: 'Secretaria da Segurança Pública do Estado da Bahia' },
+  { uf: 'BA', de: 'Secretaria da Segurança Pública da Bahia - BA', para: 'Secretaria da Segurança Pública do Estado da Bahia' },
+  { uf: 'BA', de: 'Secretaria da Segurança Pública​ da Bahia', para: 'Secretaria da Segurança Pública do Estado da Bahia' },
+  { uf: 'BA', de: 'Secretaria de Segurança Pública da Bahia', para: 'Secretaria da Segurança Pública do Estado da Bahia' },
+  { uf: 'RJ', de: 'Secretaria de Est. de Defesa Civil do Estado do Rio de Janeiro', para: 'Secretaria de Estado de Defesa Civil do Rio de Janeiro' },
+  { uf: 'RJ', de: 'Secretaria de Estado de Defesa Civil do Estado do Rio de janeiro', para: 'Secretaria de Estado de Defesa Civil do Rio de Janeiro' },
+  { uf: 'MG', de: 'Corpo de Bombeiros Militar de Minas Gerais', para: 'Corpo de Bombeiros' },
+  { uf: 'MG', de: 'Corpo de Bombeiros Militar do Estado de Minas Gerais', para: 'Corpo de Bombeiros' },
+  { uf: 'CE', de: 'Corpo de Bombeiros Militar do Estado do Ceará', para: 'Corpo de Bombeiros' },
+  { uf: 'CE', de: 'Corpo de Bombeiros Militar do Ceará', para: 'Corpo de Bombeiros' },
+  { uf: 'BA', de: 'Polícia Militar da Bahia', para: 'Polícia Militar' },
+  { uf: 'BA', de: 'Polícia Militar do Estado da Bahia', para: 'Polícia Militar' },
+  { uf: 'ES', de: 'Polícia Militar do Espírito Santo', para: 'Polícia Militar' },
+  { uf: 'ES', de: 'Polícia Militar do Estado do Espírito Santo', para: 'Polícia Militar' },
+  { uf: 'BA', de: 'Polícia Civil da Bahia', para: 'Polícia Civil' },
+  { uf: 'BA', de: 'Polícia Civil do Estado da Bahia', para: 'Polícia Civil' },
+  { uf: 'GO', de: 'Corpo de Bombeiros Militar do Estado do Goiás', para: 'Corpo de Bombeiros' },
+  { uf: 'GO', de: 'Corpo de Bombeiros Militar do Estado de Goiás', para: 'Corpo de Bombeiros' },
+  { uf: 'PI', de: 'Corpo de Bombeiros Militar do Estado do Piauí', para: 'Corpo de Bombeiros' },
+  { uf: 'PI', de: 'Corpo de Bombeiros Militar do Piauí', para: 'Corpo de Bombeiros' },
+  { uf: 'BA', de: 'Corpo de Bombeiros Militar da Bahia', para: 'Corpo de Bombeiros' },
+  { uf: 'BA', de: 'Corpo de Bombeiros Militar do Estado da Bahia', para: 'Corpo de Bombeiros' }
+];
+
+/**
+ * Aplica o De-Para acima em massa na aba Veiculos — só em registros com
+ * Ente = "Estado" (Município e União ficam de fora por enquanto). Não
+ * mexe em NumeroSei/Chassi/Placa/Transferido/ATPVe/nada além do texto da
+ * Donatária. Idempotente: rodar de novo não faz nada nas linhas já
+ * unificadas (o valor atual já não bate com nenhum "de" da lista).
+ *
+ * Rode manualmente pelo editor (selecione
+ * "unificarNomenclaturaDonatariaEstado_" no menu de funções, clique em
+ * Executar) e confira o resumo em Ver > Registros de execução.
+ */
+function unificarNomenclaturaDonatariaEstado_() {
+  var perfil = exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
+
+  var deParaPorChave = {};
+  UNIFICACAO_DONATARIA_ESTADO_.forEach(function (m) {
+    deParaPorChave[m.uf + '|' + m.de.trim()] = m.para;
+  });
+
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxEnte = cabecalho.indexOf('Ente');
+  var idxUF = cabecalho.indexOf('UF');
+  var idxDonataria = cabecalho.indexOf('Donataria');
+  var idxExcluido = cabecalho.indexOf('Excluido');
+  var idxId = cabecalho.indexOf('ID');
+  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
+  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
+
+  var agora = new Date();
+  var idsAtualizados = [];
+  var contagemPorUf = {};
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[idxId]) continue;
+    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
+    if (linha[idxEnte] !== 'Estado') continue;
+
+    var chave = linha[idxUF] + '|' + String(linha[idxDonataria] || '').trim();
+    var nomeCanonico = deParaPorChave[chave];
+    if (!nomeCanonico || nomeCanonico === linha[idxDonataria]) continue;
+
+    var linhaAtualizada = linha.slice();
+    linhaAtualizada[idxDonataria] = nomeCanonico;
+    linhaAtualizada[idxUltimaAtualizacao] = agora;
+    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (unificação de nomenclatura Estado)';
+
+    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
+    idsAtualizados.push(linha[idxId]);
+    contagemPorUf[linha[idxUF]] = (contagemPorUf[linha[idxUF]] || 0) + 1;
+  }
+
+  registrarLog_('UNIFICAR_DONATARIA_ESTADO', '-',
+    idsAtualizados.length + ' veículo(s) com Donatária unificada (Ente=Estado). Por UF: ' + JSON.stringify(contagemPorUf));
+  invalidarCacheDashboard_();
+
+  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s).');
+  Logger.log('Por UF: ' + JSON.stringify(contagemPorUf));
+  return { atualizados: idsAtualizados.length, porUf: contagemPorUf };
+}
+
+/**
  * Importação pontual dos 5 veículos do Ofício nº 480/2026/TRANSV/COLOG/
  * DGFNSP/SENASP/MJ (Termo de Doação SENASP 439/2026, à Secretaria de
  * Estado da Segurança Pública do Paraná — SEI 36509302, Processo
