@@ -2711,10 +2711,10 @@ function importarContatosMunicipios() {
  * problema).
  *
  * Rode manualmente pelo editor (selecione
- * "marcarAtpveEmitidoEnviado2024e2025_" no menu de funções, clique em
+ * "marcarAtpveEmitidoEnviado2024e2025" no menu de funções, clique em
  * Executar) e confira o resumo em Ver > Registros de execução.
  */
-function marcarAtpveEmitidoEnviado2024e2025_() {
+function marcarAtpveEmitidoEnviado2024e2025() {
   var perfil = exigirPerfilAdmin_();
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
   garantirColunasVeiculos_();
@@ -2914,10 +2914,10 @@ var UNIFICACAO_DONATARIA_ESTADO_ = [
  * unificadas (o valor atual já não bate com nenhum "de" da lista).
  *
  * Rode manualmente pelo editor (selecione
- * "unificarNomenclaturaDonatariaEstado_" no menu de funções, clique em
+ * "unificarNomenclaturaDonatariaEstado" no menu de funções, clique em
  * Executar) e confira o resumo em Ver > Registros de execução.
  */
-function unificarNomenclaturaDonatariaEstado_() {
+function unificarNomenclaturaDonatariaEstado() {
   var perfil = exigirPerfilAdmin_();
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
   garantirColunasVeiculos_();
