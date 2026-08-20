@@ -1586,6 +1586,10 @@
             <select id="enteStatGeral" onchange="atualizarDisponibilidadeModoDonataria_()"><option value="">Todos</option></select>
           </div>
           <div class="campo">
+            <label for="ufStatGeral">UF</label>
+            <select id="ufStatGeral"><option value="">Todas</option></select>
+          </div>
+          <div class="campo">
             <button type="button" class="primario" onclick="atualizarVisualizacaoStat_()">Filtrar</button>
           </div>
         </div>
@@ -3580,6 +3584,7 @@
     preencherSelect('f_Ente', ctx.listas.ente, false, 'Todos');
     preencherSelect('f_Transferido', ctx.listas.transferido, false, 'Todos');
     preencherSelect('enteStatGeral', ctx.listas.ente, false, 'Todos');
+    preencherSelect('ufStatGeral', ctx.listas.uf, false, 'Todas');
     preencherSelect('pe_Mes', ctx.listas.mes, true);
     preencherSelect('pe_UF', ctx.listas.uf, true);
     preencherSelect('pe_Ente', ctx.listas.ente, true);
@@ -6276,11 +6281,12 @@
     var anos = ANOS_STAT_SELECIONADOS;
     var transferido = document.getElementById('transfStatGeral').value;
     var ente = document.getElementById('enteStatGeral').value;
+    var uf = document.getElementById('ufStatGeral').value;
 
     if (MODO_VISUALIZACAO_STAT === 'donataria') {
       document.getElementById('rankDonataria').innerHTML = '<div class="carregando">Carregando...</div>';
       try {
-        var itensDonataria = await chamarServidor_('getVeiculosPorDonataria', anos, transferido, ente);
+        var itensDonataria = await chamarServidor_('getVeiculosPorDonataria', anos, transferido, ente, uf);
         renderizarRankDonataria_(itensDonataria);
       } catch (erroDonataria) {
         mostrarErroGlobal(erroDonataria);
@@ -6291,7 +6297,7 @@
     var idContainer = MODO_VISUALIZACAO_STAT === 'regiao' ? 'mapaRegional' : (MODO_VISUALIZACAO_STAT === 'mapa' ? 'mapaBrasil' : 'rankUF');
     document.getElementById(idContainer).innerHTML = '<div class="carregando">Carregando...</div>';
     try {
-      var itens = await chamarServidor_('getVeiculosPorUFAno', anos, transferido, null, ente);
+      var itens = await chamarServidor_('getVeiculosPorUFAno', anos, transferido, null, ente, uf);
       if (MODO_VISUALIZACAO_STAT === 'regiao') renderizarMapaRegional_(itens);
       else if (MODO_VISUALIZACAO_STAT === 'mapa') renderizarMapaBrasil_(itens);
       else renderizarRankUF_(itens);

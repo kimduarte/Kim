@@ -4361,11 +4361,12 @@ function getEstatisticas() {
  * um filtro), diferente do painel geral que é recalculado toda hora que
  * alguém abre a tela.
  */
-function getVeiculosPorUFAno(ano, transferido, campo, ente) {
+function getVeiculosPorUFAno(ano, transferido, campo, ente, uf) {
   var filtros = {};
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   if (ente) filtros.ente = ente;
+  if (uf) filtros.uf = uf;
   var registros = listarVeiculos(filtros);
   return contarESomarValorPor_(registros, campo || 'UF');
 }
@@ -4379,11 +4380,12 @@ function getVeiculosPorUFAno(ano, transferido, campo, ente) {
  * Militar" existe em vários — o nome sozinho não identifica o órgão, só
  * nome+UF identifica).
  */
-function getVeiculosPorDonataria(ano, transferido, ente) {
+function getVeiculosPorDonataria(ano, transferido, ente, uf) {
   var filtros = {};
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   if (ente) filtros.ente = ente;
+  if (uf) filtros.uf = uf;
   var registros = listarVeiculos(filtros);
 
   var mapa = {};
