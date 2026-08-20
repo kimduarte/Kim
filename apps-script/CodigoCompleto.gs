@@ -949,6 +949,7 @@ function listarVeiculos(filtros) {
       if (anosFiltro.indexOf(String(registro.Ano)) === -1) continue;
     }
     if (filtros.transferido && registro.Transferido !== filtros.transferido) continue;
+    if (filtros.donataria && registro.Donataria !== filtros.donataria) continue;
     if (filtros.somenteRascunho && (registro.StatusCadastro || 'COMPLETO') !== 'RASCUNHO') continue;
     if (busca) {
       var camposAlvo = campoBusca
@@ -4370,6 +4371,47 @@ function getVeiculosPorUFAno(ano, transferido, campo, ente) {
 }
 
 /**
+ * "Como você deseja visualizar?" > Por Donatária — só faz sentido pedir
+ * Ente = Estado ou União (Município tem centenas de nomes distintos, viraria
+ * uma lista imprestável). Agrupa por Donatária + UF (não só Donatária)
+ * porque, depois da unificação de nomenclatura, várias Donatárias de Estado
+ * viraram nomes genéricos que se repetem entre estados (ex.: "Polícia
+ * Militar" existe em vários — o nome sozinho não identifica o órgão, só
+ * nome+UF identifica).
+ */
+function getVeiculosPorDonataria(ano, transferido, ente) {
+  var filtros = {};
+  if (ano && ano.length) filtros.ano = ano;
+  if (transferido) filtros.transferido = transferido;
+  if (ente) filtros.ente = ente;
+  var registros = listarVeiculos(filtros);
+
+  var mapa = {};
+  var ordem = [];
+  registros.forEach(function (r) {
+    var nome = r.Donataria || '(não informado)';
+    var chave = nome + '|' + (r.UF || '');
+    if (!mapa[chave]) {
+      mapa[chave] = { donataria: nome, uf: r.UF || '', total: 0, valorTotal: 0 };
+      ordem.push(chave);
+    }
+    mapa[chave].total++;
+    mapa[chave].valorTotal += Number(r.ValorVeiculo) || 0;
+  });
+
+  return ordem.map(function (chave) {
+    var g = mapa[chave];
+    return {
+      chave: g.donataria + (g.uf ? ' — ' + g.uf : ''),
+      donataria: g.donataria,
+      uf: g.uf,
+      total: g.total,
+      valorTotal: g.valorTotal
+    };
+  }).sort(function (a, b) { return b.total - a.total; });
+}
+
+/**
  * Como contarPor_, mas devolve também a soma de ValorVeiculo de cada grupo
  * — usada só pelo painel "Como você deseja visualizar?", que mostra o
  * total em reais ao lado da contagem de veículos por UF/Região.
@@ -4402,9 +4444,16 @@ function contarESomarValorPor_(registros, campo) {
  * do Termo de Doação como referência (dá pra achar o documento no SEI
  * mesmo sem o número do processo formal).
  */
-function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente) {
+// ufExtra restringe também por UF além do campoFiltro principal — usada só
+// no drill-down "Por Donatária" (ver getVeiculosPorDonataria), porque
+// depois da unificação de nomenclatura várias Donatárias de Estado viraram
+// nomes genéricos iguais em UFs diferentes (ex.: "Polícia Militar" existe
+// em vários estados) — sem essa UF extra, clicar numa linha misturaria
+// veículos de estados diferentes que só coincidem no nome.
+function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente, ufExtra) {
   var filtros = {};
   filtros[campoFiltro || 'uf'] = valor;
+  if (ufExtra) filtros.uf = ufExtra;
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   if (ente) filtros.ente = ente;
@@ -4452,8 +4501,8 @@ function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente)
  * grupo é o total de veículos; qtdTransferidos é quantos já estão
  * Transferido: SIM — a tela monta o "X/Y" a partir desses dois números.
  */
-function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro, ente) {
-  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente);
+function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro, ente, ufExtra) {
+  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente, ufExtra);
   var grupos = {};
   var ordem = [];
 
@@ -4495,8 +4544,8 @@ function getVeiculosPorUFDetalhado(valor, ano, transferido, campoFiltro, ente) {
  * exportação do Google Sheets (mesmo truque de exportarPlanilhaComoXlsx_),
  * e apaga a planilha temporária logo em seguida.
  */
-function exportarDetalheUFXlsx(valor, ano, transferido, campoFiltro, ente) {
-  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente);
+function exportarDetalheUFXlsx(valor, ano, transferido, campoFiltro, ente, ufExtra) {
+  var registros = listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente, ufExtra);
   var cabecalho = ['Processo', 'Número SEI', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
     'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferência', 'Valor'];
   var linhas = registros.map(function (r) {

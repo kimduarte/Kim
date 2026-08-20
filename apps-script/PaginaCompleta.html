@@ -1557,6 +1557,7 @@
           <button type="button" class="primario" id="botaoModoStatUF" onclick="alternarModoVisualizacaoStat_('uf')">Por UF</button>
           <button type="button" class="secundario" id="botaoModoStatRegiao" onclick="alternarModoVisualizacaoStat_('regiao')">Por Região</button>
           <button type="button" class="secundario" id="botaoModoStatMapa" onclick="alternarModoVisualizacaoStat_('mapa')">Mapa do Brasil</button>
+          <button type="button" class="secundario" id="botaoModoStatDonataria" onclick="alternarModoVisualizacaoStat_('donataria')" disabled title="Escolha o Ente Estado ou União no filtro abaixo para habilitar">Por Donatária</button>
         </div>
         <div class="filtros" style="margin-top:14px; margin-bottom:4px; align-items:end;">
           <div class="campo campo-dropdown">
@@ -1574,7 +1575,7 @@
           </div>
           <div class="campo">
             <label for="enteStatGeral">Ente</label>
-            <select id="enteStatGeral"><option value="">Todos</option></select>
+            <select id="enteStatGeral" onchange="atualizarDisponibilidadeModoDonataria_()"><option value="">Todos</option></select>
           </div>
           <div class="campo">
             <button type="button" class="primario" onclick="atualizarVisualizacaoStat_()">Filtrar</button>
@@ -1588,6 +1589,10 @@
         </div>
         <div id="corpoStatMapa" style="display:none;">
           <div id="mapaBrasil"></div>
+        </div>
+        <div id="corpoStatDonataria" style="display:none;">
+          <p class="dica-painel">Disponível só com o filtro Ente = Estado ou União (Município tem centenas de nomes distintos).</p>
+          <div class="rank-lista" id="rankDonataria" style="max-height:560px; overflow-y:auto;"></div>
         </div>
       </div>
 
@@ -6192,9 +6197,25 @@
     document.getElementById('botaoModoStatUF').className = modo === 'uf' ? 'primario' : 'secundario';
     document.getElementById('botaoModoStatRegiao').className = modo === 'regiao' ? 'primario' : 'secundario';
     document.getElementById('botaoModoStatMapa').className = modo === 'mapa' ? 'primario' : 'secundario';
+    document.getElementById('botaoModoStatDonataria').className = modo === 'donataria' ? 'primario' : 'secundario';
     document.getElementById('corpoStatUF').style.display = modo === 'uf' ? '' : 'none';
     document.getElementById('corpoStatRegiao').style.display = modo === 'regiao' ? '' : 'none';
     document.getElementById('corpoStatMapa').style.display = modo === 'mapa' ? '' : 'none';
+    document.getElementById('corpoStatDonataria').style.display = modo === 'donataria' ? '' : 'none';
+    if (modo === 'donataria') atualizarVisualizacaoStat_();
+  }
+
+  // "Por Donatária" só faz sentido com Ente = Estado ou União — Município
+  // tem centenas de nomes distintos, viraria uma lista imprestável. Se o
+  // Ente mudar pra um valor que não permite mais esse modo enquanto ele
+  // está ativo, volta sozinho pra "Por UF".
+  function atualizarDisponibilidadeModoDonataria_() {
+    var ente = document.getElementById('enteStatGeral').value;
+    var permitido = ente === 'Estado' || ente === 'União';
+    var botao = document.getElementById('botaoModoStatDonataria');
+    botao.disabled = !permitido;
+    botao.title = permitido ? '' : 'Escolha o Ente Estado ou União no filtro abaixo para habilitar';
+    if (!permitido && MODO_VISUALIZACAO_STAT === 'donataria') alternarModoVisualizacaoStat_('uf');
   }
 
   // ---------- Dropdown de Ano com checkboxes (permite marcar vários anos,
@@ -6247,6 +6268,18 @@
     var anos = ANOS_STAT_SELECIONADOS;
     var transferido = document.getElementById('transfStatGeral').value;
     var ente = document.getElementById('enteStatGeral').value;
+
+    if (MODO_VISUALIZACAO_STAT === 'donataria') {
+      document.getElementById('rankDonataria').innerHTML = '<div class="carregando">Carregando...</div>';
+      try {
+        var itensDonataria = await chamarServidor_('getVeiculosPorDonataria', anos, transferido, ente);
+        renderizarRankDonataria_(itensDonataria);
+      } catch (erroDonataria) {
+        mostrarErroGlobal(erroDonataria);
+      }
+      return;
+    }
+
     var idContainer = MODO_VISUALIZACAO_STAT === 'regiao' ? 'mapaRegional' : (MODO_VISUALIZACAO_STAT === 'mapa' ? 'mapaBrasil' : 'rankUF');
     document.getElementById(idContainer).innerHTML = '<div class="carregando">Carregando...</div>';
     try {
@@ -6276,6 +6309,62 @@
         '<div class="rank-trilha"><div class="rank-barra" style="width:' + pct + '%;"></div></div>' +
         '<span class="rank-valor mono">' + item.total + ' • ' + formatarMoeda_(item.valorTotal) + '</span></div>';
     }).join('');
+  }
+
+  // "Veículos por Donatária" — mesma ideia do rank de UF, mas agrupado por
+  // Donatária + UF (não só Donatária — depois da unificação de nomenclatura
+  // várias Donatárias de Estado viraram nomes genéricos repetidos entre
+  // estados, ex.: "Polícia Militar"). DADOS_RANK_DONATARIA guarda os itens
+  // pra abrirDetalheDonataria_ achar o donataria/uf de cada linha pelo
+  // índice, sem precisar colocar os dois no atributo onclick (evita
+  // escapar aspas dentro de aspas pra nomes com apóstrofo).
+  var DADOS_RANK_DONATARIA = [];
+
+  function renderizarRankDonataria_(itens) {
+    DADOS_RANK_DONATARIA = itens || [];
+    var container = document.getElementById('rankDonataria');
+    if (!itens.length) {
+      container.innerHTML = '<div class="stat-card-vazio">Sem dados.</div>';
+      return;
+    }
+    var max = itens[0].total || 0;
+    container.innerHTML = itens.map(function (item, i) {
+      var pct = max ? Math.round((item.total / max) * 100) : 0;
+      return '<div class="rank-linha" onclick="abrirDetalheDonataria_(' + i + ')">' +
+        '<span class="rank-uf">' + escaparHtml(item.chave) + '</span>' +
+        '<div class="rank-trilha"><div class="rank-barra" style="width:' + pct + '%;"></div></div>' +
+        '<span class="rank-valor mono">' + item.total + ' • ' + formatarMoeda_(item.valorTotal) + '</span></div>';
+    }).join('');
+  }
+
+  function abrirDetalheDonataria_(indice) {
+    var item = DADOS_RANK_DONATARIA[indice];
+    if (!item) return;
+    var anos = ANOS_STAT_SELECIONADOS;
+    var transferido = document.getElementById('transfStatGeral').value;
+    var ente = document.getElementById('enteStatGeral').value;
+    CONTEXTO_DETALHE_UF = { uf: item.donataria, ufExtra: item.uf, rotulo: item.chave, ano: anos, transferido: transferido, campoFiltro: 'donataria', ente: ente };
+    DETALHE_UF_EXPANDIDOS = {};
+    MODO_DETALHE_UF = 'resumido';
+    document.getElementById('botaoModoResumido').className = 'primario';
+    document.getElementById('botaoModoDetalhado').className = 'secundario';
+
+    document.getElementById('painelDetalheUFTitulo').textContent =
+      'Veículos — ' + item.chave + ' • Ano: ' + (anos.length ? anos.join(', ') : 'Todos') + ' • Transferidos: ' + (transferido || 'Todos') +
+      (ente ? ' • Ente: ' + ente : '');
+    document.getElementById('totalDetalheUF').textContent = '';
+    document.getElementById('listaDetalheUF').innerHTML = '<div class="carregando">Carregando...</div>';
+    document.getElementById('painelEstatisticasConteudo').style.display = 'none';
+    document.getElementById('painelDetalheUF').style.display = '';
+    window.scrollTo(0, 0);
+
+    google.script.run
+      .withSuccessHandler(renderizarDetalheUF_)
+      .withFailureHandler(function (erro) {
+        document.getElementById('listaDetalheUF').innerHTML =
+          '<div class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</div>';
+      })
+      .getVeiculosPorUFDetalhado(item.donataria, anos, transferido, 'donataria', ente, item.uf);
   }
 
   // "Veículos por Região/Estado" — as mesmas UFs de stats.porUF, agrupadas
@@ -6487,7 +6576,7 @@
   // clicável por processo (igual à tela de Processos), que expande e mostra
   // os veículos dele.
   var DADOS_DETALHE_UF = [];
-  var CONTEXTO_DETALHE_UF = { uf: '', ano: [], transferido: '', campoFiltro: 'uf', ente: '' };
+  var CONTEXTO_DETALHE_UF = { uf: '', ufExtra: '', rotulo: '', ano: [], transferido: '', campoFiltro: 'uf', ente: '' };
   var DETALHE_UF_EXPANDIDOS = {};
   var MODO_DETALHE_UF = 'resumido';
 
@@ -6498,7 +6587,7 @@
     var anos = ANOS_STAT_SELECIONADOS;
     var transferido = document.getElementById('transfStatGeral').value;
     var ente = document.getElementById('enteStatGeral').value;
-    CONTEXTO_DETALHE_UF = { uf: valor, ano: anos, transferido: transferido, campoFiltro: 'uf', ente: ente };
+    CONTEXTO_DETALHE_UF = { uf: valor, ufExtra: '', rotulo: valor, ano: anos, transferido: transferido, campoFiltro: 'uf', ente: ente };
     DETALHE_UF_EXPANDIDOS = {};
     MODO_DETALHE_UF = 'resumido';
     document.getElementById('botaoModoResumido').className = 'primario';
@@ -6661,7 +6750,7 @@
 
   function nomeArquivoDetalheUF_(extensao) {
     var c = CONTEXTO_DETALHE_UF;
-    return 'Veiculos_' + (c.uf || 'Todos') +
+    return 'Veiculos_' + (c.rotulo || c.uf || 'Todos').replace(/[\\/:*?"<>|]/g, '-') +
       (c.ano && c.ano.length ? '_' + c.ano.join('-') : '') +
       (c.transferido ? '_Transferido-' + c.transferido : '') +
       (c.ente ? '_' + c.ente : '') +
@@ -6703,7 +6792,7 @@
       return;
     }
     mostrarMensagem('mensagemGlobal', 'sucesso', 'Gerando o arquivo XLSX, aguarde...');
-    chamarServidor_('exportarDetalheUFXlsx', CONTEXTO_DETALHE_UF.uf, CONTEXTO_DETALHE_UF.ano, CONTEXTO_DETALHE_UF.transferido, CONTEXTO_DETALHE_UF.campoFiltro, CONTEXTO_DETALHE_UF.ente)
+    chamarServidor_('exportarDetalheUFXlsx', CONTEXTO_DETALHE_UF.uf, CONTEXTO_DETALHE_UF.ano, CONTEXTO_DETALHE_UF.transferido, CONTEXTO_DETALHE_UF.campoFiltro, CONTEXTO_DETALHE_UF.ente, CONTEXTO_DETALHE_UF.ufExtra)
       .then(function (resp) {
         var binario = atob(resp.conteudoBase64);
         var bytes = new Uint8Array(binario.length);
