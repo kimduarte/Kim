@@ -3027,6 +3027,83 @@ function importarOficio480_2026() {
   return { criados: resultado.criados.length, jaExistiam: resultado.jaExistiam.length, erros: resultado.erros.length, mensagem: mensagem };
 }
 
+/**
+ * Importação pontual dos 29 veículos do Ofício nº 495/2026/TRANSV/COLOG/
+ * DGFNSP/SENASP/MJ (Termo de Doação nº 477/2026, à Secretaria de Estado da
+ * Justiça e Segurança Pública do Acre — SEI 36601724, Processo
+ * 08020.001379/2026-96, Contrato 269/2025 conforme informado). Rode
+ * manualmente pelo editor (selecione "importarOficio495_2026" no menu de
+ * funções, clique em Executar) — é seguro rodar mais de uma vez, veículos
+ * já cadastrados (mesmo chassi/placa) são ignorados sem duplicar.
+ */
+function importarOficio495_2026() {
+  var comum = {
+    Ano: 2026,
+    Mes: 'AGO',
+    UF: 'AC',
+    Ente: 'Estado',
+    Donataria: 'Secretaria de Estado da Justiça e Segurança Pública do Acre',
+    TermoDoacao: 'Termo de Doação nº 477/2026',
+    NumeroSei: '36601724',
+    NumeroProcesso: '08020.001379/2026-96',
+    Contrato: '269/2025',
+    QtdVeiculosContrato: 29,
+    Descricao: 'TRAILBLAZER LT D4A',
+    Marca: 'CHEVROLET',
+    CNPJDonataria: '63.608.947/0001-08',
+    CEP: '69900660',
+    Logradouro: 'Avenida Getúlio Vargas',
+    Numero: '232',
+    Bairro: 'Centro',
+    Municipio: 'Rio Branco',
+    ValorVeiculo: 289017.00,
+    Transferido: 'NÃO'
+  };
+
+  var veiculos = [
+    { Chassi: '9BG156FK0TC445233', Renavam: '1496054056', Placa: 'UJA6E14' },
+    { Chassi: '9BG156FK0TC447150', Renavam: '1496058477', Placa: 'UJA6E28' },
+    { Chassi: '9BG156FK0TC448127', Renavam: '1496060170', Placa: 'UJA6E32' },
+    { Chassi: '9BG156FK0TC447140', Renavam: '1496061796', Placa: 'UJA6E43' },
+    { Chassi: '9BG156FK0TC448073', Renavam: '1496069177', Placa: 'UJA6E67' },
+    { Chassi: '9BG156FK0TC448043', Renavam: '1496071244', Placa: 'UJA6E79' },
+    { Chassi: '9BG156FK0TC448028', Renavam: '1496078176', Placa: 'UJA6E85' },
+    { Chassi: '9BG156FK0TC448023', Renavam: '1496097120', Placa: 'UJA6F61' },
+    { Chassi: '9BG156FK0TC447773', Renavam: '1496100279', Placa: 'UJA6F69' },
+    { Chassi: '9BG156FK0TC446917', Renavam: '1496102530', Placa: 'UJA6F81' },
+    { Chassi: '9BG156FK0TC446889', Renavam: '1496104630', Placa: 'UJA6F88' },
+    { Chassi: '9BG156FK0TC446880', Renavam: '1496107036', Placa: 'UJA6G01' },
+    { Chassi: '9BG156FK0TC446873', Renavam: '1496108580', Placa: 'UJA6G05' },
+    { Chassi: '9BG156FK0TC446862', Renavam: '1496109977', Placa: 'UJA6G09' },
+    { Chassi: '9BG156FK0TC446801', Renavam: '1496111068', Placa: 'UJA6G11' },
+    { Chassi: '9BG156FK0TC449137', Renavam: '1496124933', Placa: 'UJA6G31' },
+    { Chassi: '9BG156FK0TC448781', Renavam: '1496126065', Placa: 'UJA6G33' },
+    { Chassi: '9BG156FK0TC446131', Renavam: '1496126820', Placa: 'UJA6G34' },
+    { Chassi: '9BG156FK0TC446574', Renavam: '1496127290', Placa: 'UJA6G36' },
+    { Chassi: '9BG156FK0TC446573', Renavam: '1496129498', Placa: 'UJA6G40' },
+    { Chassi: '9BG156FK0TC446569', Renavam: '1496130453', Placa: 'UJA6G42' },
+    { Chassi: '9BG156FK0TC446562', Renavam: '1496131557', Placa: 'UJA6G44' },
+    { Chassi: '9BG156FK0TC446560', Renavam: '1496132138', Placa: 'UJA6G46' },
+    { Chassi: '9BG156FK0TC446602', Renavam: '1496132553', Placa: 'UJA6G47' },
+    { Chassi: '9BG156FK0TC446601', Renavam: '1496132928', Placa: 'UJA6G48' },
+    { Chassi: '9BG156FK0TC446600', Renavam: '1496133045', Placa: 'UJA6G50' },
+    { Chassi: '9BG156FK0TC446598', Renavam: '1496133274', Placa: 'UJA6G51' },
+    { Chassi: '9BG156FK0TC446597', Renavam: '1496133720', Placa: 'UJA6G52' },
+    { Chassi: '9BG156FK0TC446593', Renavam: '1496134025', Placa: 'UJA6G53' }
+  ];
+
+  var resultado = importarVeiculosEmLote_(comum, veiculos);
+  Logger.log('Cadastrados: ' + resultado.criados.length + (resultado.criados.length ? '\n' + resultado.criados.join('\n') : ''));
+  if (resultado.jaExistiam.length) Logger.log('Já existiam (ignorados): ' + resultado.jaExistiam.length + '\n' + resultado.jaExistiam.join(', '));
+  if (resultado.erros.length) Logger.log('Erros: ' + resultado.erros.length + '\n' + resultado.erros.join('\n'));
+
+  var mensagem = resultado.criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
+    (resultado.jaExistiam.length ? ' ' + resultado.jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
+    (resultado.erros.length ? ' ' + resultado.erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
+  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importar Ofício 495/2026', 15);
+  return { criados: resultado.criados.length, jaExistiam: resultado.jaExistiam.length, erros: resultado.erros.length, mensagem: mensagem };
+}
+
 function atualizarVeiculo_(sheet, perfil, id, registro) {
   // Garante que colunas adicionadas depois da criação original da planilha
   // (como ValorVeiculo) já existem com o cabeçalho certo antes de gravar —
