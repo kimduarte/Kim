@@ -6090,7 +6090,15 @@
       linhas.push('* ' + v.rotulo + ': ' + raNumeroComExtenso_(qtd) + ';');
       var obs = r.observacoesPorVariavel[v.chave];
       if (obs && obs.length) {
-        obs.forEach(function (texto) { linhas.push('   - ' + texto); });
+        var contagemObs = {};
+        var ordemObs = [];
+        obs.forEach(function (texto) {
+          if (!contagemObs[texto]) { contagemObs[texto] = 0; ordemObs.push(texto); }
+          contagemObs[texto]++;
+        });
+        ordemObs.forEach(function (texto) {
+          linhas.push('   - ' + texto + ' (' + contagemObs[texto] + ')');
+        });
       }
     });
     return linhas.join('\n');
