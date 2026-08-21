@@ -1645,10 +1645,12 @@
       <div class="pagina-titulo">
         <div>
           <h2>2ª Via ATPVe</h2>
-          <p>Digite a placa do veículo para localizar o ATPVe salvo no Drive (arquivos antigos, guardados com o nome da placa).</p>
+          <p>Buscar o ATPVe salvo, registrar uma emissão de 2ª via e acompanhar quem emitiu o quê.</p>
         </div>
       </div>
       <div class="card">
+        <h2>Buscar arquivo salvo no Drive</h2>
+        <p class="dica-painel">Digite a placa do veículo para localizar o ATPVe salvo no Drive (arquivos antigos, guardados com o nome da placa).</p>
         <div class="grid-form">
           <div class="campo">
             <label for="atpve_Placa">Placa</label>
@@ -1661,6 +1663,44 @@
         </div>
         <div id="mensagemAtpve" style="margin-top:10px;"></div>
         <div id="atpveResultado" style="margin-top:18px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Registrar emissão de 2ª via</h2>
+        <p class="dica-painel">Para um veículo já cadastrado (documento original perdido/danificado etc.) — não cria veículo novo.</p>
+        <div class="botoes" style="justify-content:flex-start;">
+          <button type="button" class="secundario" onclick="abrirModalSegundaViaAtpve_()">Cadastrar Emissão de 2ª via de ATPVe</button>
+        </div>
+      </div>
+
+      <div id="atpveSemPermissaoRelatorio" class="card" style="display:none;">
+        <p>Você não tem permissão para ver o relatório de emissões — fale com um administrador.</p>
+      </div>
+      <div id="atpveConteudoRelatorio">
+        <div class="card">
+          <h2>Relatório de emissões (todos os usuários)</h2>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="rp_DataInicio">Data de início</label>
+              <input type="date" id="rp_DataInicio">
+            </div>
+            <div class="campo">
+              <label for="rp_DataFim">Data de fim</label>
+              <input type="date" id="rp_DataFim">
+            </div>
+          </div>
+          <div class="botoes" style="justify-content:flex-start; margin-top:10px;">
+            <button type="button" class="secundario" onclick="definirPeriodoProdutividade_(7)">Últimos 7 dias</button>
+            <button type="button" class="primario" onclick="carregarRelatorioProdutividade()">Buscar</button>
+          </div>
+          <div id="rpConteudo" style="margin-top:18px;"><div class="carregando">Carregando...</div></div>
+        </div>
+
+        <div class="card" id="rpCardSegundaViaEmitida" style="display:none;">
+          <h2>Veículos com 2ª via emitida</h2>
+          <p class="dica-painel">Lista direta (não depende de busca por placa/chassi) — use "Remover marcação" pra corrigir um registro feito por engano.</p>
+          <div id="rpListaSegundaViaEmitida"><div class="carregando">Carregando...</div></div>
+        </div>
       </div>
     </section>
 
@@ -1747,37 +1787,13 @@
       <div class="pagina-titulo">
         <div>
           <h2>Relatório de Produtividade</h2>
-          <p>Emissões de 2ª via de ATPVe registradas, por usuário e por período.</p>
+          <p>Monte o relatório de atividades desenvolvidas num período (o relatório de emissões de 2ª via de ATPVe agora fica na aba "2ª Via ATPVe").</p>
         </div>
       </div>
       <div id="rpSemPermissao" class="card" style="display:none;">
         <p>Você não tem permissão para usar a aba Produtividade — fale com um administrador.</p>
       </div>
       <div id="rpConteudoGeral">
-      <div class="card">
-        <div class="grid-form">
-          <div class="campo">
-            <label for="rp_DataInicio">Data de início</label>
-            <input type="date" id="rp_DataInicio">
-          </div>
-          <div class="campo">
-            <label for="rp_DataFim">Data de fim</label>
-            <input type="date" id="rp_DataFim">
-          </div>
-        </div>
-        <div class="botoes" style="justify-content:flex-start; margin-top:10px;">
-          <button type="button" class="secundario" onclick="definirPeriodoProdutividade_(7)">Últimos 7 dias</button>
-          <button type="button" class="primario" onclick="carregarRelatorioProdutividade()">Buscar</button>
-        </div>
-        <div id="rpConteudo" style="margin-top:18px;"><div class="carregando">Carregando...</div></div>
-      </div>
-
-      <div class="card" id="rpCardSegundaViaEmitida" style="display:none;">
-        <h2>Veículos com 2ª via emitida</h2>
-        <p class="dica-painel">Lista direta (não depende de busca por placa/chassi) — use "Remover marcação" pra corrigir um registro feito por engano.</p>
-        <div id="rpListaSegundaViaEmitida"><div class="carregando">Carregando...</div></div>
-      </div>
-
       <div class="card">
         <h2>Gerar Relatório de Atividades</h2>
         <p style="font-size:14px; color:var(--texto-suave);">
@@ -2148,20 +2164,6 @@
     </div>
   </div>
 
-  <div class="modal-fundo" id="modalEscolhaCadastroFundo">
-    <div class="modal" style="max-width:460px;">
-      <h2>Cadastrar</h2>
-      <p style="font-size:14px; color:var(--texto-suave);">O que você deseja fazer?</p>
-      <div class="botoes" style="flex-direction:column; align-items:stretch; gap:10px; margin-top:8px;">
-        <button type="button" class="primario" id="botaoEscolhaNovoProcesso">Cadastrar um Novo Processo</button>
-        <button type="button" class="secundario" id="botaoEscolhaSegundaVia">Cadastrar Emissão de 2ª via de ATPVe</button>
-      </div>
-      <div class="botoes">
-        <button class="secundario" id="botaoEscolhaCadastroFechar" style="margin-left:auto;">Cancelar</button>
-      </div>
-    </div>
-  </div>
-
   <div class="modal-fundo" id="modalEscolhaProdutividadeFundo">
     <div class="modal" style="max-width:460px;">
       <h2>Produtividade</h2>
@@ -2368,7 +2370,6 @@
     configurarBuscaCep_();
     configurarModalConfirmacao_();
     configurarModalLembreteAtpve_();
-    configurarModalEscolhaCadastro_();
     configurarModalSegundaViaAtpve_();
     configurarModalNumeroProcesso_();
     configurarModalVeiculo_();
@@ -3172,6 +3173,7 @@
     // até essa aba. A exceção é logo abaixo, em irParaProcessoRecemCriado_,
     // que precisa carregar mesmo pra já mostrar o processo recém-salvo.
     if (nome === 'painel') carregarPainel();
+    if (nome === 'atpve') abrirTelaAtpve_();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
     if (nome === 'produtividadeClique') abrirTelaProdutividadeClique_();
     if (nome === 'cobranca') carregarCobranca_();
@@ -3963,29 +3965,15 @@
     document.getElementById('modalLembreteAtpveFundo').classList.add('ativo');
   }
 
-  // ---------- Modal: escolha entre Novo Processo ou Emissão de 2ª via de ATPVe ----------
-  function configurarModalEscolhaCadastro_() {
-    document.getElementById('botaoEscolhaCadastroFechar').addEventListener('click', fecharModalEscolhaCadastro_);
-    document.getElementById('botaoEscolhaNovoProcesso').addEventListener('click', function () {
-      fecharModalEscolhaCadastro_();
-      abrirModalNumeroProcesso_();
-    });
-    document.getElementById('botaoEscolhaSegundaVia').addEventListener('click', function () {
-      fecharModalEscolhaCadastro_();
-      abrirModalSegundaViaAtpve_();
-    });
-  }
-
+  // Cadastrar veículo agora vai direto pro Novo Processo — a Emissão de 2ª
+  // via de ATPVe se mudou pra aba "2ª Via ATPVe" (ver botão "Registrar
+  // emissão de 2ª via" lá), então não há mais escolha aqui.
   function abrirModalEscolhaCadastro_() {
     if (!USUARIO_PODE_EDITAR) {
       mostrarMensagem('mensagemGlobal', 'erro', 'Você não tem permissão para cadastrar — visitantes só podem visualizar.');
       return;
     }
-    document.getElementById('modalEscolhaCadastroFundo').classList.add('ativo');
-  }
-
-  function fecharModalEscolhaCadastro_() {
-    document.getElementById('modalEscolhaCadastroFundo').classList.remove('ativo');
+    abrirModalNumeroProcesso_();
   }
 
   // ---------- Modal: Emissão de 2ª via de ATPVe (veículo já cadastrado) ----------
@@ -5811,6 +5799,20 @@
     }
     document.getElementById('rpSemPermissao').style.display = 'none';
     document.getElementById('rpConteudoGeral').style.display = '';
+  }
+
+  // O relatório de emissões de 2ª via de ATPVe (por usuário/período) e a
+  // lista de veículos com 2ª via emitida moraram aqui antes; agora ficam na
+  // aba "2ª Via ATPVe", junto com a busca do arquivo salvo e o cadastro da
+  // emissão — mais lógico ter tudo sobre 2ª via no mesmo lugar.
+  function abrirTelaAtpve_() {
+    if (!USUARIO_ACESSO_PRODUTIVIDADE) {
+      document.getElementById('atpveSemPermissaoRelatorio').style.display = '';
+      document.getElementById('atpveConteudoRelatorio').style.display = 'none';
+      return;
+    }
+    document.getElementById('atpveSemPermissaoRelatorio').style.display = 'none';
+    document.getElementById('atpveConteudoRelatorio').style.display = '';
     if (!document.getElementById('rp_DataInicio').value || !document.getElementById('rp_DataFim').value) {
       definirPeriodoProdutividade_(7);
     } else {
