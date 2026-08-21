@@ -2206,6 +2206,7 @@
         <div class="card" style="margin-bottom:14px;">
           <div id="svInfoVeiculo" style="font-size:14px;"></div>
         </div>
+        <div id="svAvisoJaEmitida" style="display:none; margin-bottom:14px;"></div>
         <div class="grid-form">
           <div class="campo">
             <label for="sv_DataEmissao">Data de emissão da 2ª via *</label>
@@ -4039,6 +4040,16 @@
         '<strong>' + escaparHtml(veiculo.Marca) + ' — ' + escaparHtml(veiculo.Descricao) + '</strong><br>' +
         'Chassi: ' + escaparHtml(veiculo.Chassi) + ' • Placa: ' + escaparHtml(veiculo.Placa) + '<br>' +
         escaparHtml(veiculo.Donataria) + ' • ' + escaparHtml(veiculo.UF);
+      var avisoJaEmitida = document.getElementById('svAvisoJaEmitida');
+      if (veiculo.DataEmissaoSegundaViaATPVe) {
+        var dataFormatada = new Date(veiculo.DataEmissaoSegundaViaATPVe).toLocaleDateString('pt-BR');
+        avisoJaEmitida.style.display = '';
+        avisoJaEmitida.innerHTML = '<div class="mensagem aviso">Esse veículo já está marcado com 2ª via emitida em ' + dataFormatada + '.' +
+          (USUARIO_E_ADMIN ? ' <button type="button" class="perigo" onclick="removerSegundaViaEmitida_()">Remover marcação</button>' : '') + '</div>';
+      } else {
+        avisoJaEmitida.style.display = 'none';
+        avisoJaEmitida.innerHTML = '';
+      }
       document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
       document.getElementById('svBuscaContainer').style.display = 'none';
       document.getElementById('svResultadoContainer').style.display = '';
@@ -4046,6 +4057,22 @@
       document.getElementById('mensagemSegundaViaAtpve').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     }
+  }
+
+  async function removerSegundaViaEmitida_() {
+    if (!VEICULO_SEGUNDA_VIA_ATUAL) return;
+    confirmar_('Remover a marcação de 2ª via emitida desse veículo (placa ' + VEICULO_SEGUNDA_VIA_ATUAL.Placa + ')?', async function () {
+      try {
+        var resp = await chamarServidor_('removerSegundaViaAtpve', VEICULO_SEGUNDA_VIA_ATUAL.ID);
+        VEICULO_SEGUNDA_VIA_ATUAL.DataEmissaoSegundaViaATPVe = null;
+        document.getElementById('svAvisoJaEmitida').style.display = 'none';
+        document.getElementById('svAvisoJaEmitida').innerHTML = '';
+        mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
+      } catch (erro) {
+        document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+          '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+      }
+    });
   }
 
   async function salvarSegundaViaAtpve_() {

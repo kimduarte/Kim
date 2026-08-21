@@ -1752,6 +1752,34 @@ function registrarSegundaViaAtpve(id, dataEmissao) {
 }
 
 /**
+ * Remove a marca de "2ª via emitida" direto do cadastro do veículo — usado
+ * quando não há mais como casar com um registro exato do log (log já
+ * apagado, ou campo preenchido fora do fluxo normal do formulário). Também
+ * limpa qualquer linha de log de SEGUNDA_VIA_ATPVE remanescente desse
+ * veículo, pra não sobrar rastro inconsistente. Restrito a administradores.
+ */
+function removerSegundaViaAtpve(idVeiculo) {
+  exigirPerfilAdmin_();
+  if (!idVeiculo) throw new Error('Veículo inválido.');
+
+  var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var linhaVeiculo = encontrarLinhaPorId_(sheetVeiculos, idVeiculo);
+  if (!linhaVeiculo) throw new Error('Veículo não encontrado: ' + idVeiculo);
+  sheetVeiculos.getRange(linhaVeiculo, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1).setValue('');
+
+  var sheetLog = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
+  var dadosLog = sheetLog.getDataRange().getValues();
+  for (var i = dadosLog.length - 1; i >= 1; i--) {
+    var linha = dadosLog[i];
+    if (linha[2] === 'SEGUNDA_VIA_ATPVE' && String(linha[3]) === String(idVeiculo)) {
+      sheetLog.deleteRow(i + 1);
+    }
+  }
+
+  return { mensagem: '2ª via removida do cadastro do veículo.' };
+}
+
+/**
  * Relatório de produtividade — conta quantas emissões de 2ª via de ATPVe
  * cada usuário registrou num período escolhido (data início/fim, ambas
  * "AAAA-MM-DD"), e lista quais veículos (placa) tiveram 2ª via emitida.
