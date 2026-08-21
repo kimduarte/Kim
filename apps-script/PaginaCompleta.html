@@ -1146,6 +1146,16 @@
           <input type="hidden" id="c_ID" value="">
 
           <div class="etapa" data-etapa="1">
+            <div class="card" style="background:var(--fundo, #f4f6f9); margin-bottom:16px;">
+              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <label class="secundario" for="inputTermoPdf" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:8px; background:#eef2f6; font-weight:600; font-size:13.5px;">
+                  📎 Importar Termo de Doação (PDF)
+                </label>
+                <input type="file" id="inputTermoPdf" accept="application/pdf" style="display:none;" onchange="importarTermoPdf_(this)">
+                <span style="font-size:12px; color:var(--texto-suave);">Preenche o que der pra ler do PDF — sempre revise antes de salvar. Renavam e alguns outros campos continuam manuais.</span>
+              </div>
+              <div id="mensagemImportarTermoPdf" style="margin-top:8px;"></div>
+            </div>
             <div class="etapa-cabecalho">Dados da Operação</div>
             <div class="grid-form">
               <div class="campo">
@@ -2355,6 +2365,7 @@
   var NUMERO_PROCESSO_ATUAL = '';
   var VEICULOS_COLETADOS = [];
   var INDICE_VEICULO_MODAL = 0;
+  var VEICULOS_EXTRAIDOS_PDF = null;
   var DADOS_PENDENTES = [];
   var ORGAOS_POR_UF = {};
   var NUMERO_SEI_CONTEXTO = 'c';
@@ -3771,6 +3782,17 @@
     return digitos ? parseInt(digitos, 10) / 100 : 0;
   }
 
+  // Inverso: número (vindo do servidor, ex. na importação do Termo de
+  // Doação em PDF) para o texto no formato que os campos com máscara de
+  // moeda esperam (ex.: 239116.65 -> "239.116,65").
+  function formatarValorParaMascara_(numero) {
+    numero = Number(numero) || 0;
+    var centavos = Math.round(numero * 100);
+    var reais = Math.floor(centavos / 100);
+    var resto = String(centavos % 100).padStart(2, '0');
+    return String(reais).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + resto;
+  }
+
   // Formata um número (vindo do servidor) no padrão "1.500,00", sem o "R$".
   function formatarNumeroComVirgula_(numero) {
     numero = Number(numero) || 0;
@@ -4461,7 +4483,21 @@
   // ---------- Etapa 3: um veículo de cada vez, em caixa modal sequencial ----------
   function iniciarColetaVeiculos_() {
     VEICULOS_COLETADOS = [];
-    for (var i = 0; i < QUANTIDADE_TOTAL_VEICULOS; i++) VEICULOS_COLETADOS.push(null);
+    // Se um Termo de Doação em PDF foi importado e o número de veículos
+    // bate com o confirmado no Contrato, usa os dados lidos do PDF como
+    // ponto de partida de cada veículo (Renavam continua em branco — não
+    // vem no Termo — e a pessoa ainda revisa cada um antes de concluir).
+    var usarExtraidos = VEICULOS_EXTRAIDOS_PDF && VEICULOS_EXTRAIDOS_PDF.length === QUANTIDADE_TOTAL_VEICULOS;
+    for (var i = 0; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
+      VEICULOS_COLETADOS.push(usarExtraidos ? {
+        Marca: VEICULOS_EXTRAIDOS_PDF[i].Marca || '',
+        Descricao: VEICULOS_EXTRAIDOS_PDF[i].Descricao || '',
+        Chassi: VEICULOS_EXTRAIDOS_PDF[i].Chassi || '',
+        Placa: VEICULOS_EXTRAIDOS_PDF[i].Placa || '',
+        Renavam: '',
+        ValorVeiculo: formatarValorParaMascara_(VEICULOS_EXTRAIDOS_PDF[i].ValorVeiculo)
+      } : null);
+    }
     INDICE_VEICULO_MODAL = 0;
     document.getElementById('dicaQuantidadeVeiculos').textContent =
       'Preencha os dados de cada um dos ' + QUANTIDADE_TOTAL_VEICULOS + ' veículo(s) confirmados na etapa anterior — um de cada vez, na caixa que vai abrir a seguir. Depois, você pode clicar em qualquer veículo da lista abaixo para revisar ou corrigir os dados dele.';
@@ -4668,6 +4704,100 @@
       inputTexto.required = true;
       document.getElementById('c_CNPJDonataria').value = '';
     }
+  }
+
+  // ---------- Importar Termo de Doação (PDF) — pré-preenche o cadastro ----------
+  function lerArquivoComoBase64_(arquivo) {
+    return new Promise(function (resolve, reject) {
+      var leitor = new FileReader();
+      leitor.onload = function () { resolve(leitor.result.split(',')[1]); };
+      leitor.onerror = function () { reject(new Error('Não foi possível ler o arquivo.')); };
+      leitor.readAsDataURL(arquivo);
+    });
+  }
+
+  async function importarTermoPdf_(inputEl) {
+    var arquivo = inputEl.files[0];
+    if (!arquivo) return;
+    var msg = document.getElementById('mensagemImportarTermoPdf');
+    if (arquivo.type !== 'application/pdf') {
+      msg.innerHTML = '<div class="mensagem erro">Selecione um arquivo PDF.</div>';
+      inputEl.value = '';
+      return;
+    }
+    msg.innerHTML = '<div class="carregando">Lendo o Termo de Doação (pode levar alguns segundos)...</div>';
+    try {
+      var base64 = await lerArquivoComoBase64_(arquivo);
+      var resp = await chamarServidor_('extrairTermoDoacaoPdf', base64, arquivo.name);
+      preencherComunsExtraidosTermo_(resp.comuns || {});
+      VEICULOS_EXTRAIDOS_PDF = (resp.veiculos && resp.veiculos.length) ? resp.veiculos : null;
+
+      var partes = [];
+      if (VEICULOS_EXTRAIDOS_PDF) {
+        partes.push(VEICULOS_EXTRAIDOS_PDF.length + ' veículo(s) lido(s) do Anexo I — confirme a "Quantidade de veículos" abaixo igual a esse número pra eles entrarem pré-preenchidos.');
+      }
+      partes.push('Renavam nunca vem no Termo — preencha na hora de revisar cada veículo.');
+      if (resp.avisos && resp.avisos.length) partes = partes.concat(resp.avisos);
+      msg.innerHTML = '<div class="mensagem ' + (resp.avisos && resp.avisos.length ? 'aviso' : 'sucesso') + '">' +
+        partes.map(escaparHtml).join('<br>') + '</div>';
+    } catch (erro) {
+      msg.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    } finally {
+      inputEl.value = '';
+    }
+  }
+
+  function preencherComunsExtraidosTermo_(c) {
+    if (c.TermoDoacao) document.getElementById('c_TermoDoacao').value = c.TermoDoacao;
+    if (c.NumeroSei) {
+      document.getElementById('c_NumeroSei').value = c.NumeroSei;
+      document.getElementById('c_NumeroSeiExibicao').textContent = c.NumeroSei;
+    }
+    if (c.NumeroProcesso) {
+      NUMERO_PROCESSO_ATUAL = c.NumeroProcesso;
+      var exibicao = document.getElementById('exibicaoNumeroProcesso');
+      if (exibicao) exibicao.textContent = NUMERO_PROCESSO_ATUAL;
+    }
+    if (c.UF) document.getElementById('c_UF').value = c.UF;
+    if (c.Ente) document.getElementById('c_Ente').value = c.Ente;
+    // Precisa rodar depois de UF/Ente: decide se Donataria é campo livre
+    // ou lista de órgãos do Estado (ver atualizarModoDonataria_).
+    atualizarModoDonataria_();
+    if (c.Donataria) {
+      var select = document.getElementById('c_DonatariaSelect');
+      if (select.style.display !== 'none') {
+        var opcaoAchada = Array.prototype.slice.call(select.options).some(function (opt) {
+          if (opt.value && normalizarTextoBusca_(opt.value) === normalizarTextoBusca_(c.Donataria)) {
+            select.value = opt.value;
+            document.getElementById('c_CNPJDonataria').value = opt.dataset.cnpj || '';
+            document.getElementById('c_CNPJExibicao').textContent = opt.dataset.cnpj || '–';
+            return true;
+          }
+          return false;
+        });
+        if (!opcaoAchada) {
+          msg_avisoDonatariaNaoAchada_(c.Donataria);
+        }
+      } else {
+        document.getElementById('c_Donataria').value = c.Donataria;
+      }
+    }
+    if (c.CNPJDonataria && document.getElementById('c_DonatariaSelect').style.display === 'none') {
+      document.getElementById('c_CNPJDonataria').value = c.CNPJDonataria;
+    }
+    if (c.Logradouro) document.getElementById('c_Logradouro').value = c.Logradouro;
+    if (c.Numero) document.getElementById('c_Numero').value = c.Numero;
+    if (c.Bairro) document.getElementById('c_Bairro').value = c.Bairro;
+    if (c.Municipio) document.getElementById('c_Municipio').value = c.Municipio;
+  }
+
+  function msg_avisoDonatariaNaoAchada_(nomeExtraido) {
+    var msg = document.getElementById('mensagemImportarTermoPdf');
+    msg.innerHTML += '<div class="mensagem aviso">Não achei "' + escaparHtml(nomeExtraido) + '" na lista de órgãos dessa UF — selecione manualmente.</div>';
+  }
+
+  function normalizarTextoBusca_(t) {
+    return String(t || '').trim().toLowerCase().normalize('NFD').replace(new RegExp('[\u0300-\u036f]', 'g'), '');
   }
 
   // ---------- Endereço para envio (busca automática de CEP via ViaCEP) ----------

@@ -2695,6 +2695,216 @@ function criarVeiculo_(sheet, perfil, registro) {
   return { ID: id, mensagem: 'Veículo cadastrado com sucesso.' };
 }
 
+// ======================================================================
+// IMPORTAR TERMO DE DOAÇÃO (PDF) — lê o texto de um Termo de Doação
+// SENASP em PDF (via OCR/conversão do Drive) e tenta preencher os dados
+// comuns do processo e a lista de veículos do Anexo I, pra economizar
+// digitação no cadastro manual. NUNCA grava nada sozinho — só devolve os
+// dados extraídos (e uma lista de avisos pros campos que não deu pra
+// achar com confiança) pro cliente pré-preencher o formulário, que a
+// pessoa sempre revisa e confirma antes de salvar.
+//
+// Requer o serviço avançado "Drive API" habilitado no projeto (menu
+// Serviços, no editor do Apps Script) — é ele que converte o PDF pra um
+// Google Doc com OCR, permitindo ler o texto e as tabelas.
+// ======================================================================
+
+var NOME_ESTADO_PARA_UF_ = {
+  'ACRE': 'AC', 'ALAGOAS': 'AL', 'AMAPA': 'AP', 'AMAZONAS': 'AM', 'BAHIA': 'BA',
+  'CEARA': 'CE', 'DISTRITO FEDERAL': 'DF', 'ESPIRITO SANTO': 'ES', 'GOIAS': 'GO',
+  'MARANHAO': 'MA', 'MATO GROSSO': 'MT', 'MATO GROSSO DO SUL': 'MS', 'MINAS GERAIS': 'MG',
+  'PARA': 'PA', 'PARAIBA': 'PB', 'PARANA': 'PR', 'PERNAMBUCO': 'PE', 'PIAUI': 'PI',
+  'RIO DE JANEIRO': 'RJ', 'RIO GRANDE DO NORTE': 'RN', 'RIO GRANDE DO SUL': 'RS',
+  'RONDONIA': 'RO', 'RORAIMA': 'RR', 'SANTA CATARINA': 'SC', 'SAO PAULO': 'SP',
+  'SERGIPE': 'SE', 'TOCANTINS': 'TO'
+};
+
+function removerAcentos_(texto) {
+  return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Ponto de entrada chamado pelo cliente: recebe o PDF em base64, converte
+ * num Google Doc temporário (com OCR) só pra conseguir ler o texto e as
+ * tabelas, e apaga esse arquivo temporário no final (sucesso ou erro).
+ */
+function extrairTermoDoacaoPdf(base64Pdf, nomeArquivo) {
+  exigirPerfilEditor_();
+  if (!base64Pdf) throw new Error('Nenhum arquivo recebido.');
+
+  var arquivoTemp = null;
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Pdf), MimeType.PDF, nomeArquivo || 'termo.pdf');
+    arquivoTemp = Drive.Files.create(
+      { name: '(temp) ' + (nomeArquivo || 'Termo de Doação'), mimeType: MimeType.GOOGLE_DOCS },
+      blob,
+      { ocrLanguage: 'pt' }
+    );
+    var doc = DocumentApp.openById(arquivoTemp.id);
+    var corpo = doc.getBody();
+    var texto = normalizarTexto_(corpo.getText()).replace(/\s+/g, ' ');
+
+    var avisos = [];
+    var comuns = extrairComunsTermoDoacao_(texto, avisos);
+    var veiculos = extrairVeiculosTermoDoacao_(corpo, avisos);
+
+    return { comuns: comuns, veiculos: veiculos, avisos: avisos };
+  } catch (e) {
+    throw new Error('Não foi possível ler o PDF: ' + (e.message || String(e)));
+  } finally {
+    if (arquivoTemp) {
+      try { Drive.Files.remove(arquivoTemp.id); } catch (e2) { /* limpeza best-effort */ }
+    }
+  }
+}
+
+function extrairComunsTermoDoacao_(texto, avisos) {
+  var comuns = {};
+
+  var mTermo = texto.match(/TERMO\s+DE\s+DOA[ÇC][ÃA]O\s+SENASP\s*N[º°.o]*\s*(\d+\s*\/\s*\d{4})/i);
+  if (mTermo) {
+    comuns.TermoDoacao = 'Termo de Doação SENASP ' + mTermo[1].replace(/\s+/g, '');
+  } else {
+    avisos.push('Não encontrei o número do Termo de Doação — confira manualmente.');
+  }
+
+  var mRef = texto.match(/Refer[êe]ncia:\s*Processo\s*n[º°.o]*\s*([\d.\/-]+)\s*SEI\s*n[º°.o]*\s*(\d+)/i);
+  if (mRef) {
+    comuns.NumeroProcesso = mRef[1];
+    comuns.NumeroSei = mRef[2];
+  } else {
+    avisos.push('Não encontrei o nº do processo/SEI na referência final do documento — confira manualmente.');
+  }
+
+  // Ente + local — Município vem sempre como "MUNICÍPIO DE X/UF"; Estado,
+  // sem a sigla junto (por isso a sigla precisa vir do nome por extenso).
+  var uf = '', ente = '', localTexto = '';
+  var mMun = texto.match(/MUNIC[ÍI]PIO\s+DE\s+([A-ZÀ-Ú\s]+?)\s*\/\s*([A-Z]{2})\b/);
+  var mEst = !mMun && texto.match(/\bESTADO\s+DE\s+([A-ZÀ-Ú\s]+?)\s*,/);
+  if (mMun) {
+    ente = 'Município'; localTexto = mMun[1].trim(); uf = mMun[2];
+  } else if (mEst) {
+    ente = 'Estado'; localTexto = mEst[1].trim();
+    uf = NOME_ESTADO_PARA_UF_[removerAcentos_(localTexto).toUpperCase().replace(/\s+/g, ' ')] || '';
+    if (!uf) avisos.push('Identifiquei "Estado de ' + localTexto + '" mas não converti pra sigla de UF — preencha manualmente.');
+  } else {
+    avisos.push('Não identifiquei se a donatária é Município ou Estado — confira Ente/UF manualmente.');
+  }
+  if (ente) comuns.Ente = ente;
+  if (uf) comuns.UF = uf;
+
+  // Fatia do texto entre o Ente/local encontrado e "doravante denominada
+  // DONATÁRIA" — é onde ficam o CNPJ e o endereço da donatária.
+  var fatiaDonataria = '';
+  if (ente) {
+    var idxLocal = texto.search(ente === 'Município' ? /MUNIC[ÍI]PIO\s+DE/ : /\bESTADO\s+DE\b/);
+    var idxFim = texto.indexOf('doravante denominada DONAT', idxLocal >= 0 ? idxLocal : 0);
+    if (idxLocal >= 0 && idxFim > idxLocal) fatiaDonataria = texto.slice(idxLocal, idxFim);
+  }
+
+  var mCnpj = fatiaDonataria.match(/CNPJ\s*n[º°.o]*\s*(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/i);
+  if (mCnpj) comuns.CNPJDonataria = mCnpj[1];
+
+  var mEndereco = fatiaDonataria.match(/com\s+sede\s+(?:n[ao]|em)\s+(.+)/i);
+  if (mEndereco) {
+    var partes = mEndereco[1].split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+    if (partes.length >= 3) {
+      comuns.Logradouro = partes[0];
+      var pareceNumero = /^(s\/n|\d+[a-z]?)$/i.test(partes[1]);
+      if (pareceNumero) {
+        comuns.Numero = partes[1];
+        comuns.Bairro = partes.slice(2, partes.length - 1).join(', ');
+      } else {
+        comuns.Bairro = partes.slice(1, partes.length - 1).join(', ');
+      }
+      var ultima = partes[partes.length - 1];
+      var mCidadeUf = ultima.match(/^(.+?)\s*-\s*[A-Z]{2}$/);
+      comuns.Municipio = mCidadeUf ? mCidadeUf[1].trim() : ultima;
+    } else {
+      avisos.push('Encontrei o endereço da donatária, mas não consegui separar em logradouro/número/bairro — confira: "' + mEndereco[1] + '".');
+    }
+  } else {
+    avisos.push('Não encontrei o endereço da donatária ("com sede em/na...") — preencha manualmente.');
+  }
+
+  // Donataria (nosso campo) — Município usa "Prefeitura Municipal de X -
+  // UF"; Estado/União usa o texto de "DESTINAÇÃO" do Anexo I (a
+  // instituição que de fato recebe o bem), não o nome genérico do ente.
+  if (ente === 'Município' && localTexto && uf) {
+    comuns.Donataria = 'Prefeitura Municipal de ' + paraTitleCasePortugues_(localTexto) + ' - ' + uf;
+  } else {
+    var mDestino = texto.match(/DESTINA[ÇC][ÃA]O:\s*([^(]+)/i);
+    if (mDestino) {
+      comuns.Donataria = mDestino[1].trim().replace(/[.,]$/, '');
+    } else {
+      avisos.push('Não encontrei a "Destinação" no Anexo I pra usar como Donatária — preencha manualmente.');
+    }
+  }
+
+  return comuns;
+}
+
+function textoDaLinhaTabela_(linha) {
+  var partes = [];
+  for (var c = 0; c < linha.getNumCells(); c++) partes.push(linha.getCell(c).getText());
+  return partes.join(' ');
+}
+
+function extrairVeiculosTermoDoacao_(corpo, avisos) {
+  var tabelas = corpo.getTables();
+  if (!tabelas.length) {
+    avisos.push('Não encontrei nenhuma tabela no PDF (Anexo I) — preencha os veículos manualmente.');
+    return [];
+  }
+
+  // A tabela do Anexo I é a que tem "CHASSI" no cabeçalho — evita pegar
+  // alguma outra tabela que porventura exista no documento.
+  var tabela = null;
+  for (var t = 0; t < tabelas.length; t++) {
+    if (tabelas[t].getNumRows() && textoDaLinhaTabela_(tabelas[t].getRow(0)).toUpperCase().indexOf('CHASSI') !== -1) {
+      tabela = tabelas[t];
+      break;
+    }
+  }
+  if (!tabela) {
+    avisos.push('Encontrei tabela(s) no PDF, mas nenhuma com coluna "Chassi" — preencha os veículos manualmente.');
+    return [];
+  }
+
+  var cabecalho = [];
+  var linhaCabecalho = tabela.getRow(0);
+  for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
+    cabecalho.push(normalizarTexto_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+  }
+  function acharColuna(pedaco) {
+    for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
+    return -1;
+  }
+  var idxDescricao = acharColuna('DESCRI');
+  var idxMarca = acharColuna('MARCA');
+  var idxChassi = acharColuna('CHASSI');
+  var idxPlaca = acharColuna('PLACA');
+  var idxValor = acharColuna('VALOR');
+
+  var veiculos = [];
+  for (var l = 1; l < tabela.getNumRows(); l++) {
+    var linha = tabela.getRow(l);
+    var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? normalizarTexto_(linha.getCell(idx).getText()) : ''; };
+    if (pegar(0).toUpperCase().indexOf('VALOR TOTAL') !== -1) continue; // linha de rodapé, não é veículo
+    var chassi = pegar(idxChassi).replace(/\s+/g, '');
+    if (!chassi) continue;
+    veiculos.push({
+      Descricao: pegar(idxDescricao),
+      Marca: pegar(idxMarca),
+      Chassi: chassi,
+      Placa: pegar(idxPlaca).replace(/\s+/g, ''),
+      ValorVeiculo: normalizarValorMonetario_(pegar(idxValor))
+    });
+  }
+  if (!veiculos.length) avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
+  return veiculos;
+}
+
 /**
  * Motor genérico de importação em lote — usado pelas funções de
  * importação pontual de ofícios/termos de doação (ex.:
