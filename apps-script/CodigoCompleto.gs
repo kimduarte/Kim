@@ -1830,10 +1830,12 @@ function excluirEmissaoAtpve(idVeiculo, dataHoraIso) {
   var sheetLog = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
   var dadosLog = sheetLog.getDataRange().getValues();
   var linhaAlvo = null;
+  var detalhesAlvo = '';
   for (var i = 1; i < dadosLog.length; i++) {
     var linha = dadosLog[i];
     if (linha[2] === 'SEGUNDA_VIA_ATPVE' && String(linha[3]) === String(idVeiculo) && new Date(linha[0]).getTime() === alvo) {
       linhaAlvo = i + 1;
+      detalhesAlvo = String(linha[4] || '');
       break;
     }
   }
@@ -1845,8 +1847,16 @@ function excluirEmissaoAtpve(idVeiculo, dataHoraIso) {
   if (linhaVeiculo) {
     var celula = sheetVeiculos.getRange(linhaVeiculo, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1);
     var valorAtual = celula.getValue();
-    if (valorAtual && new Date(valorAtual).getTime() === alvo) {
-      celula.setValue('');
+    // O log guarda o instante exato do clique (com hora); o campo do
+    // veículo guarda só a data digitada no formulário (sem hora) — os dois
+    // timestamps nunca batem exatamente. A comparação certa é por data,
+    // usando o texto salvo em "Detalhes" (formato "Emissão: AAAA-MM-DD").
+    var dataEmissaoTexto = detalhesAlvo.replace('Emissão:', '').trim();
+    if (valorAtual && dataEmissaoTexto) {
+      var fuso = Session.getScriptTimeZone();
+      if (Utilities.formatDate(new Date(valorAtual), fuso, 'yyyy-MM-dd') === dataEmissaoTexto) {
+        celula.setValue('');
+      }
     }
   }
 
