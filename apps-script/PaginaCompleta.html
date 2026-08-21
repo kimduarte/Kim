@@ -1146,16 +1146,6 @@
           <input type="hidden" id="c_ID" value="">
 
           <div class="etapa" data-etapa="1">
-            <div class="card" style="background:var(--fundo, #f4f6f9); margin-bottom:16px;">
-              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                <label class="secundario" for="inputTermoPdf" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:8px; background:#eef2f6; font-weight:600; font-size:13.5px;">
-                  📎 Importar Termo de Doação (PDF)
-                </label>
-                <input type="file" id="inputTermoPdf" accept="application/pdf" style="display:none;" onchange="importarTermoPdf_(this)">
-                <span style="font-size:12px; color:var(--texto-suave);">Preenche o que der pra ler do PDF — sempre revise antes de salvar. Renavam e alguns outros campos continuam manuais.</span>
-              </div>
-              <div id="mensagemImportarTermoPdf" style="margin-top:8px;"></div>
-            </div>
             <div class="etapa-cabecalho">Dados da Operação</div>
             <div class="grid-form">
               <div class="campo">
@@ -2243,8 +2233,18 @@
     <div class="modal" style="max-width:440px;">
       <h2>Novo cadastro</h2>
       <p style="font-size:14px; color:var(--texto-suave);">
-        Informe o número do processo desta operação. A Listagem irá agrupar os veículos cadastrados a seguir por esse número.
+        Tem o Termo de Doação em PDF? Importe e o número do processo (e o resto que der pra ler) já vem preenchido.
       </p>
+      <div style="border:1px dashed var(--borda); border-radius:8px; padding:12px; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <label for="inputTermoPdfInicial" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:8px; background:#eef2f6; font-weight:600; font-size:13.5px;">
+            📎 Importar Termo de Doação (PDF)
+          </label>
+          <input type="file" id="inputTermoPdfInicial" accept="application/pdf" style="display:none;" onchange="importarTermoPdfInicial_(this)">
+        </div>
+        <div id="mensagemImportarTermoPdfInicial" style="margin-top:8px;"></div>
+      </div>
+      <p style="font-size:12.5px; color:var(--texto-suave); text-align:center; margin:0 0 10px;">— ou, se não tiver o PDF agora, informe manualmente —</p>
       <div class="grid-form">
         <div class="campo span-2">
           <label for="np_NumeroProcesso">Número do Processo *</label>
@@ -4137,6 +4137,7 @@
   function abrirModalNumeroProcesso_() {
     document.getElementById('np_NumeroProcesso').value = '';
     document.getElementById('mensagemNumeroProcesso').innerHTML = '';
+    document.getElementById('mensagemImportarTermoPdfInicial').innerHTML = '';
     document.getElementById('modalNumeroProcessoFundo').classList.add('ativo');
   }
 
@@ -4716,10 +4717,16 @@
     });
   }
 
-  async function importarTermoPdf_(inputEl) {
+  // Disparado direto no modal "Novo cadastro" (ao clicar em "Cadastrar
+  // veículo") — o nº do processo vem do próprio Termo de Doação
+  // ("Referência: Processo nº..."), então não precisa mais ser digitado
+  // nesse fluxo. Só entra na tela de cadastro depois de conseguir extrair
+  // esse número; se não conseguir, a pessoa cai no caminho manual normal
+  // (o campo "Número do Processo" continua ali, embaixo).
+  async function importarTermoPdfInicial_(inputEl) {
     var arquivo = inputEl.files[0];
     if (!arquivo) return;
-    var msg = document.getElementById('mensagemImportarTermoPdf');
+    var msg = document.getElementById('mensagemImportarTermoPdfInicial');
     if (arquivo.type !== 'application/pdf') {
       msg.innerHTML = '<div class="mensagem erro">Selecione um arquivo PDF.</div>';
       inputEl.value = '';
@@ -4729,17 +4736,27 @@
     try {
       var base64 = await lerArquivoComoBase64_(arquivo);
       var resp = await chamarServidor_('extrairTermoDoacaoPdf', base64, arquivo.name);
-      preencherComunsExtraidosTermo_(resp.comuns || {});
-      VEICULOS_EXTRAIDOS_PDF = (resp.veiculos && resp.veiculos.length) ? resp.veiculos : null;
+      var comuns = resp.comuns || {};
 
-      var partes = [];
+      if (!comuns.NumeroProcesso) {
+        msg.innerHTML = '<div class="mensagem erro">Não consegui achar o número do processo nesse PDF — informe manualmente abaixo (o resto que consegui ler eu preencho na próxima tela).</div>';
+        return;
+      }
+
+      NUMERO_PROCESSO_ATUAL = comuns.NumeroProcesso;
+      document.getElementById('exibicaoNumeroProcesso').textContent = NUMERO_PROCESSO_ATUAL;
+      VEICULOS_EXTRAIDOS_PDF = (resp.veiculos && resp.veiculos.length) ? resp.veiculos : null;
+      fecharModalNumeroProcesso_();
+      irParaTela('cadastro');
+      preencherComunsExtraidosTermo_(comuns);
+
+      var partes = ['Processo nº ' + NUMERO_PROCESSO_ATUAL + ' — dados do Termo importados.'];
       if (VEICULOS_EXTRAIDOS_PDF) {
         partes.push(VEICULOS_EXTRAIDOS_PDF.length + ' veículo(s) lido(s) do Anexo I — confirme a "Quantidade de veículos" abaixo igual a esse número pra eles entrarem pré-preenchidos.');
       }
       partes.push('Renavam nunca vem no Termo — preencha na hora de revisar cada veículo.');
       if (resp.avisos && resp.avisos.length) partes = partes.concat(resp.avisos);
-      msg.innerHTML = '<div class="mensagem ' + (resp.avisos && resp.avisos.length ? 'aviso' : 'sucesso') + '">' +
-        partes.map(escaparHtml).join('<br>') + '</div>';
+      mostrarMensagem('mensagemGlobal', resp.avisos && resp.avisos.length ? 'aviso' : 'sucesso', partes.join(' | '));
     } catch (erro) {
       msg.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     } finally {
@@ -4792,8 +4809,7 @@
   }
 
   function msg_avisoDonatariaNaoAchada_(nomeExtraido) {
-    var msg = document.getElementById('mensagemImportarTermoPdf');
-    msg.innerHTML += '<div class="mensagem aviso">Não achei "' + escaparHtml(nomeExtraido) + '" na lista de órgãos dessa UF — selecione manualmente.</div>';
+    mostrarMensagem('mensagemGlobal', 'aviso', 'Não achei "' + nomeExtraido + '" na lista de órgãos dessa UF — selecione manualmente.');
   }
 
   function normalizarTextoBusca_(t) {
