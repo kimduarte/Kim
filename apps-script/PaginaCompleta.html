@@ -1178,25 +1178,12 @@
                   pattern="[1-9][0-9]*/[0-9]{4}" title="Use o formato NÚMERO/ANO, sem zero à esquerda no número. Ex: 123/2024">
               </div>
               <div class="campo">
-                <label for="c_QtdContrato">Quantidade de veículos deste contrato *</label>
+                <label for="c_QtdContrato">Quantidade de veículos deste processo *</label>
                 <input type="number" id="c_QtdContrato" required min="1" step="1">
               </div>
-              <div class="campo">
-                <label for="c_TemAditivo">Houve aditivo de contrato? *</label>
-                <select id="c_TemAditivo" required>
-                  <option value="">Selecione...</option>
-                  <option value="NÃO">Não</option>
-                  <option value="SIM">Sim</option>
-                </select>
-              </div>
-              <div class="campo" id="grupoNumeroAditivo" style="display:none;">
-                <label for="c_NumeroAditivo">Número do aditivo *</label>
-                <input type="text" id="c_NumeroAditivo" maxlength="60">
-              </div>
-              <div class="campo" id="grupoQtdAditivo" style="display:none;">
-                <label for="c_QtdAditivo">Quantidade adicional de veículos no aditivo *</label>
-                <input type="number" id="c_QtdAditivo" min="1" step="1">
-              </div>
+              <input type="hidden" id="c_TemAditivo" value="NÃO">
+              <input type="hidden" id="c_NumeroAditivo" value="">
+              <input type="hidden" id="c_QtdAditivo" value="">
             </div>
           </div>
 
@@ -3901,25 +3888,11 @@
       var numero = partes[0].replace(/^0+(?=\d)/, '');
       this.value = partes.length > 1 ? (numero + '/' + partes.slice(1).join('').slice(0, 4)) : numero;
     });
-    document.getElementById('c_TemAditivo').addEventListener('change', atualizarVisibilidadeAditivo_);
-
     document.getElementById('botaoConfirmarQtdNao').addEventListener('click', fecharModalConfirmarQtd_);
     document.getElementById('botaoConfirmarQtdSim').addEventListener('click', function () {
       fecharModalConfirmarQtd_();
       irParaEtapa(2);
     });
-  }
-
-  function atualizarVisibilidadeAditivo_() {
-    var tem = document.getElementById('c_TemAditivo').value === 'SIM';
-    document.getElementById('grupoNumeroAditivo').style.display = tem ? '' : 'none';
-    document.getElementById('grupoQtdAditivo').style.display = tem ? '' : 'none';
-    document.getElementById('c_NumeroAditivo').required = tem;
-    document.getElementById('c_QtdAditivo').required = tem;
-    if (!tem) {
-      document.getElementById('c_NumeroAditivo').value = '';
-      document.getElementById('c_QtdAditivo').value = '';
-    }
   }
 
   function abrirModalConfirmarQuantidade_() {
@@ -4753,11 +4726,11 @@
       var partes = ['Processo nº ' + NUMERO_PROCESSO_ATUAL + ' — dados do Termo importados.'];
       if (VEICULOS_EXTRAIDOS_PDF) {
         // A quantidade de veículos do Anexo I é preenchida direto em
-        // "Quantidade de veículos deste contrato" — se esse Termo cobrir só
-        // parte de um contrato maior (aditivo em lote separado, etc.),
-        // ajuste esse número manualmente antes de avançar.
+        // "Quantidade de veículos deste processo" — se esse Termo cobrir só
+        // parte de um processo maior, ajuste esse número manualmente antes
+        // de avançar.
         document.getElementById('c_QtdContrato').value = VEICULOS_EXTRAIDOS_PDF.length;
-        partes.push(VEICULOS_EXTRAIDOS_PDF.length + ' veículo(s) lido(s) do Anexo I — já preenchi em "Quantidade de veículos deste contrato" (ajuste se esse Termo não representar o contrato inteiro).');
+        partes.push(VEICULOS_EXTRAIDOS_PDF.length + ' veículo(s) lido(s) do Anexo I — já preenchi em "Quantidade de veículos deste processo" (ajuste se esse Termo não representar o processo inteiro).');
       }
       partes.push('Renavam nunca vem no Termo — preencha na hora de revisar cada veículo.');
       if (resp.avisos && resp.avisos.length) partes = partes.concat(resp.avisos);
@@ -4890,11 +4863,11 @@
     QUANTIDADE_TOTAL_VEICULOS = 0;
     NUMERO_PROCESSO_ATUAL = '';
     VEICULOS_COLETADOS = [];
+    VEICULOS_EXTRAIDOS_PDF = null;
     INDICE_VEICULO_MODAL = 0;
     INDICE_RETOMADA_CADASTRO = 0;
     IDS_GERADOS_CADASTRO = [];
     atualizarModoDonataria_();
-    atualizarVisibilidadeAditivo_();
     irParaEtapa(1);
   }
 
