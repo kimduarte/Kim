@@ -2857,49 +2857,77 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
     return [];
   }
 
-  // A tabela do Anexo I é a que tem "CHASSI" no cabeçalho — evita pegar
-  // alguma outra tabela que porventura exista no documento.
-  var tabela = null;
+  // O Anexo I às vezes ocupa várias páginas — cada página pode virar uma
+  // tabela SEPARADA no Doc convertido (com ou sem repetir o cabeçalho).
+  // Por isso não para na primeira tabela encontrada: usa a primeira com
+  // "CHASSI" no cabeçalho só pra descobrir em que coluna fica cada
+  // informação, e depois procura linha de veículo em TODAS as tabelas do
+  // documento, na ordem em que aparecem.
+  var idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxPlaca = -1, idxValor = -1;
+  var achouCabecalho = false;
+
   for (var t = 0; t < tabelas.length; t++) {
-    if (tabelas[t].getNumRows() && textoDaLinhaTabela_(tabelas[t].getRow(0)).toUpperCase().indexOf('CHASSI') !== -1) {
-      tabela = tabelas[t];
-      break;
+    if (!tabelas[t].getNumRows()) continue;
+    var linhaCabecalho = tabelas[t].getRow(0);
+    var cabecalho = [];
+    for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
+      cabecalho.push(normalizarTexto_(linhaCabecalho.getCell(c).getText()).toUpperCase());
     }
+    if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
+
+    var acharColuna = function (pedaco) {
+      for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
+      return -1;
+    };
+    idxDescricao = acharColuna('DESCRI');
+    idxMarca = acharColuna('MARCA');
+    idxChassi = acharColuna('CHASSI');
+    idxPlaca = acharColuna('PLACA');
+    idxValor = acharColuna('VALOR');
+    // Alguns Anexos não têm "Descrição"/"Marca" separadas, só "Modelo"
+    // (ex.: "TRITON GL TP 2.4 D 4X4 AT") — nesse caso, Marca e Descrição
+    // usam a mesma coluna "Modelo" (mesmo texto nos dois campos), em vez
+    // de deixar Marca em branco.
+    if (idxDescricao === -1 && idxMarca === -1) {
+      var idxModelo = acharColuna('MODELO');
+      idxDescricao = idxModelo;
+      idxMarca = idxModelo;
+    }
+    achouCabecalho = true;
+    break;
   }
-  if (!tabela) {
+
+  if (!achouCabecalho) {
     avisos.push('Encontrei tabela(s) no PDF, mas nenhuma com coluna "Chassi" — preencha os veículos manualmente.');
     return [];
   }
-
-  var cabecalho = [];
-  var linhaCabecalho = tabela.getRow(0);
-  for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
-    cabecalho.push(normalizarTexto_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+  if (idxMarca === -1) {
+    avisos.push('Esse Anexo não tem uma coluna de "Marca" separada — Marca ficou em branco, preencha manualmente.');
   }
-  function acharColuna(pedaco) {
-    for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
-    return -1;
-  }
-  var idxDescricao = acharColuna('DESCRI');
-  var idxMarca = acharColuna('MARCA');
-  var idxChassi = acharColuna('CHASSI');
-  var idxPlaca = acharColuna('PLACA');
-  var idxValor = acharColuna('VALOR');
 
+  // Com as colunas descobertas, varre TODAS as tabelas do documento — uma
+  // linha só entra como veículo se tiver um chassi válido (17 caracteres,
+  // sem I/O/Q) na coluna certa. Isso evita pegar cabeçalho repetido ou a
+  // linha de rodapé "VALOR TOTAL" sem precisar adivinhar a posição delas,
+  // e funciona tanto pra páginas que repetem o cabeçalho quanto pras que
+  // só continuam a lista direto.
   var veiculos = [];
-  for (var l = 1; l < tabela.getNumRows(); l++) {
-    var linha = tabela.getRow(l);
-    var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? normalizarTexto_(linha.getCell(idx).getText()) : ''; };
-    if (pegar(0).toUpperCase().indexOf('VALOR TOTAL') !== -1) continue; // linha de rodapé, não é veículo
-    var chassi = pegar(idxChassi).replace(/\s+/g, '');
-    if (!chassi) continue;
-    veiculos.push({
-      Descricao: pegar(idxDescricao),
-      Marca: pegar(idxMarca),
-      Chassi: chassi,
-      Placa: pegar(idxPlaca).replace(/\s+/g, ''),
-      ValorVeiculo: normalizarValorMonetario_(pegar(idxValor))
-    });
+  for (var t2 = 0; t2 < tabelas.length; t2++) {
+    var tabelaAtual = tabelas[t2];
+    for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
+      var linha = tabelaAtual.getRow(l);
+      var chassiTexto = (idxChassi >= 0 && idxChassi < linha.getNumCells())
+        ? normalizarTexto_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
+      if (!validarChassi_(chassiTexto)) continue;
+      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? normalizarTexto_(linha.getCell(idx).getText()) : ''; };
+      veiculos.push({
+        Descricao: pegar(idxDescricao),
+        Marca: pegar(idxMarca),
+        Chassi: chassiTexto,
+        Placa: pegar(idxPlaca).replace(/\s+/g, '').toUpperCase(),
+        ValorVeiculo: normalizarValorMonetario_(pegar(idxValor))
+      });
+    }
   }
   if (!veiculos.length) avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
   return veiculos;
