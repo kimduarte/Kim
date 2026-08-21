@@ -1077,7 +1077,7 @@
       <div class="app-nav-item" data-tela="atpve" onclick="irParaTela('atpve')">📄 2ª Via ATPVe</div>
       <div class="app-nav-item" data-tela="sinesp" onclick="irParaTela('sinesp')">🔍 Conferência SINESP</div>
       <div class="app-nav-item" data-tela="cobranca" onclick="irParaTela('cobranca')">✉️ Cobrança</div>
-      <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="irParaTela('relatorioProdutividade')">📈 Produtividade</div>
+      <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="abrirEscolhaModeloProdutividade_()">📈 Produtividade</div>
       <div class="app-nav-item" data-tela="usuarios" onclick="irParaTela('usuarios')">👤 Usuários</div>
       <div class="app-nav-item" data-tela="lixeira" onclick="irParaTela('lixeira')">🗑️ Lixeira</div>
       <div class="app-nav-item" id="navTep" data-tela="tep" style="display:none; background:#dc2626; color:#fff;" onclick="irParaTela('tep')">🔴 TEP <span id="navTepContagem"></span></div>
@@ -1971,6 +1971,44 @@
       </div>
     </section>
 
+    <section id="tela-produtividadeClique" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Produtividade — Clique e Conte</h2>
+          <p>Clique em "+1" assim que fizer a ação. Contagem individual, por usuário — depois dá pra juntar tudo num relatório de período.</p>
+        </div>
+      </div>
+      <div id="pcSemPermissao" class="card" style="display:none;">
+        <p>Você não tem permissão para usar a aba Produtividade — fale com um administrador.</p>
+      </div>
+      <div id="pcConteudoGeral">
+        <div class="card">
+          <h2>Registrar</h2>
+          <p class="dica-painel">O "Hoje" mostra só a sua própria contagem do dia. A observação é sempre opcional.</p>
+          <div id="pcListaVariaveis"></div>
+        </div>
+
+        <div class="card">
+          <h2>Relatório (todos os usuários)</h2>
+          <div class="grid-form">
+            <div class="campo">
+              <label for="pc_DataInicio">Data de início</label>
+              <input type="date" id="pc_DataInicio">
+            </div>
+            <div class="campo">
+              <label for="pc_DataFim">Data de fim</label>
+              <input type="date" id="pc_DataFim">
+            </div>
+          </div>
+          <div class="botoes" style="justify-content:flex-start; margin-top:10px;">
+            <button type="button" class="secundario" onclick="definirPeriodoProdutividadeClique_(7)">Últimos 7 dias</button>
+            <button type="button" class="primario" onclick="carregarRelatorioProdutividadeClique_()">Buscar</button>
+          </div>
+          <div id="pcRelatorioConteudo" style="margin-top:18px;"><div class="carregando">Ajuste o período e clique em "Buscar".</div></div>
+        </div>
+      </div>
+    </section>
+
     <section id="tela-usuarios" class="tela">
       <div class="pagina-titulo">
         <div>
@@ -2100,6 +2138,35 @@
       </div>
       <div class="botoes">
         <button class="secundario" id="botaoEscolhaCadastroFechar" style="margin-left:auto;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalEscolhaProdutividadeFundo">
+    <div class="modal" style="max-width:460px;">
+      <h2>Produtividade</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">Qual modelo você quer usar?</p>
+      <div class="botoes" style="flex-direction:column; align-items:stretch; gap:10px; margin-top:8px;">
+        <button type="button" class="primario" id="botaoEscolhaModelo1">Modelo 1 — Relatório por período (atual)</button>
+        <button type="button" class="secundario" id="botaoEscolhaModelo2">Modelo 2 — Clique e conte (novo)</button>
+      </div>
+      <div class="botoes">
+        <button class="secundario" id="botaoEscolhaProdutividadeFechar" style="margin-left:auto;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalCliqueProdutividadeFundo">
+    <div class="modal" style="max-width:420px;">
+      <h2 id="mcpTitulo">Registrar</h2>
+      <div class="campo">
+        <label for="mcp_Observacao">Observação (opcional)</label>
+        <input type="text" id="mcp_Observacao" maxlength="300" placeholder="Ex.: Cartório Asa Norte">
+      </div>
+      <div id="mensagemCliqueProdutividade"></div>
+      <div class="botoes">
+        <button type="button" class="secundario" id="botaoCliqueCancelar">Cancelar</button>
+        <button type="button" class="primario" id="botaoCliqueConfirmar" style="margin-left:auto;">Registrar +1</button>
       </div>
     </div>
   </div>
@@ -2288,6 +2355,8 @@
     configurarModalNovoUsuario_();
     configurarModalNumeroSei_();
     configurarModalCobranca_();
+    configurarEscolhaModeloProdutividade_();
+    configurarModalCliqueProdutividade_();
   });
 
   // ---------- Seletor de painéis (Doações Veiculares / Passivo Veicular) ----------
@@ -3069,7 +3138,9 @@
     document.querySelectorAll('.tela').forEach(function (t) { t.classList.remove('ativa'); });
     document.getElementById('tela-' + nome).classList.add('ativa');
     document.querySelectorAll('.app-nav-item[data-tela]').forEach(function (el) {
-      el.classList.toggle('ativo', el.dataset.tela === nome);
+      var ativo = el.dataset.tela === nome ||
+        (el.dataset.tela === 'relatorioProdutividade' && nome === 'produtividadeClique');
+      el.classList.toggle('ativo', ativo);
     });
 
     if (nome === 'inicio') carregarInicio();
@@ -3081,6 +3152,7 @@
     // que precisa carregar mesmo pra já mostrar o processo recém-salvo.
     if (nome === 'painel') carregarPainel();
     if (nome === 'relatorioProdutividade') abrirTelaRelatorioProdutividade_();
+    if (nome === 'produtividadeClique') abrirTelaProdutividadeClique_();
     if (nome === 'cobranca') carregarCobranca_();
     if (nome === 'transferidos') carregarTransferidos_();
     if (nome === 'usuarios') irParaTelaUsuarios_();
@@ -5762,6 +5834,177 @@
           (USUARIO_E_ADMIN ? '<td><button type="button" class="perigo" onclick="excluirEmissaoAtpve_(' + i + ')">Excluir</button></td>' : '') +
           '</tr>';
       });
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    } catch (erro) {
+      container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  // ---------- Produtividade: escolha de modelo ----------
+  // Modelo 1 = Relatório de Produtividade original (emissão de ATPVe +
+  // Relatório de Atividades manual por período, já existente acima).
+  // Modelo 2 = clique e conte, abaixo. Os dois continuam existindo em
+  // paralelo — nenhum substitui o outro.
+  function abrirEscolhaModeloProdutividade_() {
+    document.getElementById('modalEscolhaProdutividadeFundo').classList.add('ativo');
+  }
+
+  function fecharEscolhaModeloProdutividade_() {
+    document.getElementById('modalEscolhaProdutividadeFundo').classList.remove('ativo');
+  }
+
+  function configurarEscolhaModeloProdutividade_() {
+    document.getElementById('botaoEscolhaModelo1').addEventListener('click', function () {
+      fecharEscolhaModeloProdutividade_();
+      irParaTela('relatorioProdutividade');
+    });
+    document.getElementById('botaoEscolhaModelo2').addEventListener('click', function () {
+      fecharEscolhaModeloProdutividade_();
+      irParaTela('produtividadeClique');
+    });
+    document.getElementById('botaoEscolhaProdutividadeFechar').addEventListener('click', fecharEscolhaModeloProdutividade_);
+  }
+
+  // ---------- Produtividade — Modelo 2 ("clique e conte") ----------
+  // Precisa bater exatamente com VARIAVEIS_PRODUTIVIDADE_CLIQUE_VALIDAS_ no
+  // servidor (CodigoCompleto.gs) — os rótulos ficam só aqui, o servidor só
+  // valida a chave.
+  var VARIAVEIS_PRODUTIVIDADE_CLIQUE_ = [
+    { chave: 'OficiosDetran', rotulo: 'Ofício ao Diretor do Detran/DF (transferência de propriedade)' },
+    { chave: 'OficiosExclusaoBeneficio', rotulo: 'Ofício de Exclusão de Observação de Benefício Tributário' },
+    { chave: 'AutorizacoesRepresentacao', rotulo: 'Autorização para Representação de serviços cartorários' },
+    { chave: 'ReconhecimentoFirma', rotulo: 'Reconhecimento de firma (autenticidade de assinatura)' },
+    { chave: 'TratativasEstampagem', rotulo: 'Tratativa com representante — pendência de estampagem veicular' },
+    { chave: 'TratativasDebitos', rotulo: 'Tratativa com representante — pendência de débito de veículo (licenciamento)' },
+    { chave: 'EmailTransferencia', rotulo: 'E-mail de Transferência de Propriedade enviado' },
+    { chave: 'EmailExclusaoBeneficio', rotulo: 'E-mail de Exclusão de Observação de Benefício Tributário enviado' },
+    { chave: 'ExpedEnviado', rotulo: 'Processo enviado para EXPED (Protocolo)' },
+    { chave: 'BaixaEnviada', rotulo: 'Processo enviado para Baixa' },
+    { chave: 'TermoEncerramento', rotulo: 'Termo de Encerramento de Processo Administrativo' },
+    { chave: 'IpvaOficio', rotulo: 'Ofício de Exclusão de débito de IPVA' },
+    { chave: 'PagamentoCartorio', rotulo: 'Pagamento de serviço de cartório' }
+  ];
+
+  var CLIQUE_PRODUTIVIDADE_VARIAVEL_ATUAL_ = '';
+
+  function abrirTelaProdutividadeClique_() {
+    if (!USUARIO_ACESSO_PRODUTIVIDADE) {
+      document.getElementById('pcSemPermissao').style.display = '';
+      document.getElementById('pcConteudoGeral').style.display = 'none';
+      return;
+    }
+    document.getElementById('pcSemPermissao').style.display = 'none';
+    document.getElementById('pcConteudoGeral').style.display = '';
+    renderizarListaVariaveisClique_();
+    carregarContagemHojeClique_();
+    if (!document.getElementById('pc_DataInicio').value) definirPeriodoProdutividadeClique_(7);
+  }
+
+  function renderizarListaVariaveisClique_() {
+    var container = document.getElementById('pcListaVariaveis');
+    container.innerHTML = VARIAVEIS_PRODUTIVIDADE_CLIQUE_.map(function (v) {
+      return '<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--borda);">' +
+        '<span style="font-size:13.5px;">' + escaparHtml(v.rotulo) + '</span>' +
+        '<div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">' +
+          '<span class="mono" style="font-size:12px; color:var(--texto-suave); white-space:nowrap;">Hoje: <strong id="pcHoje_' + v.chave + '">0</strong></span>' +
+          '<button type="button" class="primario" onclick="abrirModalClique_(\'' + v.chave + '\')">+1</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function carregarContagemHojeClique_() {
+    try {
+      var contagens = await chamarServidor_('getContagemCliquesHoje');
+      VARIAVEIS_PRODUTIVIDADE_CLIQUE_.forEach(function (v) {
+        var el = document.getElementById('pcHoje_' + v.chave);
+        if (el) el.textContent = contagens[v.chave] || 0;
+      });
+    } catch (erro) {
+      // Silencioso — os botões de registrar continuam funcionando mesmo se
+      // só essa contagem falhar ao carregar.
+    }
+  }
+
+  function abrirModalClique_(variavel) {
+    CLIQUE_PRODUTIVIDADE_VARIAVEL_ATUAL_ = variavel;
+    var v = VARIAVEIS_PRODUTIVIDADE_CLIQUE_.filter(function (x) { return x.chave === variavel; })[0];
+    document.getElementById('mcpTitulo').textContent = v ? v.rotulo : 'Registrar';
+    document.getElementById('mcp_Observacao').value = '';
+    document.getElementById('mensagemCliqueProdutividade').innerHTML = '';
+    document.getElementById('modalCliqueProdutividadeFundo').classList.add('ativo');
+    setTimeout(function () { document.getElementById('mcp_Observacao').focus(); }, 50);
+  }
+
+  function fecharModalClique_() {
+    document.getElementById('modalCliqueProdutividadeFundo').classList.remove('ativo');
+    CLIQUE_PRODUTIVIDADE_VARIAVEL_ATUAL_ = '';
+  }
+
+  function configurarModalCliqueProdutividade_() {
+    document.getElementById('botaoCliqueCancelar').addEventListener('click', fecharModalClique_);
+    document.getElementById('botaoCliqueConfirmar').addEventListener('click', confirmarCliqueProdutividade_);
+    document.getElementById('mcp_Observacao').addEventListener('keyup', function (e) {
+      if (e.key === 'Enter') confirmarCliqueProdutividade_();
+    });
+  }
+
+  async function confirmarCliqueProdutividade_() {
+    if (!CLIQUE_PRODUTIVIDADE_VARIAVEL_ATUAL_) return;
+    var variavel = CLIQUE_PRODUTIVIDADE_VARIAVEL_ATUAL_;
+    var observacao = document.getElementById('mcp_Observacao').value.trim();
+    var botao = document.getElementById('botaoCliqueConfirmar');
+    botao.disabled = true;
+    try {
+      await chamarServidor_('registrarCliqueProdutividade', variavel, observacao);
+      fecharModalClique_();
+      var elHoje = document.getElementById('pcHoje_' + variavel);
+      if (elHoje) elHoje.textContent = (parseInt(elHoje.textContent, 10) || 0) + 1;
+      mostrarMensagem('mensagemGlobal', 'sucesso', 'Registrado!');
+    } catch (erro) {
+      document.getElementById('mensagemCliqueProdutividade').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
+  function definirPeriodoProdutividadeClique_(dias) {
+    var hoje = new Date();
+    var inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - (dias - 1));
+    document.getElementById('pc_DataFim').value = formatarDataISO_(hoje);
+    document.getElementById('pc_DataInicio').value = formatarDataISO_(inicio);
+    carregarRelatorioProdutividadeClique_();
+  }
+
+  async function carregarRelatorioProdutividadeClique_() {
+    var container = document.getElementById('pcRelatorioConteudo');
+    var dataInicio = document.getElementById('pc_DataInicio').value;
+    var dataFim = document.getElementById('pc_DataFim').value;
+    if (!dataInicio || !dataFim) {
+      container.innerHTML = '<p>Escolha o período (ou clique em "Últimos 7 dias").</p>';
+      return;
+    }
+    container.innerHTML = '<div class="carregando">Carregando...</div>';
+    try {
+      var r = await chamarServidor_('getRelatorioCliquesProdutividade', dataInicio, dataFim);
+      if (!r.usuarios.length) {
+        container.innerHTML = '<p>Nenhum clique registrado nesse período.</p>';
+        return;
+      }
+      var html = '<div class="tabela-wrap"><table><thead><tr><th>Usuário</th>' +
+        VARIAVEIS_PRODUTIVIDADE_CLIQUE_.map(function (v) { return '<th>' + escaparHtml(v.rotulo) + '</th>'; }).join('') +
+        '<th>Total</th></tr></thead><tbody>';
+      r.usuarios.forEach(function (u) {
+        html += '<tr><td>' + escaparHtml(u.usuario) + '</td>' +
+          VARIAVEIS_PRODUTIVIDADE_CLIQUE_.map(function (v) { return '<td>' + (u.porVariavel[v.chave] || 0) + '</td>'; }).join('') +
+          '<td><strong>' + u.total + '</strong></td></tr>';
+      });
+      html += '<tr><td><strong>Total geral</strong></td>' +
+        VARIAVEIS_PRODUTIVIDADE_CLIQUE_.map(function (v) { return '<td><strong>' + (r.totalPorVariavel[v.chave] || 0) + '</strong></td>'; }).join('') +
+        '<td><strong>' + r.totalGeral + '</strong></td></tr>';
       html += '</tbody></table></div>';
       container.innerHTML = html;
     } catch (erro) {
