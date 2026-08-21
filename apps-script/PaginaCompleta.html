@@ -4752,7 +4752,12 @@
 
       var partes = ['Processo nº ' + NUMERO_PROCESSO_ATUAL + ' — dados do Termo importados.'];
       if (VEICULOS_EXTRAIDOS_PDF) {
-        partes.push(VEICULOS_EXTRAIDOS_PDF.length + ' veículo(s) lido(s) do Anexo I — confirme a "Quantidade de veículos" abaixo igual a esse número pra eles entrarem pré-preenchidos.');
+        // A quantidade de veículos do Anexo I é preenchida direto em
+        // "Quantidade de veículos deste contrato" — se esse Termo cobrir só
+        // parte de um contrato maior (aditivo em lote separado, etc.),
+        // ajuste esse número manualmente antes de avançar.
+        document.getElementById('c_QtdContrato').value = VEICULOS_EXTRAIDOS_PDF.length;
+        partes.push(VEICULOS_EXTRAIDOS_PDF.length + ' veículo(s) lido(s) do Anexo I — já preenchi em "Quantidade de veículos deste contrato" (ajuste se esse Termo não representar o contrato inteiro).');
       }
       partes.push('Renavam nunca vem no Termo — preencha na hora de revisar cada veículo.');
       if (resp.avisos && resp.avisos.length) partes = partes.concat(resp.avisos);
