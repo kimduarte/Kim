@@ -1704,7 +1704,11 @@ function buscarVeiculoParaSegundaVia(busca) {
   var chassiBusca = normalizarChassi_(termo);
   var placaBusca = normalizarPlaca_(termo);
 
-  var candidatos = listarVeiculos({ busca: termo });
+  // Busca restrita por campo (igual à Listagem/Processos, que já é
+  // comprovadamente confiável) em vez de uma busca livre por vários campos
+  // ao mesmo tempo — mais direto e sem depender de um filtro extra depois.
+  var candidatos = listarVeiculos({ busca: termo, buscaCampo: 'placa' })
+    .concat(listarVeiculos({ busca: termo, buscaCampo: 'chassi' }));
   var encontrado = candidatos.filter(function (r) {
     return normalizarChassi_(r.Chassi) === chassiBusca || normalizarPlaca_(r.Placa) === placaBusca;
   })[0];
