@@ -1772,6 +1772,12 @@
         <div id="rpConteudo" style="margin-top:18px;"><div class="carregando">Carregando...</div></div>
       </div>
 
+      <div class="card" id="rpCardSegundaViaEmitida" style="display:none;">
+        <h2>Veículos com 2ª via emitida</h2>
+        <p class="dica-painel">Lista direta (não depende de busca por placa/chassi) — use "Remover marcação" pra corrigir um registro feito por engano.</p>
+        <div id="rpListaSegundaViaEmitida"><div class="carregando">Carregando...</div></div>
+      </div>
+
       <div class="card">
         <h2>Gerar Relatório de Atividades</h2>
         <p style="font-size:14px; color:var(--texto-suave);">
@@ -5810,6 +5816,41 @@
     } else {
       carregarRelatorioProdutividade();
     }
+    if (USUARIO_E_ADMIN) {
+      document.getElementById('rpCardSegundaViaEmitida').style.display = '';
+      carregarListaSegundaViaEmitida_();
+    }
+  }
+
+  async function carregarListaSegundaViaEmitida_() {
+    var container = document.getElementById('rpListaSegundaViaEmitida');
+    try {
+      var lista = await chamarServidor_('listarVeiculosComSegundaViaEmitida');
+      if (!lista.length) {
+        container.innerHTML = '<p>Nenhum veículo com 2ª via emitida no momento.</p>';
+        return;
+      }
+      container.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Placa</th><th>Marca / Descrição</th><th>Donatária</th><th>Data</th><th></th></tr></thead><tbody>' +
+        lista.map(function (v) {
+          return '<tr><td>' + escaparHtml(v.Placa) + '</td><td>' + escaparHtml([v.Marca, v.Descricao].filter(Boolean).join(' — ')) + '</td>' +
+            '<td>' + escaparHtml(v.Donataria) + '</td><td>' + escaparHtml(v.DataEmissaoSegundaViaATPVe) + '</td>' +
+            '<td><button type="button" class="perigo" onclick="removerSegundaViaEmitidaDaLista_(\'' + v.ID + '\', \'' + escaparHtml(v.Placa) + '\')">Remover marcação</button></td></tr>';
+        }).join('') + '</tbody></table></div>';
+    } catch (erro) {
+      container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  function removerSegundaViaEmitidaDaLista_(idVeiculo, placa) {
+    confirmar_('Remover a marcação de 2ª via emitida do veículo ' + placa + '?', async function () {
+      try {
+        var resp = await chamarServidor_('removerSegundaViaAtpve', idVeiculo);
+        mostrarMensagem('mensagemGlobal', 'sucesso', resp.mensagem);
+        carregarListaSegundaViaEmitida_();
+      } catch (erro) {
+        mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
+      }
+    });
   }
 
   function definirPeriodoProdutividade_(dias) {

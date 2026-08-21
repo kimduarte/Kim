@@ -1784,6 +1784,31 @@ function removerSegundaViaAtpve(idVeiculo) {
 }
 
 /**
+ * Lista direto (sem depender de busca por placa/chassi) todos os veículos
+ * que estão com DataEmissaoSegundaViaATPVe preenchida — usada pra revisar e
+ * remover marcações feitas por engano, quando a busca no modal de "Emissão
+ * de 2ª via" não encontra o veículo por algum motivo. Restrito a
+ * administradores.
+ */
+function listarVeiculosComSegundaViaEmitida() {
+  exigirPerfilAdmin_();
+  var lista = listarVeiculos({}).filter(function (v) { return !!v.DataEmissaoSegundaViaATPVe; });
+  var fuso = Session.getScriptTimeZone();
+  return lista.map(function (v) {
+    return {
+      ID: v.ID,
+      Placa: v.Placa,
+      Chassi: v.Chassi,
+      Marca: v.Marca,
+      Descricao: v.Descricao,
+      Donataria: v.Donataria,
+      UF: v.UF,
+      DataEmissaoSegundaViaATPVe: Utilities.formatDate(new Date(v.DataEmissaoSegundaViaATPVe), fuso, 'dd/MM/yyyy')
+    };
+  });
+}
+
+/**
  * Relatório de produtividade — conta quantas emissões de 2ª via de ATPVe
  * cada usuário registrou num período escolhido (data início/fim, ambas
  * "AAAA-MM-DD"), e lista quais veículos (placa) tiveram 2ª via emitida.
