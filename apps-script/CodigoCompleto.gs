@@ -1967,6 +1967,102 @@ function getRelatorioCliquesProdutividade(dataInicio, dataFim) {
 }
 
 /**
+ * Só os cliques do próprio usuário logado, num período — alimenta o "Meu
+ * relatório em texto" (mesmo estilo redigido do Relatório de Atividades
+ * original), sem misturar com os números de outras pessoas.
+ */
+function getMeuRelatorioCliquesProdutividade(dataInicio, dataFim) {
+  var perfil = exigirAcessoProdutividade_();
+  if (!dataInicio || !dataFim) throw new Error('Informe o período (data de início e de fim).');
+
+  var sheet = getOrCreateSheet_(SHEET_PRODUTIVIDADE_CLIQUES, CABECALHO_PRODUTIVIDADE_CLIQUES);
+  var dados = sheet.getDataRange().getValues();
+  var emailAtual = perfil.email.trim().toLowerCase();
+
+  var porVariavel = {};
+  var observacoesPorVariavel = {};
+  var total = 0;
+
+  for (var i = 1; i < dados.length; i++) {
+    var linha = dados[i];
+    if (!linha[0]) continue;
+    if (String(linha[1] || '').trim().toLowerCase() !== emailAtual) continue;
+    if (!dataDentroDoIntervalo_(linha[0], dataInicio, dataFim)) continue;
+
+    var variavel = linha[2];
+    porVariavel[variavel] = (porVariavel[variavel] || 0) + 1;
+    total++;
+    if (linha[3]) {
+      if (!observacoesPorVariavel[variavel]) observacoesPorVariavel[variavel] = [];
+      observacoesPorVariavel[variavel].push(String(linha[3]));
+    }
+  }
+
+  return { porVariavel: porVariavel, observacoesPorVariavel: observacoesPorVariavel, total: total };
+}
+
+/**
+ * Cliques de HOJE do próprio usuário logado, mais recente primeiro — usado
+ * pra montar a lista "Meus registros de hoje", com a opção de desfazer um
+ * clique feito por engano.
+ */
+function listarMeusCliquesHoje() {
+  var perfil = exigirAcessoProdutividade_();
+  var sheet = getOrCreateSheet_(SHEET_PRODUTIVIDADE_CLIQUES, CABECALHO_PRODUTIVIDADE_CLIQUES);
+  var dados = sheet.getDataRange().getValues();
+  var hojeChave = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var emailAtual = perfil.email.trim().toLowerCase();
+  var fuso = Session.getScriptTimeZone();
+
+  var itens = [];
+  for (var i = 1; i < dados.length; i++) {
+    var linha = dados[i];
+    if (!linha[0]) continue;
+    if (String(linha[1] || '').trim().toLowerCase() !== emailAtual) continue;
+    var chaveData = Utilities.formatDate(new Date(linha[0]), fuso, 'yyyy-MM-dd');
+    if (chaveData !== hojeChave) continue;
+    itens.push({
+      dataHoraOrdenacao: new Date(linha[0]).getTime(),
+      dataHoraIso: new Date(linha[0]).toISOString(),
+      dataHora: Utilities.formatDate(new Date(linha[0]), fuso, 'HH:mm'),
+      variavel: linha[2],
+      observacao: linha[3] || ''
+    });
+  }
+  itens.sort(function (a, b) { return b.dataHoraOrdenacao - a.dataHoraOrdenacao; });
+  itens.forEach(function (item) { delete item.dataHoraOrdenacao; });
+  return itens;
+}
+
+/**
+ * Desfaz um clique feito por engano — só o dono do clique pode apagar o
+ * próprio registro (identificado pelo par variável + data/hora exata, já
+ * que não há um ID próprio por linha). Sem restrição de admin: a ideia é
+ * corrigir um clique errado na hora, não reabrir período já fechado —
+ * quem precisar mexer em registros antigos pode editar a aba
+ * "ProdutividadeCliques" direto na planilha.
+ */
+function excluirCliqueProdutividade(dataHoraIso, variavel) {
+  var perfil = exigirAcessoProdutividade_();
+  if (!dataHoraIso || !variavel) throw new Error('Registro inválido.');
+  var alvo = new Date(dataHoraIso).getTime();
+  var emailAtual = perfil.email.trim().toLowerCase();
+
+  var sheet = getOrCreateSheet_(SHEET_PRODUTIVIDADE_CLIQUES, CABECALHO_PRODUTIVIDADE_CLIQUES);
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    var linha = dados[i];
+    if (!linha[0]) continue;
+    if (String(linha[1] || '').trim().toLowerCase() !== emailAtual) continue;
+    if (linha[2] !== variavel) continue;
+    if (new Date(linha[0]).getTime() !== alvo) continue;
+    sheet.deleteRow(i + 1);
+    return { mensagem: 'Registro desfeito com sucesso.' };
+  }
+  throw new Error('Registro não encontrado — pode já ter sido desfeito.');
+}
+
+/**
  * Resumo automático do Relatório de Atividades pra um período: emissões de
  * ATPVe (primeira emissão + 2ª via) e veículos transferidos dentro do
  * período, agrupados por Ano. Restrito a quem tem acesso à aba

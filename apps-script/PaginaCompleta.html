@@ -1989,7 +1989,13 @@
         </div>
 
         <div class="card">
-          <h2>Relatório (todos os usuários)</h2>
+          <h2>Meus registros de hoje</h2>
+          <p class="dica-painel">Clicou errado? Desfaça aqui — só aparece o que você mesmo registrou hoje, e o registro é apagado de vez.</p>
+          <div id="pcMeusRegistrosHoje"><div class="carregando">Carregando...</div></div>
+        </div>
+
+        <div class="card">
+          <h2>Relatório do período</h2>
           <div class="grid-form">
             <div class="campo">
               <label for="pc_DataInicio">Data de início</label>
@@ -2004,7 +2010,15 @@
             <button type="button" class="secundario" onclick="definirPeriodoProdutividadeClique_(7)">Últimos 7 dias</button>
             <button type="button" class="primario" onclick="carregarRelatorioProdutividadeClique_()">Buscar</button>
           </div>
-          <div id="pcRelatorioConteudo" style="margin-top:18px;"><div class="carregando">Ajuste o período e clique em "Buscar".</div></div>
+
+          <h3 style="margin-top:22px;">Meu relatório (texto)</h3>
+          <div class="botoes" style="justify-content:flex-start; margin:6px 0 10px;">
+            <button type="button" class="secundario" onclick="copiarTextoRelatorioClique_()">Copiar texto do relatório</button>
+          </div>
+          <textarea id="pcTextoPreview" readonly style="width:100%; min-height:220px; font-family:monospace; font-size:13px; padding:10px; box-sizing:border-box;"></textarea>
+
+          <h3 style="margin-top:24px;">Todos os usuários (pra juntar na prestação de contas)</h3>
+          <div id="pcRelatorioConteudo" style="margin-top:10px;"><div class="carregando">Ajuste o período e clique em "Buscar".</div></div>
         </div>
       </div>
     </section>
@@ -5898,6 +5912,7 @@
     document.getElementById('pcConteudoGeral').style.display = '';
     renderizarListaVariaveisClique_();
     carregarContagemHojeClique_();
+    carregarMeusRegistrosHojeClique_();
     if (!document.getElementById('pc_DataInicio').value) definirPeriodoProdutividadeClique_(7);
   }
 
@@ -5961,12 +5976,56 @@
       fecharModalClique_();
       var elHoje = document.getElementById('pcHoje_' + variavel);
       if (elHoje) elHoje.textContent = (parseInt(elHoje.textContent, 10) || 0) + 1;
-      mostrarMensagem('mensagemGlobal', 'sucesso', 'Registrado!');
+      carregarMeusRegistrosHojeClique_();
+      mostrarMensagem('mensagemGlobal', 'sucesso', 'Registrado! Fica salvo permanentemente — se for engano, desfaça em "Meus registros de hoje".');
     } catch (erro) {
       document.getElementById('mensagemCliqueProdutividade').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     } finally {
       botao.disabled = false;
+    }
+  }
+
+  async function carregarMeusRegistrosHojeClique_() {
+    var container = document.getElementById('pcMeusRegistrosHoje');
+    if (!container) return;
+    try {
+      var itens = await chamarServidor_('listarMeusCliquesHoje');
+      renderizarMeusRegistrosHojeClique_(itens);
+    } catch (erro) {
+      container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  function renderizarMeusRegistrosHojeClique_(itens) {
+    var container = document.getElementById('pcMeusRegistrosHoje');
+    if (!itens.length) {
+      container.innerHTML = '<p>Nenhum registro seu hoje ainda.</p>';
+      return;
+    }
+    container.innerHTML = itens.map(function (item) {
+      var v = VARIAVEIS_PRODUTIVIDADE_CLIQUE_.filter(function (x) { return x.chave === item.variavel; })[0];
+      var rotulo = v ? v.rotulo : item.variavel;
+      return '<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--borda);">' +
+        '<span style="font-size:13px;">' +
+          '<span class="mono" style="color:var(--texto-suave);">' + item.dataHora + '</span> — ' + escaparHtml(rotulo) +
+          (item.observacao ? '<br><span style="font-size:12px; color:var(--texto-suave);">' + escaparHtml(item.observacao) + '</span>' : '') +
+        '</span>' +
+        '<button type="button" class="secundario" style="flex-shrink:0;" onclick="desfazerCliqueProdutividade_(\'' +
+          item.dataHoraIso + '\', \'' + item.variavel + '\')">Desfazer</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function desfazerCliqueProdutividade_(dataHoraIso, variavel) {
+    if (!confirm('Desfazer esse registro? Não tem como voltar atrás depois.')) return;
+    try {
+      await chamarServidor_('excluirCliqueProdutividade', dataHoraIso, variavel);
+      carregarContagemHojeClique_();
+      carregarMeusRegistrosHojeClique_();
+      mostrarMensagem('mensagemGlobal', 'sucesso', 'Registro desfeito.');
+    } catch (erro) {
+      mostrarMensagem('mensagemGlobal', 'erro', erro.message || String(erro));
     }
   }
 
@@ -5981,6 +6040,7 @@
 
   async function carregarRelatorioProdutividadeClique_() {
     var container = document.getElementById('pcRelatorioConteudo');
+    var textarea = document.getElementById('pcTextoPreview');
     var dataInicio = document.getElementById('pc_DataInicio').value;
     var dataFim = document.getElementById('pc_DataFim').value;
     if (!dataInicio || !dataFim) {
@@ -5988,7 +6048,11 @@
       return;
     }
     container.innerHTML = '<div class="carregando">Carregando...</div>';
+    textarea.value = '';
     try {
+      var meu = await chamarServidor_('getMeuRelatorioCliquesProdutividade', dataInicio, dataFim);
+      textarea.value = montarTextoRelatorioClique_(dataInicio, dataFim, meu);
+
       var r = await chamarServidor_('getRelatorioCliquesProdutividade', dataInicio, dataFim);
       if (!r.usuarios.length) {
         container.innerHTML = '<p>Nenhum clique registrado nesse período.</p>';
@@ -6010,6 +6074,47 @@
     } catch (erro) {
       container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     }
+  }
+
+  function montarTextoRelatorioClique_(dataInicio, dataFim, r) {
+    var linhas = [];
+    linhas.push('RELATÓRIO DE ATIVIDADES DESENVOLVIDAS: ' + formatarPeriodoTitulo_(dataInicio, dataFim));
+    linhas.push('');
+    if (!r.total) {
+      linhas.push('* Nenhuma atividade registrada nesse período.');
+      return linhas.join('\n');
+    }
+    VARIAVEIS_PRODUTIVIDADE_CLIQUE_.forEach(function (v) {
+      var qtd = r.porVariavel[v.chave] || 0;
+      if (!qtd) return;
+      linhas.push('* ' + v.rotulo + ': ' + raNumeroComExtenso_(qtd) + ';');
+      var obs = r.observacoesPorVariavel[v.chave];
+      if (obs && obs.length) {
+        obs.forEach(function (texto) { linhas.push('   - ' + texto); });
+      }
+    });
+    return linhas.join('\n');
+  }
+
+  function copiarTextoRelatorioClique_() {
+    var textarea = document.getElementById('pcTextoPreview');
+    if (!textarea.value) {
+      mostrarMensagem('mensagemGlobal', 'erro', 'Clique em "Buscar" primeiro.');
+      return;
+    }
+    textarea.select();
+    textarea.setSelectionRange(0, 999999);
+    var copiado = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textarea.value);
+        copiado = true;
+      }
+    } catch (e) { /* cai no fallback abaixo */ }
+    if (!copiado) {
+      try { document.execCommand('copy'); copiado = true; } catch (e) { /* nada mais a fazer */ }
+    }
+    mostrarMensagem('mensagemGlobal', copiado ? 'sucesso' : 'erro', copiado ? 'Texto copiado!' : 'Não foi possível copiar automaticamente — selecione e copie manualmente.');
   }
 
   var RESUMO_AUTOMATICO_ATUAL = null;
