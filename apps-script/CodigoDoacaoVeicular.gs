@@ -897,19 +897,26 @@ function listarUsuarios() {
 // WEB APP + CRUD — página do sistema e operações sobre a aba "Veiculos"
 // ======================================================================
 
+// Monta a página final juntando PaginaCompleta.html com o HTML/JS do
+// Passivo Veicular (PassivoVeicularHtml.html e PassivoVeicularJs.html),
+// substituindo os marcadores <!-- INCLUIR:... --> pelo conteúdo de cada
+// arquivo. Feito com Utilities/HtmlOutput + replace (texto puro), em vez
+// do mecanismo de template do Apps Script (createTemplateFromFile +
+// <?!= include() ?>) — esse mecanismo se mostrou instável com arquivos
+// grandes nesse projeto (erro de sintaxe no JavaScript montado, sem causa
+// aparente no código-fonte). Essa troca é só na forma de montar a página;
+// o resultado final é idêntico.
 function doGet(e) {
-  return HtmlService.createTemplateFromFile('PaginaCompleta')
-    .evaluate()
+  var pagina = HtmlService.createHtmlOutputFromFile('PaginaCompleta').getContent();
+  pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularHtml -->', function () {
+    return HtmlService.createHtmlOutputFromFile('PassivoVeicularHtml').getContent();
+  });
+  pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularJs -->', function () {
+    return HtmlService.createHtmlOutputFromFile('PassivoVeicularJs').getContent();
+  });
+  return HtmlService.createHtmlOutput(pagina)
     .setTitle('Base de Veículos Doados')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
-
-// Usado pelas tags <?!= include('NomeDoArquivo'); ?> dentro de
-// PaginaCompleta.html, pra montar a página final juntando o HTML/JS do
-// Passivo Veicular (PassivoVeicularHtml.html e PassivoVeicularJs.html)
-// com o restante da página. Sem isso, os includes não funcionam.
-function include(nomeArquivo) {
-  return HtmlService.createHtmlOutputFromFile(nomeArquivo).getContent();
 }
 
 function getContextoInicial() {
