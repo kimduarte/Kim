@@ -910,8 +910,8 @@ function listarUsuarios() {
 // Veicular entram na página — usado só pra isolar qual dos dois arquivos
 // está causando o erro de clique nos painéis. Voltar os dois pra true
 // depois do teste (é o estado normal, com tudo incluído).
-var TESTE_DIAGNOSTICO_INCLUIR_HTML_PASSIVO = true;
-var TESTE_DIAGNOSTICO_INCLUIR_JS_PASSIVO = false;
+var TESTE_DIAGNOSTICO_INCLUIR_HTML_PASSIVO = false;
+var TESTE_DIAGNOSTICO_INCLUIR_JS_PASSIVO = true;
 
 function doGet(e) {
   var pagina = HtmlService.createHtmlOutputFromFile('PaginaCompleta').getContent();
