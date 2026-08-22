@@ -1,0 +1,437 @@
+  function pvPreencherListasInfracoes_() {
+    if (!PV_LISTAS_DEBITOS) return;
+    preencherSelect('pvifStatus', PV_LISTAS_DEBITOS.statusCancelamento, false, 'Todos');
+    // pvGarantirListasDebitos_ chama esta função de novo toda vez que o
+    // modal de infração abre — sem limpar antes, preencherSelect (que só
+    // limpa quando recebe um rótulo de "Selecione.../Todos") ia só
+    // empilhando as mesmas opções de novo a cada abertura.
+    document.getElementById('pvi_StatusCancelamento').innerHTML = '';
+    preencherSelect('pvi_StatusCancelamento', PV_LISTAS_DEBITOS.statusCancelamento, false);
+
+    var todosOrgaos = PV_LISTAS_DEBITOS.orgaosFederais.slice();
+    Object.keys(PV_LISTAS_DEBITOS.orgaosPorUF).sort().forEach(function (uf) {
+      PV_LISTAS_DEBITOS.orgaosPorUF[uf].forEach(function (o) { todosOrgaos.push(o); });
+    });
+    preencherSelect('pvifOrgao', todosOrgaos, false, 'Todos');
+
+    var selectModal = document.getElementById('pvi_OrgaoAutuadorSelect');
+    var htmlOrgaos = '<option value="">Selecione...</option>';
+    if (PV_LISTAS_DEBITOS.orgaosFederais.length) {
+      htmlOrgaos += '<optgroup label="Federal">' + PV_LISTAS_DEBITOS.orgaosFederais.map(function (o) {
+        return '<option value="' + escaparHtml(o) + '">' + escaparHtml(o) + '</option>';
+      }).join('') + '</optgroup>';
+    }
+    Object.keys(PV_LISTAS_DEBITOS.orgaosPorUF).sort().forEach(function (uf) {
+      htmlOrgaos += '<optgroup label="' + escaparHtml(uf) + '">' + PV_LISTAS_DEBITOS.orgaosPorUF[uf].map(function (o) {
+        return '<option value="' + escaparHtml(o) + '">' + escaparHtml(o) + '</option>';
+      }).join('') + '</optgroup>';
+    });
+    htmlOrgaos += '<option value="' + PV_ORGAO_MUNICIPAL_VALOR + '">Outro / Município (digitar)</option>';
+    selectModal.innerHTML = htmlOrgaos;
+
+    // Datalist em vez de <select>: com 258 artigos, rolar uma lista suspensa
+    // é inviável — assim a pessoa digita parte do artigo ou da descrição e
+    // o navegador filtra sozinho. PV_MAPA_ARTIGOS usa o texto completo da
+    // opção como chave (só ele garante ser único) pra achar de volta o
+    // Artigo/Código/Descrição reais na hora de preencher ou salvar.
+    // Cada item chega como [Artigo, Descricao, Codigo] (array simples, não
+    // objeto) — ver comentário em getListasDebitosPassivo_ no servidor.
+    PV_MAPA_ARTIGOS = {};
+    var datalist = document.getElementById('pvi_ArtigoDatalist');
+    datalist.innerHTML = PV_LISTAS_DEBITOS.tabelaInfracoes.map(function (item) {
+      var artigo = item[0], descricao = item[1], codigo = item[2];
+      var rotulo = 'Art. ' + artigo + ' — ' + descricao + (codigo ? ' (Cód. ' + codigo + ')' : '');
+      PV_MAPA_ARTIGOS[rotulo] = { Artigo: artigo, Descricao: descricao, Codigo: codigo };
+      return '<option value="' + escaparHtml(rotulo) + '"></option>';
+    }).join('');
+  }
+
+  function pvAplicarArtigoDigitado_() {
+    var valor = document.getElementById('pvi_ArtigoBusca').value;
+    var item = PV_MAPA_ARTIGOS[valor];
+    if (item) {
+      document.getElementById('pvi_Codigo').value = item.Codigo || '';
+      document.getElementById('pvi_DescricaoInfracao').value = item.Descricao || '';
+    }
+  }
+
+  function pvLimparArtigoBusca_() {
+    var campo = document.getElementById('pvi_ArtigoBusca');
+    campo.value = '';
+    document.getElementById('pvi_Codigo').value = '';
+    document.getElementById('pvi_DescricaoInfracao').value = '';
+    campo.focus();
+  }
+
+  function pvConfigurarModalInfracao_() {
+    document.getElementById('pvi_Placa').addEventListener('blur', pvBuscarVeiculoPorPlacaInfracao_);
+    document.getElementById('pvi_OrgaoAutuadorSelect').addEventListener('change', function () {
+      var outro = this.value === PV_ORGAO_MUNICIPAL_VALOR;
+      document.getElementById('pvi_OrgaoAutuador').style.display = outro ? '' : 'none';
+      document.getElementById('pvi_OrgaoAutuador').required = outro;
+    });
+    document.getElementById('pvi_ArtigoBusca').addEventListener('input', pvAplicarArtigoDigitado_);
+    document.getElementById('pvi_ArtigoBusca').addEventListener('change', pvAplicarArtigoDigitado_);
+    document.getElementById('formPvInfracao').addEventListener('submit', pvSubmeterInfracao_);
+  }
+
+  function pvBuscarVeiculoPorPlacaInfracao_() {
+    var placa = document.getElementById('pvi_Placa').value;
+    var info = document.getElementById('pvi_VeiculoInfo');
+    if (!placa) { info.textContent = ''; return; }
+    chamarServidor_('buscarVeiculoPassivoPorPlaca', placa).then(function (v) {
+      info.textContent = v ? (v.Marca + ' ' + v.Modelo + ' — Chassi ' + v.Chassi) : 'Veículo não encontrado na Aba Veículos (pode cadastrar a infração mesmo assim).';
+    }).catch(function () { info.textContent = ''; });
+  }
+
+  // Sempre tenta (re)carregar status/órgãos/artigos ao abrir o modal, em
+  // vez de confiar só no carregamento feito na entrada do painel — se por
+  // algum motivo aquele primeiro carregamento falhou ou ainda não tinha
+  // terminado, isso conserta sozinho. Se falhar de novo, mostra o erro de
+  // verdade dentro do próprio modal (em vez de deixar os campos vazios
+  // sem explicação nenhuma).
+  function pvGarantirListasDebitos_() {
+    if (PV_LISTAS_DEBITOS) {
+      pvPreencherListasInfracoes_();
+      return;
+    }
+    mostrarMensagem('mensagemPvInfracao', 'sucesso', 'Carregando listas de órgãos e status...');
+    chamarServidor_('getListasDebitosPassivo').then(function (listas) {
+      PV_LISTAS_DEBITOS = listas;
+      pvPreencherListasInfracoes_();
+      document.getElementById('mensagemPvInfracao').innerHTML = '';
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', 'Não consegui carregar as listas de órgãos/status: ' + (erro.message || String(erro)));
+    });
+  }
+
+  function pvAbrirNovaInfracao_() {
+    document.getElementById('formPvInfracao').reset();
+    document.getElementById('pvi_ID').value = '';
+    document.getElementById('pviModalTitulo').textContent = 'Nova infração';
+    document.getElementById('pvi_VeiculoInfo').textContent = '';
+    document.getElementById('pvi_OrgaoAutuador').style.display = 'none';
+    document.getElementById('pviBotaoExcluir').style.display = 'none';
+    document.getElementById('pvi_ListaEnvios').innerHTML = '<p class="dica-painel" style="margin:0;">Salve a infração primeiro pra poder registrar envios.</p>';
+    document.getElementById('pvi_BotaoRegistrarEnvioWrap').style.display = 'none';
+    pvRenderizarAnexoInfracao_(null);
+    document.getElementById('mensagemPvInfracao').innerHTML = '';
+    var placaFiltro = document.getElementById('pvifPlaca').value;
+    if (placaFiltro) {
+      document.getElementById('pvi_Placa').value = placaFiltro;
+      pvBuscarVeiculoPorPlacaInfracao_();
+    }
+    document.getElementById('modalPvInfracaoFundo').classList.add('ativo');
+    pvGarantirListasDebitos_();
+  }
+
+  function pvAbrirEdicaoInfracao_(id) {
+    var inf = PV_CACHE_INFRACOES[id];
+    if (!inf) return;
+    document.getElementById('formPvInfracao').reset();
+    document.getElementById('pvi_ID').value = inf.ID;
+    document.getElementById('pviModalTitulo').textContent = 'Editar infração';
+    document.getElementById('pvi_Placa').value = inf.Placa;
+    document.getElementById('pvi_VeiculoInfo').textContent = inf.MarcaVeiculo ? (inf.MarcaVeiculo + ' ' + inf.ModeloVeiculo + ' — Chassi ' + inf.ChassiVeiculo) : '';
+    document.getElementById('pvi_AIT').value = inf.AIT || '';
+    document.getElementById('pvi_DataInfracao').value = inf.DataInfracao || '';
+    document.getElementById('pvi_StatusCancelamento').value = inf.StatusCancelamento || '';
+    document.getElementById('pvi_Codigo').value = inf.Codigo || '';
+    document.getElementById('pvi_DescricaoInfracao').value = inf.DescricaoInfracao || '';
+    document.getElementById('pvi_Observacoes').value = inf.Observacoes || '';
+
+    var selectOrgao = document.getElementById('pvi_OrgaoAutuadorSelect');
+    var achouOrgao = Array.prototype.some.call(selectOrgao.options, function (o) { return o.value === inf.OrgaoAutuador; });
+    if (achouOrgao) {
+      selectOrgao.value = inf.OrgaoAutuador;
+      document.getElementById('pvi_OrgaoAutuador').style.display = 'none';
+    } else {
+      selectOrgao.value = PV_ORGAO_MUNICIPAL_VALOR;
+      document.getElementById('pvi_OrgaoAutuador').style.display = '';
+      document.getElementById('pvi_OrgaoAutuador').value = inf.OrgaoAutuador || '';
+    }
+
+    // O campo de busca guarda o texto digitado/escolhido, não o Artigo
+    // "cru" — ao reabrir pra editar, mostra o valor cru mesmo (ele não vai
+    // bater com nenhuma chave de PV_MAPA_ARTIGOS, então no submit volta a
+    // ser tratado como texto livre, preservando o que já estava salvo).
+    document.getElementById('pvi_ArtigoBusca').value = inf.Artigo || '';
+
+    document.getElementById('pviBotaoExcluir').style.display = USUARIO_E_ADMIN ? '' : 'none';
+    document.getElementById('pvi_BotaoRegistrarEnvioWrap').style.display = '';
+    document.getElementById('pvi_ObservacaoEnvio').value = '';
+    document.getElementById('mensagemPvInfracao').innerHTML = '';
+    pvRenderizarAnexoInfracao_(inf);
+    pvCarregarEnviosNaModal_(inf.ID);
+    document.getElementById('modalPvInfracaoFundo').classList.add('ativo');
+    pvGarantirListasDebitos_();
+  }
+
+  function pvCarregarEnviosNaModal_(idInfracao) {
+    var container = document.getElementById('pvi_ListaEnvios');
+    container.innerHTML = '<div class="carregando">Carregando...</div>';
+    chamarServidor_('listarEnviosDaInfracaoPassivo', idInfracao).then(function (envios) {
+      if (!envios.length) {
+        container.innerHTML = '<p class="dica-painel" style="margin:0;">Nenhum envio registrado ainda.</p>';
+        return;
+      }
+      container.innerHTML = envios.map(function (e) {
+        return '<div style="font-size:13px; padding:6px 0; border-bottom:1px solid var(--borda);">' +
+          '<strong>' + escaparHtml(e.DataEnvio) + '</strong> — ' + escaparHtml(e.RegistradoPor) +
+          (e.Observacoes ? '<div style="color:var(--texto-suave);">' + escaparHtml(e.Observacoes) + '</div>' : '') +
+          '</div>';
+      }).join('');
+    }).catch(function (erro) {
+      container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    });
+  }
+
+  // ---------- Boleto/documento do débito anexado à infração ----------
+  function pvRenderizarAnexoInfracao_(inf) {
+    var container = document.getElementById('pvi_AnexoContainer');
+    if (!inf || !inf.ID) {
+      container.innerHTML = '<p class="dica-painel" style="margin:0;">Salve a infração primeiro pra poder anexar o arquivo do boleto/débito.</p>';
+      return;
+    }
+    var partes = [];
+    if (inf.ArquivoBoletoId) {
+      partes.push(
+        '<div style="font-size:13px; margin-bottom:8px;">📎 ' + escaparHtml(inf.ArquivoBoletoNome || 'arquivo anexado') +
+        ' — <a href="' + escaparHtml(inf.ArquivoBoletoUrl) + '" target="_blank" rel="noopener">abrir/baixar</a>' +
+        ' <button type="button" class="secundario" style="margin-left:8px; padding:2px 9px;" onclick="pvRemoverArquivoInfracao_()">Remover</button>' +
+        '</div>'
+      );
+    }
+    partes.push(
+      '<input type="file" id="pvi_ArquivoInput" accept="application/pdf,image/*" style="display:none;" onchange="pvArquivoInfracaoEscolhido_(this)">' +
+      '<button type="button" class="secundario" onclick="document.getElementById(\'pvi_ArquivoInput\').click()">📎 ' +
+      (inf.ArquivoBoletoId ? 'Substituir arquivo' : 'Anexar arquivo') + '</button>' +
+      ' <span id="pvi_AnexarStatus" style="font-size:12px; color:var(--texto-suave); margin-left:8px;"></span>'
+    );
+    container.innerHTML = partes.join('');
+  }
+
+  function pvArquivoInfracaoEscolhido_(input) {
+    var arquivo = input.files[0];
+    if (!arquivo) return;
+    var id = document.getElementById('pvi_ID').value;
+    if (!id) return;
+    if (arquivo.size > 15 * 1024 * 1024) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', 'Arquivo muito grande (máximo 15 MB).');
+      input.value = '';
+      return;
+    }
+    var status = document.getElementById('pvi_AnexarStatus');
+    status.textContent = 'Enviando...';
+    var leitor = new FileReader();
+    leitor.onload = function () {
+      var base64 = leitor.result.split(',')[1];
+      chamarServidor_('anexarBoletoInfracaoPassivo', id, base64, arquivo.name, arquivo.type).then(function (resp) {
+        input.value = '';
+        if (PV_CACHE_INFRACOES[id]) {
+          PV_CACHE_INFRACOES[id].ArquivoBoletoId = resp.arquivoId;
+          PV_CACHE_INFRACOES[id].ArquivoBoletoNome = resp.arquivoNome;
+          PV_CACHE_INFRACOES[id].ArquivoBoletoUrl = 'https://drive.google.com/file/d/' + resp.arquivoId + '/view';
+          pvRenderizarAnexoInfracao_(PV_CACHE_INFRACOES[id]);
+        }
+        mostrarMensagem('mensagemPvInfracao', 'sucesso', resp.mensagem);
+      }).catch(function (erro) {
+        status.textContent = '';
+        input.value = '';
+        mostrarMensagem('mensagemPvInfracao', 'erro', erro.message || String(erro));
+      });
+    };
+    leitor.readAsDataURL(arquivo);
+  }
+
+  function pvRemoverArquivoInfracao_() {
+    var id = document.getElementById('pvi_ID').value;
+    if (!id) return;
+    if (!confirm('Remover o arquivo anexado a esta infração?')) return;
+    chamarServidor_('removerBoletoInfracaoPassivo', id).then(function (resp) {
+      if (PV_CACHE_INFRACOES[id]) {
+        PV_CACHE_INFRACOES[id].ArquivoBoletoId = '';
+        PV_CACHE_INFRACOES[id].ArquivoBoletoNome = '';
+        pvRenderizarAnexoInfracao_(PV_CACHE_INFRACOES[id]);
+      }
+      mostrarMensagem('mensagemPvInfracao', 'sucesso', resp.mensagem);
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', erro.message || String(erro));
+    });
+  }
+
+  function pvRegistrarEnvio_() {
+    var id = document.getElementById('pvi_ID').value;
+    if (!id) return;
+    var campoObs = document.getElementById('pvi_ObservacaoEnvio');
+    chamarServidor_('registrarEnvioCancelamentoPassivo', id, campoObs.value).then(function () {
+      campoObs.value = '';
+      pvCarregarEnviosNaModal_(id);
+      var statusSelect = document.getElementById('pvi_StatusCancelamento');
+      if (statusSelect.value === 'PENDENTE') statusSelect.value = 'ENVIADO';
+      mostrarMensagem('mensagemPvInfracao', 'sucesso', 'Envio registrado.');
+      pvInvalidarCacheInfracoes_();
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', erro.message || String(erro));
+    });
+  }
+
+  function pvSubmeterInfracao_(e) {
+    e.preventDefault();
+    var id = document.getElementById('pvi_ID').value;
+    var selectOrgao = document.getElementById('pvi_OrgaoAutuadorSelect');
+    var orgao = selectOrgao.value === PV_ORGAO_MUNICIPAL_VALOR
+      ? document.getElementById('pvi_OrgaoAutuador').value
+      : selectOrgao.value;
+    var textoArtigo = document.getElementById('pvi_ArtigoBusca').value;
+    var itemArtigo = PV_MAPA_ARTIGOS[textoArtigo];
+    var artigo = itemArtigo ? itemArtigo.Artigo : textoArtigo;
+    var dados = {
+      placa: document.getElementById('pvi_Placa').value,
+      orgaoAutuador: orgao,
+      ait: document.getElementById('pvi_AIT').value,
+      artigo: artigo,
+      codigo: document.getElementById('pvi_Codigo').value,
+      descricaoInfracao: document.getElementById('pvi_DescricaoInfracao').value,
+      dataInfracao: document.getElementById('pvi_DataInfracao').value,
+      statusCancelamento: document.getElementById('pvi_StatusCancelamento').value,
+      observacoes: document.getElementById('pvi_Observacoes').value
+    };
+    var chamada = id
+      ? chamarServidor_('atualizarInfracaoPassivo', id, dados)
+      : chamarServidor_('cadastrarInfracaoPassivo', dados);
+    chamada.then(function () {
+      document.getElementById('modalPvInfracaoFundo').classList.remove('ativo');
+      carregarInfracoesPv_();
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', erro.message || String(erro));
+    });
+  }
+
+  function pvExcluirInfracaoAtual_() {
+    var id = document.getElementById('pvi_ID').value;
+    confirmar_('Tem certeza que deseja excluir esta infração? Essa ação não pode ser desfeita.', function () {
+      chamarServidor_('excluirInfracaoPassivo', id).then(function () {
+        document.getElementById('modalPvInfracaoFundo').classList.remove('ativo');
+        carregarInfracoesPv_();
+      }).catch(function (erro) {
+        mostrarMensagem('mensagemPvInfracao', 'erro', erro.message || String(erro));
+      });
+    });
+  }
+
+  function pvColetarFiltroInfracoes_() {
+    return {
+      placa: document.getElementById('pvifPlaca').value,
+      orgaoAutuador: document.getElementById('pvifOrgao').value,
+      status: document.getElementById('pvifStatus').value,
+      busca: document.getElementById('pvifBusca').value
+    };
+  }
+
+  function carregarInfracoesPv_() {
+    document.getElementById('pviCorpoTabela').innerHTML = '<tr><td colspan="8" class="carregando">Carregando...</td></tr>';
+    chamarServidor_('listarInfracoesPassivo', pvColetarFiltroInfracoes_()).then(function (lista) {
+      PV_CACHE_INFRACOES = {};
+      lista.forEach(function (inf) { PV_CACHE_INFRACOES[inf.ID] = inf; });
+      document.getElementById('pviContador').textContent = lista.length;
+      pvRenderizarTabelaInfracoes_(lista);
+      pvAtualizarKpisInfracoes_(lista);
+    }).catch(function (erro) {
+      document.getElementById('pviCorpoTabela').innerHTML =
+        '<tr><td colspan="8"><div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div></td></tr>';
+    });
+  }
+
+  function pvAtualizarKpisInfracoes_(lista) {
+    var porStatus = {};
+    lista.forEach(function (inf) { porStatus[inf.StatusCancelamento] = (porStatus[inf.StatusCancelamento] || 0) + 1; });
+    document.getElementById('pviKpiPendente').textContent = porStatus['PENDENTE'] || 0;
+    document.getElementById('pviKpiEnviado').textContent = porStatus['ENVIADO'] || 0;
+    document.getElementById('pviKpiRecebido').textContent = porStatus['RECEBIDO'] || 0;
+    document.getElementById('pviKpiCancelada').textContent = porStatus['CANCELADA'] || 0;
+    document.getElementById('pviKpiNegada').textContent = porStatus['NEGADA'] || 0;
+  }
+
+  function pvRenderizarTabelaInfracoes_(lista) {
+    var corpo = document.getElementById('pviCorpoTabela');
+    if (!lista.length) {
+      corpo.innerHTML = '<tr><td colspan="8">Nenhuma infração encontrada.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = lista.map(function (inf) {
+      var classeSelo = PV_SELO_STATUS_INFRACAO[inf.StatusCancelamento] || 'selo-pendente';
+      var envios = inf.QtdEnvios ? (inf.QtdEnvios + 'x — último em ' + inf.DataUltimoEnvio) : 'Nenhum';
+      if (inf.SemResposta) envios += ' <span class="selo selo-vermelho">Sem resposta</span>';
+      return '<tr class="linha-clicavel" onclick="pvAbrirEdicaoInfracao_(\'' + inf.ID + '\')">' +
+        '<td>' + escaparHtml(inf.Placa) + '</td>' +
+        '<td>' + escaparHtml(inf.MarcaVeiculo) + ' ' + escaparHtml(inf.ModeloVeiculo) + '</td>' +
+        '<td>' + escaparHtml(inf.AIT) + (inf.ArquivoBoletoId ? ' 📎' : '') + '</td>' +
+        '<td>' + escaparHtml(inf.Artigo) + (inf.Codigo ? ' / ' + escaparHtml(inf.Codigo) : '') + '</td>' +
+        '<td>' + escaparHtml(inf.OrgaoAutuador) + '</td>' +
+        '<td><span class="selo ' + classeSelo + '">' + escaparHtml(inf.StatusCancelamento) + '</span></td>' +
+        '<td>' + envios + '</td>' +
+        '<td><button type="button" class="secundario" onclick="event.stopPropagation(); pvAbrirEdicaoInfracao_(\'' + inf.ID + '\')">Ver</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function pvLimparFiltrosInfracoes_() {
+    document.getElementById('pvifPlaca').value = '';
+    document.getElementById('pvifOrgao').value = '';
+    document.getElementById('pvifStatus').value = '';
+    document.getElementById('pvifBusca').value = '';
+    document.getElementById('pvifSei').value = '';
+    carregarInfracoesPv_();
+  }
+
+  function pvInvalidarCacheInfracoes_() {
+    if (document.getElementById('tela-pv-infracoes').classList.contains('ativa')) carregarInfracoesPv_();
+  }
+
+  // Usa a impressão do navegador (Salvar como PDF), igual ao "Exportar
+  // PDF" do painel de Doações — sem precisar gerar PDF no servidor. Só
+  // funciona com um único órgão selecionado no filtro porque o cabeçalho
+  // do documento (igual ao usado hoje pra pedidos de cancelamento) é
+  // específico por órgão.
+  function pvExportarPdfInfracoes_() {
+    var orgao = document.getElementById('pvifOrgao').value;
+    if (!orgao) {
+      mostrarMensagem('mensagemPvInfracoes', 'erro', 'Selecione um único órgão autuador no filtro acima antes de exportar.');
+      return;
+    }
+    var lista = Object.keys(PV_CACHE_INFRACOES).map(function (k) { return PV_CACHE_INFRACOES[k]; })
+      .filter(function (inf) { return inf.OrgaoAutuador === orgao; });
+    if (!lista.length) {
+      mostrarMensagem('mensagemPvInfracoes', 'erro', 'Não há infrações desse órgão na lista atual — clique em Filtrar antes de exportar.');
+      return;
+    }
+    var sei = document.getElementById('pvifSei').value;
+    var linhas = lista.map(function (inf, i) {
+      return '<tr>' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td>' + escaparHtml(inf.Placa) + '</td>' +
+        '<td>' + escaparHtml(String(inf.RenavamVeiculo || '')) + '</td>' +
+        '<td>' + escaparHtml(inf.ChassiVeiculo || '') + '</td>' +
+        '<td>' + escaparHtml(((inf.MarcaVeiculo || '') + ' ' + (inf.ModeloVeiculo || '')).trim()) + '</td>' +
+        '<td>' + escaparHtml(inf.AnoVeiculo || '') + '</td>' +
+        '<td>' + escaparHtml(inf.AIT) + '</td>' +
+        '<td>' + escaparHtml(inf.Codigo || '') + '</td>' +
+        '</tr>';
+    }).join('');
+    var html =
+      '<div class="pv-impressao-cabecalho">MINISTÉRIO DA JUSTIÇA E SEGURANÇA PÚBLICA<br>' +
+      'SECRETARIA NACIONAL DE SEGURANÇA PÚBLICA<br>' +
+      'DIRETORIA DE GESTÃO DE FUNDO NACIONAL DE SEGURANÇA PÚBLICA<br>' +
+      'COORDENAÇÃO DE LOGÍSTICA</div>' +
+      '<div class="pv-impressao-endereco">Esplanada dos Ministérios, Bloco T, Edifício Sede. Brasília/DF - CEP: 70.064-900</div>' +
+      (sei ? '<div class="pv-impressao-endereco">SEI: ' + escaparHtml(sei) + '</div>' : '') +
+      '<div class="pv-impressao-titulo">PLANILHA DE PEDIMENTO DE CANCELAMENTO/PRESCRIÇÃO DE INFRAÇÃO — ' + escaparHtml(orgao) + '</div>' +
+      '<table><thead><tr><th>ORD</th><th>PLACA</th><th>RENAVAM</th><th>CHASSI</th><th>MODELO</th><th>ANO</th><th>AIT</th><th>CÓDIGO</th></tr></thead><tbody>' +
+      linhas + '</tbody></table>';
+    var area = document.getElementById('pvAreaImpressaoInfracoes');
+    area.innerHTML = html;
+    area.classList.add('ativa');
+    window.print();
+    setTimeout(function () { area.classList.remove('ativa'); area.innerHTML = ''; }, 500);
+  }
