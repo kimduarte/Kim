@@ -906,14 +906,16 @@ function listarUsuarios() {
 // grandes nesse projeto (erro de sintaxe no JavaScript montado, sem causa
 // aparente no código-fonte). Essa troca é só na forma de montar a página;
 // o resultado final é idêntico.
-// TESTE_DIAGNOSTICO: em vez do JS de verdade do Passivo, usa um arquivo
-// falso (PassivoVeicularJsFake.html) do MESMO TAMANHO só com funções bobas
-// — pra saber se o problema é o TAMANHO do arquivo (qualquer coisa desse
-// tamanho quebra) ou o CONTEÚDO específico do PassivoVeicularJs.html.
+// TESTE_DIAGNOSTICO: descobrimos que arquivos .html NOVOS criados no editor
+// não estavam sendo servidos corretamente (mesmo conteúdo, arquivo novo =
+// quebra, arquivo já existente reaproveitado = funciona). Por isso o JS do
+// Passivo está sendo lido de PassivoVeicularJsFake (arquivo antigo, já
+// comprovado funcional), com o conteúdo real completo colado dentro dele —
+// e não do arquivo PassivoVeicularJs original.
 function doGet(e) {
   var pagina = HtmlService.createHtmlOutputFromFile('PaginaCompleta').getContent();
   pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularHtml -->', function () {
-    return '';
+    return HtmlService.createHtmlOutputFromFile('PassivoVeicularHtml').getContent();
   });
   pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularJs -->', function () {
     return HtmlService.createHtmlOutputFromFile('PassivoVeicularJsFake').getContent();
