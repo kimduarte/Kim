@@ -114,7 +114,14 @@ var CABECALHO_TEP_OBSERVACOES = ['Chave', 'Observacao', 'AtualizadoPor', 'Atuali
 // AcessoPlanilha ('NENHUM'/'LEITOR'/'EDITOR'): nível de compartilhamento
 // da planilha do Drive em si (Google Sheets), à parte do Perfil no
 // sistema — editar a planilha direto pula todas as validações do site.
-var CABECALHO_USUARIOS = ['Email', 'Perfil', 'UF', 'Nome', 'AcessoProdutividade', 'AcessoPlanilha'];
+// UFsPassivo: lista de UFs (separadas por vírgula, ex.: "AP,RR,AM") pelas
+// quais esse usuário é responsável no Passivo Veicular — não tem nada a
+// ver com o campo "UF" acima (que é do modelo antigo de Doações e não
+// restringe mais nada, ver comentário em getPerfilUsuarioAtual_). Em
+// branco = sem restrição adicional daquele tipo (admin nunca é restrito;
+// usuário/visitante sem nada marcado aqui não vê nenhuma UF no Passivo,
+// até um admin atribuir estados a ele).
+var CABECALHO_USUARIOS = ['Email', 'Perfil', 'UF', 'Nome', 'AcessoProdutividade', 'AcessoPlanilha', 'UFsPassivo'];
 
 var UFS_VALIDAS = [
   'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS',
@@ -456,6 +463,11 @@ function colunaParaIndice_(nomeColuna) {
 
 function getPerfilUsuarioAtual_() {
   var email = getEmailUsuarioAtual_();
+  // Garante a coluna UFsPassivo (e qualquer outra adicionada depois) antes
+  // de ler — sem isso, logo após implantar essa mudança, linha[6] viria
+  // undefined pra instalações já existentes até alguém abrir a tela
+  // Usuários (que é quem normalmente chama isso).
+  garantirColunasUsuarios_();
   var sheet = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
   var dados = sheet.getDataRange().getValues();
 
@@ -474,11 +486,15 @@ function getPerfilUsuarioAtual_() {
         nome: linha[3] || email,
         // Admin sempre tem acesso à Produtividade — o campo na planilha só
         // importa pra estender esse acesso a usuários/visitantes específicos.
-        acessoProdutividade: perfil === PERFIL_ADMIN || normalizarTexto_(linha[4]).toUpperCase() === 'SIM'
+        acessoProdutividade: perfil === PERFIL_ADMIN || normalizarTexto_(linha[4]).toUpperCase() === 'SIM',
+        // Usado só pelo Passivo Veicular (ver pvUfsPermitidas_ em
+        // CodigoPassivoVeicular.gs) — string crua "AP,RR,AM", em branco se
+        // a pessoa não tem nenhum estado atribuído.
+        ufsPassivo: String(linha[6] || '')
       };
     }
   }
-  return { email: email, perfil: 'sem_acesso', uf: '', nome: email, acessoProdutividade: false };
+  return { email: email, perfil: 'sem_acesso', uf: '', nome: email, acessoProdutividade: false, ufsPassivo: '' };
 }
 
 function exigirPerfilAdmin_() {
@@ -788,6 +804,13 @@ function cadastrarUsuario(dados) {
   var acessoProdutividade = normalizarTexto_(dados.AcessoProdutividade).toUpperCase() === 'SIM' ? 'SIM' : 'NÃO';
   var acessoPlanilhaBruto = normalizarTexto_(dados.AcessoPlanilha).toUpperCase();
   var acessoPlanilha = ['LEITOR', 'EDITOR'].indexOf(acessoPlanilhaBruto) !== -1 ? acessoPlanilhaBruto : 'NENHUM';
+  // dados.UFsPassivo chega como array (checkboxes/multi-select marcados no
+  // formulário) — filtra pra só UFs de verdade e guarda como texto único
+  // separado por vírgula (mesmo formato lido em getPerfilUsuarioAtual_).
+  var ufsPassivo = (Array.isArray(dados.UFsPassivo) ? dados.UFsPassivo : [])
+    .map(function (uf) { return normalizarUF_(uf); })
+    .filter(function (uf) { return UFS_VALIDAS.indexOf(uf) !== -1; })
+    .join(',');
 
   var erros = [];
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) erros.push('E-mail inválido: ' + dados.Email);
@@ -804,7 +827,7 @@ function cadastrarUsuario(dados) {
     if (String(dadosAtuais[i][0]).trim().toLowerCase() === email) { linhaExistente = i + 1; break; }
   }
 
-  var linha = [email, perfil, '', nome, acessoProdutividade, acessoPlanilha];
+  var linha = [email, perfil, '', nome, acessoProdutividade, acessoPlanilha, ufsPassivo];
   var mensagem;
   if (linhaExistente) {
     sheet.getRange(linhaExistente, 1, 1, linha.length).setValues([linha]);
@@ -862,7 +885,8 @@ function listarUsuarios() {
       Perfil: l[1],
       Nome: l[3] || '',
       AcessoProdutividade: String(l[4] || '').toUpperCase() === 'SIM' ? 'SIM' : 'NÃO',
-      AcessoPlanilha: ['LEITOR', 'EDITOR'].indexOf(String(l[5] || '').toUpperCase()) !== -1 ? String(l[5]).toUpperCase() : 'NENHUM'
+      AcessoPlanilha: ['LEITOR', 'EDITOR'].indexOf(String(l[5] || '').toUpperCase()) !== -1 ? String(l[5]).toUpperCase() : 'NENHUM',
+      UFsPassivo: String(l[6] || '').split(',').filter(Boolean)
     });
   }
   linhas.sort(function (a, b) { return a.Email.localeCompare(b.Email); });
@@ -896,7 +920,10 @@ function getContextoInicial() {
       uf: UFS_VALIDAS.concat(CODIGOS_ORGAO_FEDERAL),
       ente: ENTES_VALIDOS,
       mes: MESES_VALIDOS,
-      transferido: STATUS_TRANSFERIDO
+      transferido: STATUS_TRANSFERIDO,
+      // Só os 27 estados (sem PF/PRF) — usado no seletor de "Estados sob
+      // responsabilidade no Passivo Veicular" da tela Usuários.
+      ufsEstados: UFS_VALIDAS
     },
     orgaosPorUF: ORGAOS_POR_UF,
     // Só os "novos" desde a última vez que esse usuário viu a aba TEP —

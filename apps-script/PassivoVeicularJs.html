@@ -559,6 +559,7 @@
     document.getElementById('pviBotaoExcluir').style.display = 'none';
     document.getElementById('pvi_ListaEnvios').innerHTML = '<p class="dica-painel" style="margin:0;">Salve a infração primeiro pra poder registrar envios.</p>';
     document.getElementById('pvi_BotaoRegistrarEnvioWrap').style.display = 'none';
+    pvRenderizarAnexoInfracao_(null);
     document.getElementById('mensagemPvInfracao').innerHTML = '';
     var placaFiltro = document.getElementById('pvifPlaca').value;
     if (placaFiltro) {
@@ -605,6 +606,7 @@
     document.getElementById('pvi_BotaoRegistrarEnvioWrap').style.display = '';
     document.getElementById('pvi_ObservacaoEnvio').value = '';
     document.getElementById('mensagemPvInfracao').innerHTML = '';
+    pvRenderizarAnexoInfracao_(inf);
     pvCarregarEnviosNaModal_(inf.ID);
     document.getElementById('modalPvInfracaoFundo').classList.add('ativo');
     pvGarantirListasDebitos_();
@@ -626,6 +628,80 @@
       }).join('');
     }).catch(function (erro) {
       container.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    });
+  }
+
+  // ---------- Boleto/documento do débito anexado à infração ----------
+  function pvRenderizarAnexoInfracao_(inf) {
+    var container = document.getElementById('pvi_AnexoContainer');
+    if (!inf || !inf.ID) {
+      container.innerHTML = '<p class="dica-painel" style="margin:0;">Salve a infração primeiro pra poder anexar o arquivo do boleto/débito.</p>';
+      return;
+    }
+    var partes = [];
+    if (inf.ArquivoBoletoId) {
+      partes.push(
+        '<div style="font-size:13px; margin-bottom:8px;">📎 ' + escaparHtml(inf.ArquivoBoletoNome || 'arquivo anexado') +
+        ' — <a href="' + escaparHtml(inf.ArquivoBoletoUrl) + '" target="_blank" rel="noopener">abrir/baixar</a>' +
+        ' <button type="button" class="secundario" style="margin-left:8px; padding:2px 9px;" onclick="pvRemoverArquivoInfracao_()">Remover</button>' +
+        '</div>'
+      );
+    }
+    partes.push(
+      '<input type="file" id="pvi_ArquivoInput" accept="application/pdf,image/*" style="display:none;" onchange="pvArquivoInfracaoEscolhido_(this)">' +
+      '<button type="button" class="secundario" onclick="document.getElementById(\'pvi_ArquivoInput\').click()">📎 ' +
+      (inf.ArquivoBoletoId ? 'Substituir arquivo' : 'Anexar arquivo') + '</button>' +
+      ' <span id="pvi_AnexarStatus" style="font-size:12px; color:var(--texto-suave); margin-left:8px;"></span>'
+    );
+    container.innerHTML = partes.join('');
+  }
+
+  function pvArquivoInfracaoEscolhido_(input) {
+    var arquivo = input.files[0];
+    if (!arquivo) return;
+    var id = document.getElementById('pvi_ID').value;
+    if (!id) return;
+    if (arquivo.size > 15 * 1024 * 1024) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', 'Arquivo muito grande (máximo 15 MB).');
+      input.value = '';
+      return;
+    }
+    var status = document.getElementById('pvi_AnexarStatus');
+    status.textContent = 'Enviando...';
+    var leitor = new FileReader();
+    leitor.onload = function () {
+      var base64 = leitor.result.split(',')[1];
+      chamarServidor_('anexarBoletoInfracaoPassivo', id, base64, arquivo.name, arquivo.type).then(function (resp) {
+        input.value = '';
+        if (PV_CACHE_INFRACOES[id]) {
+          PV_CACHE_INFRACOES[id].ArquivoBoletoId = resp.arquivoId;
+          PV_CACHE_INFRACOES[id].ArquivoBoletoNome = resp.arquivoNome;
+          PV_CACHE_INFRACOES[id].ArquivoBoletoUrl = 'https://drive.google.com/file/d/' + resp.arquivoId + '/view';
+          pvRenderizarAnexoInfracao_(PV_CACHE_INFRACOES[id]);
+        }
+        mostrarMensagem('mensagemPvInfracao', 'sucesso', resp.mensagem);
+      }).catch(function (erro) {
+        status.textContent = '';
+        input.value = '';
+        mostrarMensagem('mensagemPvInfracao', 'erro', erro.message || String(erro));
+      });
+    };
+    leitor.readAsDataURL(arquivo);
+  }
+
+  function pvRemoverArquivoInfracao_() {
+    var id = document.getElementById('pvi_ID').value;
+    if (!id) return;
+    if (!confirm('Remover o arquivo anexado a esta infração?')) return;
+    chamarServidor_('removerBoletoInfracaoPassivo', id).then(function (resp) {
+      if (PV_CACHE_INFRACOES[id]) {
+        PV_CACHE_INFRACOES[id].ArquivoBoletoId = '';
+        PV_CACHE_INFRACOES[id].ArquivoBoletoNome = '';
+        pvRenderizarAnexoInfracao_(PV_CACHE_INFRACOES[id]);
+      }
+      mostrarMensagem('mensagemPvInfracao', 'sucesso', resp.mensagem);
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvInfracao', 'erro', erro.message || String(erro));
     });
   }
 
@@ -735,7 +811,7 @@
       return '<tr class="linha-clicavel" onclick="pvAbrirEdicaoInfracao_(\'' + inf.ID + '\')">' +
         '<td>' + escaparHtml(inf.Placa) + '</td>' +
         '<td>' + escaparHtml(inf.MarcaVeiculo) + ' ' + escaparHtml(inf.ModeloVeiculo) + '</td>' +
-        '<td>' + escaparHtml(inf.AIT) + '</td>' +
+        '<td>' + escaparHtml(inf.AIT) + (inf.ArquivoBoletoId ? ' 📎' : '') + '</td>' +
         '<td>' + escaparHtml(inf.Artigo) + (inf.Codigo ? ' / ' + escaparHtml(inf.Codigo) : '') + '</td>' +
         '<td>' + escaparHtml(inf.OrgaoAutuador) + '</td>' +
         '<td><span class="selo ' + classeSelo + '">' + escaparHtml(inf.StatusCancelamento) + '</span></td>' +
