@@ -3,9 +3,7 @@
     ['pvPainelInstituicao', 'pvfInstituicao'].forEach(function (id) {
       var sel = document.getElementById(id);
       var atual = sel.value;
-      sel.innerHTML = '<option value="">Todas</option>' + ordenada.map(function (i) {
-        return '<option value="' + escaparHtml(i) + '">' + escaparHtml(i) + '</option>';
-      }).join('');
+      sel.innerHTML = 'teste';
       sel.value = atual;
     });
   }
