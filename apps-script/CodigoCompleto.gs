@@ -896,13 +896,7 @@ function getContextoInicial() {
 // alimenta o aviso "Você tem X processo(s) em aberto" ao lado do TEP na
 // tela Início.
 function contarProcessosEmAberto_() {
-  var registros = listarVeiculos({});
-  var chaves = {};
-  registros.forEach(function (r) {
-    if ((r.StatusCadastro || 'COMPLETO') !== 'RASCUNHO') return;
-    chaves[chaveProcesso_(r)] = true;
-  });
-  return Object.keys(chaves).length;
+  return getContadoresPainelInicio_().processosEmAberto;
 }
 
 // Mapeia o seletor "Buscar em" da tela de Listagem para o campo real do
@@ -2190,21 +2184,37 @@ function chaveProcesso_(registro) {
 }
 
 /**
- * Processos com todos os veículos já transferidos (100%) que ainda não
- * tiveram o Termo de Encerramento de Processo (TEP) registrado como
- * finalizado — recalculado na hora a partir da base atual, sem guardar
- * nenhum estado além de "quais chaves já foram finalizadas"
- * (SHEET_TEP_FINALIZADOS). Se novos veículos entrarem depois num processo
- * já concluído (deixando de ser 100%), ele some sozinho dessa lista.
+ * Une, numa passada só pela planilha de Veículos, os dois cálculos que
+ * getContextoInicial() precisa em TODA carga de página (processos
+ * pendentes de TEP e processos em aberto/rascunho) — antes eram duas
+ * varreduras completas e independentes da base inteira, uma pra cada
+ * número do menu. Fica em cache por 2 minutos (mesmo CacheService do
+ * Painel), invalidado por invalidarCacheDashboard_() a cada gravação
+ * relevante — inclui marcarTepFinalizado, já que finalizar um TEP muda
+ * quem entra na lista de pendentes.
  */
-function getProcessosPendentesTep_() {
+function getContadoresPainelInicio_() {
+  var cache = CacheService.getDocumentCache();
+  var cacheado = cache.get('contadores_inicio');
+  if (cacheado) {
+    var dados = JSON.parse(cacheado);
+    // JSON não guarda Date — reconstitui antes de devolver, já que
+    // listarTepPendentes()/getTepNovosParaEmail_() comparam essa data.
+    dados.pendentesTep.forEach(function (p) { p.dataConclusao = p.dataConclusao ? new Date(p.dataConclusao) : null; });
+    return dados;
+  }
+
   var registros = listarVeiculos({});
   var grupos = {};
   var ordem = [];
+  var chavesEmAberto = {};
 
   registros.forEach(function (r) {
     var chave = chaveProcesso_(r);
-    if (!chave) return; // sem Processo nem Termo de Doação — não dá pra rastrear TEP
+    if (!chave) return; // sem Processo nem Termo de Doação — não dá pra rastrear TEP/rascunho por chave
+
+    if ((r.StatusCadastro || 'COMPLETO') === 'RASCUNHO') chavesEmAberto[chave] = true;
+
     if (!grupos[chave]) {
       grupos[chave] = {
         chave: chave, processo: r.NumeroProcesso, termoDoacao: r.TermoDoacao,
@@ -2235,7 +2245,25 @@ function getProcessosPendentesTep_() {
   getOrCreateSheet_(SHEET_TEP_FINALIZADOS, CABECALHO_TEP_FINALIZADOS).getDataRange().getValues().slice(1)
     .forEach(function (l) { if (l[0]) finalizados[l[0]] = true; });
 
-  return concluidos.filter(function (g) { return !finalizados[g.chave]; });
+  var resultado = {
+    pendentesTep: concluidos.filter(function (g) { return !finalizados[g.chave]; }),
+    processosEmAberto: Object.keys(chavesEmAberto).length
+  };
+
+  var json = JSON.stringify(resultado);
+  if (json.length < 100 * 1024) cache.put('contadores_inicio', json, 120);
+  return resultado;
+}
+
+/**
+ * Processos com todos os veículos já transferidos (100%) que ainda não
+ * tiveram o Termo de Encerramento de Processo (TEP) registrado como
+ * finalizado. Se novos veículos entrarem depois num processo já concluído
+ * (deixando de ser 100%), ele some sozinho dessa lista assim que o cache
+ * expirar ou for invalidado.
+ */
+function getProcessosPendentesTep_() {
+  return getContadoresPainelInicio_().pendentesTep;
 }
 
 /**
@@ -2347,6 +2375,7 @@ function marcarTepFinalizado(chaveProcesso) {
   }
   sheet.appendRow([chaveProcesso, new Date(), perfil.email]);
   registrarLog_('TEP_FINALIZADO', chaveProcesso, 'Termo de Encerramento de Processo finalizado');
+  invalidarCacheDashboard_();
   return { mensagem: 'TEP finalizado com sucesso — já computado na produtividade.' };
 }
 
@@ -6527,7 +6556,7 @@ var CACHE_DASHBOARD_SEGUNDOS = 300;
 var CACHE_ANOS_SEGUNDOS = 21600; // 6h (máximo do CacheService) — anos disponíveis raríssimo mudam
 
 function invalidarCacheDashboard_() {
-  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base', 'ultimos_transferidos']);
+  CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base', 'ultimos_transferidos', 'contadores_inicio']);
 }
 
 /**
@@ -7138,7 +7167,12 @@ var CABECALHO_PV_VEICULOS = [
   // SituacaoTransferencia, que é o status de workflow controlado por nós.
   'CNPJProprietario', 'SituacaoDetran', 'SituacaoTransferencia',
   'UF', 'Municipio', 'Instituicao', 'CNPJInstituicao', 'DataDoacao', 'NumeroTermoDoacao',
-  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor'
+  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor',
+  // Exclusão lógica (soft delete), no mesmo padrão da aba Veiculos de
+  // doações — sempre adicionado no FINAL do array (nunca no meio: foi
+  // exatamente inserir um campo no meio que corrompeu esse cabeçalho uma
+  // vez antes, ver corrigirCabecalhoVeiculosPassivo_).
+  'Excluido', 'ExcluidoPor', 'DataExclusao'
 ];
 
 var PV_SITUACOES_TRANSFERENCIA = ['PENDENTE', 'EM ANDAMENTO', 'CONCLUÍDA'];
@@ -7199,6 +7233,11 @@ function getOrCreateSheetPassivo_(nome, cabecalho) {
     sheet.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]);
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, 1, cabecalho.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
+  } else if (nome === SHEET_PV_VEICULOS) {
+    // Sheet já existente — garante que o cabeçalho tem os rótulos mais
+    // recentes (ex.: campos de exclusão lógica adicionados depois), sem
+    // depender de alguém rodar criarEstruturaPassivoVeicular() de novo.
+    corrigirCabecalhoVeiculosPassivo_(sheet);
   }
   return sheet;
 }
@@ -7391,6 +7430,10 @@ function listarVeiculosPassivo(filtros) {
     if (!linha[0]) continue;
     var registro = linhaParaObjeto_(cabecalho, linha);
 
+    // Excluído (lixeira) some das telas normais por padrão — mesmo padrão
+    // da aba Veiculos de doações (ver listarVeiculos/getVeiculosExcluidos).
+    if (registro.Excluido === 'SIM' && !filtros.incluirExcluidos) continue;
+
     if (filtros.uf && registro.UF !== filtros.uf) continue;
     if (filtros.instituicao && registro.Instituicao !== filtros.instituicao) continue;
     if (filtros.situacao && registro.SituacaoTransferencia !== filtros.situacao) continue;
@@ -7402,8 +7445,8 @@ function listarVeiculosPassivo(filtros) {
     // Datas viram texto simples antes de voltar ao cliente — evita o bug já
     // visto no google.script.run que devolve null pra listas grandes com
     // muitos objetos Date (ver histórico do painel de Doações).
-    registro.DataCadastro = registro.DataCadastro ? Utilities.formatDate(new Date(registro.DataCadastro), 'GMT-3', 'dd/MM/yyyy') : '';
-    registro.UltimaAtualizacao = registro.UltimaAtualizacao ? Utilities.formatDate(new Date(registro.UltimaAtualizacao), 'GMT-3', 'dd/MM/yyyy HH:mm') : '';
+    registro.DataCadastro = registro.DataCadastro ? Utilities.formatDate(new Date(registro.DataCadastro), Session.getScriptTimeZone(), 'dd/MM/yyyy') : '';
+    registro.UltimaAtualizacao = registro.UltimaAtualizacao ? Utilities.formatDate(new Date(registro.UltimaAtualizacao), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : '';
     resultado.push(registro);
   }
 
@@ -7463,18 +7506,75 @@ function atualizarVeiculoPassivo(id, dados) {
   throw new Error('Veículo não encontrado.');
 }
 
+// Exclusão lógica — mesmo padrão de excluirVeiculo() na aba de doações:
+// nunca apaga a linha de verdade, só marca Excluido/ExcluidoPor/
+// DataExclusao e some das telas normais (listarVeiculosPassivo filtra por
+// padrão). Um administrador pode restaurar em "Lixeira".
 function excluirVeiculoPassivo(id) {
-  exigirPerfilAdmin_();
+  var perfil = exigirPerfilAdmin_();
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
-  var valores = sheet.getDataRange().getValues();
   var idxId = CABECALHO_PV_VEICULOS.indexOf('ID');
+  var idxExcluido = CABECALHO_PV_VEICULOS.indexOf('Excluido');
+  var idxExcluidoPor = CABECALHO_PV_VEICULOS.indexOf('ExcluidoPor');
+  var idxDataExclusao = CABECALHO_PV_VEICULOS.indexOf('DataExclusao');
+  var valores = sheet.getDataRange().getValues();
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][idxId] === id) {
-      sheet.deleteRow(i + 1);
-      return { ok: true };
+      if (valores[i][idxExcluido] === 'SIM') {
+        return { mensagem: 'Esse veículo já estava na lixeira.' };
+      }
+      var agora = new Date();
+      sheet.getRange(i + 1, idxExcluido + 1).setValue('SIM');
+      sheet.getRange(i + 1, idxExcluidoPor + 1).setValue(perfil.email);
+      sheet.getRange(i + 1, idxDataExclusao + 1).setValue(agora);
+      return { mensagem: 'Veículo movido para a lixeira — um administrador pode restaurar em "Lixeira".' };
     }
   }
   throw new Error('Veículo não encontrado.');
+}
+
+// Tira o veículo da lixeira do Passivo Veicular — some da tela Lixeira e
+// volta a aparecer normalmente no resto do painel.
+function restaurarVeiculoPassivo(id) {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
+  var idxId = CABECALHO_PV_VEICULOS.indexOf('ID');
+  var idxExcluido = CABECALHO_PV_VEICULOS.indexOf('Excluido');
+  var idxExcluidoPor = CABECALHO_PV_VEICULOS.indexOf('ExcluidoPor');
+  var idxDataExclusao = CABECALHO_PV_VEICULOS.indexOf('DataExclusao');
+  var valores = sheet.getDataRange().getValues();
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][idxId] === id) {
+      sheet.getRange(i + 1, idxExcluido + 1).setValue('NÃO');
+      sheet.getRange(i + 1, idxExcluidoPor + 1).setValue('');
+      sheet.getRange(i + 1, idxDataExclusao + 1).setValue('');
+      return { mensagem: 'Veículo restaurado com sucesso.' };
+    }
+  }
+  throw new Error('Veículo não encontrado.');
+}
+
+// Lista da tela "Lixeira" do Passivo Veicular — só os veículos excluídos,
+// mais recentes primeiro. Só administradores.
+function getVeiculosExcluidosPassivo() {
+  exigirPerfilAdmin_();
+  var registros = listarVeiculosPassivo({ incluirExcluidos: true });
+  return registros
+    .filter(function (r) { return r.Excluido === 'SIM'; })
+    .map(function (r) {
+      return {
+        ID: r.ID,
+        Placa: r.Placa,
+        Chassi: r.Chassi,
+        Marca: r.Marca,
+        Modelo: r.Modelo,
+        Instituicao: r.Instituicao,
+        UF: r.UF,
+        ExcluidoPor: r.ExcluidoPor,
+        DataExclusao: r.DataExclusao ? new Date(r.DataExclusao).getTime() : 0
+      };
+    })
+    .sort(function (a, b) { return b.DataExclusao - a.DataExclusao; });
 }
 
 // Importação única dos veículos do Distrito Federal, a partir da planilha
@@ -7525,7 +7625,7 @@ function importarVeiculosPassivoDF_() {
   }
 
   var observacaoImportacao = 'Importado da planilha "Bens Doados (PAN 2007 / Legado 2016) - DF" em ' +
-    Utilities.formatDate(new Date(), 'GMT-3', 'dd/MM/yyyy') + '.';
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy') + '.';
   var linhas = [];
   var ignorados = [];
   veiculosDF.forEach(function (v) {
@@ -8055,7 +8155,7 @@ function listarInfracoesPassivo(filtros) {
     var dataUltimoEnvio = qtdEnvios ? new Date(Math.max.apply(null, datasEnvio)) : null;
     var diasSemResposta = dataUltimoEnvio ? Math.floor((agora - dataUltimoEnvio) / 86400000) : null;
     registro.QtdEnvios = qtdEnvios;
-    registro.DataUltimoEnvio = dataUltimoEnvio ? Utilities.formatDate(dataUltimoEnvio, 'GMT-3', 'dd/MM/yyyy') : '';
+    registro.DataUltimoEnvio = dataUltimoEnvio ? Utilities.formatDate(dataUltimoEnvio, Session.getScriptTimeZone(), 'dd/MM/yyyy') : '';
     registro.SemResposta = registro.StatusCancelamento === 'ENVIADO' && diasSemResposta !== null && diasSemResposta >= PV_DIAS_SEM_RESPOSTA;
 
     var veiculo = mapaVeiculos[registro.Placa];
@@ -8065,8 +8165,8 @@ function listarInfracoesPassivo(filtros) {
     registro.RenavamVeiculo = veiculo ? veiculo.Renavam : '';
     registro.AnoVeiculo = veiculo ? (veiculo.AnoFabricacao + '/' + veiculo.AnoModelo) : '';
 
-    registro.DataCadastro = registro.DataCadastro ? Utilities.formatDate(new Date(registro.DataCadastro), 'GMT-3', 'dd/MM/yyyy') : '';
-    registro.UltimaAtualizacao = registro.UltimaAtualizacao ? Utilities.formatDate(new Date(registro.UltimaAtualizacao), 'GMT-3', 'dd/MM/yyyy HH:mm') : '';
+    registro.DataCadastro = registro.DataCadastro ? Utilities.formatDate(new Date(registro.DataCadastro), Session.getScriptTimeZone(), 'dd/MM/yyyy') : '';
+    registro.UltimaAtualizacao = registro.UltimaAtualizacao ? Utilities.formatDate(new Date(registro.UltimaAtualizacao), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : '';
     resultado.push(registro);
   }
 
@@ -8156,7 +8256,7 @@ function listarEnviosDaInfracaoPassivo(idInfracao) {
       var e = linhaParaObjeto_(cabecalho, valores[i]);
       envios.push({
         ID: e.ID,
-        DataEnvio: e.DataEnvio ? Utilities.formatDate(new Date(e.DataEnvio), 'GMT-3', 'dd/MM/yyyy HH:mm') : '',
+        DataEnvio: e.DataEnvio ? Utilities.formatDate(new Date(e.DataEnvio), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : '',
         RegistradoPor: e.RegistradoPor,
         Observacoes: e.Observacoes
       });
