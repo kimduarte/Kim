@@ -67,11 +67,7 @@ var CABECALHO_PV_INFRACOES = [
   'ID', 'DataCadastro',
   'Placa', 'OrgaoAutuador', 'AIT', 'Artigo', 'Codigo', 'DescricaoInfracao',
   'DataInfracao', 'StatusCancelamento',
-  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor',
-  // Boleto/documento do débito anexado (Drive) — sempre no FINAL do
-  // array, mesmo motivo dos campos de exclusão lógica em
-  // CABECALHO_PV_VEICULOS (ver pvCorrigirCabecalhoInfracoesPassivo_).
-  'ArquivoBoletoId', 'ArquivoBoletoNome'
+  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor'
 ];
 
 // Um envio de pedido de cancelamento por linha (não um contador único) —
@@ -88,47 +84,6 @@ var PV_STATUS_CANCELAMENTO = ['PENDENTE', 'ENVIADO', 'RECEBIDO', 'CANCELADA', 'N
 // Depois de quantos dias sem mudar de status (ainda ENVIADO) o painel
 // sinaliza "sem resposta" — só um alerta visual, não bloqueia nada.
 var PV_DIAS_SEM_RESPOSTA = 60;
-
-// ---- Restrição por estado (mobilizados responsáveis só por alguns UFs) ----
-// Administrador nunca é restrito (vê/edita tudo). Usuário/visitante sem
-// nenhum estado atribuído em perfil.ufsPassivo não vê NADA no Passivo
-// Veicular até um admin atribuir estados a ele na tela Usuários — é a
-// restrição total pedida, não um filtro de conveniência.
-
-// null = sem restrição (admin). Array (pode ser []) = lista de UFs
-// permitidas pra quem não é admin.
-function pvUfsPermitidas_(perfil) {
-  if (perfil.perfil === PERFIL_ADMIN) return null;
-  return String(perfil.ufsPassivo || '').split(',')
-    .map(function (uf) { return normalizarUF_(uf); })
-    .filter(Boolean);
-}
-
-function pvPodeAcessarUF_(perfil, uf) {
-  var permitidas = pvUfsPermitidas_(perfil);
-  if (permitidas === null) return true;
-  return permitidas.indexOf(normalizarUF_(uf)) !== -1;
-}
-
-function pvExigirAcessoUF_(perfil, uf) {
-  if (!pvPodeAcessarUF_(perfil, uf)) {
-    throw new Error('Você não tem permissão para o estado ' + uf + ' no Passivo Veicular — fale com um administrador.');
-  }
-}
-
-// Infrações não têm UF própria — ela vem do veículo associado à placa.
-// Quando a placa ainda não tem veículo cadastrado no Passivo (pode
-// acontecer, ver comentário em buscarVeiculoPassivoPorPlaca), não dá pra
-// saber a UF, então não há o que restringir.
-function pvUfDaPlaca_(placa) {
-  var veiculo = pvMapaVeiculosPorPlaca_()[normalizarPlaca_(placa)];
-  return veiculo ? veiculo.UF : null;
-}
-
-function pvExigirAcessoUFDaPlaca_(perfil, placa) {
-  var uf = pvUfDaPlaca_(placa);
-  if (uf) pvExigirAcessoUF_(perfil, uf);
-}
 
 function getSpreadsheetPassivo_() {
   var props = PropertiesService.getScriptProperties();
@@ -154,22 +109,8 @@ function getOrCreateSheetPassivo_(nome, cabecalho) {
     // recentes (ex.: campos de exclusão lógica adicionados depois), sem
     // depender de alguém rodar criarEstruturaPassivoVeicular() de novo.
     corrigirCabecalhoVeiculosPassivo_(sheet);
-  } else if (nome === SHEET_PV_INFRACOES) {
-    pvCorrigirCabecalhoInfracoesPassivo_(sheet);
   }
   return sheet;
-}
-
-// Mesma lógica de corrigirCabecalhoVeiculosPassivo_, pra aba Infracoes —
-// garante os rótulos de ArquivoBoletoId/ArquivoBoletoNome (adicionados no
-// final de CABECALHO_PV_INFRACOES) em planilhas criadas antes desses
-// campos existirem. Só reescreve a linha 1 (rótulos); nunca toca em dados.
-function pvCorrigirCabecalhoInfracoesPassivo_(sheet) {
-  var cabecalhoAtual = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), CABECALHO_PV_INFRACOES.length)).getValues()[0];
-  var jaCorreto = CABECALHO_PV_INFRACOES.every(function (campo, i) { return cabecalhoAtual[i] === campo; });
-  if (jaCorreto) return;
-  sheet.getRange(1, 1, 1, CABECALHO_PV_INFRACOES.length).setValues([CABECALHO_PV_INFRACOES]);
-  sheet.getRange(1, 1, 1, CABECALHO_PV_INFRACOES.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
 }
 
 // Conserta o cabeçalho (linha 1) da aba Veiculos quando ele ficou
@@ -310,12 +251,8 @@ function pvMontarRegistro_(dados, autor, existente) {
 function getListasPassivo() {
   var perfil = getPerfilUsuarioAtual_();
   if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
-  var permitidas = pvUfsPermitidas_(perfil);
-  var todasUfs = UFS_VALIDAS.concat(CODIGOS_ORGAO_FEDERAL);
   return {
-    // Mobilizado restrito só vê os estados dele no seletor — evita cadastrar
-    // veículo/filtrar por um estado que depois vai barrar por permissão.
-    uf: permitidas === null ? todasUfs : todasUfs.filter(function (uf) { return permitidas.indexOf(uf) !== -1; }),
+    uf: UFS_VALIDAS.concat(CODIGOS_ORGAO_FEDERAL),
     situacoes: PV_SITUACOES_TRANSFERENCIA
   };
 }
@@ -324,7 +261,6 @@ function cadastrarVeiculoPassivo(dados) {
   var perfil = exigirPerfilEditor_();
   pvValidarComuns_(dados);
   pvValidarVeiculo_(dados);
-  pvExigirAcessoUF_(perfil, dados.uf);
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
   var registro = pvMontarRegistro_(dados, perfil.email);
   sheet.appendRow(CABECALHO_PV_VEICULOS.map(function (campo) { return registro[campo]; }));
@@ -336,7 +272,6 @@ function cadastrarVeiculoPassivo(dados) {
 function cadastrarVeiculosPassivoLote(dadosComuns, veiculos) {
   var perfil = exigirPerfilEditor_();
   pvValidarComuns_(dadosComuns);
-  pvExigirAcessoUF_(perfil, dadosComuns.uf);
   if (!veiculos || !veiculos.length) throw new Error('Informe ao menos um veículo.');
   veiculos.forEach(pvValidarVeiculo_);
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
@@ -365,8 +300,6 @@ function listarVeiculosPassivo(filtros) {
     var linha = valores[i];
     if (!linha[0]) continue;
     var registro = linhaParaObjeto_(cabecalho, linha);
-
-    if (!pvPodeAcessarUF_(perfil, registro.UF)) continue;
 
     // Excluído (lixeira) some das telas normais por padrão — mesmo padrão
     // da aba Veiculos de doações (ver listarVeiculos/getVeiculosExcluidos).
@@ -406,9 +339,6 @@ function buscarVeiculoPassivoPorPlaca(placa) {
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][idxPlaca] === placaNormalizada) {
       var registro = linhaParaObjeto_(cabecalho, valores[i]);
-      // Fora do estado permitido: trata como "não encontrado" — não vaza
-      // nem a existência do veículo pra quem não pode acessar aquele UF.
-      if (!pvPodeAcessarUF_(perfil, registro.UF)) return null;
       return { Marca: registro.Marca, Modelo: registro.Modelo, Chassi: registro.Chassi, Renavam: registro.Renavam, UF: registro.UF };
     }
   }
@@ -431,7 +361,6 @@ function atualizarVeiculoPassivo(id, dados) {
   var perfil = exigirPerfilEditor_();
   pvValidarComuns_(dados);
   pvValidarVeiculo_(dados);
-  pvExigirAcessoUF_(perfil, dados.uf);
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_VEICULOS, CABECALHO_PV_VEICULOS);
   var valores = sheet.getDataRange().getValues();
   var cabecalho = valores[0];
@@ -439,10 +368,6 @@ function atualizarVeiculoPassivo(id, dados) {
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][idxId] === id) {
       var existente = linhaParaObjeto_(cabecalho, valores[i]);
-      // Também barra mover um veículo DE um estado que a pessoa não
-      // gerencia (não só pra um estado que ela não gerencia, já coberto
-      // pelo pvExigirAcessoUF_ acima com dados.uf).
-      pvExigirAcessoUF_(perfil, existente.UF);
       var registro = pvMontarRegistro_(dados, perfil.email, existente);
       var linha = CABECALHO_PV_VEICULOS.map(function (campo) { return registro[campo]; });
       sheet.getRange(i + 1, 1, 1, CABECALHO_PV_VEICULOS.length).setValues([linha]);
@@ -1054,7 +979,6 @@ function getListasDebitosPassivo() {
 function cadastrarInfracaoPassivo(dados) {
   var perfil = exigirPerfilEditor_();
   pvValidarInfracao_(dados);
-  pvExigirAcessoUFDaPlaca_(perfil, dados.placa);
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
   var registro = pvMontarRegistroInfracao_(dados, perfil.email);
   sheet.appendRow(CABECALHO_PV_INFRACOES.map(function (campo) { return registro[campo]; }));
@@ -1088,8 +1012,6 @@ function listarInfracoesPassivo(filtros) {
     var linha = valores[i];
     if (!linha[0]) continue;
     var registro = linhaParaObjeto_(cabecalho, linha);
-    var veiculo = mapaVeiculos[registro.Placa];
-    if (veiculo && !pvPodeAcessarUF_(perfil, veiculo.UF)) continue;
 
     if (filtros.placa && normalizarPlaca_(registro.Placa) !== normalizarPlaca_(filtros.placa)) continue;
     if (filtros.orgaoAutuador && registro.OrgaoAutuador !== filtros.orgaoAutuador) continue;
@@ -1099,8 +1021,6 @@ function listarInfracoesPassivo(filtros) {
       if (alvo.indexOf(busca) === -1) continue;
     }
 
-    registro.ArquivoBoletoUrl = registro.ArquivoBoletoId ? 'https://drive.google.com/file/d/' + registro.ArquivoBoletoId + '/view' : '';
-
     var datasEnvio = (enviosPorInfracao[registro.ID] || []).map(function (d) { return new Date(d); });
     var qtdEnvios = datasEnvio.length;
     var dataUltimoEnvio = qtdEnvios ? new Date(Math.max.apply(null, datasEnvio)) : null;
@@ -1109,6 +1029,7 @@ function listarInfracoesPassivo(filtros) {
     registro.DataUltimoEnvio = dataUltimoEnvio ? Utilities.formatDate(dataUltimoEnvio, Session.getScriptTimeZone(), 'dd/MM/yyyy') : '';
     registro.SemResposta = registro.StatusCancelamento === 'ENVIADO' && diasSemResposta !== null && diasSemResposta >= PV_DIAS_SEM_RESPOSTA;
 
+    var veiculo = mapaVeiculos[registro.Placa];
     registro.MarcaVeiculo = veiculo ? veiculo.Marca : '';
     registro.ModeloVeiculo = veiculo ? veiculo.Modelo : '';
     registro.ChassiVeiculo = veiculo ? veiculo.Chassi : '';
@@ -1127,7 +1048,6 @@ function listarInfracoesPassivo(filtros) {
 function atualizarInfracaoPassivo(id, dados) {
   var perfil = exigirPerfilEditor_();
   pvValidarInfracao_(dados);
-  pvExigirAcessoUFDaPlaca_(perfil, dados.placa);
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
   var valores = sheet.getDataRange().getValues();
   var cabecalho = valores[0];
@@ -1135,10 +1055,6 @@ function atualizarInfracaoPassivo(id, dados) {
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][idxId] === id) {
       var existente = linhaParaObjeto_(cabecalho, valores[i]);
-      // Também barra editar uma infração de uma placa em UF que a pessoa
-      // não gerencia (não só mover pra uma UF que ela não gerencia, já
-      // coberto pelo pvExigirAcessoUFDaPlaca_ acima com dados.placa).
-      pvExigirAcessoUFDaPlaca_(perfil, existente.Placa);
       var registro = pvMontarRegistroInfracao_(dados, perfil.email, existente);
       var linha = CABECALHO_PV_INFRACOES.map(function (campo) { return registro[campo]; });
       sheet.getRange(i + 1, 1, 1, CABECALHO_PV_INFRACOES.length).setValues([linha]);
@@ -1176,13 +1092,11 @@ function registrarEnvioCancelamentoPassivo(idInfracao, observacoes) {
   var idxStatus = cabecalho.indexOf('StatusCancelamento');
   var idxAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
   var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-  var idxPlaca = cabecalho.indexOf('Placa');
   var linhaEncontrada = -1;
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][idxId] === idInfracao) { linhaEncontrada = i; break; }
   }
   if (linhaEncontrada === -1) throw new Error('Infração não encontrada.');
-  pvExigirAcessoUFDaPlaca_(perfil, valores[linhaEncontrada][idxPlaca]);
 
   var sheetEnvios = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS);
   var agora = new Date();
@@ -1221,92 +1135,5 @@ function listarEnviosDaInfracaoPassivo(idInfracao) {
   }
   envios.sort(function (a, b) { return b.ID.localeCompare(a.ID); });
   return envios;
-}
-
-// ---- Boletos/documentos de débito anexados a uma infração ----
-// Pasta própria no Drive, criada sozinha na primeira vez que alguém anexa
-// um arquivo — sem precisar de nenhum passo manual de configuração (ao
-// contrário da pasta de ATPVe, que é pré-existente e configurada à parte).
-function getOrCriarPastaBoletosPassivo_() {
-  var props = PropertiesService.getScriptProperties();
-  var id = props.getProperty('PV_PASTA_BOLETOS_ID');
-  if (id) {
-    try {
-      return DriveApp.getFolderById(id);
-    } catch (e) {
-      // Pasta foi apagada/movida fora do sistema — recria abaixo.
-    }
-  }
-  var pasta = DriveApp.createFolder('Passivo Veicular - Boletos e Documentos de Débito');
-  props.setProperty('PV_PASTA_BOLETOS_ID', pasta.getId());
-  return pasta;
-}
-
-// Salva (ou substitui, se já havia um) o arquivo do boleto/documento de
-// débito de uma infração. Um arquivo por infração — anexar de novo troca
-// o anterior, que vai pra lixeira do Drive (não fica acumulando).
-function anexarBoletoInfracaoPassivo(idInfracao, base64Arquivo, nomeArquivo, mimeType) {
-  var perfil = exigirPerfilEditor_();
-  if (!base64Arquivo) throw new Error('Nenhum arquivo recebido.');
-  var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxId = cabecalho.indexOf('ID');
-  var idxPlaca = cabecalho.indexOf('Placa');
-  var idxArquivoId = cabecalho.indexOf('ArquivoBoletoId');
-  var idxArquivoNome = cabecalho.indexOf('ArquivoBoletoNome');
-  var idxAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  for (var i = 1; i < valores.length; i++) {
-    if (valores[i][idxId] !== idInfracao) continue;
-
-    pvExigirAcessoUFDaPlaca_(perfil, valores[i][idxPlaca]);
-
-    var arquivoAntigoId = valores[i][idxArquivoId];
-    if (arquivoAntigoId) {
-      try { DriveApp.getFileById(arquivoAntigoId).setTrashed(true); } catch (e) { /* já pode ter sido removido manualmente */ }
-    }
-
-    var blob = Utilities.newBlob(Utilities.base64Decode(base64Arquivo), mimeType || 'application/pdf', nomeArquivo || 'boleto');
-    var arquivo = getOrCriarPastaBoletosPassivo_().createFile(blob);
-    var nomeFinal = idInfracao + ' - ' + (nomeArquivo || arquivo.getName());
-    arquivo.setName(nomeFinal);
-
-    var agora = new Date();
-    sheet.getRange(i + 1, idxArquivoId + 1).setValue(arquivo.getId());
-    sheet.getRange(i + 1, idxArquivoNome + 1).setValue(nomeArquivo || nomeFinal);
-    sheet.getRange(i + 1, idxAtualizacao + 1).setValue(agora);
-    sheet.getRange(i + 1, idxAtualizadoPor + 1).setValue(perfil.email);
-
-    return { mensagem: 'Arquivo anexado com sucesso.', arquivoId: arquivo.getId(), arquivoNome: nomeArquivo || nomeFinal };
-  }
-  throw new Error('Infração não encontrada.');
-}
-
-function removerBoletoInfracaoPassivo(idInfracao) {
-  var perfil = exigirPerfilEditor_();
-  var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxId = cabecalho.indexOf('ID');
-  var idxPlaca = cabecalho.indexOf('Placa');
-  var idxArquivoId = cabecalho.indexOf('ArquivoBoletoId');
-  var idxArquivoNome = cabecalho.indexOf('ArquivoBoletoNome');
-
-  for (var i = 1; i < valores.length; i++) {
-    if (valores[i][idxId] !== idInfracao) continue;
-
-    pvExigirAcessoUFDaPlaca_(perfil, valores[i][idxPlaca]);
-
-    var arquivoId = valores[i][idxArquivoId];
-    if (arquivoId) {
-      try { DriveApp.getFileById(arquivoId).setTrashed(true); } catch (e) { /* já pode ter sido removido manualmente */ }
-    }
-    sheet.getRange(i + 1, idxArquivoId + 1).setValue('');
-    sheet.getRange(i + 1, idxArquivoNome + 1).setValue('');
-    return { mensagem: 'Anexo removido.' };
-  }
-  throw new Error('Infração não encontrada.');
 }
 

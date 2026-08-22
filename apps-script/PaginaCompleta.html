@@ -1593,8 +1593,8 @@
         </div>
         <div class="tabela-wrap" style="margin-top:14px;">
           <table>
-            <thead><tr><th>E-mail</th><th>Nome</th><th>Perfil</th><th>Produtividade</th><th>Planilha</th><th>Estados (Passivo)</th><th></th></tr></thead>
-            <tbody id="corpoTabelaUsuarios"><tr><td colspan="7" class="carregando">Carregando...</td></tr></tbody>
+            <thead><tr><th>E-mail</th><th>Nome</th><th>Perfil</th><th>Produtividade</th><th>Planilha</th><th></th></tr></thead>
+            <tbody id="corpoTabelaUsuarios"><tr><td colspan="6" class="carregando">Carregando...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1687,15 +1687,6 @@
             <option value="LEITOR">Leitor (pode abrir e conferir a planilha)</option>
             <option value="EDITOR">Editor (pode editar células direto na planilha)</option>
           </select>
-        </div>
-        <div class="campo span-2">
-          <label for="nu_UFsPassivo">Estados sob responsabilidade no Passivo Veicular <span class="opcional">(opcional)</span></label>
-          <select id="nu_UFsPassivo" multiple size="8"></select>
-          <p style="font-size:12px; color:var(--texto-suave); margin:4px 0 0;">
-            Só vale pro Passivo Veicular. Administrador sempre vê todos os estados, mesmo sem nada marcado aqui.
-            Usuário/Visitante sem nenhum estado marcado NÃO enxerga nada no Passivo Veicular — marque pelo menos um
-            estado pra essa pessoa poder usar aquele painel.
-          </p>
         </div>
       </div>
       <div class="botoes">
@@ -2484,26 +2475,6 @@
     preencherSelect('pe_Mes', ctx.listas.mes, true);
     preencherSelect('pe_UF', ctx.listas.uf, true);
     preencherSelect('pe_Ente', ctx.listas.ente, true);
-    preencherSelectMultiplo_('nu_UFsPassivo', ctx.listas.ufsEstados || []);
-  }
-
-  function preencherSelectMultiplo_(idSelect, opcoes) {
-    var select = document.getElementById(idSelect);
-    select.innerHTML = opcoes.map(function (opcao) {
-      return '<option value="' + escaparHtml(opcao) + '">' + escaparHtml(opcao) + '</option>';
-    }).join('');
-  }
-
-  function marcarOpcoesSelectMultiplo_(idSelect, valoresMarcados) {
-    Array.prototype.forEach.call(document.getElementById(idSelect).options, function (opcao) {
-      opcao.selected = valoresMarcados.indexOf(opcao.value) !== -1;
-    });
-  }
-
-  function lerSelectMultiplo_(idSelect) {
-    return Array.prototype.filter.call(document.getElementById(idSelect).options, function (opcao) {
-      return opcao.selected;
-    }).map(function (opcao) { return opcao.value; });
   }
 
   function preencherSelect(idSelect, opcoes, comPlaceholderVazio, rotuloPlaceholder) {
@@ -3008,24 +2979,22 @@
     try {
       USUARIOS_LISTA_ATUAL = await chamarServidor_('listarUsuarios');
       if (!USUARIOS_LISTA_ATUAL.length) {
-        corpo.innerHTML = '<tr><td colspan="7" class="carregando">Nenhum usuário cadastrado.</td></tr>';
+        corpo.innerHTML = '<tr><td colspan="6" class="carregando">Nenhum usuário cadastrado.</td></tr>';
         return;
       }
       corpo.innerHTML = USUARIOS_LISTA_ATUAL.map(function (u, i) {
         var produtividade = u.Perfil === 'admin' ? 'Sempre' : (u.AcessoProdutividade === 'SIM' ? 'Sim' : 'Não');
-        var estadosPassivo = u.Perfil === 'admin' ? 'Todos' : ((u.UFsPassivo && u.UFsPassivo.length) ? u.UFsPassivo.join(', ') : '—');
         return '<tr>' +
           '<td>' + escaparHtml(u.Email) + '</td>' +
           '<td>' + escaparHtml(u.Nome) + '</td>' +
           '<td>' + escaparHtml(ROTULOS_PERFIL_USUARIO_[u.Perfil] || u.Perfil) + '</td>' +
           '<td>' + produtividade + '</td>' +
           '<td>' + escaparHtml(ROTULOS_ACESSO_PLANILHA_[u.AcessoPlanilha] || u.AcessoPlanilha) + '</td>' +
-          '<td>' + escaparHtml(estadosPassivo) + '</td>' +
           '<td><button type="button" class="secundario" onclick="abrirModalEditarUsuario_(' + i + ')">Editar</button></td>' +
           '</tr>';
       }).join('');
     } catch (erro) {
-      corpo.innerHTML = '<tr><td colspan="7" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+      corpo.innerHTML = '<tr><td colspan="6" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
     }
   }
 
@@ -3223,7 +3192,6 @@
     document.getElementById('nu_Perfil').value = 'admin';
     document.getElementById('nu_AcessoProdutividade').checked = false;
     document.getElementById('nu_AcessoPlanilha').value = 'NENHUM';
-    marcarOpcoesSelectMultiplo_('nu_UFsPassivo', []);
     document.getElementById('mensagemNovoUsuario').innerHTML = '';
     document.getElementById('modalNovoUsuarioFundo').classList.add('ativo');
   }
@@ -3240,7 +3208,6 @@
     document.getElementById('nu_Perfil').value = u.Perfil;
     document.getElementById('nu_AcessoProdutividade').checked = u.AcessoProdutividade === 'SIM';
     document.getElementById('nu_AcessoPlanilha').value = u.AcessoPlanilha;
-    marcarOpcoesSelectMultiplo_('nu_UFsPassivo', u.UFsPassivo || []);
     document.getElementById('mensagemNovoUsuario').innerHTML = '';
     document.getElementById('modalNovoUsuarioFundo').classList.add('ativo');
   }
@@ -3261,8 +3228,7 @@
       Nome: document.getElementById('nu_Nome').value,
       Perfil: document.getElementById('nu_Perfil').value,
       AcessoProdutividade: document.getElementById('nu_AcessoProdutividade').checked ? 'SIM' : 'NÃO',
-      AcessoPlanilha: document.getElementById('nu_AcessoPlanilha').value,
-      UFsPassivo: lerSelectMultiplo_('nu_UFsPassivo')
+      AcessoPlanilha: document.getElementById('nu_AcessoPlanilha').value
     };
 
     var botao = document.getElementById('botaoNovoUsuarioSalvar');
