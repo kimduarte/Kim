@@ -906,13 +906,19 @@ function listarUsuarios() {
 // grandes nesse projeto (erro de sintaxe no JavaScript montado, sem causa
 // aparente no código-fonte). Essa troca é só na forma de montar a página;
 // o resultado final é idêntico.
+// TESTE_DIAGNOSTICO: true tira o conteúdo do Passivo Veicular da página (fica
+// só o marcador removido, em branco) — usado só pra isolar se é o conteúdo
+// do Passivo que está causando o erro de clique nos painéis. Voltar pra
+// false depois do teste.
+var TESTE_DIAGNOSTICO_SEM_PASSIVO = true;
+
 function doGet(e) {
   var pagina = HtmlService.createHtmlOutputFromFile('PaginaCompleta').getContent();
   pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularHtml -->', function () {
-    return HtmlService.createHtmlOutputFromFile('PassivoVeicularHtml').getContent();
+    return TESTE_DIAGNOSTICO_SEM_PASSIVO ? '' : HtmlService.createHtmlOutputFromFile('PassivoVeicularHtml').getContent();
   });
   pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularJs -->', function () {
-    return HtmlService.createHtmlOutputFromFile('PassivoVeicularJs').getContent();
+    return TESTE_DIAGNOSTICO_SEM_PASSIVO ? '' : HtmlService.createHtmlOutputFromFile('PassivoVeicularJs').getContent();
   });
   return HtmlService.createHtmlOutput(pagina)
     .setTitle('Base de Veículos Doados')
