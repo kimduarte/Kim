@@ -1,8 +1,3 @@
-  function mostrarErroGlobalPv_(erro) {
-    var div = document.getElementById('mensagemGlobalPv');
-    div.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
-  }
-
   function pvPreencherListasFormularios_() {
     preencherSelect('pv_UF', PV_LISTAS.uf, true);
     preencherSelect('pve_UF', PV_LISTAS.uf, true);
@@ -11,16 +6,4 @@
     preencherSelect('pv_SituacaoTransferencia', PV_LISTAS.situacoes, false);
     preencherSelect('pve_SituacaoTransferencia', PV_LISTAS.situacoes, false);
     preencherSelect('pvfSituacao', PV_LISTAS.situacoes, false, 'Todas');
-  }
-
-  function pvAtualizarSelectInstituicoes_(lista) {
-    var ordenada = lista.filter(function (x) { return x; }).sort();
-    ['pvPainelInstituicao', 'pvfInstituicao'].forEach(function (id) {
-      var sel = document.getElementById(id);
-      var atual = sel.value;
-      sel.innerHTML = '<option value="">Todas</option>' + ordenada.map(function (i) {
-        return '<option value="' + escaparHtml(i) + '">' + escaparHtml(i) + '</option>';
-      }).join('');
-      sel.value = atual;
-    });
   }
