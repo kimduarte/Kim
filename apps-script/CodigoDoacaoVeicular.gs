@@ -906,20 +906,17 @@ function listarUsuarios() {
 // grandes nesse projeto (erro de sintaxe no JavaScript montado, sem causa
 // aparente no código-fonte). Essa troca é só na forma de montar a página;
 // o resultado final é idêntico.
-// TESTE_DIAGNOSTICO: controla, separadamente, se o HTML e o JS do Passivo
-// Veicular entram na página — usado só pra isolar qual dos dois arquivos
-// está causando o erro de clique nos painéis. Voltar os dois pra true
-// depois do teste (é o estado normal, com tudo incluído).
-var TESTE_DIAGNOSTICO_INCLUIR_HTML_PASSIVO = false;
-var TESTE_DIAGNOSTICO_INCLUIR_JS_PASSIVO = true;
-
+// TESTE_DIAGNOSTICO: em vez do JS de verdade do Passivo, usa um arquivo
+// falso (PassivoVeicularJsFake.html) do MESMO TAMANHO só com funções bobas
+// — pra saber se o problema é o TAMANHO do arquivo (qualquer coisa desse
+// tamanho quebra) ou o CONTEÚDO específico do PassivoVeicularJs.html.
 function doGet(e) {
   var pagina = HtmlService.createHtmlOutputFromFile('PaginaCompleta').getContent();
   pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularHtml -->', function () {
-    return TESTE_DIAGNOSTICO_INCLUIR_HTML_PASSIVO ? HtmlService.createHtmlOutputFromFile('PassivoVeicularHtml').getContent() : '';
+    return '';
   });
   pagina = pagina.replace('<!-- INCLUIR:PassivoVeicularJs -->', function () {
-    return TESTE_DIAGNOSTICO_INCLUIR_JS_PASSIVO ? HtmlService.createHtmlOutputFromFile('PassivoVeicularJs').getContent() : '';
+    return HtmlService.createHtmlOutputFromFile('PassivoVeicularJsFake').getContent();
   });
   return HtmlService.createHtmlOutput(pagina)
     .setTitle('Base de Veículos Doados')
