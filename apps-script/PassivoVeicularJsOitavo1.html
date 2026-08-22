@@ -1,0 +1,120 @@
+  // ---------- Painel Passivo Veicular ----------
+  var PV_INICIALIZADO = false;
+  var PV_LISTAS = null;
+  var PV_MODO_CADASTRO = 'individual';
+  var PV_CACHE_LISTAGEM = {};
+  var PV_SELO_SITUACAO = { 'PENDENTE': 'selo-nao', 'EM ANDAMENTO': 'selo-pendente', 'CONCLUÍDA': 'selo-sim' };
+
+  var PV_LISTAS_DEBITOS = null;
+  var PV_CACHE_INFRACOES = {};
+  var PV_SELO_STATUS_INFRACAO = { 'PENDENTE': 'selo-pendente', 'ENVIADO': 'selo-nao', 'RECEBIDO': 'selo-azul', 'CANCELADA': 'selo-sim', 'NEGADA': 'selo-vermelho' };
+  var PV_ORGAO_MUNICIPAL_VALOR = '__outro__';
+  var PV_MAPA_ARTIGOS = {};
+
+  function pvInicializar_() {
+    if (PV_INICIALIZADO) return;
+    PV_INICIALIZADO = true;
+    var nomeUsuarioPv = (CONTEXTO && CONTEXTO.usuario) ? (CONTEXTO.usuario.nome || CONTEXTO.usuario.email) : '';
+    document.getElementById('pvInfoUsuarioNome').textContent = nomeUsuarioPv;
+    var rotulosPerfil = { admin: 'Administrador', usuario: 'Usuário', visitante: 'Visitante', sem_acesso: 'Sem acesso' };
+    document.getElementById('pvInfoUsuarioPerfil').textContent =
+      (CONTEXTO && CONTEXTO.usuario) ? 'Perfil: ' + (rotulosPerfil[CONTEXTO.usuario.perfil] || CONTEXTO.usuario.perfil) : '';
+    document.getElementById('pvSaudacao').textContent = 'Bem-vindo, ' + nomeUsuarioPv;
+    var dataPvExtenso = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    document.getElementById('pvData').textContent = dataPvExtenso.charAt(0).toUpperCase() + dataPvExtenso.slice(1);
+    document.getElementById('navPvCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
+    pvConfigurarFormularios_();
+    pvConfigurarModalInfracao_();
+    chamarServidor_('getListasPassivo').then(function (listas) {
+      PV_LISTAS = listas;
+      pvPreencherListasFormularios_();
+      pvAlternarModoCadastro_('individual');
+      carregarPainelPv_();
+    }).catch(mostrarErroGlobalPv_);
+    chamarServidor_('getListasDebitosPassivo').then(function (listas) {
+      PV_LISTAS_DEBITOS = listas;
+      pvPreencherListasInfracoes_();
+    }).catch(mostrarErroGlobalPv_);
+  }
+
+  function mostrarErroGlobalPv_(erro) {
+    var div = document.getElementById('mensagemGlobalPv');
+    div.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+  }
+
+  function pvPreencherListasFormularios_() {
+    preencherSelect('pv_UF', PV_LISTAS.uf, true);
+    preencherSelect('pve_UF', PV_LISTAS.uf, true);
+    preencherSelect('pvPainelUF', PV_LISTAS.uf, false, 'Todas');
+    preencherSelect('pvfUF', PV_LISTAS.uf, false, 'Todas');
+    preencherSelect('pv_SituacaoTransferencia', PV_LISTAS.situacoes, false);
+    preencherSelect('pve_SituacaoTransferencia', PV_LISTAS.situacoes, false);
+    preencherSelect('pvfSituacao', PV_LISTAS.situacoes, false, 'Todas');
+  }
+
+  function pvAtualizarSelectInstituicoes_(lista) {
+    var ordenada = lista.filter(function (x) { return x; }).sort();
+    ['pvPainelInstituicao', 'pvfInstituicao'].forEach(function (id) {
+      var sel = document.getElementById(id);
+      var atual = sel.value;
+      sel.innerHTML = '<option value="">Todas</option>' + ordenada.map(function (i) {
+        return '<option value="' + escaparHtml(i) + '">' + escaparHtml(i) + '</option>';
+      }).join('');
+      sel.value = atual;
+    });
+  }
+
+  // ---------- Navegação entre telas do Passivo ----------
+  function irParaTelaPv_(nome) {
+    document.querySelectorAll('.tela-pv').forEach(function (t) { t.classList.remove('ativa'); });
+    document.getElementById('tela-' + nome).classList.add('ativa');
+    document.querySelectorAll('.app-nav-item[data-tela-pv]').forEach(function (el) {
+      el.classList.toggle('ativo', el.dataset.telaPv === nome);
+    });
+    if (nome === 'pv-inicio') carregarPainelPv_();
+    if (nome === 'pv-listagem') carregarListagemPv_();
+    if (nome === 'pv-infracoes') carregarInfracoesPv_();
+    if (nome === 'pv-lixeira') irParaTelaLixeiraPv_();
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- Lixeira ----------
+  var PV_LIXEIRA_ITENS_ATUAL = [];
+
+  function irParaTelaLixeiraPv_() {
+    if (!USUARIO_E_ADMIN) {
+      document.getElementById('pvLixeiraSemPermissao').style.display = '';
+      document.getElementById('pvLixeiraConteudo').style.display = 'none';
+      return;
+    }
+    document.getElementById('pvLixeiraSemPermissao').style.display = 'none';
+    document.getElementById('pvLixeiraConteudo').style.display = '';
+    carregarLixeiraPv_();
+  }
+
+  async function carregarLixeiraPv_() {
+    var corpo = document.getElementById('corpoTabelaLixeiraPv');
+    corpo.innerHTML = '<tr><td colspan="8" class="carregando">Carregando...</td></tr>';
+    try {
+      PV_LIXEIRA_ITENS_ATUAL = await chamarServidor_('getVeiculosExcluidosPassivo');
+      if (!PV_LIXEIRA_ITENS_ATUAL.length) {
+        corpo.innerHTML = '<tr><td colspan="8" class="carregando">A lixeira está vazia.</td></tr>';
+        return;
+      }
+      corpo.innerHTML = PV_LIXEIRA_ITENS_ATUAL.map(function (v, i) {
+        return '<tr>' +
+          '<td>' + escaparHtml(v.Placa) + '</td>' +
+          '<td class="mono">' + escaparHtml(v.Chassi) + '</td>' +
+          '<td>' + escaparHtml([v.Marca, v.Modelo].filter(Boolean).join(' ')) + '</td>' +
+          '<td>' + escaparHtml(v.Instituicao) + '</td>' +
+          '<td>' + escaparHtml(v.UF) + '</td>' +
+          '<td>' + escaparHtml(v.ExcluidoPor) + '</td>' +
+          '<td>' + (v.DataExclusao ? new Date(v.DataExclusao).toLocaleDateString('pt-BR') : '-') + '</td>' +
+          '<td><button type="button" class="secundario" onclick="restaurarVeiculoLixeiraPv_(' + i + ')">Restaurar</button></td>' +
+          '</tr>';
+      }).join('');
+    } catch (erro) {
+      corpo.innerHTML = '<tr><td colspan="8" class="carregando">Erro: ' + escaparHtml(erro.message || String(erro)) + '</td></tr>';
+    }
+  }
+
