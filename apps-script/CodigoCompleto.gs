@@ -2842,7 +2842,17 @@ function extrairComunsTermoDoacao_(texto, avisos) {
 
   var mEndereco = fatiaDonataria.match(/com\s+sede\s+(?:n[ao]|em)\s+(.+)/i);
   if (mEndereco) {
-    var partes = mEndereco[1].split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+    // O CEP costuma vir junto no fim do endereço (ex.: "..., Cidade - UF,
+    // CEP 12.345-678") — extrai e tira esse pedaço ANTES de separar por
+    // vírgula, senão ele vira o "último pedaço" e acaba caindo no campo
+    // Município (que é montado a partir do último pedaço, mais abaixo).
+    var enderecoTexto = mEndereco[1];
+    var mCep = enderecoTexto.match(/CEP[:\s.]*\s*(\d{2}\.?\d{3}-?\d{3})/i);
+    if (mCep) {
+      comuns.CEP = mCep[1].replace(/\D/g, '');
+      enderecoTexto = enderecoTexto.replace(/,?\s*CEP[:\s.]*\s*\d{2}\.?\d{3}-?\d{3}\.?/i, '');
+    }
+    var partes = enderecoTexto.split(',').map(function (p) { return p.trim(); }).filter(Boolean);
     if (partes.length >= 3) {
       comuns.Logradouro = partes[0];
       var pareceNumero = /^(s\/n|\d+[a-z]?)$/i.test(partes[1]);
