@@ -1101,6 +1101,7 @@
       <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="abrirEscolhaModeloProdutividade_()">📈 Produtividade</div>
       <div class="app-nav-item" data-tela="usuarios" onclick="irParaTela('usuarios')">👤 Usuários</div>
       <div class="app-nav-item" data-tela="lixeira" onclick="irParaTela('lixeira')">🗑️ Lixeira</div>
+      <div class="app-nav-item" id="navCorrecaoAtpve" data-tela="correcaoAtpve" style="display:none;" onclick="irParaTela('correcaoAtpve')">✅ Corrigir ATPVe</div>
       <div class="app-nav-item" id="navTep" data-tela="tep" style="display:none; background:#dc2626; color:#fff;" onclick="irParaTela('tep')">🔴 TEP <span id="navTepContagem"></span></div>
     </nav>
     <main>
@@ -2093,6 +2094,56 @@
             <tbody id="corpoTabelaLixeira"><tr><td colspan="8" class="carregando">Carregando...</td></tr></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <section id="tela-correcaoAtpve" class="tela">
+      <div class="pagina-titulo">
+        <div>
+          <h2>Corrigir ATPVe em lote</h2>
+          <p>Marca "ATPVe Enviado" de uma vez para vários processos antigos cujo ATPVe já foi enviado de verdade,
+            mas o sistema ainda mostra como pendente. Não preenche nenhuma data de envio (fica em branco) — por
+            isso essa correção não entra no Relatório de Produtividade. Restrito a administradores.</p>
+        </div>
+      </div>
+      <div id="correcaoAtpveSemPermissao" class="card" style="display:none;">
+        <p>Você não tem permissão para ver esta área — restrita a administradores.</p>
+      </div>
+      <div id="correcaoAtpveConteudo">
+        <div class="card" style="margin-bottom:14px;">
+          <div class="grid-form">
+            <div class="campo">
+              <label for="ca_UF">UF <span class="opcional">(opcional)</span></label>
+              <select id="ca_UF"></select>
+            </div>
+          </div>
+          <div class="botoes">
+            <button type="button" class="primario" onclick="carregarCorrecaoAtpve_()">Filtrar</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tabela-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="ca_SelecionarTodos" onchange="alternarSelecionarTodosCorrecaoAtpve_(this.checked)"></th>
+                  <th>Processo</th>
+                  <th>Donatária</th>
+                  <th>UF</th>
+                  <th>Ano</th>
+                  <th>Veículos</th>
+                  <th>ATPVe Enviado</th>
+                </tr>
+              </thead>
+              <tbody id="corpoTabelaCorrecaoAtpve"><tr><td colspan="7" class="carregando">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="botoes" style="margin-top:14px;">
+          <span id="ca_ContadorSelecionados" style="color:var(--texto-suave); font-size:14px;">Nenhum processo selecionado.</span>
+          <button type="button" class="primario" id="ca_BotaoConfirmar" style="margin-left:auto;" disabled onclick="confirmarCorrecaoAtpveEmLote_()">Marcar selecionados como ATPVe Enviado</button>
+        </div>
+        <div id="mensagemCorrecaoAtpve"></div>
       </div>
     </section>
 
@@ -3253,6 +3304,7 @@
     if (nome === 'transferidos') carregarTransferidos_();
     if (nome === 'usuarios') irParaTelaUsuarios_();
     if (nome === 'lixeira') irParaTelaLixeira_();
+    if (nome === 'correcaoAtpve') irParaTelaCorrecaoAtpve_();
     if (nome === 'tep') carregarListaTep_();
     window.scrollTo(0, 0);
   }
@@ -3730,6 +3782,7 @@
 
     var ehAdmin = ctx.usuario.perfil === 'admin';
     USUARIO_E_ADMIN = ehAdmin;
+    document.getElementById('navCorrecaoAtpve').style.display = ehAdmin ? '' : 'none';
     USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
     USUARIO_ACESSO_PRODUTIVIDADE = !!ctx.usuario.acessoProdutividade;
     // Cadastrar veículo, Produtividade e Usuários ficam visíveis no menu pra
@@ -3756,6 +3809,7 @@
     preencherSelect('pe_Mes', ctx.listas.mes, true);
     preencherSelect('pe_UF', ctx.listas.uf, true);
     preencherSelect('pe_Ente', ctx.listas.ente, true);
+    preencherSelect('ca_UF', ctx.listas.uf, false, 'Todas');
   }
 
   function preencherSelect(idSelect, opcoes, comPlaceholderVazio, rotuloPlaceholder) {
@@ -4329,6 +4383,118 @@
       carregarLixeira_();
     } catch (erro) {
       mostrarErroGlobal(erro);
+    }
+  }
+
+  // ---------- Correção em lote de ATPVe (processos antigos já enviados de
+  // verdade, mas ainda marcados como pendente no sistema) ----------
+  var CORRECAO_ATPVE_PROCESSOS_ATUAL = [];
+  var CORRECAO_ATPVE_SELECIONADOS = {};
+
+  function irParaTelaCorrecaoAtpve_() {
+    if (!USUARIO_E_ADMIN) {
+      document.getElementById('correcaoAtpveSemPermissao').style.display = '';
+      document.getElementById('correcaoAtpveConteudo').style.display = 'none';
+      return;
+    }
+    document.getElementById('correcaoAtpveSemPermissao').style.display = 'none';
+    document.getElementById('correcaoAtpveConteudo').style.display = '';
+    CORRECAO_ATPVE_SELECIONADOS = {};
+    carregarCorrecaoAtpve_();
+  }
+
+  async function carregarCorrecaoAtpve_() {
+    var corpo = document.getElementById('corpoTabelaCorrecaoAtpve');
+    corpo.innerHTML = '<tr><td colspan="7" class="carregando">Carregando...</td></tr>';
+    document.getElementById('mensagemCorrecaoAtpve').innerHTML = '';
+    try {
+      var filtros = { uf: document.getElementById('ca_UF').value };
+      var resp = await chamarServidor_('listarProcessosPendentesAtpve', filtros);
+      CORRECAO_ATPVE_PROCESSOS_ATUAL = resp.processos;
+      renderizarTabelaCorrecaoAtpve_();
+    } catch (erro) {
+      corpo.innerHTML = '<tr><td colspan="7"><div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div></td></tr>';
+    }
+  }
+
+  function renderizarTabelaCorrecaoAtpve_() {
+    var corpo = document.getElementById('corpoTabelaCorrecaoAtpve');
+    if (!CORRECAO_ATPVE_PROCESSOS_ATUAL.length) {
+      corpo.innerHTML = '<tr><td colspan="7">Nenhum processo com ATPVe pendente encontrado.</td></tr>';
+      document.getElementById('ca_SelecionarTodos').checked = false;
+      atualizarContadorCorrecaoAtpve_();
+      return;
+    }
+    corpo.innerHTML = CORRECAO_ATPVE_PROCESSOS_ATUAL.map(function (p) {
+      var marcado = !!CORRECAO_ATPVE_SELECIONADOS[p.chave];
+      return '<tr>' +
+        '<td><input type="checkbox" ' + (marcado ? 'checked' : '') +
+        ' onchange="alternarSelecaoCorrecaoAtpve_(\'' + p.chave + '\', this.checked)"></td>' +
+        '<td>' + escaparHtml(formatarTermoDoacao_(p.termoDoacao, p.ano)) + (p.numeroProcesso ? ' — ' + escaparHtml(p.numeroProcesso) : '') + '</td>' +
+        '<td>' + escaparHtml(p.donataria) + '</td>' +
+        '<td>' + escaparHtml(p.uf) + '</td>' +
+        '<td>' + escaparHtml(String(p.ano)) + '</td>' +
+        '<td>' + p.totalVeiculos + '</td>' +
+        '<td>' + p.totalEnviados + ' de ' + p.totalVeiculos + '</td>' +
+        '</tr>';
+    }).join('');
+    atualizarContadorCorrecaoAtpve_();
+  }
+
+  function alternarSelecaoCorrecaoAtpve_(chave, marcado) {
+    if (marcado) {
+      CORRECAO_ATPVE_SELECIONADOS[chave] = true;
+    } else {
+      delete CORRECAO_ATPVE_SELECIONADOS[chave];
+    }
+    atualizarContadorCorrecaoAtpve_();
+  }
+
+  function alternarSelecionarTodosCorrecaoAtpve_(marcado) {
+    CORRECAO_ATPVE_PROCESSOS_ATUAL.forEach(function (p) {
+      if (marcado) {
+        CORRECAO_ATPVE_SELECIONADOS[p.chave] = true;
+      } else {
+        delete CORRECAO_ATPVE_SELECIONADOS[p.chave];
+      }
+    });
+    renderizarTabelaCorrecaoAtpve_();
+  }
+
+  function atualizarContadorCorrecaoAtpve_() {
+    var total = Object.keys(CORRECAO_ATPVE_SELECIONADOS).length;
+    document.getElementById('ca_ContadorSelecionados').textContent =
+      total ? (total + ' processo(s) selecionado(s).') : 'Nenhum processo selecionado.';
+    document.getElementById('ca_BotaoConfirmar').disabled = total === 0;
+  }
+
+  function confirmarCorrecaoAtpveEmLote_() {
+    var chaves = Object.keys(CORRECAO_ATPVE_SELECIONADOS);
+    if (!chaves.length) return;
+    confirmar_(
+      'Marcar ATPVe Enviado (e Emitido) para todos os veículos pendentes de ' + chaves.length +
+      ' processo(s) selecionado(s)? Nenhuma data será preenchida — essa correção não entra no Relatório de Produtividade. Veículos já transferidos não são afetados.',
+      function () {
+        executarCorrecaoAtpveEmLote_(chaves);
+      }
+    );
+  }
+
+  async function executarCorrecaoAtpveEmLote_(chaves) {
+    var botao = document.getElementById('ca_BotaoConfirmar');
+    botao.disabled = true;
+    mostrarLoader_('Corrigindo ATPVe, aguarde...');
+    try {
+      var resp = await chamarServidor_('marcarAtpveEnviadoEmLote', chaves);
+      esconderLoader_();
+      mostrarMensagem('mensagemCorrecaoAtpve', 'sucesso',
+        resp.atualizados + ' veículo(s) de ' + resp.processosAfetados + ' processo(s) marcados como ATPVe Enviado.');
+      CORRECAO_ATPVE_SELECIONADOS = {};
+      carregarCorrecaoAtpve_();
+    } catch (erro) {
+      esconderLoader_();
+      botao.disabled = false;
+      mostrarMensagem('mensagemCorrecaoAtpve', 'erro', erro.message || String(erro));
     }
   }
 

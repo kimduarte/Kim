@@ -945,6 +945,11 @@ function listarVeiculos(filtros) {
     if (filtros.transferido && registro.Transferido !== filtros.transferido) continue;
     if (filtros.donataria && registro.Donataria !== filtros.donataria) continue;
     if (filtros.somenteRascunho && (registro.StatusCadastro || 'COMPLETO') !== 'RASCUNHO') continue;
+    // Usado pelas Estatísticas/Painel: só conta veículo cujo ATPVe já foi
+    // efetivamente enviado, em vez de contar a partir do simples cadastro —
+    // não afeta a tela de Processos (que precisa continuar mostrando tudo
+    // pra dar pra gerenciar/marcar o status).
+    if (filtros.somenteAtpveEnviado && registro.ATPVeEnviado !== 'SIM') continue;
     if (busca) {
       var camposAlvo = campoBusca
         ? [registro[campoBusca]]
@@ -1462,6 +1467,32 @@ function paraDtoListagem_(r) {
  */
 function listarProcessos(filtros) {
   var todos = listarVeiculos(filtros);
+  var processos = agruparProcessos_(todos);
+  var totalPaginas = Math.max(1, Math.ceil(processos.length / LIMITE_LISTAGEM_PADRAO));
+  var pagina = Math.min(totalPaginas, Math.max(1, parseInt(filtros && filtros.pagina, 10) || 1));
+  var inicio = (pagina - 1) * LIMITE_LISTAGEM_PADRAO;
+  // Soma sobre TODOS os processos que passaram no filtro (não só os da página
+  // atual), para o total de veículos bater com o total de processos exibido —
+  // um processo normalmente tem vários veículos, então esse número é maior.
+  var totalVeiculos = processos.reduce(function (soma, p) { return soma + p.totalVeiculos; }, 0);
+
+  return {
+    totalProcessos: processos.length,
+    totalVeiculos: totalVeiculos,
+    pagina: pagina,
+    totalPaginas: totalPaginas,
+    processos: processos.slice(inicio, inicio + LIMITE_LISTAGEM_PADRAO)
+  };
+}
+
+/**
+ * Agrupa uma lista "achatada" de veículos (o que listarVeiculos devolve) em
+ * processos — mesmo agrupamento por chaveProcesso_ usado em listarProcessos,
+ * mas sem paginar nem filtrar por página, pra dar pra reaproveitar em outras
+ * telas que precisam da lista de processos inteira (ex.: correção em lote de
+ * ATPVe, ver listarProcessosPendentesAtpve).
+ */
+function agruparProcessos_(todos) {
   var grupos = {};
   var ordem = [];
   // Maior ID de veículo visto em cada processo, usado para ordenar do mais
@@ -1534,21 +1565,104 @@ function listarProcessos(filtros) {
     p.qtdEsperada = qtdContrato + qtdAditivo;
     p.temRascunho = p.totalRascunhos > 0;
   });
+  return processos;
+}
+
+/**
+ * Processos com pelo menos um veículo ainda sem ATPVe marcado como
+ * enviado — usada pela tela de correção em lote (marcarAtpveEnviadoEmLote),
+ * que existe pra corrigir de uma vez processos antigos cujo ATPVe já foi
+ * enviado de verdade mas o sistema ainda mostra como pendente (sem precisar
+ * abrir processo por processo). Mesmos filtros de listarProcessos (UF, Ano,
+ * Ente, busca) e mesma paginação.
+ */
+function listarProcessosPendentesAtpve(filtros) {
+  exigirPerfilAdmin_();
+  var todos = listarVeiculos(filtros);
+  var processos = agruparProcessos_(todos).filter(function (p) {
+    return p.totalEnviados < p.totalVeiculos;
+  });
   var totalPaginas = Math.max(1, Math.ceil(processos.length / LIMITE_LISTAGEM_PADRAO));
   var pagina = Math.min(totalPaginas, Math.max(1, parseInt(filtros && filtros.pagina, 10) || 1));
   var inicio = (pagina - 1) * LIMITE_LISTAGEM_PADRAO;
-  // Soma sobre TODOS os processos que passaram no filtro (não só os da página
-  // atual), para o total de veículos bater com o total de processos exibido —
-  // um processo normalmente tem vários veículos, então esse número é maior.
-  var totalVeiculos = processos.reduce(function (soma, p) { return soma + p.totalVeiculos; }, 0);
 
   return {
     totalProcessos: processos.length,
-    totalVeiculos: totalVeiculos,
     pagina: pagina,
     totalPaginas: totalPaginas,
     processos: processos.slice(inicio, inicio + LIMITE_LISTAGEM_PADRAO)
   };
+}
+
+/**
+ * Marca ATPVeEmitido e ATPVeEnviado como 'SIM' em lote para todos os
+ * veículos dos processos escolhidos (array de "chave", o mesmo campo que
+ * listarProcessos/listarProcessosPendentesAtpve devolvem) — pra corrigir de
+ * uma vez processos antigos cujo ATPVe já foi enviado de verdade, sem ter
+ * que abrir um por um.
+ *
+ * SEM preencher DataEmissaoATPVe/DataEnvioATPVe (propositalmente, mesmo
+ * padrão de marcarAtpveEmitidoEnviado2024e2025): fica em branco, pra essa
+ * marcação não entrar como emissão/envio no Relatório de Produtividade —
+ * pedido explícito do usuário, já que não dá pra saber a data real de
+ * processos antigos.
+ *
+ * NUNCA mexe em veículo já Transferido (esse já está com os dois campos
+ * forçados em SIM) nem em veículo na lixeira. Idempotente.
+ */
+function marcarAtpveEnviadoEmLote(chaves) {
+  var perfil = exigirPerfilAdmin_();
+  if (!chaves || !chaves.length) throw new Error('Nenhum processo selecionado.');
+  var chavesSet = {};
+  chaves.forEach(function (c) { chavesSet[c] = true; });
+
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxExcluido = cabecalho.indexOf('Excluido');
+  var idxTransferido = cabecalho.indexOf('Transferido');
+  var idxEmitido = cabecalho.indexOf('ATPVeEmitido');
+  var idxEnviado = cabecalho.indexOf('ATPVeEnviado');
+  var idxId = cabecalho.indexOf('ID');
+  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
+  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
+
+  var agora = new Date();
+  var idsAtualizados = [];
+  var processosAfetados = {};
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[idxId]) continue;
+    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
+
+    var registro = linhaParaObjeto_(cabecalho, linha);
+    var chave = chaveProcesso_(registro);
+    if (!chavesSet[chave]) continue;
+
+    if (String(linha[idxTransferido]).toUpperCase() === 'SIM') continue;
+    var jaEmitido = String(linha[idxEmitido]).toUpperCase() === 'SIM';
+    var jaEnviado = String(linha[idxEnviado]).toUpperCase() === 'SIM';
+    if (jaEmitido && jaEnviado) continue;
+
+    var linhaAtualizada = linha.slice();
+    linhaAtualizada[idxEmitido] = 'SIM';
+    linhaAtualizada[idxEnviado] = 'SIM';
+    linhaAtualizada[idxUltimaAtualizacao] = agora;
+    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (correção em lote de ATPVe)';
+    // Propositalmente NÃO mexe em DataEmissaoATPVe/DataEnvioATPVe.
+
+    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
+    idsAtualizados.push(linha[idxId]);
+    processosAfetados[chave] = true;
+  }
+
+  registrarLog_('MARCAR_ATPVE_EM_LOTE', '-',
+    idsAtualizados.length + ' veículo(s) de ' + Object.keys(processosAfetados).length +
+    ' processo(s) marcados como ATPVe emitido/enviado, sem data. IDs: ' + idsAtualizados.join(', '));
+  invalidarCacheDashboard_();
+
+  return { atualizados: idsAtualizados.length, processosAfetados: Object.keys(processosAfetados).length };
 }
 
 /**
@@ -6801,7 +6915,7 @@ function getEstatisticas() {
   var cacheado = cache.get(chaveCache);
   if (cacheado) return JSON.parse(cacheado);
 
-  var registros = listarVeiculos({});
+  var registros = listarVeiculos({ somenteAtpveEnviado: true });
   var stats = calcularEstatisticas_(registros);
 
   cache.put(chaveCache, JSON.stringify(stats), CACHE_DASHBOARD_SEGUNDOS);
@@ -6819,7 +6933,7 @@ function getEstatisticas() {
  * alguém abre a tela.
  */
 function getVeiculosPorUFAno(ano, transferido, campo, ente, uf) {
-  var filtros = {};
+  var filtros = { somenteAtpveEnviado: true };
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   if (ente) filtros.ente = ente;
@@ -6838,7 +6952,7 @@ function getVeiculosPorUFAno(ano, transferido, campo, ente, uf) {
  * nome+UF identifica).
  */
 function getVeiculosPorDonataria(ano, transferido, ente, uf) {
-  var filtros = {};
+  var filtros = { somenteAtpveEnviado: true };
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   if (ente) filtros.ente = ente;
@@ -6910,7 +7024,7 @@ function contarESomarValorPor_(registros, campo) {
 // em vários estados) — sem essa UF extra, clicar numa linha misturaria
 // veículos de estados diferentes que só coincidem no nome.
 function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente, ufExtra) {
-  var filtros = {};
+  var filtros = { somenteAtpveEnviado: true };
   filtros[campoFiltro || 'uf'] = valor;
   if (ufExtra) filtros.uf = ufExtra;
   if (ano && ano.length) filtros.ano = ano;
