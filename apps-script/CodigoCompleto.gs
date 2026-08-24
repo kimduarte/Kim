@@ -3307,6 +3307,78 @@ function marcarAtpveEmitidoEnviado2024e2025() {
 }
 
 /**
+ * Marca ATPVeEmitido e ATPVeEnviado como 'SIM' para todos os veículos que
+ * já estão com Transferido = SIM mas ainda não tinham os dois campos de
+ * ATPVe marcados — caso comum em dados migrados (BDADOS2024/2026), onde o
+ * veículo já foi transferido de verdade mas o campo de ATPVe nunca foi
+ * preenchido na migração. Ao contrário de marcarAtpveEmitidoEnviado2024e2025
+ * (que propositalmente NUNCA mexe em transferido), esta função faz o
+ * oposto: só mexe em quem JÁ está transferido — se já foi transferido, o
+ * ATPVe necessariamente já foi enviado, então é seguro marcar.
+ *
+ * SEM ano fixo (cobre a base toda) e, como as demais funções de marcação em
+ * massa deste arquivo, SEM preencher DataEmissaoATPVe/DataEnvioATPVe —
+ * fica em branco, pra essa marcação não entrar como emissão/envio no
+ * Relatório de Produtividade (que soma por essas datas, não pelo clique).
+ *
+ * Pula veículos na lixeira (Excluido = SIM) e os que já estavam com os dois
+ * campos SIM (idempotente — pode rodar de novo sem problema).
+ *
+ * Rode manualmente pelo editor (selecione
+ * "marcarAtpveEnviadoParaTransferidos" no menu de funções, clique em
+ * Executar) e confira o resumo em Ver > Registros de execução.
+ */
+function marcarAtpveEnviadoParaTransferidos() {
+  var perfil = exigirPerfilAdmin_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
+
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxTransferido = cabecalho.indexOf('Transferido');
+  var idxExcluido = cabecalho.indexOf('Excluido');
+  var idxEmitido = cabecalho.indexOf('ATPVeEmitido');
+  var idxEnviado = cabecalho.indexOf('ATPVeEnviado');
+  var idxId = cabecalho.indexOf('ID');
+  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
+  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
+
+  var agora = new Date();
+  var idsAtualizados = [];
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[idxId]) continue;
+    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
+
+    // Só mexe em quem JÁ está transferido — é justamente o caso oposto de
+    // marcarAtpveEmitidoEnviado2024e2025.
+    if (String(linha[idxTransferido]).toUpperCase() !== 'SIM') continue;
+
+    var jaEmitido = String(linha[idxEmitido]).toUpperCase() === 'SIM';
+    var jaEnviado = String(linha[idxEnviado]).toUpperCase() === 'SIM';
+    if (jaEmitido && jaEnviado) continue; // já estava certo, nada a fazer.
+
+    var linhaAtualizada = linha.slice();
+    linhaAtualizada[idxEmitido] = 'SIM';
+    linhaAtualizada[idxEnviado] = 'SIM';
+    linhaAtualizada[idxUltimaAtualizacao] = agora;
+    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (correção em massa: já transferidos sem ATPVe marcado)';
+    // Propositalmente NÃO mexe em DataEmissaoATPVe/DataEnvioATPVe.
+
+    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
+    idsAtualizados.push(linha[idxId]);
+  }
+
+  registrarLog_('MARCAR_ATPVE_TRANSFERIDOS', '-',
+    idsAtualizados.length + ' veículo(s) já transferido(s) marcados como ATPVe emitido/enviado, sem data. IDs: ' + idsAtualizados.join(', '));
+  invalidarCacheDashboard_();
+
+  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s): ' + idsAtualizados.join(', '));
+  return { atualizados: idsAtualizados.length };
+}
+
+/**
  * De-Para de unificação de nomenclatura de Donatária — só para Ente =
  * "Estado" (União/Município ficam de fora por enquanto, por pedido
  * explícito). Cada entrada foi revisada manualmente (comparando com a
