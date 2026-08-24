@@ -1,0 +1,98 @@
+<!--
+  UtilitariosCliente.html
+  Funções JS genéricas usadas pelo Passivo Veicular (e por qualquer tela
+  nova que venha a ser adicionada a este site) — copiadas de
+  PaginaCompleta_REFERENCIA_projeto_atual.html. Só as que o Passivo
+  realmente usa (chamarServidor_, escaparHtml, mostrarMensagem,
+  mostrarSkeleton_, mostrarLoader_/esconderLoader_, confirmar_,
+  preencherSelect) — não as de telas exclusivas de Doação Veicular
+  (formatarMoeda_, destacarBusca_, etc.).
+-->
+<script>
+  var CONTEXTO = null;
+  var USUARIO_E_ADMIN = false;
+  var USUARIO_PODE_EDITAR = false;
+  var ORGAOS_POR_UF = {};
+
+  // Promessa fina sobre o google.script.run, para poder usar async/await.
+  function chamarServidor_(nomeFuncao) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var executor = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      executor[nomeFuncao].apply(executor, args);
+    });
+  }
+
+  function escaparHtml(texto) {
+    var div = document.createElement('div');
+    div.textContent = texto == null ? '' : String(texto);
+    return div.innerHTML;
+  }
+
+  function mostrarMensagem(idContainer, tipo, texto) {
+    var div = document.getElementById(idContainer);
+    div.innerHTML = '<div class="mensagem ' + tipo + '">' + escaparHtml(texto) + '</div>';
+    setTimeout(function () { div.innerHTML = ''; }, 8000);
+  }
+
+  // Skeleton no lugar de "Carregando..." — cada bloco tem 3 linhas de
+  // larguras diferentes, pra não parecer um retângulo cinza sem forma.
+  function mostrarSkeleton_(idContainer, quantidade) {
+    var linha = '<div class="skeleton-card">' +
+      '<div class="skeleton-line" style="width:55%;"></div>' +
+      '<div class="skeleton-line" style="width:80%; margin-top:8px;"></div>' +
+      '<div class="skeleton-line" style="width:35%; margin-top:8px;"></div>' +
+      '</div>';
+    document.getElementById(idContainer).innerHTML =
+      '<div class="skeleton-container">' + new Array((quantidade || 3) + 1).join(linha) + '</div>';
+  }
+
+  // ---------- Overlay de carregamento (operações sequenciais longas) ----------
+  function mostrarLoader_(texto) {
+    document.getElementById('loaderTexto').textContent = texto;
+    document.getElementById('loaderOverlay').classList.add('ativo');
+  }
+
+  function esconderLoader_() {
+    document.getElementById('loaderOverlay').classList.remove('ativo');
+  }
+
+  // ---------- Modal genérico de confirmação (Sim/Não) ----------
+  // Substitui o confirm() nativo do navegador por uma caixa com o mesmo
+  // visual das outras telas — use confirmar_(mensagem, funçãoSeSim).
+  var CONFIRMACAO_CALLBACK = null;
+
+  function configurarModalConfirmacao_() {
+    document.getElementById('botaoConfirmacaoNao').addEventListener('click', function () {
+      document.getElementById('modalConfirmacaoFundo').classList.remove('ativo');
+      CONFIRMACAO_CALLBACK = null;
+    });
+    document.getElementById('botaoConfirmacaoSim').addEventListener('click', function () {
+      document.getElementById('modalConfirmacaoFundo').classList.remove('ativo');
+      var callback = CONFIRMACAO_CALLBACK;
+      CONFIRMACAO_CALLBACK = null;
+      if (callback) callback();
+    });
+  }
+
+  function confirmar_(mensagem, aoConfirmar) {
+    document.getElementById('confirmacaoMensagem').textContent = mensagem;
+    CONFIRMACAO_CALLBACK = aoConfirmar;
+    document.getElementById('modalConfirmacaoFundo').classList.add('ativo');
+  }
+
+  function preencherSelect(idSelect, opcoes, comPlaceholderVazio, rotuloPlaceholder) {
+    var select = document.getElementById(idSelect);
+    if (comPlaceholderVazio && !rotuloPlaceholder) {
+      select.innerHTML = '<option value="">Selecione...</option>';
+    } else if (rotuloPlaceholder) {
+      select.innerHTML = '<option value="">' + rotuloPlaceholder + '</option>';
+    }
+    opcoes.forEach(function (opcao) {
+      var el = document.createElement('option');
+      el.value = opcao;
+      el.textContent = opcao;
+      select.appendChild(el);
+    });
+  }
+</script>

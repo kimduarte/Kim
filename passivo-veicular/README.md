@@ -1,0 +1,71 @@
+# Passivo Veicular — site standalone
+
+Projeto Apps Script separado, extraído do "Sistema de Gestão de Patrimônio -
+SGP/COLOG" (que ficava em `apps-script/` neste mesmo repositório, junto com o
+módulo de Doação Veicular). Abre direto no painel do Passivo, sem seletor de
+painéis.
+
+## Arquivos
+
+Servidor (`.gs`):
+- `Codigo.gs` — `doGet`, `include()` e `getContextoInicial()`.
+- `Utilitarios.gs` — normalização/validação genéricas + login/perfis (lê a
+  aba "Usuarios" da planilha de Doações — login compartilhado com o site de
+  Doação Veicular).
+- `Setup.gs` — estrutura da planilha própria do Passivo (abas, cabeçalhos) e
+  `criarEstruturaPassivoVeicular()`.
+- `AbaVeiculos.gs` — CRUD da aba "Veiculos" (cadastro individual/lote,
+  listagem, painel geral, edição, exclusão lógica, lixeira).
+- `AbaInfracoes.gs` — CRUD das abas "Infracoes"/"InfracoesEnvios" (cadastro,
+  listagem, envios de pedido de cancelamento).
+- `DadosInfracoesRenainf.gs` — tabela oficial de códigos de infração
+  (RENAINF), usada só para semear a aba "TabelaInfracoes" na primeira vez.
+
+Cliente (`.html`):
+- `Pagina.html` — monta a página a partir dos arquivos abaixo e faz o
+  bootstrap inicial (busca o contexto do usuário, depois inicializa o painel).
+- `EstiloGenerico.html` / `EstiloPassivo.html` — CSS (design/estrutural),
+  separado do JS.
+- `ComponentesComuns.html` — loader de tela cheia + modal de confirmação
+  (usados pelos utilitários de cliente).
+- `PainelPassivoVeicular.html` — markup do painel (telas + modais).
+- `UtilitariosCliente.html` — funções JS genéricas (`chamarServidor_`,
+  `mostrarMensagem`, `confirmar_`, etc.).
+- `PassivoVeicularJs.html` — JS específico do Passivo Veicular.
+
+## Configuração obrigatória antes de usar
+
+No editor do Apps Script, abra **Configurações do projeto > Propriedades do
+script** e crie:
+
+1. **`DOACAO_SPREADSHEET_ID`** — ID da planilha "Base de Veículos Doados" do
+   projeto de Doação Veicular (a aba "Usuarios" fica lá — é o mesmo login
+   dos dois sites). O ID é o trecho da URL da planilha entre `/d/` e `/edit`.
+   **Sem isso ninguém consegue entrar no site.**
+
+2. **`PV_SPREADSHEET_ID`** *(opcional)* — se você quer que este site
+   continue usando a planilha do Passivo Veicular que já existe hoje (com
+   todos os veículos/infrações já cadastrados), copie aqui o mesmo ID salvo
+   nessa property no projeto original. Se não configurar, ao rodar
+   `criarEstruturaPassivoVeicular()` (próximo passo) uma planilha nova e
+   vazia é criada automaticamente e o ID é salvo sozinho.
+
+Depois, pelo editor do Apps Script, selecione a função
+`criarEstruturaPassivoVeicular` no menu de funções e clique em Executar —
+uma vez só. Ela cria (ou repara) as abas Veiculos/Infracoes/InfracoesEnvios/
+TabelaInfracoes/OrgaosAutuadores.
+
+Por fim, implante como aplicativo da web (**Implantar > Nova implantação**).
+
+## O que foi deixado de fora de propósito
+
+- **Seletor de painéis** (Doação/Passivo) e `voltarSeletorPaineis_()` — não
+  fazem sentido num site que só tem o Passivo.
+- **`importarVeiculosPassivoDF_()`** — migração pontual e histórica dos
+  veículos do Distrito Federal (dados fixos hardcoded do projeto original);
+  não é reaproveitável para outros estados e a planilha já existente já tem
+  esses dados, se você optar por apontar `PV_SPREADSHEET_ID` para ela.
+- **Restrição de veículos por UF do mobilizado** e **anexo de boleto** —
+  chegaram a ser implementadas no projeto original e foram revertidas por
+  causa de um bug de instabilidade do Apps Script na mesma época. Podem ser
+  reavaliadas aqui, com mais calma, se fizer sentido.

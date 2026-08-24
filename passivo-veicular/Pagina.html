@@ -1,0 +1,40 @@
+<!--
+  Pagina.html
+  Página única do site. Monta o <head>/<body> a partir dos outros arquivos
+  (cada `<?!= include('X'); ?>` é trocado pelo conteúdo do arquivo — ver
+  include() em Codigo.gs): estilo genérico + estilo do Passivo no <head>;
+  componentes comuns (loader, modal de confirmação) + markup do Passivo no
+  <body>; utilitários de cliente + JS do Passivo, cada um já dentro do seu
+  próprio <script>; e por fim um bootstrap pequeno que busca o contexto
+  inicial do usuário e só então inicializa o painel.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <?!= include('EstiloGenerico'); ?>
+  <?!= include('EstiloPassivo'); ?>
+</head>
+<body>
+  <?!= include('ComponentesComuns'); ?>
+  <?!= include('PainelPassivoVeicular'); ?>
+  <?!= include('UtilitariosCliente'); ?>
+  <?!= include('PassivoVeicularJs'); ?>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      configurarModalConfirmacao_();
+      chamarServidor_('getContextoInicial').then(function (ctx) {
+        CONTEXTO = ctx;
+        ORGAOS_POR_UF = ctx.orgaosPorUF || {};
+        var ehAdmin = ctx.usuario.perfil === 'admin';
+        USUARIO_E_ADMIN = ehAdmin;
+        USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
+        pvInicializar_();
+      }).catch(mostrarErroGlobalPv_);
+    });
+  </script>
+</body>
+</html>

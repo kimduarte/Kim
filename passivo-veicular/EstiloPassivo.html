@@ -1,0 +1,33 @@
+<!--
+  EstiloPassivo.html
+  CSS específico do Passivo Veicular (CSS_Passivo.css), adaptado para o site
+  standalone: a regra ".escondido" (que escondia o painel por trás do
+  seletor de painéis do projeto original) foi removida — aqui o painel É a
+  página inteira, sempre visível. A regra @media print também foi reduzida
+  para só a parte usada pelo Passivo (a versão original compartilhava essa
+  regra com o painel de Doação Veicular, que não existe neste projeto).
+-->
+<style>
+/* App-shell do Passivo Veicular — tela cheia, com rolagem própria. */
+.pv-fundo {
+  position: fixed; inset: 0; z-index: 1;
+  background: var(--bg);
+  overflow-y: auto;
+}
+.tela-pv { display: none; }
+.tela-pv.ativa { display: block; }
+.pv-linha-lote { position: relative; }
+
+#pvAreaImpressaoInfracoes { display: none; }
+#pvAreaImpressaoInfracoes.ativa { display: block; }
+.pv-impressao-cabecalho { text-align: center; font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+.pv-impressao-endereco { text-align: center; font-size: 11px; margin-bottom: 14px; }
+.pv-impressao-titulo { font-size: 13px; font-weight: 700; margin: 10px 0; }
+
+@media print {
+  .topo-utilitario, header.topo, .app-lateral { display: none !important; }
+  body * { visibility: hidden; }
+  #pvAreaImpressaoInfracoes.ativa, #pvAreaImpressaoInfracoes.ativa * { visibility: visible; }
+  #pvAreaImpressaoInfracoes.ativa { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+}
+</style>

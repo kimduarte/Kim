@@ -1,0 +1,25 @@
+<!--
+  ComponentesComuns.html
+  Componentes de UI genéricos usados pelos utilitários de UtilitariosCliente.html
+  (loader de tela cheia e modal de confirmação Sim/Não) — copiados de
+  PaginaCompleta_REFERENCIA_projeto_atual.html. Ficam fora de
+  PainelPassivoVeicular.html porque não são específicos do Passivo: qualquer
+  tela nova que reaproveite chamarServidor_/mostrarLoader_/confirmar_ precisa
+  deles.
+-->
+<div id="loaderOverlay">
+  <div class="loader-container">
+    <div class="loader-spinner"></div>
+    <p id="loaderTexto">Processando...</p>
+  </div>
+</div>
+
+<div class="modal-fundo" id="modalConfirmacaoFundo">
+  <div class="modal" style="max-width:420px;">
+    <p id="confirmacaoMensagem" style="font-size:15px; margin-top:0;"></p>
+    <div class="botoes">
+      <button type="button" class="secundario" id="botaoConfirmacaoNao">Não</button>
+      <button type="button" class="primario" id="botaoConfirmacaoSim" style="margin-left:auto;">Sim</button>
+    </div>
+  </div>
+</div>

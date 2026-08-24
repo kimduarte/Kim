@@ -1,0 +1,281 @@
+<!--
+  EstiloGenerico.html
+  CSS compartilhado (variáveis de cor, layout do app-shell, botões, cards,
+  tabelas, modais, KPIs, etc.) — copiado do <style> de
+  PaginaCompleta_REFERENCIA_projeto_atual.html e enxugado: removidas as
+  regras que só o painel de Doação Veicular usa (seletor de painéis,
+  stepper de cadastro, relatório de atividades, mapa do Brasil, conferência
+  SINESP, cards de processo). O que sobrou é o "design system" genérico que
+  o Passivo Veicular também usa.
+-->
+<style>
+:root {
+  --bg: #F8F8F8;
+  --card-bg: #ffffff;
+  --borda: #E1E1E1;
+  --texto: #1B1B1B;
+  --texto-suave: #5A5A5A;
+  --primario: #1451B4;
+  --primario-escuro: #0B2D57;
+  --amarelo-destaque: #FFCD07;
+  --verde: #1E7A34;
+  --vermelho: #B3261E;
+
+  --laranja-bg: #ffedd5; --laranja-fg: #c2540a;
+  --azul-bg: #EAF1FB; --azul-fg: #1451B4;
+  --roxo-bg: #ede9fe; --roxo-fg: #6d4fc7;
+  --vermelho-bg: #FDEBEA; --vermelho-fg: #B3261E;
+  --verde-bg: #E3F3E1; --verde-fg: #1E5B25;
+  --amarelo-bg: #FFF3CD; --amarelo-fg: #7A5B00;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: Verdana, "Segoe UI", Tahoma, Arial, sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--texto);
+}
+
+.topo-utilitario {
+  background: var(--primario-escuro);
+  color: #C9D6E8;
+  font-size: 11px;
+  padding: 5px 28px;
+  text-align: right;
+}
+header.topo {
+  background: #fff;
+  border-bottom: 3px solid var(--amarelo-destaque);
+  padding: 14px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.topo-marca { display: flex; align-items: center; gap: 12px; }
+.topo-icone {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--primario); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.topo-marca h1 { font-size: 18px; margin: 0; font-weight: 700; }
+.topo-marca .subtitulo { font-size: 12px; color: var(--texto-suave); }
+.topo-usuario { text-align: right; font-size: 13px; }
+.topo-usuario .nome { font-weight: 700; }
+.topo-usuario .perfil { color: var(--texto-suave); font-size: 12px; }
+
+/* ---- Corpo do app: barra lateral fixa + conteúdo ---- */
+.app-shell { display: flex; align-items: flex-start; }
+.app-lateral {
+  width: 210px; flex-shrink: 0;
+  background: var(--primario-escuro);
+  min-height: calc(100vh - 78px);
+  padding: 14px 0;
+  position: sticky; top: 0;
+}
+.app-nav-item {
+  padding: 11px 20px;
+  font-size: 13px;
+  color: #C9D6E8;
+  display: flex; align-items: center; gap: 9px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  user-select: none;
+}
+.app-nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.app-nav-item.ativo { background: rgba(255,255,255,0.1); color: #fff; border-left-color: var(--amarelo-destaque); font-weight: 700; }
+
+main { flex: 1; min-width: 0; padding: 28px; margin: 0; }
+
+.pagina-titulo { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+.pagina-titulo h2 { font-size: 26px; margin: 0 0 4px; font-weight: 800; }
+.pagina-titulo p { margin: 0; color: var(--texto-suave); font-size: 14px; }
+
+/* Faixa de boas-vindas — atalhos pras ações mais comuns. */
+.welcome-banner {
+  background: linear-gradient(135deg, var(--primario) 0%, var(--primario-escuro) 100%);
+  border-radius: 16px; padding: 22px 28px; color: #fff; margin-bottom: 22px;
+  box-shadow: 0 4px 12px rgba(20,81,180,0.25);
+}
+.welcome-text { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.welcome-text h2 { margin: 0; font-size: 21px; font-weight: 800; }
+.welcome-date { opacity: 0.85; font-size: 13px; }
+.welcome-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.action-btn {
+  padding: 9px 18px; border: none; border-radius: 9px; font-weight: 700; font-size: 13.5px;
+  cursor: pointer; transition: transform 0.1s, filter 0.1s; font-family: inherit;
+}
+.action-btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.action-btn.primary { background: rgba(255,255,255,0.18); color: #fff; }
+.action-btn.success { background: var(--verde); color: #fff; }
+.action-btn.info { background: var(--azul-bg); color: var(--azul-fg); }
+.action-btn.warning { background: var(--amarelo-destaque); color: var(--primario-escuro); }
+
+/* Skeleton — blocos animados no lugar do texto "Carregando...". */
+.skeleton-container { display: flex; flex-direction: column; gap: 10px; }
+.skeleton-card { padding: 14px 18px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--borda); }
+.skeleton-line { height: 13px; background: #e5e7eb; border-radius: 4px; animation: skeleton-shimmer 1.4s ease-in-out infinite; }
+@keyframes skeleton-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* Overlay de carregamento — cobre a tela inteira durante operações
+   sequenciais (ex.: cadastro em lote), pra deixar claro que o sistema
+   está trabalhando e não travado. */
+#loaderOverlay {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(11,45,87,0.55); align-items: center; justify-content: center;
+}
+#loaderOverlay.ativo { display: flex; }
+.loader-container { background: var(--card-bg); padding: 30px 40px; border-radius: 14px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+.loader-spinner {
+  width: 42px; height: 42px; margin: 0 auto 14px;
+  border: 4px solid var(--azul-bg); border-top-color: var(--primario); border-radius: 50%;
+  animation: loader-girar 0.8s linear infinite;
+}
+@keyframes loader-girar { to { transform: rotate(360deg); } }
+.loader-container p { margin: 0; font-weight: 700; color: var(--texto); font-size: 14px; }
+
+button.primario, button.secundario, button.perigo {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+button.primario { background: var(--primario); color: #fff; }
+button.primario:hover { background: var(--primario-escuro); }
+button.secundario { background: #fff; color: var(--texto); border: 1px solid var(--borda); }
+button.perigo { background: #fff; color: var(--vermelho); border: 1px solid var(--vermelho); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- Cartões genéricos ---- */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+.card h2 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
+
+.etapa-cabecalho {
+  background: var(--azul-bg); color: var(--primario-escuro);
+  padding: 12px 16px; border-radius: 10px 10px 0 0;
+  font-weight: 700; font-size: 14px;
+  margin: -18px -20px 18px;
+}
+.grid-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 16px;
+}
+.campo { display: flex; flex-direction: column; gap: 5px; }
+.campo.span-2 { grid-column: span 2; }
+.campo label { font-size: 13px; font-weight: 600; }
+.campo label .opcional { font-weight: 400; color: var(--texto-suave); }
+.campo input, .campo select, .campo textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+}
+.campo textarea { resize: vertical; min-height: 60px; }
+
+.botoes { display: flex; gap: 10px; margin-top: 18px; justify-content: space-between; }
+.botoes .direita { display: flex; gap: 10px; margin-left: auto; }
+
+.mensagem { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; white-space: pre-wrap; }
+.mensagem.erro { background: #fee2e2; color: var(--vermelho); }
+.mensagem.sucesso { background: #dcfce7; color: var(--verde); }
+.mensagem.aviso { background: var(--amarelo-bg); color: var(--amarelo-fg); }
+
+.filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+.filtros .campo { min-width: 150px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left;
+  background: #f9fafb;
+  padding: 10px 12px;
+  position: sticky;
+  top: 0;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+tbody td { padding: 9px 12px; border-bottom: 1px solid var(--borda); white-space: nowrap; }
+tbody tr:hover { background: #f9fafb; }
+tbody tr.linha-clicavel { cursor: pointer; }
+tbody tr.linha-clicavel:hover { background: var(--azul-bg); }
+.tabela-wrap { overflow-x: auto; max-height: 58vh; overflow-y: auto; border: 1px solid var(--borda); border-radius: 10px; }
+.mono { font-family: "Courier New", monospace; }
+
+.selo { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
+.selo-nao { background: var(--amarelo-bg); color: var(--amarelo-fg); }
+.selo-pendente { background: #f3f4f6; color: var(--texto-suave); }
+.selo-vermelho { background: var(--vermelho-bg); color: var(--vermelho-fg); }
+.selo-azul { background: var(--azul-bg); color: var(--azul-fg); }
+.selo-roxo { background: var(--roxo-bg); color: var(--roxo-fg); }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.kpi { border-radius: 14px; padding: 18px 20px; }
+.kpi.roxo { background: var(--roxo-bg); }
+.kpi.verde { background: var(--verde-bg); }
+.kpi.amarelo { background: var(--amarelo-bg); }
+.kpi.azul { background: var(--azul-bg); }
+.kpi.vermelho { background: var(--vermelho-bg); }
+.kpi .rotulo { font-size: 12px; font-weight: 700; opacity: 0.75; }
+.kpi .valor { font-size: 28px; font-weight: 800; margin-top: 6px; }
+
+.dica-painel { font-size: 12px; color: var(--texto-suave); margin: -8px 0 16px; }
+
+.stat-card-vazio { color: var(--texto-suave); font-size: 13px; padding: 10px 0; grid-column: 1 / -1; }
+
+/* Ranking (ex.: "Veículos por UF") — lista do maior para o menor. */
+.rank-lista { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; }
+.rank-linha { display: grid; grid-template-columns: 40px 1fr 200px; align-items: center; gap: 8px; min-height: 24px; padding: 3px 0; cursor: pointer; border-radius: 4px; }
+.rank-linha:hover { background: var(--azul-bg); }
+.rank-uf { font-weight: 700; font-size: 12.5px; }
+.rank-trilha { background: #f3f4f6; border-radius: 3px; height: 15px; overflow: hidden; }
+.rank-barra { background: var(--primario); height: 100%; border-radius: 3px 0 0 3px; }
+.rank-valor { font-size: 12px; color: var(--texto-suave); text-align: right; white-space: nowrap; }
+
+.modal-fundo {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(17,24,39,0.45);
+  align-items: center; justify-content: center;
+  z-index: 50;
+}
+.modal-fundo.ativo { display: flex; }
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.modal h2 { margin-top: 0; font-size: 16px; }
+
+.carregando { text-align: center; color: var(--texto-suave); padding: 30px; font-size: 13px; }
+
+svg.icone-linha { width: 22px; height: 22px; }
+
+mark { background: var(--amarelo-bg); color: var(--amarelo-fg); padding: 0 2px; border-radius: 2px; }
+
+@media (max-width: 720px) {
+  .app-shell { flex-direction: column; }
+  .app-lateral { width: 100%; min-height: 0; display: flex; overflow-x: auto; position: static; padding: 6px 0; }
+  .app-nav-item { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+  .app-nav-item.ativo { border-left: none; border-bottom-color: var(--amarelo-destaque); }
+}
+</style>
