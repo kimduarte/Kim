@@ -945,6 +945,12 @@ function listarVeiculos(filtros) {
     if (filtros.transferido && registro.Transferido !== filtros.transferido) continue;
     if (filtros.donataria && registro.Donataria !== filtros.donataria) continue;
     if (filtros.somenteRascunho && (registro.StatusCadastro || 'COMPLETO') !== 'RASCUNHO') continue;
+    // Usado pelas Estatísticas/Painel: só conta veículo cujo ATPVe já foi
+    // efetivamente enviado (não Emitido, não só cadastrado), em vez de
+    // contar a partir do simples cadastro — não afeta a tela de Processos
+    // (que precisa continuar mostrando tudo pra dar pra gerenciar/marcar o
+    // status de quem ainda não foi enviado por burocracia administrativa).
+    if (filtros.somenteAtpveEnviado && registro.ATPVeEnviado !== 'SIM') continue;
     if (busca) {
       var camposAlvo = campoBusca
         ? [registro[campoBusca]]
@@ -6966,7 +6972,7 @@ function getEstatisticas() {
   var cacheado = cache.get(chaveCache);
   if (cacheado) return JSON.parse(cacheado);
 
-  var registros = listarVeiculos({});
+  var registros = listarVeiculos({ somenteAtpveEnviado: true });
   var stats = calcularEstatisticas_(registros);
 
   cache.put(chaveCache, JSON.stringify(stats), CACHE_DASHBOARD_SEGUNDOS);
@@ -6984,7 +6990,7 @@ function getEstatisticas() {
  * alguém abre a tela.
  */
 function getVeiculosPorUFAno(ano, transferido, campo, ente, uf) {
-  var filtros = {};
+  var filtros = { somenteAtpveEnviado: true };
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   if (ente) filtros.ente = ente;
@@ -7003,7 +7009,7 @@ function getVeiculosPorUFAno(ano, transferido, campo, ente, uf) {
  * nome+UF identifica).
  */
 function getVeiculosPorDonataria(ano, transferido, ente, uf) {
-  var filtros = {};
+  var filtros = { somenteAtpveEnviado: true };
   if (ano && ano.length) filtros.ano = ano;
   if (transferido) filtros.transferido = transferido;
   if (ente) filtros.ente = ente;
@@ -7075,7 +7081,7 @@ function contarESomarValorPor_(registros, campo) {
 // em vários estados) — sem essa UF extra, clicar numa linha misturaria
 // veículos de estados diferentes que só coincidem no nome.
 function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente, ufExtra) {
-  var filtros = {};
+  var filtros = { somenteAtpveEnviado: true };
   filtros[campoFiltro || 'uf'] = valor;
   if (ufExtra) filtros.uf = ufExtra;
   if (ano && ano.length) filtros.ano = ano;
