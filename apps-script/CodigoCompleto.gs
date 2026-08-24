@@ -7268,10 +7268,13 @@ function exportarProcessosSelecionadosXlsx(chaves) {
     return idA < idB ? 1 : -1;
   });
 
-  var cabecalho = ['OF', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
+  var cabecalho = ['ORD', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
     'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferido', 'Nº Contrato'];
   var linhas = registros.map(function (r, i) {
+    // Registros mais antigos têm TermoDoacao sem o "/ano" embutido — só
+    // completa quando faltar (mesma regra usada na tela, formatarTermoDoacao_).
     var termo = r.TermoDoacao || '';
+    if (r.Ano && !/\/\s*\d{4}\s*$/.test(termo)) termo += '/' + r.Ano;
     if (r.NumeroSei) termo += ' (' + r.NumeroSei + ')';
     return [i + 1, r.Donataria, r.UF, r.Ente, termo, 1, r.Descricao,
       r.Marca, r.Chassi, r.Renavam, r.Placa, r.Ano, r.Mes, r.Transferido, r.Contrato || ''];
