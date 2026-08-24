@@ -1,12 +1,19 @@
 <!--
   Pagina.html
-  Página única do site. Monta o <head>/<body> a partir dos outros arquivos
-  (cada `<?!= include('X'); ?>` é trocado pelo conteúdo do arquivo — ver
-  include() em Codigo.gs): estilo genérico + estilo do Passivo no <head>;
+  Página única do site. Monta o head/body a partir dos outros arquivos, via
+  chamadas a include() (ver Codigo.gs) que trocam cada trecho pelo conteúdo
+  do arquivo referenciado: estilo genérico + estilo do Passivo no head;
   componentes comuns (loader, modal de confirmação) + markup do Passivo no
-  <body>; utilitários de cliente + JS do Passivo, cada um já dentro do seu
-  próprio <script>; e por fim um bootstrap pequeno que busca o contexto
-  inicial do usuário e só então inicializa o painel.
+  body; utilitários de cliente + JS do Passivo, cada um já dentro do seu
+  próprio bloco de script; e por fim um bootstrap pequeno que busca o
+  contexto inicial do usuário e só então inicializa o painel.
+
+  ATENÇÃO se for editar este arquivo: o motor de templates do Apps Script
+  não respeita comentários HTML — ele escaneia o arquivo inteiro procurando
+  os marcadores de scriptlet e executa qualquer ocorrência deles, mesmo
+  dentro de um comentário como este. Nunca escreva um exemplo literal desse
+  marcador aqui dentro (nem em outro comentário de qualquer arquivo .html
+  deste projeto) — descreva em prosa, como acima.
 -->
 <!DOCTYPE html>
 <html>
