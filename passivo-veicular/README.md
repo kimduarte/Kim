@@ -10,8 +10,8 @@ painéis.
 Servidor (`.gs`):
 - `Codigo.gs` — `doGet`, `include()` e `getContextoInicial()`.
 - `Utilitarios.gs` — normalização/validação genéricas + login/perfis (lê a
-  aba "Usuarios" da planilha de Doações — login compartilhado com o site de
-  Doação Veicular).
+  aba "Usuarios" própria da planilha do Passivo — base de usuários
+  independente do site de Doação Veicular, por decisão do usuário).
 - `Setup.gs` — estrutura da planilha própria do Passivo (abas, cabeçalhos) e
   `criarEstruturaPassivoVeicular()`.
 - `AbaVeiculos.gs` — CRUD da aba "Veiculos" (cadastro individual/lote,
@@ -33,27 +33,33 @@ Cliente (`.html`):
   `mostrarMensagem`, `confirmar_`, etc.).
 - `PassivoVeicularJs.html` — JS específico do Passivo Veicular.
 
-## Configuração obrigatória antes de usar
+## Configuração antes de usar
 
-No editor do Apps Script, abra **Configurações do projeto > Propriedades do
-script** e crie:
-
-1. **`DOACAO_SPREADSHEET_ID`** — ID da planilha "Base de Veículos Doados" do
-   projeto de Doação Veicular (a aba "Usuarios" fica lá — é o mesmo login
-   dos dois sites). O ID é o trecho da URL da planilha entre `/d/` e `/edit`.
-   **Sem isso ninguém consegue entrar no site.**
-
-2. **`PV_SPREADSHEET_ID`** *(opcional)* — se você quer que este site
-   continue usando a planilha do Passivo Veicular que já existe hoje (com
-   todos os veículos/infrações já cadastrados), copie aqui o mesmo ID salvo
-   nessa property no projeto original. Se não configurar, ao rodar
-   `criarEstruturaPassivoVeicular()` (próximo passo) uma planilha nova e
-   vazia é criada automaticamente e o ID é salvo sozinho.
+*(Opcional)* No editor do Apps Script, abra **Configurações do projeto >
+Propriedades do script** e crie **`PV_SPREADSHEET_ID`** se você quer que
+este site continue usando a planilha do Passivo Veicular que já existe hoje
+(com todos os veículos/infrações já cadastrados) — copie aqui o mesmo ID
+salvo nessa property no projeto original (o ID é o trecho da URL da
+planilha entre `/d/` e `/edit`, não o `gid` do final da URL — esse é só o
+identificador da aba aberta). Se não configurar, ao rodar
+`criarEstruturaPassivoVeicular()` uma planilha nova e vazia é criada
+automaticamente e o ID é salvo sozinho.
 
 Depois, pelo editor do Apps Script, selecione a função
 `criarEstruturaPassivoVeicular` no menu de funções e clique em Executar —
 uma vez só. Ela cria (ou repara) as abas Veiculos/Infracoes/InfracoesEnvios/
-TabelaInfracoes/OrgaosAutuadores.
+TabelaInfracoes/OrgaosAutuadores/**Usuarios**.
+
+**A aba "Usuarios" nasce vazia.** Abra a planilha do Passivo, vá na aba
+"Usuarios" e adicione manualmente a primeira linha: seu e-mail na coluna
+Email e `admin` na coluna Perfil. Sem essa linha, ninguém — nem
+administrador — consegue entrar no site (todo mundo cai em "sem acesso").
+Esse é o único login que existe neste site: é uma base própria, não a
+mesma planilha/aba "Usuarios" do site de Doação Veicular (decisão
+deliberada, pra não ter duas bases de usuários pra manter sincronizadas).
+Não há tela de "Usuários" na interface — adicionar/editar gente continua
+sendo direto na planilha, como já é hoje com OrgaosAutuadores e
+TabelaInfracoes.
 
 Por fim, implante como aplicativo da web (**Implantar > Nova implantação**).
 

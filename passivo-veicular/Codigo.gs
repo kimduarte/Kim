@@ -19,10 +19,9 @@ function include(nomeArquivo) {
   return HtmlService.createHtmlOutputFromFile(nomeArquivo).getContent();
 }
 
-// Chamada pelo cliente assim que a página carrega. O login/perfil continua
-// vindo da planilha de Doações (aba "Usuarios") — ver getPerfilUsuarioAtual_
-// em Utilitarios.gs — mesmo login que o site de Doação Veicular usa, sem
-// precisar recadastrar ninguém.
+// Chamada pelo cliente assim que a página carrega. O login/perfil vem da
+// base de usuários própria deste site (aba "Usuarios" na planilha do
+// Passivo) — ver getPerfilUsuarioAtual_ em Utilitarios.gs.
 function getContextoInicial() {
   return {
     usuario: getPerfilUsuarioAtual_(),

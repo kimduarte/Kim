@@ -1,19 +1,19 @@
 /**
  * Utilitarios.gs
  * Funções genéricas (normalização, validação) e o sistema de login/perfis —
- * copiadas do projeto de Doação Veicular (CodigoCompleto_REFERENCIA_projeto_
- * atual.gs) porque o Passivo Veicular usa o MESMO login: a aba "Usuarios"
- * fica na planilha de Doações, não na planilha própria do Passivo.
+ * a base de usuários do Passivo Veicular (aba "Usuarios") é PRÓPRIA deste
+ * site, independente da planilha/aba "Usuarios" do site de Doação Veicular
+ * (decisão deliberada: evita ter que manter duas bases convergentes). A
+ * aba "Usuarios" vive na mesma planilha do Passivo (ver getSpreadsheetPassivo_
+ * em Setup.gs) e é criada vazia por criarEstruturaPassivoVeicular().
  *
- * IMPORTANTE — configuração obrigatória antes de usar o site:
- * Abra o editor do Apps Script > Configurações do projeto > Propriedades do
- * script, e crie a propriedade DOACAO_SPREADSHEET_ID com o ID da planilha
- * "Base de Veículos Doados" do projeto de Doação Veicular (o ID é o trecho
- * da URL da planilha entre /d/ e /edit). Sem isso, getPerfilUsuarioAtual_
- * não encontra a aba "Usuarios" e ninguém consegue entrar no site.
+ * IMPORTANTE — como ela nasce vazia, ninguém tem acesso ao site logo após
+ * a instalação. Depois de rodar criarEstruturaPassivoVeicular() (ver
+ * Setup.gs), abra a planilha do Passivo, vá na aba "Usuarios" e adicione
+ * manualmente a primeira linha: seu e-mail na coluna Email e "admin" na
+ * coluna Perfil. Dali em diante, novos usuários são administrados do mesmo
+ * jeito — direto na planilha (este site não tem uma tela de "Usuários").
  */
-
-var PROP_DOACAO_SPREADSHEET_ID = 'DOACAO_SPREADSHEET_ID';
 
 var SHEET_USUARIOS = 'Usuarios';
 var CABECALHO_USUARIOS = ['Email', 'Perfil', 'UF', 'Nome'];
@@ -209,33 +209,6 @@ var ORGAOS_POR_UF = {
 };
 
 // ======================================================================
-// PLANILHA DE DOAÇÕES — só para login/perfis (aba "Usuarios")
-// ======================================================================
-
-function getSpreadsheetDoacoes_() {
-  var props = PropertiesService.getScriptProperties();
-  var id = props.getProperty(PROP_DOACAO_SPREADSHEET_ID);
-  if (!id) {
-    throw new Error('A planilha de Doações (login/usuários) ainda não foi configurada. Peça a um administrador para abrir Configurações do projeto > Propriedades do script e criar a propriedade "' + PROP_DOACAO_SPREADSHEET_ID + '" com o ID da planilha "Base de Veículos Doados".');
-  }
-  return SpreadsheetApp.openById(id);
-}
-
-function getOrCreateSheet_(nome, cabecalho) {
-  var ss = getSpreadsheetDoacoes_();
-  var sheet = ss.getSheetByName(nome);
-  if (!sheet) {
-    sheet = ss.insertSheet(nome);
-  }
-  if (cabecalho && sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, cabecalho.length).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
-  }
-  return sheet;
-}
-
-// ======================================================================
 // NORMALIZAÇÃO E VALIDAÇÃO
 // ======================================================================
 
@@ -310,7 +283,7 @@ function getEmailUsuarioAtual_() {
 
 function getPerfilUsuarioAtual_() {
   var email = getEmailUsuarioAtual_();
-  var sheet = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
+  var sheet = getOrCreateSheetPassivo_(SHEET_USUARIOS, CABECALHO_USUARIOS);
   var dados = sheet.getDataRange().getValues();
 
   for (var i = 1; i < dados.length; i++) {

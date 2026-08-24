@@ -128,7 +128,12 @@ function criarEstruturaPassivoVeicular() {
     [SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES],
     [SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS],
     [SHEET_PV_TABELA_INFRACOES, CABECALHO_PV_TABELA_INFRACOES],
-    [SHEET_PV_ORGAOS_AUTUADORES, CABECALHO_PV_ORGAOS_AUTUADORES]
+    [SHEET_PV_ORGAOS_AUTUADORES, CABECALHO_PV_ORGAOS_AUTUADORES],
+    // Base de usuários própria deste site (login/perfis) — ver
+    // getPerfilUsuarioAtual_ em Utilitarios.gs. Nasce vazia: depois de
+    // rodar esta função, adicione manualmente a primeira linha (seu
+    // e-mail + "admin" na coluna Perfil) direto na planilha.
+    [SHEET_USUARIOS, CABECALHO_USUARIOS]
   ].forEach(function (par) {
     var nomeAba = par[0], cabecalhoAba = par[1];
     var abaNova = ss.getSheetByName(nomeAba) || ss.insertSheet(nomeAba);
@@ -146,9 +151,12 @@ function criarEstruturaPassivoVeicular() {
   if (abaPadrao && ss.getSheets().length > 1) {
     ss.deleteSheet(abaPadrao);
   }
-  Logger.log('Planilha do Passivo Veicular pronta: ' + ss.getUrl());
+  var semUsuarios = ss.getSheetByName(SHEET_USUARIOS).getLastRow() <= 1;
+  var mensagemPronta = 'Planilha do Passivo Veicular pronta: ' + ss.getUrl() +
+    (semUsuarios ? '. A aba "Usuarios" está vazia — abra-a e adicione manualmente a primeira linha (seu e-mail + "admin" na coluna Perfil) antes de tentar entrar no site.' : '.');
+  Logger.log(mensagemPronta);
   try {
-    SpreadsheetApp.getActiveSpreadsheet().toast('Planilha do Passivo Veicular pronta. Abra: ' + ss.getUrl(), 'Passivo Veicular', 15);
+    SpreadsheetApp.getActiveSpreadsheet().toast(mensagemPronta, 'Passivo Veicular', 15);
   } catch (e) {
     // Rodando sem UI ativa (ex.: direto pelo editor de scripts) — sem problema, a URL já foi gravada no Logger acima.
   }
