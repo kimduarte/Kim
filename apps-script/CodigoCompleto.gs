@@ -3378,6 +3378,99 @@ function marcarAtpveEnviadoParaTransferidos() {
   return { atualizados: idsAtualizados.length };
 }
 
+// Lista fechada dos 28 processos confirmados pelo usuário (24/08/2026) como
+// já com ATPVe enviado de verdade, mesmo aparecendo pendente/não-transferido
+// no sistema — mesma "chave" que chaveProcesso_() calcula (NumeroProcesso
+// quando existe, senão Ano_NumeroSei/TermoDoacao).
+var PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_ = [
+  '2026_33976454', '2026_33680646', '2026_34158622', '2026_34154748',
+  '08020.007709/2025-76', '2026_33708591', '2026_33616013',
+  '08020.004276/2025-05', '08020.007930/2025-24', '08020.006435/2025-06',
+  '08020.000296/2026-80', '08020.008468/2025-82', '08020.004378/2025-12',
+  '08020.007143/2025-82', '08020.011185/2025-18', '08020.007874/2025-28',
+  '08020.000351/2026-31', '08020.011116/2025-12', '08020.009094/2025-12',
+  '08020.009087/2025-11', '08020.009782/2025-82', '08020.006756/2025-01',
+  '08020.000383/2026-37', '08020.009093/2025-78', '08020.003925/2026-23',
+  '08020.005261/2026-37', '08020.007855/2025-00', '08020.011446/2025-08'
+];
+
+/**
+ * Marca ATPVeEmitido/ATPVeEnviado como 'SIM' só para os veículos dos 28
+ * processos em PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_ — pedido pontual do
+ * usuário, que confirmou que o ATPVe já foi enviado de verdade pra esses
+ * processos específicos, mesmo aparecendo no sistema como pendente (a
+ * maioria ainda sem Transferido = SIM). Por isso, ao contrário das outras
+ * funções de marcação em massa deste arquivo, esta NÃO usa Transferido como
+ * critério — usa a lista fechada de processos acima.
+ *
+ * Não mexe em Transferido (fica como está). Sem data em
+ * DataEmissaoATPVe/DataEnvioATPVe (não afeta o Relatório de Produtividade).
+ * Pula lixeira e veículo já com os dois campos SIM. Idempotente.
+ *
+ * Rode pelo editor (selecione "marcarAtpveEnviadoProcessosConfirmados24Ago"
+ * no menu de funções, clique em Executar) e confira o resumo em Ver >
+ * Registros de execução.
+ */
+function marcarAtpveEnviadoProcessosConfirmados24Ago() {
+  var perfil = exigirPerfilAdmin_();
+  var chavesSet = {};
+  PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_.forEach(function (c) { chavesSet[c] = true; });
+
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  garantirColunasVeiculos_();
+
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var idxExcluido = cabecalho.indexOf('Excluido');
+  var idxEmitido = cabecalho.indexOf('ATPVeEmitido');
+  var idxEnviado = cabecalho.indexOf('ATPVeEnviado');
+  var idxId = cabecalho.indexOf('ID');
+  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
+  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
+
+  var agora = new Date();
+  var idsAtualizados = [];
+  var processosAfetados = {};
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    if (!linha[idxId]) continue;
+    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
+
+    var registro = linhaParaObjeto_(cabecalho, linha);
+    var chave = chaveProcesso_(registro);
+    if (!chavesSet[chave]) continue;
+
+    var jaEmitido = String(linha[idxEmitido]).toUpperCase() === 'SIM';
+    var jaEnviado = String(linha[idxEnviado]).toUpperCase() === 'SIM';
+    if (jaEmitido && jaEnviado) continue;
+
+    var linhaAtualizada = linha.slice();
+    linhaAtualizada[idxEmitido] = 'SIM';
+    linhaAtualizada[idxEnviado] = 'SIM';
+    linhaAtualizada[idxUltimaAtualizacao] = agora;
+    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (correção pontual: 28 processos confirmados em 24/08/2026)';
+    // Propositalmente NÃO mexe em Transferido nem em
+    // DataEmissaoATPVe/DataEnvioATPVe.
+
+    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
+    idsAtualizados.push(linha[idxId]);
+    processosAfetados[chave] = true;
+  }
+
+  registrarLog_('MARCAR_ATPVE_LISTA_CONFIRMADA', '-',
+    idsAtualizados.length + ' veículo(s) de ' + Object.keys(processosAfetados).length +
+    ' processo(s) marcados como ATPVe emitido/enviado, sem data. IDs: ' + idsAtualizados.join(', '));
+  invalidarCacheDashboard_();
+
+  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s) em ' + Object.keys(processosAfetados).length + ' processo(s): ' + idsAtualizados.join(', '));
+  var chavesNaoEncontradas = PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_.filter(function (c) { return !processosAfetados[c]; });
+  if (chavesNaoEncontradas.length) {
+    Logger.log('Atenção: ' + chavesNaoEncontradas.length + ' chave(s) da lista não bateram com nenhum veículo (já estavam OK, ou a chave não existe mais): ' + chavesNaoEncontradas.join(', '));
+  }
+  return { atualizados: idsAtualizados.length, processosAfetados: Object.keys(processosAfetados).length };
+}
+
 /**
  * De-Para de unificação de nomenclatura de Donatária — só para Ente =
  * "Estado" (União/Município ficam de fora por enquanto, por pedido
