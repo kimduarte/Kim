@@ -7243,6 +7243,57 @@ function exportarListagemXlsx(filtros) {
   }
 }
 
+/**
+ * Exporta os veículos dos processos escolhidos (array de "chave", o mesmo
+ * campo que listarProcessos devolve) num .xlsx com colunas fixas, na ordem
+ * exata do controle externo da equipe (planilha à parte, fora do sistema):
+ * Nº de ordem sequencial, Donatária, UF, Ente, Termo de Doação (com o
+ * Número SEI entre parênteses), Qtd (sempre 1 — uma linha por veículo),
+ * Descrição, Marca, Chassi, Renavam, Placa, Ano, Mês, Transferido, Contrato.
+ * Ao contrário de exportarListagemXlsx (que exporta por filtro de tela),
+ * esta exporta só os processos explicitamente marcados, de um ou mais de
+ * uma vez, independente de filtro.
+ */
+function exportarProcessosSelecionadosXlsx(chaves) {
+  if (!chaves || !chaves.length) throw new Error('Nenhum processo selecionado.');
+  var chavesSet = {};
+  chaves.forEach(function (c) { chavesSet[c] = true; });
+
+  var registros = listarVeiculos({}).filter(function (r) { return chavesSet[chaveProcesso_(r)]; });
+  // Mesma ordem que a tela Processos usa (mais recente primeiro) — ID tem
+  // largura fixa, então comparar como texto já reflete a ordem cronológica.
+  registros.sort(function (a, b) {
+    var idA = String(a.ID || ''), idB = String(b.ID || '');
+    if (idA === idB) return 0;
+    return idA < idB ? 1 : -1;
+  });
+
+  var cabecalho = ['OF', 'Donatária', 'UF', 'Ente', 'Termo de Doação', 'Qtd', 'Descrição',
+    'Marca', 'Chassi', 'Renavam', 'Placa', 'Ano', 'Mês', 'Transferido', 'Nº Contrato'];
+  var linhas = registros.map(function (r, i) {
+    var termo = r.TermoDoacao || '';
+    if (r.NumeroSei) termo += ' (' + r.NumeroSei + ')';
+    return [i + 1, r.Donataria, r.UF, r.Ente, termo, 1, r.Descricao,
+      r.Marca, r.Chassi, r.Renavam, r.Placa, r.Ano, r.Mes, r.Transferido, r.Contrato || ''];
+  });
+
+  var planilhaTemp = SpreadsheetApp.create('tmp_export_processos_' + new Date().getTime());
+  try {
+    var aba = planilhaTemp.getSheets()[0];
+    aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]);
+    if (linhas.length) {
+      aba.getRange(2, 1, linhas.length, cabecalho.length).setValues(linhas);
+    }
+    SpreadsheetApp.flush();
+
+    var url = 'https://docs.google.com/spreadsheets/d/' + planilhaTemp.getId() + '/export?format=xlsx';
+    var resposta = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+    return { conteudoBase64: Utilities.base64Encode(resposta.getBlob().getBytes()), totalVeiculos: linhas.length, totalProcessos: chaves.length };
+  } finally {
+    DriveApp.getFileById(planilhaTemp.getId()).setTrashed(true);
+  }
+}
+
 // Primeiro dia do mês/ano do PROCESSO (não da data de cadastro no sistema —
 // que só diz quando o registro foi digitado aqui, útil pra auditoria, mas
 // não pra saber há quanto tempo a doação em si está parada).

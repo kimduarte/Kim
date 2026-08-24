@@ -1414,7 +1414,11 @@
             <button type="button" class="secundario" onclick="exportarListagemXlsx_()">Exportar XLSX</button>
           </div>
         </div>
-        <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar. A exportação respeita os filtros aplicados acima (não só a página atual).</p>
+        <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar. A exportação por "CSV"/"XLSX" acima respeita os filtros aplicados (não só a página atual). Já a marcação por checkbox abaixo exporta só os processos escolhidos, no formato do controle externo da equipe.</p>
+        <div class="botoes" style="margin-bottom:10px;">
+          <span id="contadorSelecaoExport" style="color:var(--texto-suave); font-size:14px;">Nenhum processo marcado para exportar.</span>
+          <button type="button" class="primario" id="botaoExportarSelecionados" style="margin-left:auto;" disabled onclick="exportarProcessosSelecionados_()">Exportar processos marcados</button>
+        </div>
         <div id="mensagemListagem"></div>
         <div id="listaProcessos"><div class="carregando">Ajuste os filtros acima (se quiser) e clique em "Filtrar" para carregar os processos.</div></div>
         <div class="rodape-tabela" id="rodapePaginacaoProcessos" style="display:none;">
@@ -5249,6 +5253,49 @@
   var TERMOS_EXPANDIDOS = {};
   var PROCESSO_DESTACAR_APOS_CADASTRO = '';
 
+  // ---------- Exportação seletiva (checkbox por processo, formato do
+  // controle externo da equipe) ----------
+  var PROCESSOS_SELECIONADOS_EXPORT = {};
+
+  function alternarSelecaoExportProcesso_(chave, marcado) {
+    if (marcado) {
+      PROCESSOS_SELECIONADOS_EXPORT[chave] = true;
+    } else {
+      delete PROCESSOS_SELECIONADOS_EXPORT[chave];
+    }
+    atualizarContadorSelecaoExport_();
+  }
+
+  function atualizarContadorSelecaoExport_() {
+    var total = Object.keys(PROCESSOS_SELECIONADOS_EXPORT).length;
+    document.getElementById('contadorSelecaoExport').textContent =
+      total ? (total + ' processo(s) marcado(s) para exportar.') : 'Nenhum processo marcado para exportar.';
+    document.getElementById('botaoExportarSelecionados').disabled = total === 0;
+  }
+
+  function exportarProcessosSelecionados_() {
+    var chaves = Object.keys(PROCESSOS_SELECIONADOS_EXPORT);
+    if (!chaves.length) return;
+    var botao = document.getElementById('botaoExportarSelecionados');
+    botao.disabled = true;
+    mostrarMensagem('mensagemListagem', 'sucesso', 'Gerando o arquivo, aguarde...');
+    chamarServidor_('exportarProcessosSelecionadosXlsx', chaves)
+      .then(function (resp) {
+        var binario = atob(resp.conteudoBase64);
+        var bytes = new Uint8Array(binario.length);
+        for (var i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+        var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        baixarBlob_(blob, 'processos_selecionados_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+        mostrarMensagem('mensagemListagem', 'sucesso',
+          resp.totalVeiculos + ' veículo(s) de ' + resp.totalProcessos + ' processo(s) exportado(s).');
+        botao.disabled = false;
+      })
+      .catch(function (erro) {
+        mostrarMensagem('mensagemListagem', 'erro', 'Erro ao exportar: ' + (erro.message || String(erro)));
+        botao.disabled = false;
+      });
+  }
+
   function carregarListagem() {
     mostrarSkeleton_('listaProcessos', 5);
     google.script.run
@@ -5434,6 +5481,8 @@
 
     return '<div class="processo-card' + (faltam > 0 ? ' processo-incompleto' : '') + '">' +
       '<div class="processo-cabecalho" onclick="alternarProcesso_(' + indice + ')">' +
+        '<input type="checkbox" onclick="event.stopPropagation();" onchange="alternarSelecaoExportProcesso_(\'' + p.chave + '\', this.checked)" ' +
+          (PROCESSOS_SELECIONADOS_EXPORT[p.chave] ? 'checked' : '') + '>' +
         '<span class="processo-chevron">' + (expandido ? '▾' : '▸') + '</span>' +
         '<div class="processo-info">' +
           '<div class="processo-titulo">' + (p.numeroProcesso
