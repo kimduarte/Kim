@@ -3118,7 +3118,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     return [];
   }
 
-  var idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxRenavam = -1, idxPlaca = -1, idxValor = -1;
+  var idxItem = -1, idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxRenavam = -1, idxPlaca = -1, idxValor = -1;
   var achouCabecalho = false;
 
   for (var t = 0; t < tabelas.length; t++) {
@@ -3134,6 +3134,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
       for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
       return -1;
     };
+    idxItem = acharColuna('ITEM');
     idxDescricao = acharColuna('DESCRI');
     idxMarca = acharColuna('MARCA');
     idxChassi = acharColuna('CHASSI');
@@ -3152,14 +3153,28 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     avisos.push('Essa tabela não tem uma coluna de "Renavam" — preencha manualmente pra cada veículo.');
   }
 
+  // Um Anexo I com muitas páginas às vezes tem uma linha exatamente na
+  // quebra de página convertida de forma quebrada (célula cortada ao
+  // meio) — o que faria aquele veículo ser silenciosamente ignorado por
+  // não ter um chassi válido. Pra pegar esse caso, acompanha também o
+  // maior número da coluna ITEM visto e compara com quantos veículos
+  // realmente foram lidos — se não bater, avisa quais itens faltaram em
+  // vez de simplesmente devolver uma lista incompleta sem dizer nada.
   var veiculos = [];
+  var itensComChassi = {};
+  var maiorItem = 0;
   for (var t2 = 0; t2 < tabelas.length; t2++) {
     var tabelaAtual = tabelas[t2];
     for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
       var linha = tabelaAtual.getRow(l);
+      var itemTexto = (idxItem >= 0 && idxItem < linha.getNumCells())
+        ? normalizarTexto_(linha.getCell(idxItem).getText()).replace(/\D/g, '') : '';
+      var itemNum = itemTexto ? parseInt(itemTexto, 10) : 0;
+      if (itemNum > maiorItem) maiorItem = itemNum;
       var chassiTexto = (idxChassi >= 0 && idxChassi < linha.getNumCells())
         ? normalizarTexto_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
       if (!validarChassi_(chassiTexto)) continue;
+      if (itemNum) itensComChassi[itemNum] = true;
       var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? normalizarTexto_(linha.getCell(idx).getText()) : ''; };
       veiculos.push({
         Descricao: pegar(idxDescricao),
@@ -3171,7 +3186,17 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
       });
     }
   }
-  if (!veiculos.length) avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
+  if (!veiculos.length) {
+    avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
+  } else if (maiorItem > veiculos.length) {
+    var itensFaltando = [];
+    for (var it = 1; it <= maiorItem; it++) {
+      if (!itensComChassi[it]) itensFaltando.push(it);
+    }
+    avisos.push('O Anexo I parece ter ' + maiorItem + ' item(ns) mas só consegui ler ' + veiculos.length +
+      ' veículo(s) — o(s) item(ns) ' + itensFaltando.join(', ') + ' provavelmente caiu(íram) bem numa quebra de ' +
+      'página do PDF e não foi(ram) lido(s). Confira e cadastre esse(s) manualmente.');
+  }
   return veiculos;
 }
 
