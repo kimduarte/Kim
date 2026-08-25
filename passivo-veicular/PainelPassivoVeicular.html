@@ -6,6 +6,14 @@
   existe mais seletor de painéis escondendo isso por trás — esta é a página
   inteira) e o item de menu "🏠 Painéis" (que voltava pro seletor).
 -->
+<div id="pvBloqueioAcesso" style="display:none; position:fixed; inset:0; z-index:998; background:rgba(11,45,87,0.55); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--card-bg); padding:30px 34px; border-radius:14px; max-width:460px; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.3);">
+    <h2 style="margin-top:0; color:var(--texto);">Sem acesso a este painel</h2>
+    <p style="font-size:14px; color:var(--texto);">O Google identificou este acesso como <strong id="pvBloqueioEmail"></strong>, mas esse e-mail ainda não está cadastrado na aba "Usuários" do Passivo Veicular.</p>
+    <p style="font-size:14px; color:var(--texto-suave);">Peça a um administrador para cadastrar esse e-mail exato na tela "Usuários" e recarregue a página.</p>
+  </div>
+</div>
+
 <div class="pv-fundo" id="painelPassivoFundo">
   <div class="topo-utilitario">Sistema de Gestão de Patrimônio - SGP/COLOG</div>
   <header class="topo">

@@ -36,6 +36,11 @@
       chamarServidor_('getContextoInicial').then(function (ctx) {
         CONTEXTO = ctx;
         ORGAOS_POR_UF = ctx.orgaosPorUF || {};
+        if (ctx.usuario.perfil === 'sem_acesso') {
+          document.getElementById('pvBloqueioEmail').textContent = ctx.usuario.email || '(e-mail não identificado)';
+          document.getElementById('pvBloqueioAcesso').style.display = 'flex';
+          return;
+        }
         var ehAdmin = ctx.usuario.perfil === 'admin';
         USUARIO_E_ADMIN = ehAdmin;
         USUARIO_PODE_EDITAR = ehAdmin || ctx.usuario.perfil === 'usuario';
