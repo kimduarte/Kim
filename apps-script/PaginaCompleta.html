@@ -2450,21 +2450,30 @@
   // ---------- Início (resumo do dia) ----------
   async function carregarInicio() {
     mostrarSkeleton_('inicioUltimosProcessos', 3);
-    try {
-      var stats = await chamarServidor_('getEstatisticas');
+
+    // As duas consultas são independentes. Executá-las juntas reduz o tempo
+    // percebido de carregamento da tela inicial.
+    var resultados = await Promise.allSettled([
+      chamarServidor_('getEstatisticas'),
+      chamarServidor_('listarProcessos', { pagina: 1 })
+    ]);
+
+    var resultadoStats = resultados[0];
+    if (resultadoStats.status === 'fulfilled' && resultadoStats.value) {
+      var stats = resultadoStats.value;
       document.getElementById('inicioKpiTotal').textContent = stats.total;
       document.getElementById('inicioKpiTransferidos').textContent = stats.transferidos;
       document.getElementById('inicioKpiPendentes').textContent = stats.pendentes;
       document.getElementById('inicioKpiPercentual').textContent = stats.percentualTransferido + '%';
-    } catch (erro) {
-      mostrarErroGlobal(erro);
+    } else if (resultadoStats.status === 'rejected') {
+      mostrarErroGlobal(resultadoStats.reason);
     }
 
-    try {
-      var resp = await chamarServidor_('listarProcessos', { pagina: 1 });
-      renderizarUltimosProcessosInicio_(resp.processos.slice(0, 5));
-    } catch (erro) {
-      mostrarErroGlobal(erro);
+    var resultadoProcessos = resultados[1];
+    if (resultadoProcessos.status === 'fulfilled' && resultadoProcessos.value) {
+      renderizarUltimosProcessosInicio_((resultadoProcessos.value.processos || []).slice(0, 5));
+    } else if (resultadoProcessos.status === 'rejected') {
+      mostrarErroGlobal(resultadoProcessos.reason);
     }
   }
 
@@ -4272,20 +4281,32 @@
     }
   }
 
+  var PROMISE_ANOS_DISPONIVEIS_ = null;
+
   function carregarAnosFiltro_(idSelect) {
     var select = document.getElementById(idSelect || 'f_Ano');
-    if (select.dataset.populado) return;
-    google.script.run
-      .withSuccessHandler(function (anos) {
+    if (!select || select.dataset.populado) return;
+
+    // Os selects f_Ano e sinesp_Ano compartilham a mesma consulta.
+    if (!PROMISE_ANOS_DISPONIVEIS_) {
+      PROMISE_ANOS_DISPONIVEIS_ = chamarServidor_('getAnosDisponiveis').catch(function (erro) {
+        PROMISE_ANOS_DISPONIVEIS_ = null;
+        throw erro;
+      });
+    }
+
+    PROMISE_ANOS_DISPONIVEIS_
+      .then(function (anos) {
+        if (select.dataset.populado) return;
         (anos || []).forEach(function (ano) {
           var el = document.createElement('option');
-          el.value = ano; el.textContent = ano;
+          el.value = ano;
+          el.textContent = ano;
           select.appendChild(el);
         });
         if (anos && anos.length) select.dataset.populado = '1';
       })
-      .withFailureHandler(function () {})
-      .getAnosDisponiveis();
+      .catch(function () {});
   }
 
   // ---------- Modal: editar processo inteiro (dados da operação + veículos) ----------

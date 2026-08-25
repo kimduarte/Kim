@@ -711,6 +711,7 @@ function corrigirNumeroSeiDoTermo() {
   if (corrigidos > 0) {
     sheet.getRange(2, termoCol, totalLinhas, 1).setValues(termos);
     sheet.getRange(2, seiCol, totalLinhas, 1).setValues(seis);
+    invalidarCacheDashboard_();
   }
 
   var mensagem = corrigidos + ' registro(s) corrigido(s): Número SEI extraído do Termo de Doação.';
@@ -912,7 +913,8 @@ function listarVeiculos(filtros) {
   filtros = filtros || {};
   var perfil = getPerfilUsuarioAtual_();
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  var valores = sheet.getDataRange().getValues();
+  // Snapshot cacheado: evita uma leitura completa da aba a cada consulta.
+  var valores = obterDadosVeiculosCacheados_();
   var cabecalho = valores[0];
   var idxUF = cabecalho.indexOf('UF');
 
@@ -1766,6 +1768,7 @@ function removerSegundaViaAtpve(idVeiculo) {
   var linhaVeiculo = encontrarLinhaPorId_(sheetVeiculos, idVeiculo);
   if (!linhaVeiculo) throw new Error('Veículo não encontrado: ' + idVeiculo);
   sheetVeiculos.getRange(linhaVeiculo, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1).setValue('');
+  invalidarCacheDashboard_();
 
   var sheetLog = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
   var dadosLog = sheetLog.getDataRange().getValues();
@@ -1909,6 +1912,7 @@ function excluirEmissaoAtpve(idVeiculo, dataHoraIso) {
       var fuso = Session.getScriptTimeZone();
       if (Utilities.formatDate(new Date(valorAtual), fuso, 'yyyy-MM-dd') === dataEmissaoTexto) {
         celula.setValue('');
+        invalidarCacheDashboard_();
       }
     }
   }
@@ -6732,8 +6736,96 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
 var CACHE_DASHBOARD_SEGUNDOS = 300;
 var CACHE_ANOS_SEGUNDOS = 21600; // 6h (máximo do CacheService) — anos disponíveis raríssimo mudam
 
+// ======================================================================
+// CACHE DE LEITURA DA ABA Veiculos
+// ======================================================================
+// A base é salva em pedaços porque o CacheService possui limite de tamanho
+// por item. O código continua funcionando normalmente quando o cache expira.
+var CACHE_VEICULOS_PREFIXO = 'veiculos_snapshot_v2_';
+var CACHE_VEICULOS_META = CACHE_VEICULOS_PREFIXO + 'meta';
+var CACHE_VEICULOS_SEGUNDOS = 120;
+var CACHE_VEICULOS_TAMANHO_PEDACO = 85000;
+var CACHE_VEICULOS_MAX_PEDACOS = 20;
+var CAMPOS_DATA_VEICULO_CACHE = [
+  'DataCadastro', 'DataTransferencia', 'UltimaAtualizacao',
+  'DataEmissaoSegundaViaATPVe', 'DataEmissaoATPVe', 'DataExclusao',
+  'DataEnvioATPVe'
+];
+
+function obterDadosVeiculosCacheados_() {
+  var cache = CacheService.getDocumentCache();
+  var metaTexto = cache.get(CACHE_VEICULOS_META);
+
+  if (metaTexto) {
+    try {
+      var meta = JSON.parse(metaTexto);
+      var chaves = [];
+      for (var i = 0; i < meta.pedacos; i++) {
+        chaves.push(CACHE_VEICULOS_PREFIXO + i);
+      }
+      var partes = cache.getAll(chaves);
+      var completo = true;
+      var json = '';
+      for (var j = 0; j < chaves.length; j++) {
+        if (partes[chaves[j]] === undefined) {
+          completo = false;
+          break;
+        }
+        json += partes[chaves[j]];
+      }
+      if (completo) return JSON.parse(json);
+    } catch (e) {
+      // Cache corrompido ou incompleto: lê a fonte original abaixo.
+    }
+  }
+
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var ultimaLinha = sheet.getLastRow();
+  if (ultimaLinha < 1) return [CABECALHO_VEICULOS.slice()];
+
+  var largura = Math.max(sheet.getLastColumn(), CABECALHO_VEICULOS.length);
+  var valores = sheet.getRange(1, 1, ultimaLinha, largura).getValues();
+  var serializavel = valores.map(function (linha) {
+    return linha.map(function (valor, indice) {
+      // Datas são convertidas para milissegundos. Isso preserva ordenação,
+      // comparações e evita que JSON transforme Date em string ambígua.
+      return valor instanceof Date ? valor.getTime() : valor;
+    });
+  });
+
+  try {
+    var jsonNovo = JSON.stringify(serializavel);
+    var pedacos = Math.ceil(jsonNovo.length / CACHE_VEICULOS_TAMANHO_PEDACO);
+    if (pedacos <= CACHE_VEICULOS_MAX_PEDACOS) {
+      var valoresCache = {};
+      for (var p = 0; p < pedacos; p++) {
+        valoresCache[CACHE_VEICULOS_PREFIXO + p] = jsonNovo.substring(
+          p * CACHE_VEICULOS_TAMANHO_PEDACO,
+          (p + 1) * CACHE_VEICULOS_TAMANHO_PEDACO
+        );
+      }
+      valoresCache[CACHE_VEICULOS_META] = JSON.stringify({ pedacos: pedacos });
+      cache.putAll(valoresCache, CACHE_VEICULOS_SEGUNDOS);
+    }
+  } catch (e2) {
+    // Falha de cache nunca deve impedir a leitura normal da aplicação.
+  }
+
+  return serializavel;
+}
+
+function invalidarCacheVeiculos_() {
+  var cache = CacheService.getDocumentCache();
+  var chaves = [CACHE_VEICULOS_META];
+  for (var i = 0; i < CACHE_VEICULOS_MAX_PEDACOS; i++) {
+    chaves.push(CACHE_VEICULOS_PREFIXO + i);
+  }
+  cache.removeAll(chaves);
+}
+
 function invalidarCacheDashboard_() {
   CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base', 'ultimos_transferidos', 'contadores_inicio']);
+  invalidarCacheVeiculos_();
 }
 
 /**
