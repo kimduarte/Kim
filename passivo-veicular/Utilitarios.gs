@@ -11,8 +11,10 @@
  * a instalação. Depois de rodar criarEstruturaPassivoVeicular() (ver
  * Setup.gs), abra a planilha do Passivo, vá na aba "Usuarios" e adicione
  * manualmente a primeira linha: seu e-mail na coluna Email e "admin" na
- * coluna Perfil. Dali em diante, novos usuários são administrados do mesmo
- * jeito — direto na planilha (este site não tem uma tela de "Usuários").
+ * coluna Perfil — só essa primeira vez precisa ser direto na planilha
+ * (é o "ovo e a galinha": precisa de um admin pra usar a tela de Usuários
+ * que cadastra os demais). Dali em diante, é tudo pela tela "Usuários"
+ * do site (ver seção GESTÃO DE USUÁRIOS no final deste arquivo).
  */
 
 var SHEET_USUARIOS = 'Usuarios';
@@ -316,4 +318,102 @@ function exigirPerfilEditor_() {
     throw new Error('Você não tem permissão para cadastrar ou editar — visitantes só podem visualizar.');
   }
   return perfil;
+}
+
+// ======================================================================
+// GESTÃO DE USUÁRIOS (tela "Usuários", só para administradores)
+// Perfis disponíveis por enquanto: admin / usuario. Uma futura
+// estratificação por Operador (ex.: restringir por UF) pode reaproveitar a
+// coluna UF que já existe aqui — por isso ela já é pedida no cadastro,
+// mesmo sem nenhuma tela ainda usar esse valor pra restringir nada.
+// ======================================================================
+
+var PV_PERFIS_DISPONIVEIS = [PERFIL_ADMIN, PERFIL_USUARIO];
+
+function getUsuariosPassivo() {
+  exigirPerfilAdmin_();
+  var sheet = getOrCreateSheetPassivo_(SHEET_USUARIOS, CABECALHO_USUARIOS);
+  var valores = sheet.getDataRange().getValues();
+  var cabecalho = valores[0];
+  var usuarios = [];
+  for (var i = 1; i < valores.length; i++) {
+    if (!valores[i][0]) continue;
+    usuarios.push(linhaParaObjeto_(cabecalho, valores[i]));
+  }
+  usuarios.sort(function (a, b) { return String(a.Email).localeCompare(String(b.Email)); });
+  return usuarios;
+}
+
+// Compartilha a planilha do Passivo com o e-mail informado — assim, quem é
+// adicionado pela tela "Usuários" já consegue abrir a planilha direto pelo
+// Google Drive, sem precisar que um administrador vá lá compartilhar na
+// mão. Um erro de compartilhamento (ex.: política do Workspace bloqueando)
+// não impede o cadastro do usuário — ele continua entrando no site
+// normalmente pelo login; só fica registrado como aviso pra tela.
+function pvCompartilharPlanilhaComUsuario_(email) {
+  try {
+    getSpreadsheetPassivo_().addEditor(email);
+    return null;
+  } catch (e) {
+    return 'Usuário salvo, mas não consegui compartilhar a planilha automaticamente com ' + email + ' (' + e.message + '). Compartilhe manualmente pelo Google Drive se precisar.';
+  }
+}
+
+function cadastrarUsuarioPassivo(dados) {
+  exigirPerfilAdmin_();
+  var email = normalizarTexto_(dados.email).toLowerCase();
+  if (!email || email.indexOf('@') === -1) throw new Error('Informe um e-mail válido.');
+  if (PV_PERFIS_DISPONIVEIS.indexOf(dados.perfil) === -1) throw new Error('Perfil inválido: ' + dados.perfil);
+  var sheet = getOrCreateSheetPassivo_(SHEET_USUARIOS, CABECALHO_USUARIOS);
+  var valores = sheet.getDataRange().getValues();
+  for (var i = 1; i < valores.length; i++) {
+    if (String(valores[i][0]).trim().toLowerCase() === email) {
+      throw new Error('Esse e-mail já está cadastrado.');
+    }
+  }
+  sheet.appendRow([email, dados.perfil, normalizarUF_(dados.uf), normalizarTexto_(dados.nome)]);
+  var aviso = pvCompartilharPlanilhaComUsuario_(email);
+  return { ok: true, aviso: aviso };
+}
+
+function atualizarUsuarioPassivo(email, dados) {
+  exigirPerfilAdmin_();
+  if (PV_PERFIS_DISPONIVEIS.indexOf(dados.perfil) === -1) throw new Error('Perfil inválido: ' + dados.perfil);
+  var emailNormalizado = normalizarTexto_(email).toLowerCase();
+  var sheet = getOrCreateSheetPassivo_(SHEET_USUARIOS, CABECALHO_USUARIOS);
+  var valores = sheet.getDataRange().getValues();
+  for (var i = 1; i < valores.length; i++) {
+    if (String(valores[i][0]).trim().toLowerCase() === emailNormalizado) {
+      sheet.getRange(i + 1, 1, 1, CABECALHO_USUARIOS.length).setValues([[
+        valores[i][0], dados.perfil, normalizarUF_(dados.uf), normalizarTexto_(dados.nome)
+      ]]);
+      return { ok: true };
+    }
+  }
+  throw new Error('Usuário não encontrado.');
+}
+
+// Não deixa um admin excluir a própria conta pela tela — evita ficar sem
+// nenhum administrador com acesso por um clique errado (só dá pra desfazer
+// depois editando a planilha na mão).
+function excluirUsuarioPassivo(email) {
+  var perfil = exigirPerfilAdmin_();
+  var emailNormalizado = normalizarTexto_(email).toLowerCase();
+  if (emailNormalizado === perfil.email.toLowerCase()) {
+    throw new Error('Você não pode remover seu próprio usuário.');
+  }
+  var sheet = getOrCreateSheetPassivo_(SHEET_USUARIOS, CABECALHO_USUARIOS);
+  var valores = sheet.getDataRange().getValues();
+  for (var i = 1; i < valores.length; i++) {
+    if (String(valores[i][0]).trim().toLowerCase() === emailNormalizado) {
+      sheet.deleteRow(i + 1);
+      try { getSpreadsheetPassivo_().removeEditor(emailNormalizado); } catch (e) {
+        // Não é crítico — a pessoa só continua com acesso de leitura/edição
+        // à planilha via Drive até alguém remover manualmente, mas já
+        // perde o acesso ao site (login) imediatamente.
+      }
+      return { ok: true };
+    }
+  }
+  throw new Error('Usuário não encontrado.');
 }

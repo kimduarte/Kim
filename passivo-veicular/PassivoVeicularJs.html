@@ -35,6 +35,7 @@
     document.getElementById('navPvCadastro').style.display = USUARIO_PODE_EDITAR ? '' : 'none';
     pvConfigurarFormularios_();
     pvConfigurarModalInfracao_();
+    pvConfigurarModalUsuario_();
     chamarServidor_('getListasPassivo').then(function (listas) {
       PV_LISTAS = listas;
       pvPreencherListasFormularios_();
@@ -60,6 +61,7 @@
     preencherSelect('pv_SituacaoTransferencia', PV_LISTAS.situacoes, false);
     preencherSelect('pve_SituacaoTransferencia', PV_LISTAS.situacoes, false);
     preencherSelect('pvfSituacao', PV_LISTAS.situacoes, false, 'Todas');
+    preencherSelect('pvu_UF', PV_LISTAS.uf, false, '—');
   }
 
   function pvAtualizarSelectInstituicoes_(lista) {
@@ -85,6 +87,7 @@
     if (nome === 'pv-listagem') carregarListagemPv_();
     if (nome === 'pv-infracoes') carregarInfracoesPv_();
     if (nome === 'pv-lixeira') irParaTelaLixeiraPv_();
+    if (nome === 'pv-usuarios') irParaTelaUsuariosPv_();
     window.scrollTo(0, 0);
   }
 
@@ -139,6 +142,119 @@
     } catch (erro) {
       mostrarErroGlobalPv_(erro);
     }
+  }
+
+  // ---------- Usuários ----------
+  var PV_CACHE_USUARIOS = {};
+  var PV_ROTULOS_PERFIL = { admin: 'Administrador', usuario: 'Usuário' };
+
+  function irParaTelaUsuariosPv_() {
+    if (!USUARIO_E_ADMIN) {
+      document.getElementById('pvUsuariosSemPermissao').style.display = '';
+      document.getElementById('pvUsuariosConteudo').style.display = 'none';
+      return;
+    }
+    document.getElementById('pvUsuariosSemPermissao').style.display = 'none';
+    document.getElementById('pvUsuariosConteudo').style.display = '';
+    carregarUsuariosPv_();
+  }
+
+  function carregarUsuariosPv_() {
+    document.getElementById('pvuCorpoTabela').innerHTML = '<tr><td colspan="5" class="carregando">Carregando...</td></tr>';
+    chamarServidor_('getUsuariosPassivo').then(function (lista) {
+      PV_CACHE_USUARIOS = {};
+      lista.forEach(function (u) { PV_CACHE_USUARIOS[u.Email] = u; });
+      document.getElementById('pvuContador').textContent = lista.length;
+      pvRenderizarTabelaUsuarios_(lista);
+    }).catch(function (erro) {
+      document.getElementById('pvuCorpoTabela').innerHTML =
+        '<tr><td colspan="5"><div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div></td></tr>';
+    });
+  }
+
+  function pvRenderizarTabelaUsuarios_(lista) {
+    var corpo = document.getElementById('pvuCorpoTabela');
+    if (!lista.length) {
+      corpo.innerHTML = '<tr><td colspan="5">Nenhum usuário cadastrado.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = lista.map(function (u) {
+      return '<tr class="linha-clicavel" onclick="pvAbrirEdicaoUsuario_(\'' + escaparHtml(u.Email) + '\')">' +
+        '<td>' + escaparHtml(u.Email) + '</td>' +
+        '<td>' + escaparHtml(u.Nome || '') + '</td>' +
+        '<td><span class="selo ' + (u.Perfil === 'admin' ? 'selo-azul' : 'selo-sim') + '">' + escaparHtml(PV_ROTULOS_PERFIL[u.Perfil] || u.Perfil) + '</span></td>' +
+        '<td>' + escaparHtml(u.UF || '') + '</td>' +
+        '<td><button type="button" class="secundario" onclick="event.stopPropagation(); pvAbrirEdicaoUsuario_(\'' + escaparHtml(u.Email) + '\')">Editar</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function pvConfigurarModalUsuario_() {
+    document.getElementById('formPvUsuario').addEventListener('submit', pvSubmeterUsuario_);
+  }
+
+  function pvAbrirNovoUsuario_() {
+    document.getElementById('formPvUsuario').reset();
+    document.getElementById('pvu_EmailOriginal').value = '';
+    document.getElementById('pvuModalTitulo').textContent = 'Novo usuário';
+    document.getElementById('pvu_Email').disabled = false;
+    document.getElementById('pvuBotaoExcluir').style.display = 'none';
+    document.getElementById('mensagemPvUsuario').innerHTML = '';
+    document.getElementById('modalPvUsuarioFundo').classList.add('ativo');
+  }
+
+  function pvAbrirEdicaoUsuario_(email) {
+    var u = PV_CACHE_USUARIOS[email];
+    if (!u) return;
+    document.getElementById('formPvUsuario').reset();
+    document.getElementById('pvu_EmailOriginal').value = u.Email;
+    document.getElementById('pvuModalTitulo').textContent = 'Editar usuário';
+    document.getElementById('pvu_Email').value = u.Email;
+    // E-mail não é editável depois de criado — é a chave que identifica o
+    // usuário (tanto no login quanto no compartilhamento da planilha).
+    // Pra "trocar" o e-mail de alguém, exclui e cadastra de novo.
+    document.getElementById('pvu_Email').disabled = true;
+    document.getElementById('pvu_Nome').value = u.Nome || '';
+    document.getElementById('pvu_Perfil').value = u.Perfil || 'usuario';
+    document.getElementById('pvu_UF').value = u.UF || '';
+    document.getElementById('pvuBotaoExcluir').style.display = '';
+    document.getElementById('mensagemPvUsuario').innerHTML = '';
+    document.getElementById('modalPvUsuarioFundo').classList.add('ativo');
+  }
+
+  function pvSubmeterUsuario_(e) {
+    e.preventDefault();
+    var emailOriginal = document.getElementById('pvu_EmailOriginal').value;
+    var dados = {
+      email: document.getElementById('pvu_Email').value,
+      nome: document.getElementById('pvu_Nome').value,
+      perfil: document.getElementById('pvu_Perfil').value,
+      uf: document.getElementById('pvu_UF').value
+    };
+    var chamada = emailOriginal
+      ? chamarServidor_('atualizarUsuarioPassivo', emailOriginal, dados)
+      : chamarServidor_('cadastrarUsuarioPassivo', dados);
+    chamada.then(function (resp) {
+      document.getElementById('modalPvUsuarioFundo').classList.remove('ativo');
+      if (resp && resp.aviso) {
+        mostrarMensagem('mensagemGlobalPv', 'aviso', resp.aviso);
+      }
+      carregarUsuariosPv_();
+    }).catch(function (erro) {
+      mostrarMensagem('mensagemPvUsuario', 'erro', erro.message || String(erro));
+    });
+  }
+
+  function pvExcluirUsuarioAtual_() {
+    var email = document.getElementById('pvu_EmailOriginal').value;
+    confirmar_('Tem certeza que deseja remover o acesso de ' + email + '? Essa ação não pode ser desfeita.', function () {
+      chamarServidor_('excluirUsuarioPassivo', email).then(function () {
+        document.getElementById('modalPvUsuarioFundo').classList.remove('ativo');
+        carregarUsuariosPv_();
+      }).catch(function (erro) {
+        mostrarMensagem('mensagemPvUsuario', 'erro', erro.message || String(erro));
+      });
+    });
   }
 
   // ---------- Painel Geral ----------

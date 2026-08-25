@@ -62,9 +62,18 @@ administrador — consegue entrar no site (todo mundo cai em "sem acesso").
 Esse é o único login que existe neste site: é uma base própria, não a
 mesma planilha/aba "Usuarios" do site de Doação Veicular (decisão
 deliberada, pra não ter duas bases de usuários pra manter sincronizadas).
-Não há tela de "Usuários" na interface — adicionar/editar gente continua
-sendo direto na planilha, como já é hoje com OrgaosAutuadores e
-TabelaInfracoes.
+
+Depois desse primeiro usuário, o resto é feito pela tela **"👤 Usuários"**
+(só aparece pra quem é admin): cadastrar/editar/remover gente, com perfil
+`admin` ou `usuario` (estratificação por Operador/UF fica pra depois — por
+enquanto só esses dois perfis). Ao cadastrar alguém pela tela, o site chama
+`Spreadsheet.addEditor(email)` automaticamente, então a pessoa já ganha
+acesso de edição à planilha do Passivo pelo Google Drive, sem precisar que
+ninguém entre na planilha e compartilhe manualmente. Isso pode exigir uma
+nova autorização do Google (tela de permissões) na primeira vez que o
+script tentar compartilhar. O e-mail não pode ser editado depois de criado
+(é a chave de login e de compartilhamento) — pra "trocar" o e-mail de
+alguém, exclua e cadastre de novo.
 
 Por fim, implante como aplicativo da web (**Implantar > Nova implantação**).
 

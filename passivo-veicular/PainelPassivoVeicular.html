@@ -31,6 +31,7 @@
       <div class="app-nav-item" data-tela-pv="pv-listagem" onclick="irParaTelaPv_('pv-listagem')">☰ Veículos</div>
       <div class="app-nav-item" id="navPvInfracoes" data-tela-pv="pv-infracoes" onclick="irParaTelaPv_('pv-infracoes')">💰 Débitos</div>
       <div class="app-nav-item" data-tela-pv="pv-lixeira" onclick="irParaTelaPv_('pv-lixeira')">🗑️ Lixeira</div>
+      <div class="app-nav-item" data-tela-pv="pv-usuarios" onclick="irParaTelaPv_('pv-usuarios')">👤 Usuários</div>
     </nav>
     <main>
       <div id="mensagemGlobalPv"></div>
@@ -350,6 +351,34 @@
           </div>
         </div>
       </section>
+
+      <section id="tela-pv-usuarios" class="tela-pv">
+        <div class="pagina-titulo">
+          <div>
+            <h2>Usuários</h2>
+            <p>Quem tem acesso ao Passivo Veicular — restrito a administradores.</p>
+          </div>
+        </div>
+        <div id="pvUsuariosSemPermissao" class="card" style="display:none;">
+          <p>Você não tem permissão para ver esta área — restrita a administradores.</p>
+        </div>
+        <div id="pvUsuariosConteudo" class="card">
+          <div class="pagina-titulo" style="margin-bottom:8px;">
+            <h2 style="margin:0;">Usuários (<span id="pvuContador">0</span>)</h2>
+            <div class="botoes" style="margin-top:0;">
+              <button type="button" class="primario" onclick="pvAbrirNovoUsuario_()">+ Novo usuário</button>
+            </div>
+          </div>
+          <p class="dica-painel">Ao cadastrar alguém aqui, a planilha do Passivo é compartilhada automaticamente com o e-mail informado pelo Google Drive.</p>
+          <div id="mensagemPvUsuarios"></div>
+          <div class="tabela-wrap">
+            <table>
+              <thead><tr><th>Email</th><th>Nome</th><th>Perfil</th><th>UF</th><th>Ações</th></tr></thead>
+              <tbody id="pvuCorpoTabela"><tr><td colspan="5" class="carregando">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -542,6 +571,45 @@
           <button type="button" class="perigo" id="pviBotaoExcluir" style="display:none;" onclick="pvExcluirInfracaoAtual_()">Excluir</button>
           <div class="direita">
             <button type="button" class="secundario" onclick="document.getElementById('modalPvInfracaoFundo').classList.remove('ativo')">Cancelar</button>
+            <button type="submit" class="primario">Salvar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modalPvUsuarioFundo">
+    <div class="modal" style="max-width:520px;">
+      <h2 id="pvuModalTitulo">Novo usuário</h2>
+      <div id="mensagemPvUsuario"></div>
+      <form id="formPvUsuario">
+        <input type="hidden" id="pvu_EmailOriginal">
+        <div class="grid-form">
+          <div class="campo span-2">
+            <label for="pvu_Email">E-mail *</label>
+            <input type="email" id="pvu_Email" required maxlength="200">
+          </div>
+          <div class="campo span-2">
+            <label for="pvu_Nome">Nome <span class="opcional">(opcional)</span></label>
+            <input type="text" id="pvu_Nome" maxlength="200">
+          </div>
+          <div class="campo">
+            <label for="pvu_Perfil">Perfil *</label>
+            <select id="pvu_Perfil" required>
+              <option value="admin">Administrador</option>
+              <option value="usuario">Usuário</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="pvu_UF">UF <span class="opcional">(opcional, uso futuro)</span></label>
+            <select id="pvu_UF"><option value="">—</option></select>
+          </div>
+        </div>
+        <p class="dica-painel">Ao salvar, a planilha do Passivo é compartilhada automaticamente com esse e-mail pelo Google Drive (a pessoa não precisa pedir acesso separado).</p>
+        <div class="botoes">
+          <button type="button" class="perigo" id="pvuBotaoExcluir" style="display:none;" onclick="pvExcluirUsuarioAtual_()">Excluir</button>
+          <div class="direita">
+            <button type="button" class="secundario" onclick="document.getElementById('modalPvUsuarioFundo').classList.remove('ativo')">Cancelar</button>
             <button type="submit" class="primario">Salvar</button>
           </div>
         </div>
