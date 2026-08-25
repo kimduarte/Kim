@@ -3077,32 +3077,75 @@ function extrairComunsOficioTransferencia_(texto, avisos) {
       avisos.push('Não encontrei o CEP no endereço da instituição recebedora — confira manualmente.');
     }
     // Cidade/UF ficam sempre logo antes do CEP (ex.: "..., Belo
-    // Horizonte/MG, CEP: 31.630-900"). Diferente do Termo, o endereço do
-    // Ofício costuma trazer um prefixo descritivo antes do logradouro de
-    // fato (prédio/andar) — não é seguro adivinhar Logradouro/Número/
-    // Bairro por posição aqui, então esses campos ficam de fora e a
-    // pessoa preenche à mão, com o endereço completo à vista no aviso.
-    var mCidadeUf = enderecoTexto.match(/,\s*([^,\/]+)\/([A-Z]{2})\s*,?\s*CEP/i);
+    // Horizonte/MG, CEP: 31.630-900") — às vezes com espaço antes da
+    // barra ("Belo Horizonte / MG"), por isso o \s* dos dois lados.
+    var mCidadeUf = enderecoTexto.match(/,\s*([^,\/]+?)\s*\/\s*([A-Z]{2})\s*,?\s*CEP/i);
     if (mCidadeUf) {
       comuns.Municipio = mCidadeUf[1].trim();
       comuns.UF = mCidadeUf[2].toUpperCase();
+    } else {
+      avisos.push('Não encontrei Município/UF no endereço — confira manualmente.');
     }
-    avisos.push('Endereço completo (confira Logradouro/Número/Bairro manualmente): "' + enderecoTexto + '".');
+
+    // Diferente do Termo, o endereço do Ofício às vezes traz um prefixo
+    // descritivo antes do logradouro de fato (prédio/andar/complexo), o
+    // que impede simplesmente usar o primeiro pedaço como Logradouro.
+    // Em vez disso, procura o pedaço que "parece número" (dígitos, ou
+    // "S/N" quando não há número) — o pedaço logo antes dele é o
+    // Logradouro, e o(s) pedaço(s) entre ele e a Cidade/UF final vira(m)
+    // Bairro.
+    var partesEndereco = enderecoTexto
+      .replace(/,?\s*CEP[:\s.]*\s*\d{2}\.?\d{3}\s*-?\s*\d{3}\.?/i, '')
+      .split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+    var idxNumero = -1;
+    for (var pi = 0; pi < partesEndereco.length; pi++) {
+      if (/^(s\/n|\d+[a-z]?)$/i.test(partesEndereco[pi])) { idxNumero = pi; break; }
+    }
+    if (idxNumero > 0 && idxNumero < partesEndereco.length - 1) {
+      comuns.Logradouro = partesEndereco[idxNumero - 1];
+      comuns.Numero = partesEndereco[idxNumero];
+      var bairroMeio = partesEndereco.slice(idxNumero + 1, partesEndereco.length - 1).join(', ');
+      if (bairroMeio) comuns.Bairro = bairroMeio;
+      avisos.push('Logradouro/Número/Bairro preenchidos automaticamente a partir do endereço — confira: "' + enderecoTexto + '".');
+    } else {
+      avisos.push('Não consegui separar Logradouro/Número/Bairro do endereço — preencha manualmente. Endereço completo: "' + enderecoTexto + '".');
+    }
   } else {
     avisos.push('Não encontrei o endereço da instituição recebedora — confira manualmente.');
   }
 
   if (comuns.Donataria) {
+    var donatariaSemAcento = removerAcentos_(comuns.Donataria).toUpperCase();
+    // Corpo de Bombeiros, Polícia Militar/Civil/Científica e Secretaria de
+    // Segurança são sempre órgãos estaduais — mesmo quando a Razão Social
+    // não usa literalmente as palavras "Estado de" (ex.: "Corpo de
+    // Bombeiros Militar do Ceará").
+    var PALAVRAS_ENTE_ESTADUAL_ = ['CORPO DE BOMBEIROS', 'POLICIA MILITAR', 'POLICIA CIVIL', 'POLICIA CIENTIFICA', 'SECRETARIA DE SEGURANCA'];
     if (/\bESTADO\s+DE\b/i.test(comuns.Donataria)) {
       comuns.Ente = 'Estado';
     } else if (/\bMUNIC[ÍI]PIO\s+DE\b/i.test(comuns.Donataria)) {
       comuns.Ente = 'Município';
+    } else if (PALAVRAS_ENTE_ESTADUAL_.some(function (p) { return donatariaSemAcento.indexOf(p) !== -1; })) {
+      comuns.Ente = 'Estado';
     }
     if (!comuns.UF) {
-      // Fallback: a Razão Social geralmente termina com "- UF" (ex.:
+      // Fallback 1: a Razão Social geralmente termina com "- UF" (ex.:
       // "Polícia Civil do Estado de Minas Gerais - MG").
       var mUfSufixo = comuns.Donataria.match(/-\s*([A-Z]{2})\s*$/);
-      if (mUfSufixo) comuns.UF = mUfSufixo[1];
+      if (mUfSufixo) {
+        comuns.UF = mUfSufixo[1];
+      } else {
+        // Fallback 2: procura o nome de algum estado dentro da Razão
+        // Social (do nome mais longo pro mais curto, senão "Mato Grosso
+        // do Sul" seria confundido com "Mato Grosso").
+        var nomesEstados = Object.keys(NOME_ESTADO_PARA_UF_).sort(function (a, b) { return b.length - a.length; });
+        for (var ne = 0; ne < nomesEstados.length; ne++) {
+          if (new RegExp('\\b' + nomesEstados[ne] + '\\b').test(donatariaSemAcento)) {
+            comuns.UF = NOME_ESTADO_PARA_UF_[nomesEstados[ne]];
+            break;
+          }
+        }
+      }
     }
   }
   if (!comuns.Ente) avisos.push('Não identifiquei se a donatária é Município ou Estado — confira Ente manualmente.');
