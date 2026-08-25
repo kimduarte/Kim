@@ -3199,8 +3199,12 @@ function importarVeiculosEmLote_(comum, veiculos) {
   var cabecalho = dadosAtuais[0];
   var idxChassi = cabecalho.indexOf('Chassi');
   var idxPlaca = cabecalho.indexOf('Placa');
+  var idxExcluido = cabecalho.indexOf('Excluido');
   var chassisExistentes = {}, placasExistentes = {};
   for (var i = 1; i < dadosAtuais.length; i++) {
+    // Um veículo excluído (Lixeira) não deve contar como duplicidade — a
+    // exclusão é lógica (Excluido=SIM) e a linha nunca sai da aba.
+    if (idxExcluido !== -1 && dadosAtuais[i][idxExcluido] === 'SIM') continue;
     if (dadosAtuais[i][idxChassi]) chassisExistentes[dadosAtuais[i][idxChassi]] = true;
     if (dadosAtuais[i][idxPlaca]) placasExistentes[dadosAtuais[i][idxPlaca]] = true;
   }
@@ -6121,10 +6125,15 @@ function encontrarDuplicado_(sheet, chassi, placa, ignorarId) {
   var idCol = cabecalho.indexOf('ID');
   var chassiCol = cabecalho.indexOf('Chassi');
   var placaCol = cabecalho.indexOf('Placa');
+  var excluidoCol = cabecalho.indexOf('Excluido');
 
   for (var i = 1; i < dados.length; i++) {
     var linha = dados[i];
     if (ignorarId && linha[idCol] === ignorarId) continue;
+    // Um veículo excluído (Lixeira) não deve travar o cadastro de outro
+    // com o mesmo chassi/placa — senão ele fica bloqueado pra sempre, já
+    // que a exclusão é lógica (Excluido=SIM) e a linha nunca sai da aba.
+    if (excluidoCol !== -1 && linha[excluidoCol] === 'SIM') continue;
     // Chassi/placa em branco (veículo salvo como rascunho) nunca contam como
     // duplicidade entre si — senão o segundo rascunho sem chassi/placa
     // preenchidos seria barrado por "já existe" apontando pro primeiro.
