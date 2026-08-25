@@ -63,8 +63,8 @@ var PV_STATUS_CANCELAMENTO = ['PENDENTE', 'ENVIADO', 'RECEBIDO', 'CANCELADA', 'N
 // Tipos de débito. INFRACAO usa o fluxo/campos que já existiam (AIT,
 // Artigo, Órgão autuador, StatusCancelamento); os demais usam os campos
 // genéricos (Valor, DataVencimento, Exercicio, StatusPagamento).
-var PV_TIPOS_DEBITO = ['INFRACAO', 'IPVA', 'LICENCIAMENTO', 'OUTRA'];
-var PV_ROTULOS_TIPO_DEBITO = { INFRACAO: 'Infração', IPVA: 'IPVA', LICENCIAMENTO: 'Licenciamento', OUTRA: 'Outra' };
+var PV_TIPOS_DEBITO = ['INFRACAO', 'IPVA', 'LICENCIAMENTO', 'TAXA', 'OUTRA'];
+var PV_ROTULOS_TIPO_DEBITO = { INFRACAO: 'Infração', IPVA: 'IPVA', LICENCIAMENTO: 'Licenciamento', TAXA: 'Taxas', OUTRA: 'Outra' };
 
 // Status de pagamento — usado por IPVA/Licenciamento/Outra (não por
 // Infração, que continua usando PV_STATUS_CANCELAMENTO).

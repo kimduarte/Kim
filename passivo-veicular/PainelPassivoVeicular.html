@@ -177,8 +177,15 @@
                   <input type="text" id="pv_CNPJProprietario" maxlength="20">
                 </div>
                 <div class="campo span-2">
-                  <label for="pv_SituacaoDetran">Situação no DETRAN <span class="opcional">(opcional, texto da consulta)</span></label>
-                  <input type="text" id="pv_SituacaoDetran" maxlength="200">
+                  <label for="pv_SituacaoDetran">Situação no DETRAN <span class="opcional">(opcional)</span></label>
+                  <select id="pv_SituacaoDetran">
+                    <option value="">Selecione...</option>
+                    <option value="Transferido">Transferido</option>
+                    <option value="Baixado">Baixado</option>
+                    <option value="Em processo de baixa">Em processo de baixa</option>
+                    <option value="Comunicado de venda">Comunicado de venda</option>
+                    <option value="Em Circulação">Em Circulação</option>
+                  </select>
                 </div>
                 <div class="campo">
                   <label for="pv_SituacaoTransferencia">Situação da transferência *</label>
@@ -411,7 +418,14 @@
           </div>
           <div class="campo span-2">
             <label for="pve_SituacaoDetran">Situação no DETRAN <span class="opcional">(opcional)</span></label>
-            <input type="text" id="pve_SituacaoDetran" maxlength="200">
+            <select id="pve_SituacaoDetran">
+              <option value="">Selecione...</option>
+              <option value="Transferido">Transferido</option>
+              <option value="Baixado">Baixado</option>
+              <option value="Em processo de baixa">Em processo de baixa</option>
+              <option value="Comunicado de venda">Comunicado de venda</option>
+              <option value="Em Circulação">Em Circulação</option>
+            </select>
           </div>
           <div class="campo">
             <label for="pve_SituacaoTransferencia">Situação da transferência *</label>

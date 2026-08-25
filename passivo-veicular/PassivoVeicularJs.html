@@ -570,13 +570,19 @@
     document.getElementById('pvi_RotuloOrgao').textContent = ehInfracao ? 'Órgão autuador *' : 'Órgão / Autoridade *';
   }
 
+  // Ao cadastrar um débito, a primeira coisa a fazer é achar o veículo já
+  // cadastrado (pela placa) — se não achar, mostra uma advertência clara
+  // em vez de só um texto informativo discreto, pra deixar óbvio que algo
+  // precisa de atenção antes de continuar.
   function pvBuscarVeiculoPorPlacaInfracao_() {
     var placa = document.getElementById('pvi_Placa').value;
     var info = document.getElementById('pvi_VeiculoInfo');
-    if (!placa) { info.textContent = ''; return; }
+    if (!placa) { info.innerHTML = ''; return; }
     chamarServidor_('buscarVeiculoPassivoPorPlaca', placa).then(function (v) {
-      info.textContent = v ? (v.Marca + ' ' + v.Modelo + ' — Chassi ' + v.Chassi) : 'Veículo não encontrado na Aba Veículos (pode cadastrar a infração mesmo assim).';
-    }).catch(function () { info.textContent = ''; });
+      info.innerHTML = v
+        ? escaparHtml(v.Marca + ' ' + v.Modelo + ' — Chassi ' + v.Chassi)
+        : '<strong style="color:var(--vermelho);">⚠️ Veículo não cadastrado.</strong> Cadastre-o na tela "Veículos" antes de continuar (ou prossiga se tiver certeza da placa).';
+    }).catch(function () { info.innerHTML = ''; });
   }
 
   // Sempre tenta (re)carregar status/órgãos/artigos ao abrir o modal, em
