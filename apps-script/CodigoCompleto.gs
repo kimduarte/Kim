@@ -3021,15 +3021,26 @@ function extrairOficioTransferenciaPdf(base64Pdf, nomeArquivo) {
 function extrairComunsOficioTransferencia_(texto, avisos) {
   var comuns = {};
 
-  // O nº do processo e o nº SEI do próprio Ofício ficam juntos no rodapé
-  // ("Referência: Caso responda este Ofício, indicar expressamente o
-  // Processo nº ... Documento SEI nº ..."), na última página.
-  var mRef = texto.match(/Refer[êe]ncia:.*?Processo\s*n[º°.o]*\s*(\d{2,5}\.\d{6}\/\d{4}-\d{2}).*?Documento\s+SEI\s*n[º°.o]*\s*(\d+)/i);
-  if (mRef) {
-    comuns.NumeroProcesso = mRef[1];
-    comuns.NumeroSei = mRef[2];
+  // O nº SEI do documento e o nº do processo aparecem juntos logo abaixo
+  // do código de barras, no topo da 1ª página (texto corrido simples,
+  // ex.: "36663604 08020.011859/2025-84") — tenta esse primeiro por ser
+  // mais confiável de ler via OCR do que o rodapé "Referência" da ÚLTIMA
+  // página, que em Ofícios longos (muitas páginas de Anexo I) costuma
+  // ficar dentro de uma tabela e falha na extração com mais frequência.
+  var mNumeros = texto.match(/(\d{6,8})\s+(\d{5}\.\d{6}\/\d{4}-\d{2})/);
+  if (mNumeros) {
+    comuns.NumeroSei = mNumeros[1];
+    comuns.NumeroProcesso = mNumeros[2];
   } else {
-    avisos.push('Não encontrei o nº do processo/SEI na referência final do documento — confira manualmente.');
+    // Reserva: o mesmo par de números também aparece no rodapé
+    // ("Referência: ... Processo nº ... Documento SEI nº ...").
+    var mRef = texto.match(/Refer[êe]ncia:.*?Processo\s*n[º°.o]*\s*(\d{2,5}\.\d{6}\/\d{4}-\d{2}).*?Documento\s+SEI\s*n[º°.o]*\s*(\d+)/i);
+    if (mRef) {
+      comuns.NumeroProcesso = mRef[1];
+      comuns.NumeroSei = mRef[2];
+    } else {
+      avisos.push('Não encontrei o nº do processo/SEI no documento — confira manualmente.');
+    }
   }
 
   var mTermo = texto.match(/Termo\s+de\s+Doa[çc][ãa]o\s*n[º°.o]*\s*(\d+\s*\/\s*\d{4})/i);
