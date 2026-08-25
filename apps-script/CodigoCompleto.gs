@@ -6773,7 +6773,7 @@ function obterDadosVeiculosCacheados_() {
         }
         json += partes[chaves[j]];
       }
-      if (completo) return JSON.parse(json);
+      if (completo) return reidratarDatasVeiculosCache_(JSON.parse(json));
     } catch (e) {
       // Cache corrompido ou incompleto: lê a fonte original abaixo.
     }
@@ -6787,8 +6787,12 @@ function obterDadosVeiculosCacheados_() {
   var valores = sheet.getRange(1, 1, ultimaLinha, largura).getValues();
   var serializavel = valores.map(function (linha) {
     return linha.map(function (valor, indice) {
-      // Datas são convertidas para milissegundos. Isso preserva ordenação,
-      // comparações e evita que JSON transforme Date em string ambígua.
+      // Datas são convertidas para milissegundos antes de guardar no cache.
+      // Isso preserva ordenação/comparações no JSON e evita que Date vire
+      // string ambígua — reidratarDatasVeiculosCache_ desfaz essa conversão
+      // antes de devolver os dados pra quem chamou, nos dois casos (acabou
+      // de ler da planilha ou veio do cache), pra ninguém rio abaixo receber
+      // número onde sempre recebeu objeto Date.
       return valor instanceof Date ? valor.getTime() : valor;
     });
   });
@@ -6811,7 +6815,32 @@ function obterDadosVeiculosCacheados_() {
     // Falha de cache nunca deve impedir a leitura normal da aplicação.
   }
 
-  return serializavel;
+  return reidratarDatasVeiculosCache_(serializavel);
+}
+
+/**
+ * Converte de volta em objeto Date os campos de CAMPOS_DATA_VEICULO_CACHE
+ * (guardados como milissegundos no cache/JSON — ver obterDadosVeiculosCacheados_)
+ * pra todo o resto do sistema continuar recebendo exatamente o mesmo tipo de
+ * dado que sheet.getDataRange().getValues() sempre devolveu. Sem isso, todo
+ * código que espera um Date nesses campos (ex.: formatação, comparação por
+ * mês/ano) quebraria de forma silenciosa e só apareceria depois, em produção.
+ */
+function reidratarDatasVeiculosCache_(valores) {
+  var cabecalho = valores[0];
+  var indicesData = CAMPOS_DATA_VEICULO_CACHE
+    .map(function (campo) { return cabecalho.indexOf(campo); })
+    .filter(function (indice) { return indice !== -1; });
+  if (!indicesData.length) return valores;
+
+  for (var i = 1; i < valores.length; i++) {
+    var linha = valores[i];
+    for (var j = 0; j < indicesData.length; j++) {
+      var idx = indicesData[j];
+      if (typeof linha[idx] === 'number') linha[idx] = new Date(linha[idx]);
+    }
+  }
+  return valores;
 }
 
 function invalidarCacheVeiculos_() {
