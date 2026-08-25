@@ -16,8 +16,13 @@ Servidor (`.gs`):
   `criarEstruturaPassivoVeicular()`.
 - `AbaVeiculos.gs` — CRUD da aba "Veiculos" (cadastro individual/lote,
   listagem, painel geral, edição, exclusão lógica, lixeira).
-- `AbaInfracoes.gs` — CRUD das abas "Infracoes"/"InfracoesEnvios" (cadastro,
-  listagem, envios de pedido de cancelamento).
+- `AbaInfracoes.gs` — CRUD das abas "Infracoes"/"InfracoesEnvios", que agora
+  guardam débitos de qualquer tipo (Infração, IPVA, Licenciamento, Outra —
+  ver `PV_TIPOS_DEBITO` em `Setup.gs`), diferenciados pela coluna "Tipo".
+  Infração continua com os mesmos campos/fluxo de antes (AIT, Artigo, Órgão
+  autuador, StatusCancelamento); os demais tipos usam campos genéricos
+  (Valor, DataVencimento, Exercicio, StatusPagamento: Pendente/Pago). Os
+  envios de pedido valem para qualquer tipo de débito.
 - `DadosInfracoesRenainf.gs` — tabela oficial de códigos de infração
   (RENAINF), usada só para semear a aba "TabelaInfracoes" na primeira vez.
 

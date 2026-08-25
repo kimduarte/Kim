@@ -1,11 +1,16 @@
 /**
  * AbaInfracoes.gs
  * Tudo relacionado às abas "Infracoes" e "InfracoesEnvios" da planilha do
- * Passivo: cadastro/edição/exclusão de infrações e o histórico de envios
- * de pedido de cancelamento/prescrição.
+ * Passivo — que agora guardam débitos de qualquer tipo (Infração, IPVA,
+ * Licenciamento, Outra), diferenciados pela coluna "Tipo". O tipo INFRACAO
+ * usa os campos/fluxo que já existiam (AIT, Artigo, Órgão autuador,
+ * StatusCancelamento); os demais tipos usam os campos genéricos (Valor,
+ * DataVencimento, Exercicio, StatusPagamento) — ver PV_TIPOS_DEBITO em
+ * Setup.gs. Os nomes de aba/planilha continuam "Infracoes"/"InfracoesEnvios"
+ * por serem os nomes já criados na planilha existente.
  */
 
-function pvInfracaoProximoId_() {
+function pvDebitoProximoId_() {
   var props = PropertiesService.getScriptProperties();
   var seq = Number(props.getProperty('PV_SEQ_INFRACAO') || '0');
   seq += 1;
@@ -21,26 +26,46 @@ function pvEnvioProximoId_() {
   return 'PVE-' + ('000000' + seq).slice(-6);
 }
 
-function pvValidarInfracao_(dados) {
+function pvValidarDebito_(dados) {
+  var tipo = dados.tipo || 'INFRACAO';
+  if (PV_TIPOS_DEBITO.indexOf(tipo) === -1) throw new Error('Tipo de débito inválido: ' + tipo);
   if (!dados.placa) throw new Error('Informe a placa do veículo.');
   if (!validarPlaca_(normalizarPlaca_(dados.placa))) throw new Error('Placa inválida: ' + dados.placa);
-  if (!dados.orgaoAutuador) throw new Error('Informe o órgão autuador.');
-  if (!dados.ait) throw new Error('Informe o número do AIT (auto de infração).');
+  if (tipo === 'INFRACAO') {
+    if (!dados.orgaoAutuador) throw new Error('Informe o órgão autuador.');
+    if (!dados.ait) throw new Error('Informe o número do AIT (auto de infração).');
+  } else {
+    if (dados.valor === undefined || dados.valor === null || dados.valor === '') throw new Error('Informe o valor do débito.');
+    if (isNaN(Number(dados.valor))) throw new Error('Valor inválido: ' + dados.valor);
+  }
 }
 
-function pvMontarRegistroInfracao_(dados, autor, existente) {
+// Monta o registro completo da linha. Os campos específicos de Infração
+// (AIT/Artigo/Codigo/DescricaoInfracao/DataInfracao/StatusCancelamento) só
+// são atualizados quando o tipo é INFRACAO — nos demais tipos, mantêm o
+// valor que já existia (relevante ao trocar de tipo numa edição) ou ficam
+// em branco num cadastro novo. Mesma lógica, espelhada, pros campos
+// genéricos de débito (Valor/DataVencimento/Exercicio/StatusPagamento).
+function pvMontarRegistroDebito_(dados, autor, existente) {
   var agora = new Date();
+  var tipo = dados.tipo || (existente ? existente.Tipo : '') || 'INFRACAO';
+  var ehInfracao = tipo === 'INFRACAO';
   return {
-    ID: existente ? existente.ID : pvInfracaoProximoId_(),
+    ID: existente ? existente.ID : pvDebitoProximoId_(),
     DataCadastro: existente ? existente.DataCadastro : agora,
     Placa: normalizarPlaca_(dados.placa),
     OrgaoAutuador: normalizarTexto_(dados.orgaoAutuador),
-    AIT: normalizarTexto_(dados.ait),
-    Artigo: normalizarTexto_(dados.artigo),
-    Codigo: normalizarTexto_(dados.codigo),
-    DescricaoInfracao: normalizarTexto_(dados.descricaoInfracao),
-    DataInfracao: normalizarTexto_(dados.dataInfracao),
-    StatusCancelamento: dados.statusCancelamento || PV_STATUS_CANCELAMENTO[0],
+    AIT: ehInfracao ? normalizarTexto_(dados.ait) : (existente ? existente.AIT : ''),
+    Artigo: ehInfracao ? normalizarTexto_(dados.artigo) : (existente ? existente.Artigo : ''),
+    Codigo: ehInfracao ? normalizarTexto_(dados.codigo) : (existente ? existente.Codigo : ''),
+    DescricaoInfracao: ehInfracao ? normalizarTexto_(dados.descricaoInfracao) : (existente ? existente.DescricaoInfracao : ''),
+    DataInfracao: ehInfracao ? normalizarTexto_(dados.dataInfracao) : (existente ? existente.DataInfracao : ''),
+    StatusCancelamento: ehInfracao ? (dados.statusCancelamento || PV_STATUS_CANCELAMENTO[0]) : (existente ? existente.StatusCancelamento : ''),
+    Tipo: tipo,
+    Valor: ehInfracao ? (dados.valor ? Number(dados.valor) : (existente ? existente.Valor : '')) : Number(dados.valor) || 0,
+    DataVencimento: normalizarTexto_(dados.dataVencimento),
+    Exercicio: normalizarTexto_(dados.exercicio),
+    StatusPagamento: ehInfracao ? (existente ? existente.StatusPagamento : '') : (dados.statusPagamento || PV_STATUS_PAGAMENTO[0]),
     Observacoes: normalizarTexto_(dados.observacoes),
     CadastradoPor: existente ? existente.CadastradoPor : autor,
     UltimaAtualizacao: agora,
@@ -98,22 +123,25 @@ function getListasDebitosPassivo() {
 
   return {
     statusCancelamento: PV_STATUS_CANCELAMENTO,
+    statusPagamento: PV_STATUS_PAGAMENTO,
+    tipos: PV_TIPOS_DEBITO,
+    rotulosTipo: PV_ROTULOS_TIPO_DEBITO,
     tabelaInfracoes: tabelaInfracoes,
     orgaosFederais: orgaosFederais,
     orgaosPorUF: orgaosPorUF
   };
 }
 
-function cadastrarInfracaoPassivo(dados) {
+function cadastrarDebitoPassivo(dados) {
   var perfil = exigirPerfilEditor_();
-  pvValidarInfracao_(dados);
+  pvValidarDebito_(dados);
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
-  var registro = pvMontarRegistroInfracao_(dados, perfil.email);
+  var registro = pvMontarRegistroDebito_(dados, perfil.email);
   sheet.appendRow(CABECALHO_PV_INFRACOES.map(function (campo) { return registro[campo]; }));
   return { ok: true, id: registro.ID };
 }
 
-function listarInfracoesPassivo(filtros) {
+function listarDebitosPassivo(filtros) {
   filtros = filtros || {};
   var perfil = getPerfilUsuarioAtual_();
   if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
@@ -123,12 +151,12 @@ function listarInfracoesPassivo(filtros) {
 
   var sheetEnvios = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS);
   var valoresEnvios = sheetEnvios.getDataRange().getValues();
-  var enviosPorInfracao = {};
+  var enviosPorDebito = {};
   for (var e = 1; e < valoresEnvios.length; e++) {
-    var idInf = valoresEnvios[e][1];
-    if (!idInf) continue;
-    if (!enviosPorInfracao[idInf]) enviosPorInfracao[idInf] = [];
-    enviosPorInfracao[idInf].push(valoresEnvios[e][2]);
+    var idDeb = valoresEnvios[e][1];
+    if (!idDeb) continue;
+    if (!enviosPorDebito[idDeb]) enviosPorDebito[idDeb] = [];
+    enviosPorDebito[idDeb].push(valoresEnvios[e][2]);
   }
 
   var mapaVeiculos = pvMapaVeiculosPorPlaca_();
@@ -140,16 +168,23 @@ function listarInfracoesPassivo(filtros) {
     var linha = valores[i];
     if (!linha[0]) continue;
     var registro = linhaParaObjeto_(cabecalho, linha);
+    // Linhas gravadas antes da coluna Tipo existir não têm valor nela —
+    // eram todas infração (o único tipo que existia até então).
+    if (!registro.Tipo) registro.Tipo = 'INFRACAO';
 
+    if (filtros.tipo && registro.Tipo !== filtros.tipo) continue;
     if (filtros.placa && normalizarPlaca_(registro.Placa) !== normalizarPlaca_(filtros.placa)) continue;
     if (filtros.orgaoAutuador && registro.OrgaoAutuador !== filtros.orgaoAutuador) continue;
-    if (filtros.status && registro.StatusCancelamento !== filtros.status) continue;
+    if (filtros.status) {
+      var statusAtual = registro.Tipo === 'INFRACAO' ? registro.StatusCancelamento : registro.StatusPagamento;
+      if (statusAtual !== filtros.status) continue;
+    }
     if (busca) {
-      var alvo = [registro.Placa, registro.AIT, registro.Artigo, registro.Codigo, registro.OrgaoAutuador].join(' ').toUpperCase();
+      var alvo = [registro.Placa, registro.AIT, registro.Artigo, registro.Codigo, registro.OrgaoAutuador, registro.Observacoes].join(' ').toUpperCase();
       if (alvo.indexOf(busca) === -1) continue;
     }
 
-    var datasEnvio = (enviosPorInfracao[registro.ID] || []).map(function (d) { return new Date(d); });
+    var datasEnvio = (enviosPorDebito[registro.ID] || []).map(function (d) { return new Date(d); });
     var qtdEnvios = datasEnvio.length;
     var dataUltimoEnvio = qtdEnvios ? new Date(Math.max.apply(null, datasEnvio)) : null;
     var diasSemResposta = dataUltimoEnvio ? Math.floor((agora - dataUltimoEnvio) / 86400000) : null;
@@ -163,7 +198,10 @@ function listarInfracoesPassivo(filtros) {
     registro.ChassiVeiculo = veiculo ? veiculo.Chassi : '';
     registro.RenavamVeiculo = veiculo ? veiculo.Renavam : '';
     registro.AnoVeiculo = veiculo ? (veiculo.AnoFabricacao + '/' + veiculo.AnoModelo) : '';
+    registro.UFVeiculo = veiculo ? veiculo.UF : '';
+    registro.InstituicaoVeiculo = veiculo ? veiculo.Instituicao : '';
 
+    registro.Valor = Number(registro.Valor) || 0;
     registro.DataCadastro = registro.DataCadastro ? Utilities.formatDate(new Date(registro.DataCadastro), Session.getScriptTimeZone(), 'dd/MM/yyyy') : '';
     registro.UltimaAtualizacao = registro.UltimaAtualizacao ? Utilities.formatDate(new Date(registro.UltimaAtualizacao), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : '';
     resultado.push(registro);
@@ -173,9 +211,38 @@ function listarInfracoesPassivo(filtros) {
   return resultado;
 }
 
-function atualizarInfracaoPassivo(id, dados) {
+// Soma valores em R$ dos débitos (pendentes x pagos/resolvidos), por UF e
+// Instituição do veículo, e por Tipo — alimenta os cards novos do Painel
+// Geral. "Resolvido" pra Infração é StatusCancelamento CANCELADA/NEGADA
+// (não se deve mais nada); pra IPVA/Licenciamento/Outra é StatusPagamento
+// PAGO.
+function getPainelDebitosPassivo(filtros) {
+  var lista = listarDebitosPassivo(filtros);
+  var painel = {
+    totalPendente: 0, totalPago: 0,
+    porUFPendente: {}, porInstituicaoPendente: {}, porTipoPendente: {}
+  };
+  lista.forEach(function (d) {
+    var valor = Number(d.Valor) || 0;
+    var resolvido = d.Tipo === 'INFRACAO'
+      ? (d.StatusCancelamento === 'CANCELADA' || d.StatusCancelamento === 'NEGADA')
+      : (d.StatusPagamento === 'PAGO');
+    if (resolvido) {
+      painel.totalPago += valor;
+      return;
+    }
+    painel.totalPendente += valor;
+    if (!valor) return;
+    if (d.UFVeiculo) painel.porUFPendente[d.UFVeiculo] = (painel.porUFPendente[d.UFVeiculo] || 0) + valor;
+    if (d.InstituicaoVeiculo) painel.porInstituicaoPendente[d.InstituicaoVeiculo] = (painel.porInstituicaoPendente[d.InstituicaoVeiculo] || 0) + valor;
+    painel.porTipoPendente[d.Tipo] = (painel.porTipoPendente[d.Tipo] || 0) + valor;
+  });
+  return painel;
+}
+
+function atualizarDebitoPassivo(id, dados) {
   var perfil = exigirPerfilEditor_();
-  pvValidarInfracao_(dados);
+  pvValidarDebito_(dados);
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
   var valores = sheet.getDataRange().getValues();
   var cabecalho = valores[0];
@@ -183,16 +250,16 @@ function atualizarInfracaoPassivo(id, dados) {
   for (var i = 1; i < valores.length; i++) {
     if (valores[i][idxId] === id) {
       var existente = linhaParaObjeto_(cabecalho, valores[i]);
-      var registro = pvMontarRegistroInfracao_(dados, perfil.email, existente);
+      var registro = pvMontarRegistroDebito_(dados, perfil.email, existente);
       var linha = CABECALHO_PV_INFRACOES.map(function (campo) { return registro[campo]; });
       sheet.getRange(i + 1, 1, 1, CABECALHO_PV_INFRACOES.length).setValues([linha]);
       return { ok: true };
     }
   }
-  throw new Error('Infração não encontrada.');
+  throw new Error('Débito não encontrado.');
 }
 
-function excluirInfracaoPassivo(id) {
+function excluirDebitoPassivo(id) {
   exigirPerfilAdmin_();
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
   var valores = sheet.getDataRange().getValues();
@@ -203,47 +270,54 @@ function excluirInfracaoPassivo(id) {
       return { ok: true };
     }
   }
-  throw new Error('Infração não encontrada.');
+  throw new Error('Débito não encontrado.');
 }
 
 // Cada clique em "Registrar envio" grava uma linha nova (data + quem
 // enviou) em vez de só incrementar um contador — assim dá pra mostrar
 // "2ª via enviada em 12/03/2025" e sinalizar "sem resposta" sozinho (ver
 // PV_DIAS_SEM_RESPOSTA) sem a pessoa ter que lembrar de marcar isso
-// manualmente.
-function registrarEnvioCancelamentoPassivo(idInfracao, observacoes) {
+// manualmente. Vale para qualquer tipo de débito (Infração, IPVA,
+// Licenciamento, Outra) — o "envio" aqui é genérico (qualquer contato
+// registrado com o órgão/instituição sobre aquele débito), só o efeito
+// automático de empurrar PENDENTE→ENVIADO é específico de Infração.
+function registrarEnvioCancelamentoPassivo(idDebito, observacoes) {
   var perfil = exigirPerfilEditor_();
-  var sheetInfracoes = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
-  var valores = sheetInfracoes.getDataRange().getValues();
+  var sheetDebitos = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES, CABECALHO_PV_INFRACOES);
+  var valores = sheetDebitos.getDataRange().getValues();
   var cabecalho = valores[0];
   var idxId = cabecalho.indexOf('ID');
+  var idxTipo = cabecalho.indexOf('Tipo');
   var idxStatus = cabecalho.indexOf('StatusCancelamento');
   var idxAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
   var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
   var linhaEncontrada = -1;
   for (var i = 1; i < valores.length; i++) {
-    if (valores[i][idxId] === idInfracao) { linhaEncontrada = i; break; }
+    if (valores[i][idxId] === idDebito) { linhaEncontrada = i; break; }
   }
-  if (linhaEncontrada === -1) throw new Error('Infração não encontrada.');
+  if (linhaEncontrada === -1) throw new Error('Débito não encontrado.');
 
   var sheetEnvios = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS);
   var agora = new Date();
-  sheetEnvios.appendRow([pvEnvioProximoId_(), idInfracao, agora, perfil.email, normalizarTexto_(observacoes)]);
+  sheetEnvios.appendRow([pvEnvioProximoId_(), idDebito, agora, perfil.email, normalizarTexto_(observacoes)]);
 
   // Só o primeiro envio empurra o status de PENDENTE pra ENVIADO
   // automaticamente — os demais (2º, 3º...) ficam só no histórico, porque
   // a partir daí quem decide se já foi recebida, cancelada ou negada é a
-  // pessoa, mudando o status manualmente pela tela de edição.
-  if (valores[linhaEncontrada][idxStatus] === 'PENDENTE') {
-    sheetInfracoes.getRange(linhaEncontrada + 1, idxStatus + 1).setValue('ENVIADO');
+  // pessoa, mudando o status manualmente pela tela de edição. Só se aplica
+  // a Infração — os outros tipos usam StatusPagamento, que não muda
+  // sozinho com um envio.
+  var tipo = valores[linhaEncontrada][idxTipo] || 'INFRACAO';
+  if (tipo === 'INFRACAO' && valores[linhaEncontrada][idxStatus] === 'PENDENTE') {
+    sheetDebitos.getRange(linhaEncontrada + 1, idxStatus + 1).setValue('ENVIADO');
   }
-  sheetInfracoes.getRange(linhaEncontrada + 1, idxAtualizacao + 1).setValue(agora);
-  sheetInfracoes.getRange(linhaEncontrada + 1, idxAtualizadoPor + 1).setValue(perfil.email);
+  sheetDebitos.getRange(linhaEncontrada + 1, idxAtualizacao + 1).setValue(agora);
+  sheetDebitos.getRange(linhaEncontrada + 1, idxAtualizadoPor + 1).setValue(perfil.email);
 
   return { ok: true };
 }
 
-function listarEnviosDaInfracaoPassivo(idInfracao) {
+function listarEnviosDaInfracaoPassivo(idDebito) {
   var perfil = getPerfilUsuarioAtual_();
   if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_INFRACOES_ENVIOS, CABECALHO_PV_INFRACOES_ENVIOS);
@@ -251,7 +325,7 @@ function listarEnviosDaInfracaoPassivo(idInfracao) {
   var cabecalho = valores[0];
   var envios = [];
   for (var i = 1; i < valores.length; i++) {
-    if (valores[i][1] === idInfracao) {
+    if (valores[i][1] === idDebito) {
       var e = linhaParaObjeto_(cabecalho, valores[i]);
       envios.push({
         ID: e.ID,

@@ -5,8 +5,8 @@
   PaginaCompleta_REFERENCIA_projeto_atual.html. Só as que o Passivo
   realmente usa (chamarServidor_, escaparHtml, mostrarMensagem,
   mostrarSkeleton_, mostrarLoader_/esconderLoader_, confirmar_,
-  preencherSelect) — não as de telas exclusivas de Doação Veicular
-  (formatarMoeda_, destacarBusca_, etc.).
+  preencherSelect, formatarMoeda_) — não as de telas exclusivas de Doação
+  Veicular (destacarBusca_, etc.).
 -->
 <script>
   var CONTEXTO = null;
@@ -79,6 +79,18 @@
     document.getElementById('confirmacaoMensagem').textContent = mensagem;
     CONFIRMACAO_CALLBACK = aoConfirmar;
     document.getElementById('modalConfirmacaoFundo').classList.add('ativo');
+  }
+
+  // Formata um número (vindo do servidor) no padrão "1.500,00", sem o "R$".
+  function formatarNumeroComVirgula_(numero) {
+    numero = Number(numero) || 0;
+    var negativo = numero < 0;
+    var partes = Math.abs(numero).toFixed(2).split('.');
+    return (negativo ? '-' : '') + partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + partes[1];
+  }
+
+  function formatarMoeda_(numero) {
+    return 'R$ ' + formatarNumeroComVirgula_(numero);
   }
 
   function preencherSelect(idSelect, opcoes, comPlaceholderVazio, rotuloPlaceholder) {

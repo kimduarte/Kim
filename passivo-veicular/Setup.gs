@@ -30,17 +30,26 @@ var CABECALHO_PV_VEICULOS = [
 
 var PV_SITUACOES_TRANSFERENCIA = ['PENDENTE', 'EM ANDAMENTO', 'CONCLUÍDA'];
 
-// ---- Débitos > Infrações ----
+// ---- Débitos (IPVA, Licenciamento, Infrações, Outras taxas) ----
+// A aba continua se chamando "Infracoes" (nome histórico, mantido de
+// propósito — ver comentário abaixo) mas guarda TODOS os tipos de débito
+// agora, diferenciados pela coluna "Tipo".
 var SHEET_PV_INFRACOES = 'Infracoes';
 var SHEET_PV_INFRACOES_ENVIOS = 'InfracoesEnvios';
 var SHEET_PV_TABELA_INFRACOES = 'TabelaInfracoes';
 var SHEET_PV_ORGAOS_AUTUADORES = 'OrgaosAutuadores';
 
+// Sempre adicione campos novos SÓ NO FINAL (mesma regra da aba Veiculos,
+// ver corrigirCabecalhoVeiculosPassivo_) — por isso os campos genéricos de
+// débito (Tipo, Valor, DataVencimento, Exercicio, StatusPagamento) foram
+// acrescentados no fim da lista em vez de reorganizados por perto dos
+// campos de infração que eles complementam.
 var CABECALHO_PV_INFRACOES = [
   'ID', 'DataCadastro',
   'Placa', 'OrgaoAutuador', 'AIT', 'Artigo', 'Codigo', 'DescricaoInfracao',
   'DataInfracao', 'StatusCancelamento',
-  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor'
+  'Observacoes', 'CadastradoPor', 'UltimaAtualizacao', 'AtualizadoPor',
+  'Tipo', 'Valor', 'DataVencimento', 'Exercicio', 'StatusPagamento'
 ];
 
 var CABECALHO_PV_INFRACOES_ENVIOS = ['ID', 'IdInfracao', 'DataEnvio', 'RegistradoPor', 'Observacoes'];
@@ -50,6 +59,16 @@ var CABECALHO_PV_TABELA_INFRACOES = ['Artigo', 'Descricao', 'Codigo', 'Gravidade
 var CABECALHO_PV_ORGAOS_AUTUADORES = ['UF', 'Orgao', 'Tipo'];
 
 var PV_STATUS_CANCELAMENTO = ['PENDENTE', 'ENVIADO', 'RECEBIDO', 'CANCELADA', 'NEGADA'];
+
+// Tipos de débito. INFRACAO usa o fluxo/campos que já existiam (AIT,
+// Artigo, Órgão autuador, StatusCancelamento); os demais usam os campos
+// genéricos (Valor, DataVencimento, Exercicio, StatusPagamento).
+var PV_TIPOS_DEBITO = ['INFRACAO', 'IPVA', 'LICENCIAMENTO', 'OUTRA'];
+var PV_ROTULOS_TIPO_DEBITO = { INFRACAO: 'Infração', IPVA: 'IPVA', LICENCIAMENTO: 'Licenciamento', OUTRA: 'Outra' };
+
+// Status de pagamento — usado por IPVA/Licenciamento/Outra (não por
+// Infração, que continua usando PV_STATUS_CANCELAMENTO).
+var PV_STATUS_PAGAMENTO = ['PENDENTE', 'PAGO'];
 
 // Depois de quantos dias sem mudar de status (ainda ENVIADO) o painel
 // sinaliza "sem resposta" — só um alerta visual, não bloqueia nada.
@@ -76,8 +95,23 @@ function getOrCreateSheetPassivo_(nome, cabecalho) {
     sheet.getRange(1, 1, 1, cabecalho.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
   } else if (nome === SHEET_PV_VEICULOS) {
     corrigirCabecalhoVeiculosPassivo_(sheet);
+  } else if (cabecalho) {
+    pvCompletarCabecalhoNoFinal_(sheet, cabecalho);
   }
   return sheet;
+}
+
+// Se `cabecalho` tem mais colunas do que a aba já tem na linha 1 (caso de
+// um campo novo acrescentado no fim, como os campos genéricos de débito),
+// completa só os rótulos que faltam — nunca reescreve nem reordena o que
+// já está lá. Roda toda vez que a aba é aberta, então uma planilha antiga
+// se autoatualiza sozinha sem precisar rodar nada manualmente.
+function pvCompletarCabecalhoNoFinal_(sheet, cabecalho) {
+  var ultimaColunaAtual = sheet.getLastColumn();
+  if (ultimaColunaAtual >= cabecalho.length) return;
+  var faltantes = cabecalho.slice(ultimaColunaAtual);
+  sheet.getRange(1, ultimaColunaAtual + 1, 1, faltantes.length).setValues([faltantes]);
+  sheet.getRange(1, ultimaColunaAtual + 1, 1, faltantes.length).setFontWeight('bold').setBackground('#1451B4').setFontColor('#ffffff');
 }
 
 // Conserta o cabeçalho (linha 1) da aba Veiculos quando ele ficou

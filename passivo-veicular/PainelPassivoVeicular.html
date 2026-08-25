@@ -29,7 +29,7 @@
       <div class="app-nav-item ativo" data-tela-pv="pv-inicio" onclick="irParaTelaPv_('pv-inicio')">📊 Painel Geral</div>
       <div class="app-nav-item" id="navPvCadastro" data-tela-pv="pv-cadastro" onclick="irParaTelaPv_('pv-cadastro')">🚗 Cadastrar veículo</div>
       <div class="app-nav-item" data-tela-pv="pv-listagem" onclick="irParaTelaPv_('pv-listagem')">☰ Veículos</div>
-      <div class="app-nav-item" id="navPvInfracoes" data-tela-pv="pv-infracoes" onclick="irParaTelaPv_('pv-infracoes')">⚠️ Infrações</div>
+      <div class="app-nav-item" id="navPvInfracoes" data-tela-pv="pv-infracoes" onclick="irParaTelaPv_('pv-infracoes')">💰 Débitos</div>
       <div class="app-nav-item" data-tela-pv="pv-lixeira" onclick="irParaTelaPv_('pv-lixeira')">🗑️ Lixeira</div>
     </nav>
     <main>
@@ -44,7 +44,7 @@
           <div class="welcome-actions">
             <button type="button" class="action-btn success" onclick="irParaTelaPv_('pv-cadastro')">🚗 Novo Veículo</button>
             <button type="button" class="action-btn info" onclick="irParaTelaPv_('pv-listagem')">☰ Veículos</button>
-            <button type="button" class="action-btn warning" onclick="irParaTelaPv_('pv-infracoes')">⚠️ Infrações</button>
+            <button type="button" class="action-btn warning" onclick="irParaTelaPv_('pv-infracoes')">💰 Débitos</button>
           </div>
         </div>
         <div class="pagina-titulo">
@@ -74,6 +74,10 @@
           <div class="kpi roxo"><div class="rotulo">🔄 EM ANDAMENTO</div><div class="valor" id="pvKpiAndamento">–</div></div>
           <div class="kpi verde"><div class="rotulo">✅ CONCLUÍDA</div><div class="valor" id="pvKpiConcluida">–</div></div>
         </div>
+        <div class="kpis" id="pvKpisDebitos">
+          <div class="kpi vermelho"><div class="rotulo">💰 DÉBITOS PENDENTES (R$)</div><div class="valor" id="pvKpiDebitoPendente">–</div></div>
+          <div class="kpi verde"><div class="rotulo">✅ DÉBITOS PAGOS/RESOLVIDOS (R$)</div><div class="valor" id="pvKpiDebitoPago">–</div></div>
+        </div>
         <div class="card">
           <h2>Veículos por UF</h2>
           <div class="rank-lista" id="pvRankUF"><div class="carregando">Carregando...</div></div>
@@ -81,6 +85,14 @@
         <div class="card">
           <h2>Veículos por Instituição</h2>
           <div class="rank-lista" id="pvRankInstituicao"><div class="carregando">Carregando...</div></div>
+        </div>
+        <div class="card">
+          <h2>Débitos pendentes por UF (R$)</h2>
+          <div class="rank-lista" id="pvRankDebitoUF"><div class="carregando">Carregando...</div></div>
+        </div>
+        <div class="card">
+          <h2>Débitos pendentes por Instituição (R$)</h2>
+          <div class="rank-lista" id="pvRankDebitoInstituicao"><div class="carregando">Carregando...</div></div>
         </div>
       </section>
 
@@ -240,9 +252,14 @@
       <section id="tela-pv-infracoes" class="tela-pv">
         <div class="pagina-titulo">
           <div>
-            <h2>Infrações</h2>
-            <p>Passivo Veicular — cancelamento/prescrição de infrações</p>
+            <h2>Débitos</h2>
+            <p>Passivo Veicular — IPVA, licenciamento, infrações e outras taxas</p>
           </div>
+        </div>
+
+        <div class="kpis" id="pviKpisValor">
+          <div class="kpi vermelho"><div class="rotulo">💰 PENDENTE (R$)</div><div class="valor" id="pviKpiValorPendente">–</div></div>
+          <div class="kpi verde"><div class="rotulo">✅ PAGO/RESOLVIDO (R$)</div><div class="valor" id="pviKpiValorPago">–</div></div>
         </div>
 
         <div class="kpis" id="pviKpis">
@@ -252,10 +269,15 @@
           <div class="kpi verde"><div class="rotulo">✅ CANCELADA</div><div class="valor" id="pviKpiCancelada">–</div></div>
           <div class="kpi vermelho"><div class="rotulo">⛔ NEGADA</div><div class="valor" id="pviKpiNegada">–</div></div>
         </div>
+        <p class="dica-painel" style="margin-top:-10px;">Os cinco status acima são específicos de Infração (cancelamento/prescrição). IPVA, Licenciamento e Outras usam Pendente/Pago — ver os totais em R$ no topo.</p>
 
         <div class="card">
           <h2>Filtros</h2>
           <div class="filtros">
+            <div class="campo">
+              <label for="pvifTipo">Tipo</label>
+              <select id="pvifTipo"><option value="">Todos</option></select>
+            </div>
             <div class="campo">
               <label for="pvifPlaca">Placa</label>
               <input type="text" id="pvifPlaca" placeholder="Ex.: ABC1234" style="text-transform:uppercase">
@@ -285,18 +307,18 @@
 
         <div class="card">
           <div class="pagina-titulo" style="margin-bottom:8px;">
-            <h2 style="margin:0;">Infrações (<span id="pviContador">0</span>)</h2>
+            <h2 style="margin:0;">Débitos (<span id="pviContador">0</span>)</h2>
             <div class="botoes" style="margin-top:0;">
-              <button type="button" class="secundario" onclick="pvExportarPdfInfracoes_()">Exportar PDF (por órgão)</button>
-              <button type="button" class="primario" onclick="pvAbrirNovaInfracao_()">+ Nova infração</button>
+              <button type="button" class="secundario" onclick="pvExportarPdfInfracoes_()">Exportar PDF de infrações (por órgão)</button>
+              <button type="button" class="primario" onclick="pvAbrirNovaInfracao_()">+ Novo débito</button>
             </div>
           </div>
-          <p class="dica-painel">Clique numa linha para ver/editar. "Exportar PDF" só funciona com um único órgão selecionado no filtro acima — o cabeçalho do documento é montado automaticamente com o nome do órgão.</p>
+          <p class="dica-painel">Clique numa linha para ver/editar. "Exportar PDF" é só para Infrações e só funciona com um único órgão selecionado no filtro acima.</p>
           <div id="mensagemPvInfracoes"></div>
           <div class="tabela-wrap">
             <table>
-              <thead><tr><th>Placa</th><th>Veículo</th><th>AIT</th><th>Artigo / Código</th><th>Órgão</th><th>Status</th><th>Envios</th><th>Ações</th></tr></thead>
-              <tbody id="pviCorpoTabela"><tr><td colspan="8" class="carregando">Carregando...</td></tr></tbody>
+              <thead><tr><th>Tipo</th><th>Placa</th><th>Veículo</th><th>Órgão</th><th>AIT / Artigo</th><th>Valor</th><th>Status</th><th>Envios</th><th>Ações</th></tr></thead>
+              <tbody id="pviCorpoTabela"><tr><td colspan="9" class="carregando">Carregando...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -413,57 +435,90 @@
 
   <div class="modal-fundo" id="modalPvInfracaoFundo">
     <div class="modal" style="max-width:920px;">
-      <h2 id="pviModalTitulo">Nova infração</h2>
+      <h2 id="pviModalTitulo">Novo débito</h2>
       <div id="mensagemPvInfracao"></div>
       <form id="formPvInfracao">
         <input type="hidden" id="pvi_ID">
         <div class="grid-form">
           <div class="campo">
+            <label for="pvi_Tipo">Tipo de débito *</label>
+            <select id="pvi_Tipo" required></select>
+          </div>
+          <div class="campo">
             <label for="pvi_Placa">Placa *</label>
             <input type="text" id="pvi_Placa" required maxlength="8" style="text-transform:uppercase">
             <div id="pvi_VeiculoInfo" style="font-size:12px; color:var(--texto-suave); margin-top:4px;"></div>
           </div>
-          <div class="campo">
-            <label for="pvi_AIT">Número do AIT *</label>
-            <input type="text" id="pvi_AIT" required maxlength="40">
-          </div>
-          <div class="campo span-2">
-            <label for="pvi_OrgaoAutuadorSelect">Órgão autuador *</label>
+          <div class="campo span-2" id="pvi_GrupoOrgao">
+            <label for="pvi_OrgaoAutuadorSelect" id="pvi_RotuloOrgao">Órgão autuador *</label>
             <select id="pvi_OrgaoAutuadorSelect" required></select>
             <input type="text" id="pvi_OrgaoAutuador" maxlength="200" placeholder="Nome do órgão municipal" style="display:none; margin-top:6px;">
           </div>
-          <div class="campo">
-            <label for="pvi_DataInfracao">Data da infração <span class="opcional">(opcional)</span></label>
-            <input type="text" id="pvi_DataInfracao" maxlength="20" placeholder="Ex: 15/03/2024">
-          </div>
-          <div class="campo">
-            <label for="pvi_StatusCancelamento">Status do cancelamento *</label>
-            <select id="pvi_StatusCancelamento"></select>
-          </div>
-          <div class="campo">
-            <label for="pvi_ArtigoBusca">Artigo (CTB)</label>
-            <div style="display:flex; gap:6px;">
-              <input type="text" id="pvi_ArtigoBusca" list="pvi_ArtigoDatalist" maxlength="300" placeholder="Ex.: 218 ou velocidade..." style="flex:1;" onfocus="this.select()">
-              <button type="button" class="secundario" title="Limpar" onclick="pvLimparArtigoBusca_()" style="padding:0 12px;">&times;</button>
+        </div>
+
+        <div id="pvi_GrupoInfracao">
+          <div class="grid-form">
+            <div class="campo">
+              <label for="pvi_AIT">Número do AIT *</label>
+              <input type="text" id="pvi_AIT" maxlength="40">
             </div>
-            <datalist id="pvi_ArtigoDatalist"></datalist>
+            <div class="campo">
+              <label for="pvi_DataInfracao">Data da infração <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pvi_DataInfracao" maxlength="20" placeholder="Ex: 15/03/2024">
+            </div>
+            <div class="campo">
+              <label for="pvi_StatusCancelamento">Status do cancelamento *</label>
+              <select id="pvi_StatusCancelamento"></select>
+            </div>
+            <div class="campo">
+              <label for="pvi_ArtigoBusca">Artigo (CTB)</label>
+              <div style="display:flex; gap:6px;">
+                <input type="text" id="pvi_ArtigoBusca" list="pvi_ArtigoDatalist" maxlength="300" placeholder="Ex.: 218 ou velocidade..." style="flex:1;" onfocus="this.select()">
+                <button type="button" class="secundario" title="Limpar" onclick="pvLimparArtigoBusca_()" style="padding:0 12px;">&times;</button>
+              </div>
+              <datalist id="pvi_ArtigoDatalist"></datalist>
+            </div>
+            <div class="campo">
+              <label for="pvi_Codigo">Código de enquadramento <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pvi_Codigo" maxlength="20">
+            </div>
+            <div class="campo span-2">
+              <label for="pvi_DescricaoInfracao">Descrição da infração <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pvi_DescricaoInfracao" maxlength="300">
+            </div>
           </div>
-          <div class="campo">
-            <label for="pvi_Codigo">Código de enquadramento <span class="opcional">(opcional)</span></label>
-            <input type="text" id="pvi_Codigo" maxlength="20">
+        </div>
+
+        <div id="pvi_GrupoGenerico">
+          <div class="grid-form">
+            <div class="campo">
+              <label for="pvi_Valor">Valor (R$) *</label>
+              <input type="number" id="pvi_Valor" step="0.01" min="0">
+            </div>
+            <div class="campo">
+              <label for="pvi_DataVencimento">Vencimento <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pvi_DataVencimento" maxlength="20" placeholder="Ex: 15/03/2026">
+            </div>
+            <div class="campo">
+              <label for="pvi_Exercicio">Exercício / Ano <span class="opcional">(opcional)</span></label>
+              <input type="text" id="pvi_Exercicio" maxlength="10" placeholder="Ex: 2026">
+            </div>
+            <div class="campo">
+              <label for="pvi_StatusPagamento">Status *</label>
+              <select id="pvi_StatusPagamento"></select>
+            </div>
           </div>
-          <div class="campo span-2">
-            <label for="pvi_DescricaoInfracao">Descrição da infração <span class="opcional">(opcional)</span></label>
-            <input type="text" id="pvi_DescricaoInfracao" maxlength="300">
-          </div>
+        </div>
+
+        <div class="grid-form">
           <div class="campo span-2">
             <label for="pvi_Observacoes">Observações <span class="opcional">(opcional)</span></label>
             <textarea id="pvi_Observacoes" maxlength="500"></textarea>
           </div>
         </div>
 
-        <div class="etapa-cabecalho" style="margin-top:18px;">Envios de pedido de cancelamento</div>
-        <div id="pvi_ListaEnvios" style="margin-bottom:10px;"><p class="dica-painel" style="margin:0;">Salve a infração primeiro pra poder registrar envios.</p></div>
+        <div class="etapa-cabecalho" style="margin-top:18px;">Envios / contatos registrados</div>
+        <div id="pvi_ListaEnvios" style="margin-bottom:10px;"><p class="dica-painel" style="margin:0;">Salve o débito primeiro pra poder registrar envios.</p></div>
         <div class="botoes" id="pvi_BotaoRegistrarEnvioWrap" style="display:none; margin-top:0; justify-content:flex-start; gap:8px;">
           <input type="text" id="pvi_ObservacaoEnvio" placeholder="Observação do envio (opcional)" maxlength="300" style="flex:1; padding:9px 12px; border:1px solid var(--borda); border-radius:8px; font-size:13px; font-family:inherit;">
           <button type="button" class="secundario" onclick="pvRegistrarEnvio_()">+ Registrar envio</button>
