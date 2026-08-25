@@ -2978,6 +2978,192 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
   return veiculos;
 }
 
+// ======================================================================
+// IMPORTAR OFÍCIO DE TRANSFERÊNCIA (PDF) — alternativa ao Termo de
+// Doação no "Novo cadastro". O Ofício é endereçado ao DETRAN da UF do
+// veículo comunicando a transferência de propriedade; ao contrário do
+// Termo, sua tabela (Anexo I) já traz o Renavam de cada veículo, e o
+// corpo do texto traz os dados da donatária em lista numerada (I - CNPJ,
+// II - Razão Social, III - Endereço), bem mais regular que o texto
+// corrido do Termo.
+// ======================================================================
+
+function extrairOficioTransferenciaPdf(base64Pdf, nomeArquivo) {
+  exigirPerfilEditor_();
+  if (!base64Pdf) throw new Error('Nenhum arquivo recebido.');
+
+  var arquivoTemp = null;
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Pdf), MimeType.PDF, nomeArquivo || 'oficio.pdf');
+    arquivoTemp = Drive.Files.create(
+      { name: '(temp) ' + (nomeArquivo || 'Ofício de Transferência'), mimeType: MimeType.GOOGLE_DOCS },
+      blob,
+      { ocrLanguage: 'pt' }
+    );
+    var doc = DocumentApp.openById(arquivoTemp.id);
+    var corpo = doc.getBody();
+    var texto = normalizarTexto_(corpo.getText()).replace(/\s+/g, ' ');
+
+    var avisos = [];
+    var comuns = extrairComunsOficioTransferencia_(texto, avisos);
+    var veiculos = extrairVeiculosOficioTransferencia_(corpo, avisos);
+
+    return { comuns: comuns, veiculos: veiculos, avisos: avisos };
+  } catch (e) {
+    throw new Error('Não foi possível ler o PDF: ' + (e.message || String(e)));
+  } finally {
+    if (arquivoTemp) {
+      try { Drive.Files.remove(arquivoTemp.id); } catch (e2) { /* limpeza best-effort */ }
+    }
+  }
+}
+
+function extrairComunsOficioTransferencia_(texto, avisos) {
+  var comuns = {};
+
+  // O nº do processo e o nº SEI do próprio Ofício ficam juntos no rodapé
+  // ("Referência: Caso responda este Ofício, indicar expressamente o
+  // Processo nº ... Documento SEI nº ..."), na última página.
+  var mRef = texto.match(/Refer[êe]ncia:.*?Processo\s*n[º°.o]*\s*(\d{2,5}\.\d{6}\/\d{4}-\d{2}).*?Documento\s+SEI\s*n[º°.o]*\s*(\d+)/i);
+  if (mRef) {
+    comuns.NumeroProcesso = mRef[1];
+    comuns.NumeroSei = mRef[2];
+  } else {
+    avisos.push('Não encontrei o nº do processo/SEI na referência final do documento — confira manualmente.');
+  }
+
+  var mTermo = texto.match(/Termo\s+de\s+Doa[çc][ãa]o\s*n[º°.o]*\s*(\d+\s*\/\s*\d{4})/i);
+  if (mTermo) {
+    comuns.TermoDoacao = 'Termo de Doação SENASP ' + mTermo[1].replace(/\s+/g, '');
+  } else {
+    avisos.push('Não encontrei o número do Termo de Doação citado no Ofício — confira manualmente.');
+  }
+
+  // "3. Informo os dados da instituição recebedora dos veículos: I - CNPJ:
+  // ...; II - Razão Social: ...; III - Endereço: ...; IV - E-mail: ...;" —
+  // bem mais regular que o texto corrido do Termo, dá pra extrair direto.
+  var mCnpj = texto.match(/CNPJ:\s*(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/i);
+  if (mCnpj) {
+    comuns.CNPJDonataria = mCnpj[1];
+  } else {
+    avisos.push('Não encontrei o CNPJ da instituição recebedora — confira manualmente.');
+  }
+
+  var mRazao = texto.match(/Raz[ãa]o\s+Social:\s*([^;]+);/i);
+  if (mRazao) {
+    comuns.Donataria = mRazao[1].trim();
+  } else {
+    avisos.push('Não encontrei a Razão Social da instituição recebedora — confira manualmente.');
+  }
+
+  var mEndereco = texto.match(/Endere[çc]o:\s*([^;]+);/i);
+  if (mEndereco) {
+    var enderecoTexto = mEndereco[1].trim();
+    var mCep = enderecoTexto.match(/CEP[:\s.]*\s*(\d{2}\.?\d{3}\s*-?\s*\d{3})/i);
+    if (mCep) {
+      comuns.CEP = mCep[1].replace(/\D/g, '');
+    } else {
+      avisos.push('Não encontrei o CEP no endereço da instituição recebedora — confira manualmente.');
+    }
+    // Cidade/UF ficam sempre logo antes do CEP (ex.: "..., Belo
+    // Horizonte/MG, CEP: 31.630-900"). Diferente do Termo, o endereço do
+    // Ofício costuma trazer um prefixo descritivo antes do logradouro de
+    // fato (prédio/andar) — não é seguro adivinhar Logradouro/Número/
+    // Bairro por posição aqui, então esses campos ficam de fora e a
+    // pessoa preenche à mão, com o endereço completo à vista no aviso.
+    var mCidadeUf = enderecoTexto.match(/,\s*([^,\/]+)\/([A-Z]{2})\s*,?\s*CEP/i);
+    if (mCidadeUf) {
+      comuns.Municipio = mCidadeUf[1].trim();
+      comuns.UF = mCidadeUf[2].toUpperCase();
+    }
+    avisos.push('Endereço completo (confira Logradouro/Número/Bairro manualmente): "' + enderecoTexto + '".');
+  } else {
+    avisos.push('Não encontrei o endereço da instituição recebedora — confira manualmente.');
+  }
+
+  if (comuns.Donataria) {
+    if (/\bESTADO\s+DE\b/i.test(comuns.Donataria)) {
+      comuns.Ente = 'Estado';
+    } else if (/\bMUNIC[ÍI]PIO\s+DE\b/i.test(comuns.Donataria)) {
+      comuns.Ente = 'Município';
+    }
+    if (!comuns.UF) {
+      // Fallback: a Razão Social geralmente termina com "- UF" (ex.:
+      // "Polícia Civil do Estado de Minas Gerais - MG").
+      var mUfSufixo = comuns.Donataria.match(/-\s*([A-Z]{2})\s*$/);
+      if (mUfSufixo) comuns.UF = mUfSufixo[1];
+    }
+  }
+  if (!comuns.Ente) avisos.push('Não identifiquei se a donatária é Município ou Estado — confira Ente manualmente.');
+  if (!comuns.UF) avisos.push('Não identifiquei a UF da donatária — confira manualmente.');
+
+  return comuns;
+}
+
+function extrairVeiculosOficioTransferencia_(corpo, avisos) {
+  var tabelas = corpo.getTables();
+  if (!tabelas.length) {
+    avisos.push('Não encontrei nenhuma tabela no PDF (Anexo I) — preencha os veículos manualmente.');
+    return [];
+  }
+
+  var idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxRenavam = -1, idxPlaca = -1, idxValor = -1;
+  var achouCabecalho = false;
+
+  for (var t = 0; t < tabelas.length; t++) {
+    if (!tabelas[t].getNumRows()) continue;
+    var linhaCabecalho = tabelas[t].getRow(0);
+    var cabecalho = [];
+    for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
+      cabecalho.push(normalizarTexto_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+    }
+    if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
+
+    var acharColuna = function (pedaco) {
+      for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
+      return -1;
+    };
+    idxDescricao = acharColuna('DESCRI');
+    idxMarca = acharColuna('MARCA');
+    idxChassi = acharColuna('CHASSI');
+    idxRenavam = acharColuna('RENAV');
+    idxPlaca = acharColuna('PLACA');
+    idxValor = acharColuna('VALOR');
+    achouCabecalho = true;
+    break;
+  }
+
+  if (!achouCabecalho) {
+    avisos.push('Encontrei tabela(s) no PDF, mas nenhuma com coluna "Chassi" — preencha os veículos manualmente.');
+    return [];
+  }
+  if (idxRenavam === -1) {
+    avisos.push('Essa tabela não tem uma coluna de "Renavam" — preencha manualmente pra cada veículo.');
+  }
+
+  var veiculos = [];
+  for (var t2 = 0; t2 < tabelas.length; t2++) {
+    var tabelaAtual = tabelas[t2];
+    for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
+      var linha = tabelaAtual.getRow(l);
+      var chassiTexto = (idxChassi >= 0 && idxChassi < linha.getNumCells())
+        ? normalizarTexto_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
+      if (!validarChassi_(chassiTexto)) continue;
+      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? normalizarTexto_(linha.getCell(idx).getText()) : ''; };
+      veiculos.push({
+        Descricao: pegar(idxDescricao),
+        Marca: pegar(idxMarca),
+        Chassi: chassiTexto,
+        Renavam: pegar(idxRenavam).replace(/\s+/g, ''),
+        Placa: pegar(idxPlaca).replace(/\s+/g, '').toUpperCase(),
+        ValorVeiculo: normalizarValorMonetario_(pegar(idxValor))
+      });
+    }
+  }
+  if (!veiculos.length) avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
+  return veiculos;
+}
+
 /**
  * Motor genérico de importação em lote — usado pelas funções de
  * importação pontual de ofícios/termos de doação (ex.:
