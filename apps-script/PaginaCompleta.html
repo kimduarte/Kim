@@ -2775,6 +2775,7 @@
     document.getElementById('mensagemNumeroProcesso').innerHTML = '';
     document.getElementById('mensagemImportarTermoPdfInicial').innerHTML = '';
     document.getElementById('mensagemImportarOficioPdfInicial').innerHTML = '';
+    document.getElementById('mensagemCadastro').innerHTML = '';
     document.getElementById('modalNumeroProcessoFundo').classList.add('ativo');
   }
 
@@ -3401,11 +3402,31 @@
       partes.push('Renavam nunca vem no Termo — preencha na hora de revisar cada veículo.');
       if (resp.avisos && resp.avisos.length) partes = partes.concat(resp.avisos);
       mostrarMensagem('mensagemGlobal', resp.avisos && resp.avisos.length ? 'aviso' : 'sucesso', partes.join(' | '));
+      mostrarAvisoPersistentePdf_(resp.avisos);
     } catch (erro) {
       msg.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     } finally {
       inputEl.value = '';
     }
+  }
+
+  // Avisos da importação de PDF (Termo ou Ofício) — ex.: "o item 31 não foi
+  // lido" — não devem só passar rápido pela tela e sumir: a pessoa pode
+  // levar vários minutos preenchendo as etapas de Operação/Localização/
+  // Veículo antes de chegar em Confirmação, e precisa lembrar de agir sobre
+  // o aviso até lá. Por isso ficam fixados em #mensagemCadastro (visível em
+  // todas as etapas do formulário, já que é uma única <form> com 4 blocos
+  // "etapa" alternando dentro dela) em vez de na faixa de topo que some
+  // sozinha em 8 segundos — só é limpo quando o cadastro é concluído ou
+  // reiniciado (ver reiniciarFormularioCadastro_).
+  function mostrarAvisoPersistentePdf_(avisos) {
+    var div = document.getElementById('mensagemCadastro');
+    if (!avisos || !avisos.length) {
+      div.innerHTML = '';
+      return;
+    }
+    div.innerHTML = '<div class="mensagem aviso"><strong>Confira antes de concluir o cadastro:</strong><br>' +
+      avisos.map(function (a) { return escaparHtml(a); }).join('<br>') + '</div>';
   }
 
   // Mesma ideia do importarTermoPdfInicial_, mas para o Ofício de
@@ -3445,6 +3466,7 @@
       }
       if (resp.avisos && resp.avisos.length) partes = partes.concat(resp.avisos);
       mostrarMensagem('mensagemGlobal', resp.avisos && resp.avisos.length ? 'aviso' : 'sucesso', partes.join(' | '));
+      mostrarAvisoPersistentePdf_(resp.avisos);
     } catch (erro) {
       msg.innerHTML = '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     } finally {
@@ -3568,6 +3590,7 @@
   function reiniciarFormularioCadastro_() {
     document.getElementById('formCadastro').reset();
     document.getElementById('c_ID').value = '';
+    document.getElementById('mensagemCadastro').innerHTML = '';
     document.getElementById('statusCep').textContent = '';
     document.getElementById('listaVeiculosColetados').innerHTML = '';
     document.getElementById('dicaQuantidadeVeiculos').textContent = '';
