@@ -1476,11 +1476,13 @@ function listarProcessos(filtros) {
   var maiorIdPorChave = {};
 
   todos.forEach(function (v) {
-    // Agrupa pelo Número do Processo (o que a Listagem exibe). Registros
-    // antigos, migrados antes desse campo existir, não têm NumeroProcesso —
-    // para não cair todos num único grupo gigante (o que travaria a tela),
-    // esses usam o Termo de Doação como identificador de agrupamento.
-    var chave = chaveProcesso_(v);
+    // Agrupa pelo Número do Processo + Termo de Doação (ver
+    // chaveListagemProcesso_) — não só pelo Número do Processo, porque um
+    // mesmo processo SEI pode acumular mais de um Termo ao longo do tempo,
+    // e cada Termo precisa continuar editável/exportável separadamente.
+    // Registros antigos, migrados antes do campo NumeroProcesso existir,
+    // usam Ano + Termo de Doação como identificador de agrupamento.
+    var chave = chaveListagemProcesso_(v);
     if (!grupos[chave]) {
       grupos[chave] = {
         chave: chave,
@@ -1558,7 +1560,9 @@ function listarProcessos(filtros) {
 /**
  * Veículos de UM processo só — chamada pela tela de Listagem no momento em
  * que a pessoa expande aquele card (não mais junto com listarProcessos).
- * "chave" é o campo "chave" que cada processo já traz (ver chaveProcesso_).
+ * "chave" é o campo "chave" que cada processo já traz (ver
+ * chaveListagemProcesso_ — a mesma usada por listarProcessos, não a
+ * chaveProcesso_ "estável" usada por TEP/Cobrança).
  * Os mesmos filtros (ano, transferido, busca etc.) usados em listarProcessos
  * devem ser passados de novo aqui, senão um processo que só aparece com um
  * filtro aplicado devolveria a lista errada (ou vazia) ao expandir.
@@ -1567,7 +1571,7 @@ function getVeiculosDoProcesso(chave, filtros) {
   if (!chave) throw new Error('Processo inválido.');
   var todos = listarVeiculos(filtros || {});
   return todos
-    .filter(function (v) { return chaveProcesso_(v) === chave; })
+    .filter(function (v) { return chaveListagemProcesso_(v) === chave; })
     .map(paraDtoListagem_);
 }
 
@@ -2165,17 +2169,18 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
 }
 
 /**
- * Identidade de um processo pra fins de agrupamento — usada pela tela de
- * Processos, pelo aviso de TEP e pelo detalhamento por UF/Região.
- * NumeroProcesso quando existe; senão Ano + Número SEI (quando tiver) ou
- * Ano + Termo de Doação. O Ano entra porque o SENASP reaproveita os
- * mesmos números de termo a cada ano (ex.: "Termo de Doação SENASP 85"
- * existiu em 2024 E de novo, sem relação nenhuma, em 2026). O Número SEI
- * tem prioridade sobre o texto do termo porque é o identificador
- * administrativo de verdade: dois números de termo iguais no MESMO ano,
- * mas com SEI diferente (ex.: "SENASP 411" usado tanto por um órgão do
- * Pará quanto pela Prefeitura de Florianópolis, no mesmo 2026), só o SEI
- * consegue diferenciar — o texto do termo sozinho ainda juntaria os dois.
+ * Identidade ESTÁVEL de um processo pra fins administrativos (TEP,
+ * Cobrança, e listas fechadas de chaves de correções pontuais já feitas —
+ * ver PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_). NumeroProcesso quando
+ * existe; senão Ano + Número SEI (quando tiver) ou Ano + Termo de Doação.
+ * O Ano entra porque o SENASP reaproveita os mesmos números de termo a
+ * cada ano (ex.: "Termo de Doação SENASP 85" existiu em 2024 E de novo,
+ * sem relação nenhuma, em 2026). O Número SEI tem prioridade sobre o
+ * texto do termo porque é o identificador administrativo de verdade: dois
+ * números de termo iguais no MESMO ano, mas com SEI diferente (ex.:
+ * "SENASP 411" usado tanto por um órgão do Pará quanto pela Prefeitura de
+ * Florianópolis, no mesmo 2026), só o SEI consegue diferenciar — o texto
+ * do termo sozinho ainda juntaria os dois.
  *
  * Separador '_' (não ':') de propósito: uma chave tipo "2026:33808427"
  * parece hora/duração (H:MM:SS) pro autoparser do Google Sheets, que
@@ -2183,9 +2188,37 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
  * mesmo com a coluna travada como texto puro — já aconteceu com as chaves
  * de TEP finalizado. '_' nunca é interpretado como data/hora, então essa
  * classe de bug não pode mais acontecer aqui.
+ *
+ * IMPORTANTE: esta função é referenciada por dado já GRAVADO (a coluna
+ * "Chave" de CobrancaProcessos/TepFinalizados/TepObservacoes, e a lista
+ * fechada PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_) — nunca mude a fórmula
+ * dela; qualquer ajuste no agrupamento "processo" pra telas/edição/
+ * exportação vai em chaveListagemProcesso_ abaixo, que não é persistida
+ * em lugar nenhum.
  */
 function chaveProcesso_(registro) {
   if (registro.NumeroProcesso) return registro.NumeroProcesso;
+  return (registro.Ano || '') + '_' + (registro.NumeroSei || registro.TermoDoacao || '');
+}
+
+/**
+ * Identidade de processo usada pela tela de Processos (listagem, edição e
+ * exportação) e pelo detalhamento por UF/Região das Estatísticas — sempre
+ * calculada na hora, nunca gravada em planilha, então pode mudar de
+ * fórmula livremente sem quebrar dado histórico (ao contrário de
+ * chaveProcesso_, ver acima).
+ *
+ * Igual a chaveProcesso_, mas quando há NumeroProcesso, INCLUI também o
+ * Termo de Doação — porque um mesmo processo SEI às vezes acumula mais de
+ * um Termo de Doação ao longo do tempo (o número do processo fica aberto
+ * e recebe vários atos). Se agrupássemos só por NumeroProcesso, um card
+ * "processo" misturaria veículos de Termos diferentes, e editar esse card
+ * reescreveria o Termo/Donatária/endereço de TODOS eles com o valor de
+ * só um — inclusive de veículos de um Termo antigo, já concluído, que não
+ * tem nada a ver com a edição em questão.
+ */
+function chaveListagemProcesso_(registro) {
+  if (registro.NumeroProcesso) return registro.NumeroProcesso + '|' + (registro.TermoDoacao || '');
   return (registro.Ano || '') + '_' + (registro.NumeroSei || registro.TermoDoacao || '');
 }
 
@@ -7490,16 +7523,17 @@ function listarVeiculosDetalhadosUF_(valor, ano, transferido, campoFiltro, ente,
   if (ente) filtros.ente = ente;
   var registros = listarVeiculos(filtros);
 
-  // "Qtd" = quantos veículos do mesmo processo aparecem neste recorte (UF +
-  // Ano + Transferidos) — contexto útil ao ver cada veículo isoladamente.
+  // "Qtd" = quantos veículos do mesmo processo (Nº Processo + Termo de
+  // Doação — ver chaveListagemProcesso_) aparecem neste recorte (UF + Ano +
+  // Transferidos) — contexto útil ao ver cada veículo isoladamente.
   var qtdPorProcesso = {};
   registros.forEach(function (r) {
-    var chave = chaveProcesso_(r);
+    var chave = chaveListagemProcesso_(r);
     qtdPorProcesso[chave] = (qtdPorProcesso[chave] || 0) + 1;
   });
 
   return registros.map(function (r) {
-    var chave = chaveProcesso_(r);
+    var chave = chaveListagemProcesso_(r);
     return {
       Processo: r.NumeroProcesso || r.NumeroSei || '',
       NumeroSei: r.NumeroSei,
@@ -7650,7 +7684,7 @@ function exportarProcessosSelecionadosXlsx(chaves) {
   var chavesSet = {};
   chaves.forEach(function (c) { chavesSet[c] = true; });
 
-  var registros = listarVeiculos({}).filter(function (r) { return chavesSet[chaveProcesso_(r)]; });
+  var registros = listarVeiculos({}).filter(function (r) { return chavesSet[chaveListagemProcesso_(r)]; });
   // Mesma ordem que a tela Processos usa (mais recente primeiro) — ID tem
   // largura fixa, então comparar como texto já reflete a ordem cronológica.
   registros.sort(function (a, b) {
