@@ -4102,13 +4102,18 @@
     var temEndereco = p.logradouro || p.cep;
     var faltam = faltamVeiculosProcesso_(p);
 
-    var enderecoHtml = temEndereco
+    // Número SEI sempre aparece como linha própria (quando tiver), antes do
+    // endereço — deixou de ser mostrado só no caso raro de faltar endereço
+    // E número de processo ao mesmo tempo.
+    var numeroSeiHtml = p.numeroSei
+      ? '<div class="processo-endereco">Número SEI: ' + escaparHtml(p.numeroSei) + '</div>' : '';
+    var enderecoHtml = numeroSeiHtml + (temEndereco
       ? '<div class="processo-endereco">Endereço: ' + escaparHtml(p.logradouro) + ', ' + escaparHtml(p.numero) +
         (p.complemento ? ' — ' + escaparHtml(p.complemento) : '') + ' — ' + escaparHtml(p.bairro) + ', ' +
         escaparHtml(p.municipio) + (p.cep ? ' — CEP ' + escaparHtml(p.cep) : '') + '</div>'
       : (p.numeroProcesso
         ? '<div class="processo-endereco">Número do processo: ' + escaparHtml(p.numeroProcesso) + '</div>'
-        : '<div class="processo-endereco">Número SEI do Termo de Doação: ' + escaparHtml(p.numeroSei || 'não informado') + '</div>');
+        : ''));
 
     var avisoFaltantesHtml = faltam > 0
       ? '<div class="mensagem erro">Faltam ' + faltam + ' veículo(s) para completar esta operação (eram esperados ' +
