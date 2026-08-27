@@ -2548,6 +2548,11 @@
     });
 
     document.getElementById('c_Contrato').addEventListener('input', function () {
+      // Formato normal é NÚMERO/ANO (mascarado abaixo), mas doações
+      // EXTRALEGADO não têm número de contrato — se o que já foi digitado
+      // começa com letra, deixa passar livre (só o maxlength do campo
+      // limita) em vez de filtrar como se fosse sempre numérico.
+      if (/^[A-Za-zÀ-ú]/.test(this.value)) return;
       var valor = this.value.replace(/[^\d/]/g, '');
       var partes = valor.split('/');
       var numero = partes[0].replace(/^0+(?=\d)/, '');
@@ -4421,6 +4426,8 @@
     });
     document.getElementById('pe_TemAditivo').addEventListener('change', atualizarVisibilidadeAditivoProcesso_);
     document.getElementById('pe_Contrato').addEventListener('input', function () {
+      // Ver comentário equivalente em c_Contrato (etapa de Novo cadastro).
+      if (/^[A-Za-zÀ-ú]/.test(this.value)) return;
       var valor = this.value.replace(/[^\d/]/g, '');
       var partes = valor.split('/');
       var numero = partes[0].replace(/^0+(?=\d)/, '');
