@@ -589,8 +589,9 @@
             <div class="grid-form">
               <div class="campo">
                 <label for="c_Contrato">Contrato *</label>
-                <input type="text" id="c_Contrato" required maxlength="20" placeholder="Ex: 123/2024"
-                  pattern="[1-9][0-9]*/[0-9]{4}" title="Use o formato NÚMERO/ANO, sem zero à esquerda no número. Ex: 123/2024">
+                <input type="text" id="c_Contrato" required maxlength="20" placeholder="Ex: 123/2024 ou EXTRALEGADO"
+                  pattern="[Ee][Xx][Tt][Rr][Aa][Ll][Ee][Gg][Aa][Dd][Oo]|[1-9][0-9]*/[0-9]{4}"
+                  title="Use o formato NÚMERO/ANO (sem zero à esquerda no número, ex: 123/2024) ou, pra doações sem número de contrato, EXTRALEGADO">
               </div>
               <div class="campo">
                 <label for="c_QtdContrato">Quantidade de veículos deste processo *</label>
@@ -860,8 +861,9 @@
             </div>
             <div class="campo">
               <label for="pe_Contrato">Contrato <span class="opcional">(opcional)</span></label>
-              <input type="text" id="pe_Contrato" maxlength="20" pattern="[1-9][0-9]*/[0-9]{4}"
-                title="Use o formato NÚMERO/ANO, sem zero à esquerda no número. Ex: 123/2024">
+              <input type="text" id="pe_Contrato" maxlength="20"
+                pattern="[Ee][Xx][Tt][Rr][Aa][Ll][Ee][Gg][Aa][Dd][Oo]|[1-9][0-9]*/[0-9]{4}"
+                title="Use o formato NÚMERO/ANO (sem zero à esquerda no número, ex: 123/2024) ou, pra doações sem número de contrato, EXTRALEGADO">
             </div>
             <div class="campo">
               <label for="pe_QtdContrato">Quantidade de veículos do contrato <span class="opcional">(opcional)</span></label>
