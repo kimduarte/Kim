@@ -2234,17 +2234,30 @@ function chaveProcesso_(registro) {
  * chaveProcesso_, ver acima).
  *
  * Igual a chaveProcesso_, mas quando há NumeroProcesso, INCLUI também o
- * Termo de Doação — porque um mesmo processo SEI às vezes acumula mais de
- * um Termo de Doação ao longo do tempo (o número do processo fica aberto
- * e recebe vários atos). Se agrupássemos só por NumeroProcesso, um card
- * "processo" misturaria veículos de Termos diferentes, e editar esse card
- * reescreveria o Termo/Donatária/endereço de TODOS eles com o valor de
- * só um — inclusive de veículos de um Termo antigo, já concluído, que não
- * tem nada a ver com a edição em questão.
+ * Termo de Doação e a Donatária — porque:
+ *  a) um mesmo processo SEI às vezes acumula mais de um Termo de Doação ao
+ *     longo do tempo (o número do processo fica aberto e recebe vários
+ *     atos); e
+ *  b) um mesmo Termo de Doação às vezes destina veículos a MAIS DE UMA
+ *     donatária (ex.: um Termo repartido entre 3 órgãos diferentes do
+ *     mesmo Estado) — cada uma cadastrada num "Novo cadastro" separado,
+ *     repetindo o mesmo Número de Processo/Termo, mas com Donatária/UF/
+ *     endereço próprios.
+ * Se agrupássemos só por Número de Processo (ou só por Processo+Termo), um
+ * card "processo" misturaria veículos de Termos e/ou donatárias diferentes,
+ * e editar esse card reescreveria o Termo/Donatária/endereço de TODOS eles
+ * com o valor de só um — inclusive de veículos de outro Termo ou de outra
+ * donatária que não têm nada a ver com a edição em questão.
+ *
+ * A Donatária entra normalizada (sem acento, maiúscula, sem espaços nas
+ * pontas) pra pequenas diferenças de digitação (maiúscula/minúscula,
+ * espaço a mais) não separarem em cards diferentes o que na prática é a
+ * mesma donatária.
  */
 function chaveListagemProcesso_(registro) {
-  if (registro.NumeroProcesso) return registro.NumeroProcesso + '|' + (registro.TermoDoacao || '');
-  return (registro.Ano || '') + '_' + (registro.NumeroSei || registro.TermoDoacao || '');
+  var donatariaChave = removerAcentos_(registro.Donataria || '').trim().toUpperCase();
+  if (registro.NumeroProcesso) return registro.NumeroProcesso + '|' + (registro.TermoDoacao || '') + '|' + donatariaChave;
+  return (registro.Ano || '') + '_' + (registro.NumeroSei || registro.TermoDoacao || '') + '|' + donatariaChave;
 }
 
 /**
