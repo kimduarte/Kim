@@ -357,6 +357,31 @@ function normalizarTexto_(valor) {
   return texto;
 }
 
+/**
+ * Reconstrói o texto de uma célula de tabela (Termo de Doação/Ofício em
+ * PDF) cuja coluna é tão estreita que a conversão via OCR quebra o
+ * conteúdo em várias linhas dentro da MESMA célula — às vezes letra por
+ * letra (ex.: cabeçalho "DESCRIÇÃO" vira "DESC\nRIÇÃ\nO", "RENAVAM" vira
+ * "REN\nAVA\nM"). Usar normalizarTexto_() nesses casos insere um espaço
+ * em cada quebra ("DESC RIÇÃ O"), o que faz o cabeçalho parar de bater
+ * com o nome da coluna procurada (acharColuna) e os dados saírem com
+ * espaços no meio de palavras/códigos que não deveriam ter.
+ *
+ * A correção: junta as linhas SEM inserir separador (cada linha já vem
+ * cortada exatamente onde o texto original continua na própria célula —
+ * um espaço real dentro de uma linha, como em "R LT", é preservado por
+ * pertencer ao conteúdo, não à quebra).
+ */
+function juntarCelulaQuebrada_(texto) {
+  return String(texto || '')
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(function (linha) { return linha.trim(); })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function normalizarMarca_(valor) {
   var marca = normalizarTexto_(valor).toUpperCase();
   return CORRECOES_MARCA[marca] || marca;
@@ -2949,7 +2974,7 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
     var linhaCabecalho = tabelas[t].getRow(0);
     var cabecalho = [];
     for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
-      cabecalho.push(normalizarTexto_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+      cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
     }
     if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
 
@@ -2995,9 +3020,9 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
     for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
       var linha = tabelaAtual.getRow(l);
       var chassiTexto = (idxChassi >= 0 && idxChassi < linha.getNumCells())
-        ? normalizarTexto_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
+        ? juntarCelulaQuebrada_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
       if (!validarChassi_(chassiTexto)) continue;
-      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? normalizarTexto_(linha.getCell(idx).getText()) : ''; };
+      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : ''; };
       veiculos.push({
         Descricao: pegar(idxDescricao),
         Marca: pegar(idxMarca),
@@ -3202,7 +3227,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     var linhaCabecalho = tabelas[t].getRow(0);
     var cabecalho = [];
     for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
-      cabecalho.push(normalizarTexto_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+      cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
     }
     if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
 
@@ -3210,7 +3235,9 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
       for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
       return -1;
     };
+    // Alguns Ofícios chamam a coluna de numeração "ITEM", outros "ORDEM"/"ORD".
     idxItem = acharColuna('ITEM');
+    if (idxItem === -1) idxItem = acharColuna('ORD');
     idxDescricao = acharColuna('DESCRI');
     idxMarca = acharColuna('MARCA');
     idxChassi = acharColuna('CHASSI');
@@ -3244,14 +3271,14 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
       var linha = tabelaAtual.getRow(l);
       var itemTexto = (idxItem >= 0 && idxItem < linha.getNumCells())
-        ? normalizarTexto_(linha.getCell(idxItem).getText()).replace(/\D/g, '') : '';
+        ? juntarCelulaQuebrada_(linha.getCell(idxItem).getText()).replace(/\D/g, '') : '';
       var itemNum = itemTexto ? parseInt(itemTexto, 10) : 0;
       if (itemNum > maiorItem) maiorItem = itemNum;
       var chassiTexto = (idxChassi >= 0 && idxChassi < linha.getNumCells())
-        ? normalizarTexto_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
+        ? juntarCelulaQuebrada_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
       if (!validarChassi_(chassiTexto)) continue;
       if (itemNum) itensComChassi[itemNum] = true;
-      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? normalizarTexto_(linha.getCell(idx).getText()) : ''; };
+      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : ''; };
       veiculos.push({
         Descricao: pegar(idxDescricao),
         Marca: pegar(idxMarca),
