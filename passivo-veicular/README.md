@@ -31,8 +31,9 @@ Servidor (`.gs`):
   R$), usada para semear a aba "TabelaInfracoes" na primeira vez e também
   para autopreencher Descrição e Valor quando alguém escolhe um artigo pela
   busca no cadastro de débito. Se essa planilha já existia antes dessa
-  tabela existir, rode `atualizarTabelaInfracoesRenainf_` uma vez pelo
-  editor do Apps Script pra recarregar os 461 códigos com os valores.
+  tabela existir, rode `atualizarTabelaInfracoes` uma vez pelo editor do
+  Apps Script (menu de funções ao lado de "Executar") pra recarregar os
+  461 códigos com os valores.
 
 Cliente (`.html`):
 - `Pagina.html` — monta a página a partir dos arquivos abaixo e faz o

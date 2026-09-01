@@ -216,12 +216,16 @@ function pvSeedTabelaInfracoesSeVazia_(ss) {
   sheet.getRange(2, 1, linhas.length, CABECALHO_PV_TABELA_INFRACOES.length).setValues(linhas);
 }
 
-// Rode pelo editor do Apps Script se a planilha do Passivo já foi criada
-// ANTES da tabela RENAINF existir — substitui o conteúdo da aba
-// TabelaInfracoes pela tabela oficial completa (258 códigos). Limpa as
-// linhas antigas primeiro, então rode de novo só se quiser mesmo repor a
-// tabela do zero (perde edições manuais feitas direto na planilha).
-function atualizarTabelaInfracoesRenainf_() {
+// SEM "_" no final DE PROPÓSITO: funções com "_" no nome ficam escondidas
+// no menu "Selecionar função" do editor do Apps Script, e esta aqui
+// precisa aparecer nele pra poder ser rodada manualmente. Rode pelo editor
+// se a planilha do Passivo já foi criada ANTES da tabela de código de
+// enquadramento existir (ou pra recarregar a tabela depois de uma
+// atualização de valores) — substitui o conteúdo da aba TabelaInfracoes
+// pela tabela oficial completa (461 códigos). Limpa as linhas antigas
+// primeiro, então rode de novo só se quiser mesmo repor a tabela do zero
+// (perde edições manuais feitas direto na planilha).
+function atualizarTabelaInfracoes() {
   exigirPerfilAdmin_();
   var sheet = getOrCreateSheetPassivo_(SHEET_PV_TABELA_INFRACOES, CABECALHO_PV_TABELA_INFRACOES);
   var ultimaLinha = sheet.getLastRow();
@@ -231,7 +235,7 @@ function atualizarTabelaInfracoesRenainf_() {
   pvFormatarColunaComoTexto_(sheet, CABECALHO_PV_TABELA_INFRACOES, 'Codigo');
   var linhas = pvDadosRenainf_();
   sheet.getRange(2, 1, linhas.length, CABECALHO_PV_TABELA_INFRACOES.length).setValues(linhas);
-  var mensagem = 'Tabela de infrações atualizada com ' + linhas.length + ' códigos oficiais (RENAINF).';
+  var mensagem = 'Tabela de infrações atualizada com ' + linhas.length + ' códigos de enquadramento.';
   Logger.log(mensagem);
   try {
     SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Passivo Veicular', 10);
