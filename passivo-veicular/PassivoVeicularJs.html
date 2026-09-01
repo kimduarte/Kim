@@ -20,6 +20,7 @@
   var PV_SELO_STATUS_INFRACAO = { 'PENDENTE': 'selo-pendente', 'ENVIADO': 'selo-nao', 'RECEBIDO': 'selo-azul', 'CANCELADA': 'selo-sim', 'NEGADA': 'selo-vermelho', 'PAGO': 'selo-sim' };
   var PV_ORGAO_MUNICIPAL_VALOR = '__outro__';
   var PV_MAPA_ARTIGOS = {};
+  var PV_MAPA_CODIGOS = {};
 
   function pvInicializar_() {
     if (PV_INICIALIZADO) return;
@@ -631,12 +632,18 @@
     // salvar. Cada item chega como [Artigo, Descricao, Codigo, Valor]
     // (array simples, não objeto) — ver comentário em
     // getListasDebitosPassivo no servidor.
+    // PV_MAPA_CODIGOS usa o Código de enquadramento cru como chave — serve
+    // pra quando a pessoa digita direto no campo "Código de enquadramento"
+    // (em vez de buscar pelo Artigo), sem precisar escolher nada na lista.
     PV_MAPA_ARTIGOS = {};
+    PV_MAPA_CODIGOS = {};
     var datalist = document.getElementById('pvi_ArtigoDatalist');
     datalist.innerHTML = PV_LISTAS_DEBITOS.tabelaInfracoes.map(function (item) {
       var artigo = item[0], descricao = item[1], codigo = item[2], valor = item[3];
       var rotulo = 'Art. ' + artigo + ' — ' + descricao + (codigo ? ' (Cód. ' + codigo + ')' : '');
-      PV_MAPA_ARTIGOS[rotulo] = { Artigo: artigo, Descricao: descricao, Codigo: codigo, Valor: valor };
+      var dados = { Artigo: artigo, Descricao: descricao, Codigo: codigo, Valor: valor };
+      PV_MAPA_ARTIGOS[rotulo] = dados;
+      if (codigo) PV_MAPA_CODIGOS[codigo] = dados;
       return '<option value="' + escaparHtml(rotulo) + '"></option>';
     }).join('');
   }
@@ -649,6 +656,18 @@
     var item = PV_MAPA_ARTIGOS[valor];
     if (item) {
       document.getElementById('pvi_Codigo').value = item.Codigo || '';
+      document.getElementById('pvi_DescricaoInfracao').value = item.Descricao || '';
+      document.getElementById('pvi_Valor').value = (item.Valor || item.Valor === 0) ? item.Valor : '';
+    }
+  }
+
+  // Mesmo autopreenchimento, mas disparado ao digitar direto no campo
+  // "Código de enquadramento" em vez de buscar pelo Artigo.
+  function pvAplicarCodigoDigitado_() {
+    var codigo = document.getElementById('pvi_Codigo').value.trim();
+    var item = codigo ? PV_MAPA_CODIGOS[codigo] : null;
+    if (item) {
+      document.getElementById('pvi_ArtigoBusca').value = 'Art. ' + item.Artigo + ' — ' + item.Descricao + ' (Cód. ' + codigo + ')';
       document.getElementById('pvi_DescricaoInfracao').value = item.Descricao || '';
       document.getElementById('pvi_Valor').value = (item.Valor || item.Valor === 0) ? item.Valor : '';
     }
@@ -673,6 +692,8 @@
     });
     document.getElementById('pvi_ArtigoBusca').addEventListener('input', pvAplicarArtigoDigitado_);
     document.getElementById('pvi_ArtigoBusca').addEventListener('change', pvAplicarArtigoDigitado_);
+    document.getElementById('pvi_Codigo').addEventListener('input', pvAplicarCodigoDigitado_);
+    document.getElementById('pvi_Codigo').addEventListener('change', pvAplicarCodigoDigitado_);
     document.getElementById('formPvInfracao').addEventListener('submit', pvSubmeterInfracao_);
   }
 
