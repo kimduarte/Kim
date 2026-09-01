@@ -623,29 +623,34 @@
     htmlOrgaos += '<option value="' + PV_ORGAO_MUNICIPAL_VALOR + '">Outro / Município (digitar)</option>';
     selectModal.innerHTML = htmlOrgaos;
 
-    // Datalist em vez de <select>: com 258 artigos, rolar uma lista suspensa
-    // é inviável — assim a pessoa digita parte do artigo ou da descrição e
-    // o navegador filtra sozinho. PV_MAPA_ARTIGOS usa o texto completo da
-    // opção como chave (só ele garante ser único) pra achar de volta o
-    // Artigo/Código/Descrição reais na hora de preencher ou salvar.
-    // Cada item chega como [Artigo, Descricao, Codigo] (array simples, não
-    // objeto) — ver comentário em getListasDebitosPassivo no servidor.
+    // Datalist em vez de <select>: com centenas de artigos, rolar uma lista
+    // suspensa é inviável — assim a pessoa digita parte do artigo ou da
+    // descrição e o navegador filtra sozinho. PV_MAPA_ARTIGOS usa o texto
+    // completo da opção como chave (só ele garante ser único) pra achar de
+    // volta o Artigo/Código/Descrição/Valor reais na hora de preencher ou
+    // salvar. Cada item chega como [Artigo, Descricao, Codigo, Valor]
+    // (array simples, não objeto) — ver comentário em
+    // getListasDebitosPassivo no servidor.
     PV_MAPA_ARTIGOS = {};
     var datalist = document.getElementById('pvi_ArtigoDatalist');
     datalist.innerHTML = PV_LISTAS_DEBITOS.tabelaInfracoes.map(function (item) {
-      var artigo = item[0], descricao = item[1], codigo = item[2];
+      var artigo = item[0], descricao = item[1], codigo = item[2], valor = item[3];
       var rotulo = 'Art. ' + artigo + ' — ' + descricao + (codigo ? ' (Cód. ' + codigo + ')' : '');
-      PV_MAPA_ARTIGOS[rotulo] = { Artigo: artigo, Descricao: descricao, Codigo: codigo };
+      PV_MAPA_ARTIGOS[rotulo] = { Artigo: artigo, Descricao: descricao, Codigo: codigo, Valor: valor };
       return '<option value="' + escaparHtml(rotulo) + '"></option>';
     }).join('');
   }
 
+  // Ao escolher um artigo/código da lista, preenche Código, Descrição e —
+  // quando a tabela tiver um valor fixo pra esse código — o Valor também
+  // (a pessoa ainda pode ajustar à mão depois, ex.: multa com desconto).
   function pvAplicarArtigoDigitado_() {
     var valor = document.getElementById('pvi_ArtigoBusca').value;
     var item = PV_MAPA_ARTIGOS[valor];
     if (item) {
       document.getElementById('pvi_Codigo').value = item.Codigo || '';
       document.getElementById('pvi_DescricaoInfracao').value = item.Descricao || '';
+      document.getElementById('pvi_Valor').value = (item.Valor || item.Valor === 0) ? item.Valor : '';
     }
   }
 
@@ -654,6 +659,7 @@
     campo.value = '';
     document.getElementById('pvi_Codigo').value = '';
     document.getElementById('pvi_DescricaoInfracao').value = '';
+    document.getElementById('pvi_Valor').value = '';
     campo.focus();
   }
 
@@ -684,6 +690,9 @@
     document.getElementById('pvi_Valor').required = !ehInfracao;
     document.getElementById('pvi_StatusPagamento').required = !ehInfracao;
     document.getElementById('pvi_RotuloOrgao').textContent = ehInfracao ? 'Órgão autuador *' : 'Órgão / Autoridade *';
+    document.getElementById('pvi_RotuloValor').innerHTML = ehInfracao
+      ? 'Valor da infração (R$) <span class="opcional">(opcional — preenchido pelo código, se houver)</span>'
+      : 'Valor (R$) *';
   }
 
   // Ao cadastrar um débito, a primeira coisa a fazer é achar o veículo já

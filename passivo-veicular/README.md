@@ -17,14 +17,22 @@ Servidor (`.gs`):
 - `AbaVeiculos.gs` — CRUD da aba "Veiculos" (cadastro individual/lote,
   listagem, painel geral, edição, exclusão lógica, lixeira).
 - `AbaInfracoes.gs` — CRUD das abas "Infracoes"/"InfracoesEnvios", que agora
-  guardam débitos de qualquer tipo (Infração, IPVA, Licenciamento, Outra —
-  ver `PV_TIPOS_DEBITO` em `Setup.gs`), diferenciados pela coluna "Tipo".
-  Infração continua com os mesmos campos/fluxo de antes (AIT, Artigo, Órgão
-  autuador, StatusCancelamento); os demais tipos usam campos genéricos
-  (Valor, DataVencimento, Exercicio, StatusPagamento: Pendente/Pago). Os
+  guardam débitos de qualquer tipo (Infração, IPVA, Licenciamento, Taxas,
+  Outra — ver `PV_TIPOS_DEBITO` em `Setup.gs`), diferenciados pela coluna
+  "Tipo". Infração continua com os mesmos campos/fluxo de antes (AIT,
+  Artigo, Código de enquadramento, Órgão autuador, StatusCancelamento); os
+  demais tipos usam campos genéricos (DataVencimento, Exercicio,
+  StatusPagamento: Pendente/Pago). Valor (R$) é comum a todos os tipos —
+  para Infração é opcional e pode ser preenchido automaticamente ao
+  escolher um artigo/código na busca (ver `DadosInfracoesRenainf.gs`). Os
   envios de pedido valem para qualquer tipo de débito.
-- `DadosInfracoesRenainf.gs` — tabela oficial de códigos de infração
-  (RENAINF), usada só para semear a aba "TabelaInfracoes" na primeira vez.
+- `DadosInfracoesRenainf.gs` — tabela de código de enquadramento das
+  infrações de trânsito (código, artigo/base legal, descrição e valor em
+  R$), usada para semear a aba "TabelaInfracoes" na primeira vez e também
+  para autopreencher Descrição e Valor quando alguém escolhe um artigo pela
+  busca no cadastro de débito. Se essa planilha já existia antes dessa
+  tabela existir, rode `atualizarTabelaInfracoesRenainf_` uma vez pelo
+  editor do Apps Script pra recarregar os 461 códigos com os valores.
 
 Cliente (`.html`):
 - `Pagina.html` — monta a página a partir dos arquivos abaixo e faz o

@@ -89,9 +89,9 @@ function getListasDebitosPassivo() {
   var perfil = getPerfilUsuarioAtual_();
   if (perfil.perfil === 'sem_acesso') throw new Error('Você não tem acesso a este painel.');
 
-  // Devolve como array de arrays [Artigo, Descricao, Codigo] em vez de 258
-  // objetos com chave repetida — google.script.run trava com respostas
-  // grandes cheias de objetos; array simples é bem mais leve pra
+  // Devolve como array de arrays [Artigo, Descricao, Codigo, Valor] em vez
+  // de centenas de objetos com chave repetida — google.script.run trava com
+  // respostas grandes cheias de objetos; array simples é bem mais leve pra
   // serializar/enviar. Gravidade não vai porque não é usada no cliente.
   var sheetTabela = getOrCreateSheetPassivo_(SHEET_PV_TABELA_INFRACOES, CABECALHO_PV_TABELA_INFRACOES);
   var valoresTabela = sheetTabela.getDataRange().getValues();
@@ -101,7 +101,8 @@ function getListasDebitosPassivo() {
     tabelaInfracoes.push([
       String(valoresTabela[i][0] || ''),
       String(valoresTabela[i][1] || ''),
-      String(valoresTabela[i][2] || '')
+      String(valoresTabela[i][2] || ''),
+      valoresTabela[i][4] === '' || valoresTabela[i][4] === null || valoresTabela[i][4] === undefined ? '' : Number(valoresTabela[i][4])
     ]);
   }
 
