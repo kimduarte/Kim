@@ -3369,6 +3369,26 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
   }
   if (!veiculos.length) {
     avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
+    // Diagnóstico: nenhuma célula da tabela bateu como chassi válido (17
+    // caracteres alfanuméricos, sem I/O/Q) mesmo varrendo a linha inteira —
+    // em vez de continuar chutando a causa, mostra o texto bruto de cada
+    // célula das primeiras linhas pra investigação (⏎ marca quebra de
+    // linha dentro da própria célula, sinal de tabela estreita/OCR ruim).
+    var diagLinhas = [];
+    for (var td = 0; td < tabelas.length && diagLinhas.length < 4; td++) {
+      var tabelaD = tabelas[td];
+      for (var ld = 0; ld < tabelaD.getNumRows() && diagLinhas.length < 4; ld++) {
+        var linhaD = tabelaD.getRow(ld);
+        var celulasD = [];
+        for (var cd = 0; cd < linhaD.getNumCells(); cd++) {
+          celulasD.push('[' + cd + ']"' + linhaD.getCell(cd).getText().replace(/\n/g, '⏎') + '"');
+        }
+        diagLinhas.push('Tabela ' + td + ', linha ' + ld + ': ' + celulasD.join(' '));
+      }
+    }
+    if (diagLinhas.length) {
+      avisos.push('DIAGNÓSTICO (copie e envie esse texto pra investigação): ' + diagLinhas.join('  ||  '));
+    }
   } else if (maiorItem > veiculos.length) {
     var itensFaltando = [];
     for (var it = 1; it <= maiorItem; it++) {
