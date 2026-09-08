@@ -7398,41 +7398,59 @@ function enviarEmailViaGraph_(destinatario, cc, assunto, corpo) {
   return true;
 }
 
+var LIMITE_TRANSFERIDOS_PAGINA = 100;
+
 /**
- * Últimos veículos transferidos, do mais recente pro mais antigo — usado
- * pelo atalho "Ver transferidos" da tela Início. Limita a 50 pra não
- * pesar a tela (é uma lista de "atividade recente", não um relatório
- * completo). A parte cara (achar todos os transferidos) fica em cache,
- * mesma técnica de getCobrancaBaseCache_/getEstatisticas.
+ * Veículos transferidos, do mais recente pro mais antigo, paginado (100
+ * por página — ver LIMITE_TRANSFERIDOS_PAGINA) — histórico completo, não
+ * só os mais recentes. A parte cara (achar e ordenar TODOS os
+ * transferidos) fica em cache uma única vez; cada página é só um slice
+ * em memória em cima do resultado já cacheado, mesma técnica de
+ * getCobrancaBaseCache_/getEstatisticas.
  */
-function listarUltimosTransferidos() {
+function listarUltimosTransferidos(filtros) {
+  var pagina = Math.max(1, parseInt(filtros && filtros.pagina, 10) || 1);
+
   var cache = CacheService.getDocumentCache();
   var cacheado = cache.get('ultimos_transferidos');
-  if (cacheado) return JSON.parse(cacheado);
+  var todos;
+  if (cacheado) {
+    todos = JSON.parse(cacheado);
+  } else {
+    var transferidos = listarVeiculos({ transferido: 'SIM' });
+    transferidos.sort(function (a, b) {
+      return new Date(b.DataTransferencia || 0) - new Date(a.DataTransferencia || 0);
+    });
 
-  var transferidos = listarVeiculos({ transferido: 'SIM' });
-  transferidos.sort(function (a, b) {
-    return new Date(b.DataTransferencia || 0) - new Date(a.DataTransferencia || 0);
-  });
+    todos = transferidos.map(function (v) {
+      return {
+        id: v.ID,
+        placa: v.Placa,
+        chassi: v.Chassi,
+        marca: v.Marca,
+        descricao: v.Descricao,
+        donataria: v.Donataria,
+        uf: v.UF,
+        dataTransferencia: v.DataTransferencia,
+        numeroProcesso: v.NumeroProcesso,
+        termoDoacao: v.TermoDoacao
+      };
+    });
 
-  var resultado = transferidos.slice(0, 50).map(function (v) {
-    return {
-      id: v.ID,
-      placa: v.Placa,
-      chassi: v.Chassi,
-      marca: v.Marca,
-      descricao: v.Descricao,
-      donataria: v.Donataria,
-      uf: v.UF,
-      dataTransferencia: v.DataTransferencia,
-      numeroProcesso: v.NumeroProcesso,
-      termoDoacao: v.TermoDoacao
-    };
-  });
+    var json = JSON.stringify(todos);
+    if (json.length < 100 * 1024) cache.put('ultimos_transferidos', json, CACHE_DASHBOARD_SEGUNDOS);
+  }
 
-  var json = JSON.stringify(resultado);
-  if (json.length < 100 * 1024) cache.put('ultimos_transferidos', json, CACHE_DASHBOARD_SEGUNDOS);
-  return resultado;
+  var totalPaginas = Math.max(1, Math.ceil(todos.length / LIMITE_TRANSFERIDOS_PAGINA));
+  pagina = Math.min(pagina, totalPaginas);
+  var inicio = (pagina - 1) * LIMITE_TRANSFERIDOS_PAGINA;
+
+  return {
+    itens: todos.slice(inicio, inicio + LIMITE_TRANSFERIDOS_PAGINA),
+    pagina: pagina,
+    totalPaginas: totalPaginas,
+    totalItens: todos.length
+  };
 }
 
 function getEstatisticas() {

@@ -1183,12 +1183,17 @@
     <section id="tela-transferidos" class="tela">
       <div class="pagina-titulo">
         <div>
-          <h2>Últimos Veículos Transferidos</h2>
-          <p>Os veículos mais recentemente marcados como transferidos, do mais novo pro mais antigo.</p>
+          <h2>Histórico de Veículos Transferidos</h2>
+          <p>Todos os veículos marcados como transferidos, do mais novo pro mais antigo — 100 por página.</p>
         </div>
       </div>
 
       <div id="transferidosResultado"><div class="carregando">Carregando...</div></div>
+      <div class="rodape-tabela" id="rodapePaginacaoTransferidos" style="display:none;">
+        <button type="button" class="secundario" id="botaoPaginaAnteriorTransferidos">‹ Página anterior</button>
+        <span id="infoPaginaTransferidos"></span>
+        <button type="button" class="secundario" id="botaoPaginaProximaTransferidos">Próxima página ›</button>
+      </div>
     </section>
 
     <section id="tela-relatorioProdutividade" class="tela">
@@ -1807,6 +1812,7 @@
     configurarModalCobranca_();
     configurarEscolhaModeloProdutividade_();
     configurarModalCliqueProdutividade_();
+    configurarTransferidos_();
   });
 
   // ---------- Navegação entre telas ----------
@@ -2248,26 +2254,48 @@
     });
   }
 
-  // ---------- Últimos Veículos Transferidos ----------
+  // ---------- Histórico de Veículos Transferidos ----------
+  var PAGINA_ATUAL_TRANSFERIDOS = 1;
+
+  function configurarTransferidos_() {
+    document.getElementById('botaoPaginaAnteriorTransferidos').addEventListener('click', function () {
+      if (PAGINA_ATUAL_TRANSFERIDOS <= 1) return;
+      PAGINA_ATUAL_TRANSFERIDOS--;
+      carregarTransferidos_();
+    });
+    document.getElementById('botaoPaginaProximaTransferidos').addEventListener('click', function () {
+      PAGINA_ATUAL_TRANSFERIDOS++;
+      carregarTransferidos_();
+    });
+  }
+
   async function carregarTransferidos_() {
     mostrarSkeleton_('transferidosResultado', 4);
     try {
-      var itens = await chamarServidor_('listarUltimosTransferidos');
-      renderizarTransferidos_(itens);
+      var resp = await chamarServidor_('listarUltimosTransferidos', { pagina: PAGINA_ATUAL_TRANSFERIDOS });
+      PAGINA_ATUAL_TRANSFERIDOS = resp.pagina || 1;
+      renderizarTransferidos_(resp);
     } catch (erro) {
       document.getElementById('transferidosResultado').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
     }
   }
 
-  function renderizarTransferidos_(itens) {
-    itens = itens || [];
+  function renderizarTransferidos_(resp) {
+    var itens = (resp && resp.itens) || [];
     var container = document.getElementById('transferidosResultado');
+    var rodape = document.getElementById('rodapePaginacaoTransferidos');
+
     if (!itens.length) {
       container.innerHTML = '<div class="card"><p>Nenhum veículo transferido ainda.</p></div>';
+      rodape.style.display = 'none';
       return;
     }
 
+    // Numeração contínua entre páginas (página 2 começa no 101, não no 1
+    // de novo), pra ficar claro que é um histórico único, não uma lista
+    // que reinicia a cada página.
+    var inicioNumeracao = (resp.pagina - 1) * 100;
     var linhas = itens.map(function (item, i) {
       var referencia = item.numeroProcesso || item.termoDoacao || '(sem referência)';
       var descricaoVeiculo = [item.marca, item.descricao].filter(Boolean).join(' ');
@@ -2275,7 +2303,7 @@
         ? new Date(item.dataTransferencia).toLocaleDateString('pt-BR')
         : '—';
       return '<div class="sinesp-linha-item">' +
-        '<span>' + (i + 1) + '. <strong>' + escaparHtml(item.placa || item.chassi || '—') + '</strong>' +
+        '<span>' + (inicioNumeracao + i + 1) + '. <strong>' + escaparHtml(item.placa || item.chassi || '—') + '</strong>' +
         (descricaoVeiculo ? ' — ' + escaparHtml(descricaoVeiculo) : '') + '<br>' +
         '<span style="font-size:12px; color:var(--texto-suave);">' +
         escaparHtml(item.donataria || '') + ' • ' + escaparHtml(item.uf || '') + ' • Processo ' + escaparHtml(referencia) +
@@ -2284,7 +2312,17 @@
     }).join('');
 
     container.innerHTML = '<div class="card"><p style="margin:0 0 10px; font-weight:700;">' +
-      itens.length + ' veículo(s) transferido(s) mais recentemente.</p>' + linhas + '</div>';
+      resp.totalItens + ' veículo(s) transferido(s) no total.</p>' + linhas + '</div>';
+
+    if (resp.totalPaginas > 1) {
+      rodape.style.display = 'flex';
+      document.getElementById('infoPaginaTransferidos').textContent =
+        'Página ' + resp.pagina + ' de ' + resp.totalPaginas + ' (' + resp.totalItens + ' no total)';
+      document.getElementById('botaoPaginaAnteriorTransferidos').disabled = resp.pagina <= 1;
+      document.getElementById('botaoPaginaProximaTransferidos').disabled = resp.pagina >= resp.totalPaginas;
+    } else {
+      rodape.style.display = 'none';
+    }
   }
 
   // ---------- Contexto / listas ----------
