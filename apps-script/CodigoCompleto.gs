@@ -3332,18 +3332,49 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
       var linha = tabelaAtual.getRow(l);
       var lerCelula = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : null; };
 
-      var chassiBruto = lerCelula(idxChassi);
-      var chassiTexto = chassiBruto === null ? '' : chassiBruto.replace(/\s+/g, '').toUpperCase();
-      var idxChassiLinha = idxChassi;
-      if (!validarChassi_(chassiTexto)) {
-        // Célula esperada não é um chassi válido — procura em toda a
-        // linha antes de descartá-la (ver comentário acima).
-        idxChassiLinha = -1;
-        for (var cc = 0; cc < linha.getNumCells(); cc++) {
-          var candidato = juntarCelulaQuebrada_(linha.getCell(cc).getText()).replace(/\s+/g, '').toUpperCase();
-          if (validarChassi_(candidato)) { idxChassiLinha = cc; chassiTexto = candidato; break; }
+      // Em algumas conversões o PDF sai com as colunas Chassi/Renavam/Placa
+      // coladas (colunas estreitas demais pro Google separar direito) —
+      // as três vêm concatenadas numa célula só, separadas por espaço, e
+      // as células "oficiais" de Renavam/Placa saem vazias. Por isso, em
+      // vez de simplesmente remover todos os espaços da célula (o que
+      // colaria os três valores num texto inválido), quebra a célula por
+      // espaço e procura um TOKEN que seja um chassi válido — os demais
+      // tokens da mesma célula ficam guardados como "sobra" pra
+      // preencher Renavam/Placa se as colunas deles vierem vazias.
+      var extrairTokens_ = function (texto) {
+        var normalizado = String(texto || '').replace(/\s+/g, ' ').trim().toUpperCase();
+        return normalizado ? normalizado.split(' ') : [];
+      };
+
+      var tokensChassi = extrairTokens_(lerCelula(idxChassi));
+      var chassiTexto = '';
+      var sobrasCelulaChassi = [];
+      for (var tk = 0; tk < tokensChassi.length; tk++) {
+        if (!chassiTexto && validarChassi_(tokensChassi[tk])) {
+          chassiTexto = tokensChassi[tk];
+        } else {
+          sobrasCelulaChassi.push(tokensChassi[tk]);
         }
-        if (idxChassiLinha === -1) continue;
+      }
+      var idxChassiLinha = idxChassi;
+      if (!chassiTexto) {
+        // Célula esperada não tem um chassi válido — procura em toda a
+        // linha antes de descartá-la (ver comentário acima da função).
+        idxChassiLinha = -1;
+        for (var cc = 0; cc < linha.getNumCells() && !chassiTexto; cc++) {
+          var tokensCelula = extrairTokens_(linha.getCell(cc).getText());
+          for (var tc = 0; tc < tokensCelula.length; tc++) {
+            if (validarChassi_(tokensCelula[tc])) {
+              chassiTexto = tokensCelula[tc];
+              idxChassiLinha = cc;
+              if (cc === idxChassi) {
+                sobrasCelulaChassi = tokensCelula.filter(function (t) { return t !== chassiTexto; });
+              }
+              break;
+            }
+          }
+        }
+        if (!chassiTexto) continue;
       }
 
       var pegar = function (deslocamento) {
@@ -3357,12 +3388,23 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
       if (itemNum > maiorItem) maiorItem = itemNum;
       if (itemNum) itensComChassi[itemNum] = true;
 
+      var renavamTexto = pegar(deslocRenavam).replace(/\s+/g, '');
+      var placaTexto = pegar(deslocPlaca).replace(/\s+/g, '').toUpperCase();
+      // Se a coluna "oficial" veio vazia, tenta preencher com o que sobrou
+      // da célula do chassi (caso das colunas coladas — ver acima).
+      if (idxChassiLinha === idxChassi && sobrasCelulaChassi.length) {
+        sobrasCelulaChassi.forEach(function (token) {
+          if (!renavamTexto && validarRenavam_(token)) renavamTexto = token.replace(/\D/g, '');
+          else if (!placaTexto && validarPlaca_(token)) placaTexto = token;
+        });
+      }
+
       veiculos.push({
         Descricao: pegar(deslocDescricao),
         Marca: pegar(deslocMarca),
         Chassi: chassiTexto,
-        Renavam: pegar(deslocRenavam).replace(/\s+/g, ''),
-        Placa: pegar(deslocPlaca).replace(/\s+/g, '').toUpperCase(),
+        Renavam: renavamTexto,
+        Placa: placaTexto,
         ValorVeiculo: normalizarValorMonetario_(pegar(deslocValor))
       });
     }
