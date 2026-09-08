@@ -5678,6 +5678,8 @@
     var ente = document.getElementById('enteStatGeral').value;
     var uf = document.getElementById('ufStatGeral').value;
 
+    atualizarKpisFiltrados_(anos, transferido, ente, uf);
+
     if (MODO_VISUALIZACAO_STAT === 'donataria') {
       document.getElementById('rankDonataria').innerHTML = '<div class="carregando">Carregando...</div>';
       try {
@@ -5696,6 +5698,22 @@
       if (MODO_VISUALIZACAO_STAT === 'regiao') renderizarMapaRegional_(itens);
       else if (MODO_VISUALIZACAO_STAT === 'mapa') renderizarMapaBrasil_(itens);
       else renderizarRankUF_(itens);
+    } catch (erro) {
+      mostrarErroGlobal(erro);
+    }
+  }
+
+  // Recalcula os KPIs do topo (Total/Transferidos/Pendentes/% Concluído) de
+  // acordo com o mesmo filtro de Ano/Transferidos/Ente/UF aplicado em "Como
+  // você deseja visualizar?" — chamada junto com atualizarVisualizacaoStat_,
+  // sem bloquear o carregamento do restante do card.
+  async function atualizarKpisFiltrados_(anos, transferido, ente, uf) {
+    try {
+      var stats = await chamarServidor_('getEstatisticasFiltradas', anos, transferido, ente, uf);
+      document.getElementById('kpiTotal').textContent = stats.total;
+      document.getElementById('kpiTransferidos').textContent = stats.transferidos;
+      document.getElementById('kpiPendentes').textContent = stats.pendentes;
+      document.getElementById('kpiPercentual').textContent = stats.percentualTransferido + '%';
     } catch (erro) {
       mostrarErroGlobal(erro);
     }

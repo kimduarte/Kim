@@ -7608,6 +7608,30 @@ function getEstatisticas() {
  * um filtro), diferente do painel geral que é recalculado toda hora que
  * alguém abre a tela.
  */
+/**
+ * Recalcula os KPIs do topo (Total/Transferidos/Pendentes/% Concluído)
+ * respeitando o mesmo filtro de Ano/Transferido/Ente/UF do seletor "Como
+ * você deseja visualizar?" — os KPIs do painel geral (getEstatisticas)
+ * sempre mostram a base inteira sem filtro; esta função é chamada só
+ * quando o usuário clica em "Filtrar" naquele card.
+ */
+function getEstatisticasFiltradas(ano, transferido, ente, uf) {
+  var filtros = { somenteAtpveEnviado: true };
+  if (ano && ano.length) filtros.ano = ano;
+  if (transferido) filtros.transferido = transferido;
+  if (ente) filtros.ente = ente;
+  if (uf) filtros.uf = uf;
+  var registros = listarVeiculos(filtros);
+  var porTransferido = contarPor_(registros, 'Transferido');
+  var total = registros.length;
+  return {
+    total: total,
+    transferidos: porTransferido['SIM'] || 0,
+    pendentes: porTransferido['NÃO'] || 0,
+    percentualTransferido: total ? Math.round(((porTransferido['SIM'] || 0) / total) * 1000) / 10 : 0
+  };
+}
+
 function getVeiculosPorUFAno(ano, transferido, campo, ente, uf) {
   var filtros = { somenteAtpveEnviado: true };
   if (ano && ano.length) filtros.ano = ano;
