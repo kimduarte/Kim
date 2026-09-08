@@ -353,6 +353,12 @@ function getOrCreateSheet_(nome, cabecalho) {
 function normalizarTexto_(valor) {
   if (valor === null || valor === undefined) return '';
   var texto = String(valor);
+  // Caracteres "zero-width" (espaço de largura zero, non-joiner, joiner,
+  // BOM) não batem com \s do JavaScript — sobrevivem à normalização de
+  // espaço abaixo e ficam invisíveis em qualquer tela, mas quebram
+  // comparação exata de texto (dois nomes idênticos na tela viram
+  // "diferentes" pro sistema). Removidos aqui pra nunca mais entrarem.
+  texto = texto.replace(/[​‌‍﻿]/g, '');
   texto = texto.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
   return texto;
 }
@@ -550,6 +556,7 @@ function onOpen() {
     .addItem('Recalcular painel', 'invalidarCacheDashboard_')
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
+    .addItem('Remover caracteres invisíveis da Donatária (dados antigos)', 'corrigirCaracteresInvisiveisDonataria')
     .addToUi();
 }
 
@@ -741,6 +748,49 @@ function corrigirNumeroSeiDoTermo() {
 
   var mensagem = corrigidos + ' registro(s) corrigido(s): Número SEI extraído do Termo de Doação.';
   SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Correção Número SEI', 8);
+  return mensagem;
+}
+
+/**
+ * Corrige registros antigos cujo nome de Donatária tem um caractere
+ * "zero-width" (espaço de largura zero etc.) grudado no texto — invisível
+ * em qualquer tela, mas que faz o sistema tratar como "nomes diferentes"
+ * dois registros que parecem idênticos (ex.: mesma cidade em dois veículos,
+ * um com o caractere invisível e outro sem, contam como Donatárias
+ * distintas nos relatórios). normalizarTexto_ já passou a remover esses
+ * caracteres em qualquer cadastro/edição novo (ver função acima) — esta
+ * correção só limpa o que já estava salvo antes dessa mudança. Idempotente:
+ * pode ser rodada quantas vezes quiser, só mexe no que ainda estiver sujo.
+ */
+function corrigirCaracteresInvisiveisDonataria() {
+  exigirPerfilAdmin_();
+  garantirColunasVeiculos_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var totalLinhas = sheet.getLastRow() - 1;
+  if (totalLinhas < 1) {
+    return 'Nenhum veículo cadastrado.';
+  }
+
+  var donatariaCol = colunaParaIndice_('Donataria') + 1;
+  var valores = sheet.getRange(2, donatariaCol, totalLinhas, 1).getValues();
+
+  var corrigidos = 0;
+  for (var i = 0; i < totalLinhas; i++) {
+    var atual = valores[i][0];
+    var limpo = normalizarTexto_(atual);
+    if (limpo !== atual) {
+      valores[i][0] = limpo;
+      corrigidos++;
+    }
+  }
+
+  if (corrigidos > 0) {
+    sheet.getRange(2, donatariaCol, totalLinhas, 1).setValues(valores);
+    invalidarCacheDashboard_();
+  }
+
+  var mensagem = corrigidos + ' registro(s) corrigido(s): caracteres invisíveis removidos do nome da Donatária.';
+  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Correção Donatária', 8);
   return mensagem;
 }
 
