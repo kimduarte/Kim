@@ -3021,27 +3021,55 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
     avisos.push('Esse Anexo não tem uma coluna de "Marca" separada — Marca ficou em branco, preencha manualmente.');
   }
 
+  // Guarda a posição de cada coluna em relação à do Chassi (não o índice
+  // absoluto) — algumas tabelas (principalmente quando o Anexo I quebra em
+  // mais de uma página) saem da conversão do PDF com uma célula a mais ou
+  // a menos bem no início da linha, o que desloca TODAS as colunas
+  // seguintes na mesma linha — sem esse deslocamento relativo, a linha
+  // inteira seria descartada por o Chassi "esperado" nunca bater.
+  var deslocamento_ = function (idx) { return idx === -1 ? null : idx - idxChassi; };
+  var deslocDescricao = deslocamento_(idxDescricao);
+  var deslocMarca = deslocamento_(idxMarca);
+  var deslocPlaca = deslocamento_(idxPlaca);
+  var deslocValor = deslocamento_(idxValor);
+
   // Com as colunas descobertas, varre TODAS as tabelas do documento — uma
   // linha só entra como veículo se tiver um chassi válido (17 caracteres,
-  // sem I/O/Q) na coluna certa. Isso evita pegar cabeçalho repetido ou a
-  // linha de rodapé "VALOR TOTAL" sem precisar adivinhar a posição delas,
-  // e funciona tanto pra páginas que repetem o cabeçalho quanto pras que
-  // só continuam a lista direto.
+  // sem I/O/Q) na coluna certa (ou, se não bater, em qualquer coluna da
+  // linha — ver deslocamento_ acima). Isso evita pegar cabeçalho repetido
+  // ou a linha de rodapé "VALOR TOTAL" sem precisar adivinhar a posição
+  // delas, e funciona tanto pra páginas que repetem o cabeçalho quanto
+  // pras que só continuam a lista direto.
   var veiculos = [];
   for (var t2 = 0; t2 < tabelas.length; t2++) {
     var tabelaAtual = tabelas[t2];
     for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
       var linha = tabelaAtual.getRow(l);
-      var chassiTexto = (idxChassi >= 0 && idxChassi < linha.getNumCells())
-        ? juntarCelulaQuebrada_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
-      if (!validarChassi_(chassiTexto)) continue;
-      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : ''; };
+      var lerCelula = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : null; };
+
+      var chassiBruto = lerCelula(idxChassi);
+      var chassiTexto = chassiBruto === null ? '' : chassiBruto.replace(/\s+/g, '').toUpperCase();
+      var idxChassiLinha = idxChassi;
+      if (!validarChassi_(chassiTexto)) {
+        idxChassiLinha = -1;
+        for (var cc = 0; cc < linha.getNumCells(); cc++) {
+          var candidato = juntarCelulaQuebrada_(linha.getCell(cc).getText()).replace(/\s+/g, '').toUpperCase();
+          if (validarChassi_(candidato)) { idxChassiLinha = cc; chassiTexto = candidato; break; }
+        }
+        if (idxChassiLinha === -1) continue;
+      }
+
+      var pegar = function (deslocamento) {
+        if (deslocamento === null) return '';
+        var valor = lerCelula(idxChassiLinha + deslocamento);
+        return valor === null ? '' : valor;
+      };
       veiculos.push({
-        Descricao: pegar(idxDescricao),
-        Marca: pegar(idxMarca),
+        Descricao: pegar(deslocDescricao),
+        Marca: pegar(deslocMarca),
         Chassi: chassiTexto,
-        Placa: pegar(idxPlaca).replace(/\s+/g, '').toUpperCase(),
-        ValorVeiculo: normalizarValorMonetario_(pegar(idxValor))
+        Placa: pegar(deslocPlaca).replace(/\s+/g, '').toUpperCase(),
+        ValorVeiculo: normalizarValorMonetario_(pegar(deslocValor))
       });
     }
   }
@@ -3138,7 +3166,11 @@ function extrairComunsOficioTransferencia_(texto, avisos) {
     avisos.push('Não encontrei a Razão Social da instituição recebedora — confira manualmente.');
   }
 
-  var mEndereco = texto.match(/Endere[çc]o:\s*([^;]+);/i);
+  // Termina no que vier primeiro: ";" (a maioria dos Ofícios usa) ou o
+  // início do próximo item "IV - E-mail..." (alguns Ofícios não colocam
+  // ";" depois do CEP — sem esse segundo limite, a captura avançava até
+  // o PRÓXIMO ";" do documento, engolindo junto o e-mail da donatária).
+  var mEndereco = texto.match(/Endere[çc]o:\s*([\s\S]+?)(?:;|(?=I?V\s*-)|(?=E-mail))/i);
   if (mEndereco) {
     var enderecoTexto = mEndereco[1].trim();
     var mCep = enderecoTexto.match(/CEP[:\s.]*\s*(\d{2}\.?\d{3}\s*-?\s*\d{3})/i);
@@ -3269,6 +3301,21 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     avisos.push('Essa tabela não tem uma coluna de "Renavam" — preencha manualmente pra cada veículo.');
   }
 
+  // Guarda a posição de cada coluna em relação à do Chassi (não o índice
+  // absoluto) — algumas tabelas (principalmente quando o Anexo I quebra
+  // em mais de uma página) saem da conversão do PDF com uma célula a mais
+  // ou a menos bem no início da linha (ex.: ITEM/QTD viram uma única
+  // célula em vez de duas), o que desloca TODAS as colunas seguintes na
+  // mesma linha — sem esse deslocamento relativo, a linha inteira seria
+  // descartada por o Chassi "esperado" nunca bater.
+  var deslocamento_ = function (idx) { return idx === -1 ? null : idx - idxChassi; };
+  var deslocItem = deslocamento_(idxItem);
+  var deslocDescricao = deslocamento_(idxDescricao);
+  var deslocMarca = deslocamento_(idxMarca);
+  var deslocRenavam = deslocamento_(idxRenavam);
+  var deslocPlaca = deslocamento_(idxPlaca);
+  var deslocValor = deslocamento_(idxValor);
+
   // Um Anexo I com muitas páginas às vezes tem uma linha exatamente na
   // quebra de página convertida de forma quebrada (célula cortada ao
   // meio) — o que faria aquele veículo ser silenciosamente ignorado por
@@ -3283,22 +3330,40 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     var tabelaAtual = tabelas[t2];
     for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
       var linha = tabelaAtual.getRow(l);
-      var itemTexto = (idxItem >= 0 && idxItem < linha.getNumCells())
-        ? juntarCelulaQuebrada_(linha.getCell(idxItem).getText()).replace(/\D/g, '') : '';
+      var lerCelula = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : null; };
+
+      var chassiBruto = lerCelula(idxChassi);
+      var chassiTexto = chassiBruto === null ? '' : chassiBruto.replace(/\s+/g, '').toUpperCase();
+      var idxChassiLinha = idxChassi;
+      if (!validarChassi_(chassiTexto)) {
+        // Célula esperada não é um chassi válido — procura em toda a
+        // linha antes de descartá-la (ver comentário acima).
+        idxChassiLinha = -1;
+        for (var cc = 0; cc < linha.getNumCells(); cc++) {
+          var candidato = juntarCelulaQuebrada_(linha.getCell(cc).getText()).replace(/\s+/g, '').toUpperCase();
+          if (validarChassi_(candidato)) { idxChassiLinha = cc; chassiTexto = candidato; break; }
+        }
+        if (idxChassiLinha === -1) continue;
+      }
+
+      var pegar = function (deslocamento) {
+        if (deslocamento === null) return '';
+        var valor = lerCelula(idxChassiLinha + deslocamento);
+        return valor === null ? '' : valor;
+      };
+
+      var itemTexto = pegar(deslocItem).replace(/\D/g, '');
       var itemNum = itemTexto ? parseInt(itemTexto, 10) : 0;
       if (itemNum > maiorItem) maiorItem = itemNum;
-      var chassiTexto = (idxChassi >= 0 && idxChassi < linha.getNumCells())
-        ? juntarCelulaQuebrada_(linha.getCell(idxChassi).getText()).replace(/\s+/g, '').toUpperCase() : '';
-      if (!validarChassi_(chassiTexto)) continue;
       if (itemNum) itensComChassi[itemNum] = true;
-      var pegar = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : ''; };
+
       veiculos.push({
-        Descricao: pegar(idxDescricao),
-        Marca: pegar(idxMarca),
+        Descricao: pegar(deslocDescricao),
+        Marca: pegar(deslocMarca),
         Chassi: chassiTexto,
-        Renavam: pegar(idxRenavam).replace(/\s+/g, ''),
-        Placa: pegar(idxPlaca).replace(/\s+/g, '').toUpperCase(),
-        ValorVeiculo: normalizarValorMonetario_(pegar(idxValor))
+        Renavam: pegar(deslocRenavam).replace(/\s+/g, ''),
+        Placa: pegar(deslocPlaca).replace(/\s+/g, '').toUpperCase(),
+        ValorVeiculo: normalizarValorMonetario_(pegar(deslocValor))
       });
     }
   }
