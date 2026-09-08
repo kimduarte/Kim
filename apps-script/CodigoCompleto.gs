@@ -557,6 +557,7 @@ function onOpen() {
     .addItem('Corrigir tamanho da aba (desempenho)', 'corrigirTamanhoDaAba')
     .addItem('Extrair Número SEI do Termo de Doação (dados antigos)', 'corrigirNumeroSeiDoTermo')
     .addItem('Remover caracteres invisíveis da Donatária (dados antigos)', 'corrigirCaracteresInvisiveisDonataria')
+    .addItem('Unificar nomes de Donatária confirmados (dados antigos)', 'corrigirDonatariasCanonicasConfirmadas')
     .addToUi();
 }
 
@@ -790,6 +791,53 @@ function corrigirCaracteresInvisiveisDonataria() {
   }
 
   var mensagem = corrigidos + ' registro(s) corrigido(s): caracteres invisíveis removidos do nome da Donatária.';
+  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Correção Donatária', 8);
+  return mensagem;
+}
+
+/**
+ * Corrige retroativamente os registros já salvos cujo nome de Donatária
+ * bate com um dos mapeamentos confirmados manualmente em
+ * DONATARIA_CANONICA_ (análise de nomenclatura de 09/2026 — grupos que o
+ * usuário confirmou que são a mesma instituição escrita de formas
+ * diferentes). Cadastros/edições novos já saem canonizados sozinhos (ver
+ * canonizarDonataria_, usado em validarESanitizarVeiculo_); esta correção
+ * só limpa o que já estava salvo antes desse mapeamento existir.
+ * Idempotente: pode ser rodada quantas vezes quiser.
+ */
+function corrigirDonatariasCanonicasConfirmadas() {
+  exigirPerfilAdmin_();
+  garantirColunasVeiculos_();
+  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+  var totalLinhas = sheet.getLastRow() - 1;
+  if (totalLinhas < 1) {
+    return 'Nenhum veículo cadastrado.';
+  }
+
+  var donatariaCol = colunaParaIndice_('Donataria') + 1;
+  var ufCol = colunaParaIndice_('UF') + 1;
+  var primeiraCol = Math.min(donatariaCol, ufCol);
+  var ultimaCol = Math.max(donatariaCol, ufCol);
+  var bloco = sheet.getRange(2, primeiraCol, totalLinhas, ultimaCol - primeiraCol + 1).getValues();
+  var offsetDonataria = donatariaCol - primeiraCol;
+  var offsetUf = ufCol - primeiraCol;
+
+  var corrigidos = 0;
+  for (var i = 0; i < totalLinhas; i++) {
+    var atual = bloco[i][offsetDonataria];
+    var canonico = canonizarDonataria_(bloco[i][offsetUf], atual);
+    if (canonico !== atual) {
+      bloco[i][offsetDonataria] = canonico;
+      corrigidos++;
+    }
+  }
+
+  if (corrigidos > 0) {
+    sheet.getRange(2, primeiraCol, totalLinhas, ultimaCol - primeiraCol + 1).setValues(bloco);
+    invalidarCacheDashboard_();
+  }
+
+  var mensagem = corrigidos + ' registro(s) corrigido(s): nome de Donatária unificado pro padrão confirmado.';
   SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Correção Donatária', 8);
   return mensagem;
 }
@@ -2784,7 +2832,7 @@ function validarESanitizarVeiculo_(dados) {
     Mes: mes,
     UF: uf,
     Ente: ente,
-    Donataria: normalizarTexto_(dados.Donataria),
+    Donataria: canonizarDonataria_(uf, dados.Donataria),
     TermoDoacao: normalizarTexto_(dados.TermoDoacao),
     NumeroSei: normalizarTexto_(dados.NumeroSei),
     Descricao: normalizarTexto_(dados.Descricao),
@@ -2877,6 +2925,37 @@ var NOME_ESTADO_PARA_UF_ = {
 
 function removerAcentos_(texto) {
   return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Nomes de Donat\u00e1ria confirmados manualmente como "a mesma institui\u00e7\u00e3o,
+ * grafias diferentes" (an\u00e1lise de nomenclatura de 09/2026) \u2014 mapeia cada
+ * grafia errada/alternativa pro nome padr\u00e3o escolhido. A chave \u00e9 sempre
+ * "UF|NOME SEM ACENTO EM MAI\u00daSCULA" porque v\u00e1rios desses nomes (ex.:
+ * "CORPO DE BOMBEIROS", "POL\u00cdCIA MILITAR" bem gen\u00e9ricos) tamb\u00e9m existem
+ * LEGITIMAMENTE como nome de outras institui\u00e7\u00f5es em OUTRAS UFs \u2014 sem o
+ * escopo por UF, "CORPO DE BOMBEIROS" do Alagoas viraria "...do Distrito
+ * Federal" por engano. Usada tanto pra canonizar cadastro/edi\u00e7\u00e3o novos
+ * quanto pela corre\u00e7\u00e3o retroativa (corrigirDonatariasCanonicasConfirmadas).
+ */
+var DONATARIA_CANONICA_ = {
+  'SC|SECRETARIA DE SEGURANCA PUBLICA DO ESTADO DE SANTA CATARINA': 'Secretaria de Estado da Seguran\u00e7a P\u00fablica de Santa Catarina',
+  'RJ|POLICIA MILITAR': 'Secretaria de Estado de Pol\u00edcia Militar do Rio de Janeiro',
+  'RJ|PMERJ': 'Secretaria de Estado de Pol\u00edcia Militar do Rio de Janeiro',
+  'DF|CORPO DE BOMBEIROS': 'Corpo de Bombeiros Militar do Distrito Federal',
+  'BA|SECRETARIA DE SEGURANCA PUBLICA DA BAHIA - POLICIA MILITAR': 'Pol\u00edcia Militar da Bahia',
+  'BA|SECRETARIA DE SEGURANCA PUBLICA DA BAHIA - CORPO DE BOMBEIROS MILITAR': 'Corpo de Bombeiros Militar da Bahia',
+  'AP|DELEGACIA GERAL DE POLICIA CIVIL DO ESTADO DO AMAPA': 'Pol\u00edcia Civil do Estado do Amap\u00e1',
+  'RJ|SECRETARIA DE ESTADO E DEFESA CIVIL - RJ': 'Secretaria de Estado de Defesa Civil do Rio de Janeiro',
+  'AL|CORPO DE BOMBEIROS': 'Corpo de Bombeiros Militar de Alagoas',
+  'ES|ORPO DE BOMBEIROS MILITAR DO ESTADO DO ESPIRITO SANTO': 'Corpo de Bombeiros Militar do Estado do Esp\u00edrito Santo'
+};
+
+function canonizarDonataria_(uf, donataria) {
+  var nome = normalizarTexto_(donataria);
+  if (!nome) return nome;
+  var chave = normalizarTexto_(uf).toUpperCase() + '|' + removerAcentos_(nome).toUpperCase();
+  return DONATARIA_CANONICA_[chave] || nome;
 }
 
 /**
