@@ -72,7 +72,14 @@ var CABECALHO_VEICULOS = [
   // depois, sem perder o lugar na fila. Recalculado a cada salvarVeiculo_/
   // salvarProcessoEditado a partir dos campos realmente preenchidos (ver
   // validarESanitizarVeiculo_) — nunca precisa ser setado manualmente.
-  'StatusCadastro'
+  'StatusCadastro',
+  // Ano de fabricação/modelo do veículo (ex.: "2026/2026") — não confundir
+  // com Ano/Mes (esses são do PROCESSO de doação, não do veículo). Vem da
+  // coluna "Ano/Modelo" do Anexo I do Termo de Doação/Ofício de
+  // Transferência (ver extrairVeiculosTermoDoacao_/
+  // extrairVeiculosOficioTransferencia_) — usado no Ofício de baixa de
+  // IPVA/DF (ver gerarOficioIpvaDf).
+  'AnoModelo'
 ];
 
 var CABECALHO_LOG = ['DataHora', 'Usuario', 'Acao', 'IdVeiculo', 'Detalhes'];
@@ -399,6 +406,16 @@ function normalizarPlaca_(valor) {
 
 function normalizarChassi_(valor) {
   return normalizarTexto_(valor).toUpperCase().replace(/\s/g, '');
+}
+
+// "Ano/Modelo" do veículo (ex.: "2026 / 2026" vindo do PDF, com espaço
+// solto ao redor da barra por causa da conversão) — fecha em "2026/2026",
+// sem mexer no valor se não vier no formato AAAA/AAAA esperado (não
+// arrisca "corrigir" um formato que não reconhece).
+function normalizarAnoModelo_(valor) {
+  var texto = normalizarTexto_(valor);
+  var match = texto.match(/^(\d{4})\s*\/\s*(\d{4})$/);
+  return match ? match[1] + '/' + match[2] : texto;
 }
 
 // CNPJ/CPF: guarda só os dígitos (sem ponto, barra, hífen) — assim
@@ -1620,6 +1637,7 @@ function paraDtoListagem_(r) {
     NumeroProcesso: r.NumeroProcesso,
     MotivoInclusaoPosterior: r.MotivoInclusaoPosterior,
     ValorVeiculo: r.ValorVeiculo,
+    AnoModelo: r.AnoModelo,
     StatusCadastro: r.StatusCadastro || 'COMPLETO'
   };
 }
@@ -3132,6 +3150,7 @@ function validarESanitizarVeiculo_(dados) {
     QtdVeiculosAditivo: normalizarTexto_(dados.QtdVeiculosAditivo).replace(/\D/g, ''),
     NumeroProcesso: normalizarTexto_(dados.NumeroProcesso),
     ValorVeiculo: normalizarValorMonetario_(dados.ValorVeiculo),
+    AnoModelo: normalizarAnoModelo_(dados.AnoModelo),
     // Só normaliza (e assim só grava) quando o cliente realmente mandou o campo —
     // ele só é enviado ao inserir um veículo novo num processo já existente. Deixar
     // undefined nos demais casos faz atualizarVeiculo_ pular essa coluna e preservar
@@ -3471,7 +3490,7 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
   // "CHASSI" no cabeçalho só pra descobrir em que coluna fica cada
   // informação, e depois procura linha de veículo em TODAS as tabelas do
   // documento, na ordem em que aparecem.
-  var idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxPlaca = -1, idxValor = -1;
+  var idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxPlaca = -1, idxValor = -1, idxAnoModelo = -1;
   var achouCabecalho = false;
 
   for (var t = 0; t < tabelas.length; t++) {
@@ -3492,6 +3511,7 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
     idxChassi = acharColuna('CHASSI');
     idxPlaca = acharColuna('PLACA');
     idxValor = acharColuna('VALOR');
+    idxAnoModelo = acharColuna('ANO');
     // Alguns Anexos não têm "Descrição"/"Marca" separadas, só "Modelo"
     // (ex.: "TRITON GL TP 2.4 D 4X4 AT") — nesse caso, Marca e Descrição
     // usam a mesma coluna "Modelo" (mesmo texto nos dois campos), em vez
@@ -3512,6 +3532,9 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
   if (idxMarca === -1) {
     avisos.push('Esse Anexo não tem uma coluna de "Marca" separada — Marca ficou em branco, preencha manualmente.');
   }
+  if (idxAnoModelo === -1) {
+    avisos.push('Esse Anexo não tem uma coluna de "Ano/Modelo" — preencha manualmente pra cada veículo (é usado no Ofício de baixa de IPVA/DF).');
+  }
 
   // Guarda a posição de cada coluna em relação à do Chassi (não o índice
   // absoluto) — algumas tabelas (principalmente quando o Anexo I quebra em
@@ -3524,6 +3547,7 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
   var deslocMarca = deslocamento_(idxMarca);
   var deslocPlaca = deslocamento_(idxPlaca);
   var deslocValor = deslocamento_(idxValor);
+  var deslocAnoModelo = deslocamento_(idxAnoModelo);
 
   // Com as colunas descobertas, varre TODAS as tabelas do documento — uma
   // linha só entra como veículo se tiver um chassi válido (17 caracteres,
@@ -3561,7 +3585,8 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
         Marca: pegar(deslocMarca),
         Chassi: chassiTexto,
         Placa: pegar(deslocPlaca).replace(/\s+/g, '').toUpperCase(),
-        ValorVeiculo: normalizarValorMonetario_(pegar(deslocValor))
+        ValorVeiculo: normalizarValorMonetario_(pegar(deslocValor)),
+        AnoModelo: normalizarAnoModelo_(pegar(deslocAnoModelo))
       });
     }
   }
@@ -3756,7 +3781,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     return [];
   }
 
-  var idxItem = -1, idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxRenavam = -1, idxPlaca = -1, idxValor = -1;
+  var idxItem = -1, idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxRenavam = -1, idxPlaca = -1, idxValor = -1, idxAnoModelo = -1;
   var achouCabecalho = false;
 
   for (var t = 0; t < tabelas.length; t++) {
@@ -3781,6 +3806,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
     idxRenavam = acharColuna('RENAV');
     idxPlaca = acharColuna('PLACA');
     idxValor = acharColuna('VALOR');
+    idxAnoModelo = acharColuna('ANO');
     achouCabecalho = true;
     break;
   }
@@ -3791,6 +3817,9 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
   }
   if (idxRenavam === -1) {
     avisos.push('Essa tabela não tem uma coluna de "Renavam" — preencha manualmente pra cada veículo.');
+  }
+  if (idxAnoModelo === -1) {
+    avisos.push('Essa tabela não tem uma coluna de "Ano/Modelo" — preencha manualmente pra cada veículo (é usado no Ofício de baixa de IPVA/DF).');
   }
 
   // Guarda a posição de cada coluna em relação à do Chassi (não o índice
@@ -3807,6 +3836,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
   var deslocRenavam = deslocamento_(idxRenavam);
   var deslocPlaca = deslocamento_(idxPlaca);
   var deslocValor = deslocamento_(idxValor);
+  var deslocAnoModelo = deslocamento_(idxAnoModelo);
 
   // Um Anexo I com muitas páginas às vezes tem uma linha exatamente na
   // quebra de página convertida de forma quebrada (célula cortada ao
@@ -3897,7 +3927,8 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
         Chassi: chassiTexto,
         Renavam: renavamTexto,
         Placa: placaTexto,
-        ValorVeiculo: normalizarValorMonetario_(pegar(deslocValor))
+        ValorVeiculo: normalizarValorMonetario_(pegar(deslocValor)),
+        AnoModelo: normalizarAnoModelo_(pegar(deslocAnoModelo))
       });
     }
   }
@@ -6043,6 +6074,140 @@ function exportarProcessosSelecionadosXlsx(chaves) {
   } finally {
     DriveApp.getFileById(planilhaTemp.getId()).setTrashed(true);
   }
+}
+
+// ======================================================================
+// OFÍCIO DE BAIXA DE IPVA — Secretaria de Estado de Economia do DF
+// ======================================================================
+// Ofício-modelo enviado ao Secretário Executivo da Secretaria de Estado de
+// Economia do Distrito Federal, pedindo o cancelamento dos débitos de IPVA
+// dos veículos doados (imunidade recíproca, art. 150, VI, "a" da CF). Um
+// mesmo ofício costuma juntar veículos de MAIS de um processo/Termo de
+// Doação de uma vez só — por isso a seleção usa a mesma marcação por
+// checkbox já existente em Processos ("Exportar processos marcados"), e a
+// saída é o HTML pronto para colar direto no editor de "código fonte" do
+// SEI (mesmas classes CSS que o SEI já reconhece — Texto_Justificado_...,
+// Paragrafo_Numerado_Nivel1, Tabela_Texto_Centralizado etc.).
+
+function gerarOficioIpvaDf(chaves, dadosOficio) {
+  exigirPerfilEditor_();
+  if (!chaves || !chaves.length) throw new Error('Nenhum processo selecionado.');
+  var chavesSet = {};
+  chaves.forEach(function (c) { chavesSet[c] = true; });
+
+  // Agrupa por processo (na ordem em que os processos foram selecionados,
+  // não a ordem física da planilha) — mantém os veículos de um mesmo
+  // processo juntos na tabela, mais fácil de conferir.
+  var todos = listarVeiculos({});
+  var porChave = {};
+  todos.forEach(function (r) {
+    var chave = chaveListagemProcesso_(r);
+    if (!chavesSet[chave]) return;
+    (porChave[chave] = porChave[chave] || []).push(r);
+  });
+  var registros = [];
+  chaves.forEach(function (chave) { registros = registros.concat(porChave[chave] || []); });
+
+  if (!registros.length) throw new Error('Nenhum veículo encontrado nos processos selecionados.');
+
+  // Avisa (sem bloquear) quando falta algum dado que o ofício precisa —
+  // melhor a pessoa ver isso ANTES de colar no SEI do que descobrir uma
+  // célula vazia só depois de colado.
+  var avisos = [];
+  var contagemFaltando = { Placa: 0, Chassi: 0, Renavam: 0, AnoModelo: 0 };
+  registros.forEach(function (r) {
+    if (!r.Placa) contagemFaltando.Placa++;
+    if (!r.Chassi) contagemFaltando.Chassi++;
+    if (!r.Renavam) contagemFaltando.Renavam++;
+    if (!r.AnoModelo) contagemFaltando.AnoModelo++;
+  });
+  var rotulosFaltando = { Placa: 'Placa', Chassi: 'Chassi', Renavam: 'Renavam', AnoModelo: 'Ano/Modelo' };
+  Object.keys(contagemFaltando).forEach(function (campo) {
+    if (contagemFaltando[campo] > 0) {
+      avisos.push(contagemFaltando[campo] + ' veículo(s) sem ' + rotulosFaltando[campo] +
+        ' preenchido — confira antes de enviar (dá pra completar em "Editar processo").');
+    }
+  });
+
+  var nomeSignatario = normalizarTexto_(dadosOficio && dadosOficio.nomeSignatario).toUpperCase() || 'CAMILA PINTARELLI';
+  var cargoSignatario = normalizarTexto_(dadosOficio && dadosOficio.cargoSignatario) || 'Diretora do Fundo Nacional de Segurança Pública';
+
+  var linhasTabela = registros.map(function (r, i) {
+    var marcaModelo = [r.Marca, r.Descricao].filter(Boolean).join(' / ').toUpperCase();
+    return '<tr>' +
+      celulaOficioIpva_(String(i + 1)) +
+      celulaOficioIpva_(r.Placa) +
+      celulaOficioIpva_(r.Renavam) +
+      celulaOficioIpva_(r.Chassi) +
+      celulaOficioIpva_(marcaModelo) +
+      celulaOficioIpva_(r.AnoModelo) +
+      celulaOficioIpva_(r.UF) +
+      '</tr>';
+  }).join('');
+
+  return {
+    html: montarHtmlOficioIpvaDf_(linhasTabela, nomeSignatario, cargoSignatario),
+    totalVeiculos: registros.length,
+    totalProcessos: chaves.length,
+    avisos: avisos
+  };
+}
+
+function celulaOficioIpva_(texto) {
+  return '<td><p class="Tabela_Texto_Centralizado">' + escaparHtmlOficio_(texto) + '</p></td>';
+}
+
+// O HTML do SEI original tem atributos "data-c" (IDs internos do editor,
+// únicos por elemento) em cada tag — não são reproduzidos aqui de
+// propósito: são só bookkeeping do editor do SEI, e o próprio SEI
+// reatribui esses IDs sozinho ao colar/salvar o conteúdo. Inventar valores
+// aqui só arriscaria duplicar IDs sem significado nenhum fora de um
+// documento SEI que já existe.
+function escaparHtmlOficio_(texto) {
+  return String(texto == null ? '' : texto)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function montarHtmlOficioIpvaDf_(linhasTabela, nomeSignatario, cargoSignatario) {
+  return '' +
+    '<p class="Texto_Justificado_Recuo_Primeira_Linha">&nbsp;</p>' +
+    '<p class="Texto_Justificado_Recuo_Primeira_Linha"><span style="font-size:16px;"><span>Senhor Secretário,</span></span></p>' +
+    '<p class="Texto_Alinhado_Esquerda">&nbsp;</p>' +
+    '<p class="Paragrafo_Numerado_Nivel1">Cumprimentando-o cordialmente e com fundamento no artigo 150, VI, alínea &ldquo;a&rdquo;, da Constituição ' +
+    'Federal (imunidade recíproca), encaminho a listagem de veículos oficiais abaixo solicitando a gentileza de que sejam feitas as correções ' +
+    'necessárias junto aos respectivos cadastros, a fim de viabilizar o cancelamento dos débitos relativos ao Imposto sobre a Propriedade de ' +
+    'Veículos Automotores (IPVA), dos veículos abaixo relacionados:<br>&nbsp;</p>' +
+    '<table class="table ck-table-resized infra-editor__table infra-doc-tabela" style="width:80%;">' +
+      '<colgroup><col style="width:7.04%;"><col style="width:9.41%;"><col style="width:15.93%;"><col style="width:17.07%;">' +
+      '<col style="width:29.22%;"><col style="width:14.45%;"><col style="width:6.88%;"></colgroup>' +
+      '<tbody>' +
+        '<tr>' +
+          '<td><p class="Tabela_Texto_Centralizado"><strong>ORDEM</strong></p></td>' +
+          '<td><p class="Tabela_Texto_Centralizado"><strong>PLACA</strong></p></td>' +
+          '<td><p class="Tabela_Texto_Centralizado"><strong>RENAVAM</strong></p></td>' +
+          '<td><p class="Tabela_Texto_Centralizado"><strong>CHASSI</strong></p></td>' +
+          '<td><p class="Tabela_Texto_Centralizado"><strong>MARCA/MODELO</strong></p></td>' +
+          '<td><p class="Tabela_Texto_Centralizado"><strong>ANO/MODELO</strong></p></td>' +
+          '<td><p class="Tabela_Texto_Centralizado"><strong>UF</strong></p></td>' +
+        '</tr>' +
+        linhasTabela +
+      '</tbody>' +
+    '</table>' +
+    '<p class="Paragrafo_Numerado_Nivel1">Informo que os veículos ainda se encontram em fase de regularização cadastral, motivo pelo qual ' +
+    'solicito especial atenção quanto ao procedimento de cancelamento dos débitos indevidos.&nbsp;<br>&nbsp;</p>' +
+    '<p class="Paragrafo_Numerado_Nivel1"><span style="font-size:16px;"><span>Este Fundo Nacional de Segurança Pública permanece à disposição ' +
+    'para eventuais esclarecimentos, por meio do telefone (61) 2025-9236 ou pelo e-mail sgp.senasp@mj.gov.br.</span></span></p>' +
+    '<p class="Texto_Justificado_Recuo_Primeira_Linha">&nbsp;</p>' +
+    '<p class="Texto_Justificado_Recuo_Primeira_Linha">Atenciosamente,</p>' +
+    '<p class="Texto_Justificado_Recuo_Primeira_Linha">&nbsp;</p>' +
+    '<p class="Texto_Justificado_Recuo_Primeira_Linha">&nbsp;</p>' +
+    '<p class="Tabela_Texto_Centralizado" style="margin-bottom:0;margin-right:4px;margin-top:0;text-align:center;">' +
+      '<span><strong>' + escaparHtmlOficio_(nomeSignatario) + '</strong></span></p>' +
+    '<p class="Tabela_Texto_Centralizado" style="margin-bottom:0;margin-right:4px;margin-top:0;text-align:center;">' +
+      '<span style="font-size:16px;"><span>' + escaparHtmlOficio_(cargoSignatario) + '</span></span></p>';
 }
 
 // Primeiro dia do mês/ano do PROCESSO (não da data de cadastro no sistema —

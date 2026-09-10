@@ -758,6 +758,10 @@
               <label for="mv_Valor">Valor do veículo (R$) *</label>
               <input type="text" id="mv_Valor" required inputmode="numeric" placeholder="0,00">
             </div>
+            <div class="campo">
+              <label for="mv_AnoModelo">Ano/Modelo (opcional)</label>
+              <input type="text" id="mv_AnoModelo" maxlength="9" placeholder="Ex: 2026/2026">
+            </div>
           </div>
           <div class="botoes">
             <button class="secundario" id="botaoVeiculoVoltar">‹ Voltar</button>
@@ -836,7 +840,8 @@
         <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar. A exportação por "CSV"/"XLSX" acima respeita os filtros aplicados (não só a página atual). Já a marcação por checkbox abaixo exporta só os processos escolhidos, no formato do controle externo da equipe.</p>
         <div class="botoes" style="margin-bottom:10px;">
           <span id="contadorSelecaoExport" style="color:var(--texto-suave); font-size:14px;">Nenhum processo marcado para exportar.</span>
-          <button type="button" class="primario" id="botaoExportarSelecionados" style="margin-left:auto;" disabled onclick="exportarProcessosSelecionados_()">Exportar processos marcados</button>
+          <button type="button" class="secundario" id="botaoGerarOficioIpva" style="margin-left:auto;" disabled onclick="abrirModalOficioIpva_()">Gerar Ofício IPVA/DF (SEI)</button>
+          <button type="button" class="primario" id="botaoExportarSelecionados" disabled onclick="exportarProcessosSelecionados_()">Exportar processos marcados</button>
         </div>
         <div id="mensagemListagem"></div>
         <div id="listaProcessos"><div class="carregando">Ajuste os filtros acima (se quiser) e clique em "Filtrar" para carregar os processos.</div></div>
@@ -1695,6 +1700,39 @@
     </div>
   </div>
 
+  <div class="modal-fundo" id="modalOficioIpvaFundo">
+    <div class="modal" style="max-width:640px;">
+      <h2>Ofício de baixa de IPVA — Secretaria de Economia/DF</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">Junta os veículos de todos os processos marcados numa lista só e monta o Ofício-modelo endereçado ao Secretário Executivo da Secretaria de Estado de Economia do Distrito Federal, pronto para colar no editor de "código fonte" do SEI.</p>
+      <div id="mensagemOficioIpva"></div>
+      <div id="oiConfiguracaoContainer">
+        <div class="grid-form">
+          <div class="campo">
+            <label for="oi_NomeSignatario">Nome de quem assina</label>
+            <input type="text" id="oi_NomeSignatario" maxlength="100" value="CAMILA PINTARELLI">
+          </div>
+          <div class="campo">
+            <label for="oi_CargoSignatario">Cargo de quem assina</label>
+            <input type="text" id="oi_CargoSignatario" maxlength="150" value="Diretora do Fundo Nacional de Segurança Pública">
+          </div>
+        </div>
+        <div class="botoes">
+          <button class="secundario" id="botaoOficioIpvaCancelar" data-fecha-modal>Cancelar</button>
+          <button class="primario" id="botaoOficioIpvaGerar" style="margin-left:auto;">Gerar ofício</button>
+        </div>
+      </div>
+      <div id="oiResultadoContainer" style="display:none;">
+        <div id="oiAvisos"></div>
+        <p style="font-size:13px; color:var(--texto-suave); margin:0 0 6px;"><span id="oiResumo"></span> — copie abaixo e cole direto no editor de "código fonte" (ícone <code>&lt;/&gt;</code>) do documento no SEI.</p>
+        <textarea id="oi_Html" readonly style="width:100%; min-height:220px; font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:12px;"></textarea>
+        <div class="botoes">
+          <button class="secundario" id="botaoOficioIpvaVoltar">‹ Ajustar signatário</button>
+          <button class="primario" id="botaoOficioIpvaCopiar" style="margin-left:auto;">Copiar código-fonte</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="modalNumeroProcessoFundo">
     <div class="modal" style="max-width:440px;">
       <h2>Novo cadastro</h2>
@@ -1857,6 +1895,7 @@
     configurarModalConfirmacao_();
     configurarModalLembreteAtpve_();
     configurarModalSegundaViaAtpve_();
+    configurarModalOficioIpva_();
     configurarModalNumeroProcesso_();
     configurarModalVeiculo_();
     configurarModalErroCadastro_();
@@ -3392,7 +3431,8 @@
         Chassi: VEICULOS_EXTRAIDOS_PDF[i].Chassi || '',
         Placa: VEICULOS_EXTRAIDOS_PDF[i].Placa || '',
         Renavam: VEICULOS_EXTRAIDOS_PDF[i].Renavam || '',
-        ValorVeiculo: formatarValorParaMascara_(VEICULOS_EXTRAIDOS_PDF[i].ValorVeiculo)
+        ValorVeiculo: formatarValorParaMascara_(VEICULOS_EXTRAIDOS_PDF[i].ValorVeiculo),
+        AnoModelo: VEICULOS_EXTRAIDOS_PDF[i].AnoModelo || ''
       } : null);
     }
     INDICE_VEICULO_MODAL = 0;
@@ -3412,6 +3452,7 @@
     document.getElementById('mv_Placa').value = dados.Placa || '';
     document.getElementById('mv_Renavam').value = dados.Renavam || '';
     document.getElementById('mv_Valor').value = dados.ValorVeiculo || '';
+    document.getElementById('mv_AnoModelo').value = dados.AnoModelo || '';
     document.getElementById('mensagemModalVeiculo').innerHTML = '';
     document.getElementById('botaoVeiculoVoltar').textContent = indice === 0 ? '‹ Voltar' : '‹ Veículo anterior';
     document.getElementById('botaoVeiculoConcluir').textContent =
@@ -3430,7 +3471,8 @@
       Chassi: document.getElementById('mv_Chassi').value,
       Placa: document.getElementById('mv_Placa').value,
       Renavam: document.getElementById('mv_Renavam').value,
-      ValorVeiculo: document.getElementById('mv_Valor').value
+      ValorVeiculo: document.getElementById('mv_Valor').value,
+      AnoModelo: document.getElementById('mv_AnoModelo').value
     };
   }
 
@@ -3904,7 +3946,8 @@
           Chassi: veiculoColetado.Chassi,
           Placa: veiculoColetado.Placa,
           Renavam: veiculoColetado.Renavam,
-          ValorVeiculo: veiculoColetado.ValorVeiculo
+          ValorVeiculo: veiculoColetado.ValorVeiculo,
+          AnoModelo: veiculoColetado.AnoModelo
         });
       }
 
@@ -3978,6 +4021,7 @@
         Placa: veiculoColetado.Placa,
         Renavam: veiculoColetado.Renavam,
         ValorVeiculo: veiculoColetado.ValorVeiculo,
+        AnoModelo: veiculoColetado.AnoModelo,
         SalvarRascunho: true
       });
 
@@ -4188,6 +4232,7 @@
     document.getElementById('contadorSelecaoExport').textContent =
       total ? (total + ' processo(s) marcado(s) para exportar.') : 'Nenhum processo marcado para exportar.';
     document.getElementById('botaoExportarSelecionados').disabled = total === 0;
+    document.getElementById('botaoGerarOficioIpva').disabled = total === 0;
   }
 
   function exportarProcessosSelecionados_() {
@@ -4211,6 +4256,81 @@
         mostrarMensagem('mensagemListagem', 'erro', 'Erro ao exportar: ' + (erro.message || String(erro)));
         botao.disabled = false;
       });
+  }
+
+  // ---------- Ofício de baixa de IPVA (Secretaria de Economia/DF) ----------
+  // Reaproveita a mesma marcação por checkbox de "Exportar processos
+  // marcados" (PROCESSOS_SELECIONADOS_EXPORT) — um ofício desses costuma
+  // juntar mais de um processo/Termo de Doação numa lista só.
+  function configurarModalOficioIpva_() {
+    document.getElementById('botaoOficioIpvaCancelar').addEventListener('click', fecharModalOficioIpva_);
+    document.getElementById('botaoOficioIpvaGerar').addEventListener('click', gerarOficioIpva_);
+    document.getElementById('botaoOficioIpvaVoltar').addEventListener('click', voltarConfiguracaoOficioIpva_);
+    document.getElementById('botaoOficioIpvaCopiar').addEventListener('click', copiarOficioIpva_);
+  }
+
+  function abrirModalOficioIpva_() {
+    var chaves = Object.keys(PROCESSOS_SELECIONADOS_EXPORT);
+    if (!chaves.length) return;
+    document.getElementById('mensagemOficioIpva').innerHTML = '';
+    voltarConfiguracaoOficioIpva_();
+    document.getElementById('modalOficioIpvaFundo').classList.add('ativo');
+  }
+
+  function fecharModalOficioIpva_() {
+    document.getElementById('modalOficioIpvaFundo').classList.remove('ativo');
+  }
+
+  function voltarConfiguracaoOficioIpva_() {
+    document.getElementById('oiConfiguracaoContainer').style.display = '';
+    document.getElementById('oiResultadoContainer').style.display = 'none';
+  }
+
+  async function gerarOficioIpva_() {
+    var chaves = Object.keys(PROCESSOS_SELECIONADOS_EXPORT);
+    if (!chaves.length) return;
+    var botao = document.getElementById('botaoOficioIpvaGerar');
+    botao.disabled = true;
+    document.getElementById('mensagemOficioIpva').innerHTML = '<div class="carregando">Gerando ofício...</div>';
+    try {
+      var resp = await chamarServidor_('gerarOficioIpvaDf', chaves, {
+        nomeSignatario: document.getElementById('oi_NomeSignatario').value,
+        cargoSignatario: document.getElementById('oi_CargoSignatario').value
+      });
+      document.getElementById('mensagemOficioIpva').innerHTML = '';
+      document.getElementById('oiResumo').textContent =
+        resp.totalVeiculos + ' veículo(s) de ' + resp.totalProcessos + ' processo(s) selecionado(s)';
+      var avisosContainer = document.getElementById('oiAvisos');
+      avisosContainer.innerHTML = (resp.avisos || []).map(function (aviso) {
+        return '<div class="mensagem aviso">' + escaparHtml(aviso) + '</div>';
+      }).join('');
+      document.getElementById('oi_Html').value = resp.html;
+      document.getElementById('oiConfiguracaoContainer').style.display = 'none';
+      document.getElementById('oiResultadoContainer').style.display = '';
+    } catch (erro) {
+      document.getElementById('mensagemOficioIpva').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
+  function copiarOficioIpva_() {
+    var campo = document.getElementById('oi_Html');
+    campo.select();
+    campo.setSelectionRange(0, 999999);
+    var copiado = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(campo.value);
+        copiado = true;
+      }
+    } catch (e) { /* cai no fallback abaixo */ }
+    if (!copiado) {
+      try { copiado = document.execCommand('copy'); } catch (e2) { /* segue sem copiar */ }
+    }
+    mostrarMensagem('mensagemOficioIpva', copiado ? 'sucesso' : 'erro',
+      copiado ? 'Código-fonte copiado! Cole no editor de "código fonte" do documento no SEI.' : 'Não consegui copiar automaticamente — o texto já está selecionado, use Ctrl+C.');
   }
 
   function carregarListagem() {
@@ -4831,6 +4951,7 @@
           '<div class="campo"><label>Placa</label><input type="text" maxlength="8" style="text-transform:uppercase" data-campo="Placa" data-indice="' + i + '"></div>' +
           '<div class="campo"><label>Renavam</label><input type="text" maxlength="11" data-campo="Renavam" data-indice="' + i + '"></div>' +
           '<div class="campo"><label>Valor do veículo (R$)</label><input type="text" inputmode="numeric" placeholder="0,00" data-campo="ValorVeiculo" data-indice="' + i + '"></div>' +
+          '<div class="campo"><label>Ano/Modelo</label><input type="text" maxlength="9" placeholder="Ex: 2026/2026" data-campo="AnoModelo" data-indice="' + i + '"></div>' +
           (v.novo
             ? '<div class="campo span-2"><label>Motivo da inclusão deste veículo *</label><input type="text" required maxlength="300" placeholder="Ex: veículo do aditivo incluído posteriormente" data-campo="Motivo" data-indice="' + i + '"></div>'
             : '') +
@@ -4949,6 +5070,7 @@
         Placa: veiculo.Placa,
         Renavam: veiculo.Renavam,
         ValorVeiculo: veiculo.ValorVeiculo,
+        AnoModelo: veiculo.AnoModelo,
         ATPVeEmitido: veiculo.ATPVeEmitido,
         ATPVeEnviado: veiculo.ATPVeEnviado,
         Transferido: veiculo.Transferido,
