@@ -835,6 +835,7 @@
           <div class="botoes" id="botoesExportarListagem" style="margin-top:0;">
             <button type="button" class="secundario" onclick="exportarListagemCsv_()">Exportar CSV</button>
             <button type="button" class="secundario" onclick="exportarListagemXlsx_()">Exportar XLSX</button>
+            <button type="button" class="secundario" onclick="abrirModalAnoModeloLote_()">Atualizar Ano/Modelo (PDFs)</button>
           </div>
         </div>
         <p class="dica-painel">Clique em um processo para expandir e ver os veículos, emitir/enviar o ATPVe de cada um, ou editar. A exportação por "CSV"/"XLSX" acima respeita os filtros aplicados (não só a página atual). Já a marcação por checkbox abaixo exporta só os processos escolhidos, no formato do controle externo da equipe.</p>
@@ -1733,6 +1734,33 @@
     </div>
   </div>
 
+  <div class="modal-fundo" id="modalAnoModeloLoteFundo">
+    <div class="modal" style="max-width:640px;">
+      <h2>Atualizar Ano/Modelo em lote (PDFs)</h2>
+      <p style="font-size:14px; color:var(--texto-suave);">Envie de uma vez todos os PDFs de Termo de Doação/Ofício de Transferência que você já tiver — o sistema lê o Chassi e o Ano/Modelo da tabela de cada um e completa esse campo nos veículos já cadastrados que ainda estiverem sem essa informação. Não sobrescreve um Ano/Modelo que já esteja preenchido.</p>
+      <div id="mensagemAnoModeloLote"></div>
+      <div id="amlSelecaoContainer">
+        <div class="grid-form">
+          <div class="campo span-2">
+            <label for="aml_Arquivos">PDFs (pode escolher vários de uma vez)</label>
+            <input type="file" id="aml_Arquivos" accept="application/pdf" multiple>
+          </div>
+        </div>
+        <div class="botoes">
+          <button class="secundario" id="botaoAmlCancelar" data-fecha-modal>Cancelar</button>
+          <button class="primario" id="botaoAmlProcessar" style="margin-left:auto;">Processar arquivos</button>
+        </div>
+      </div>
+      <div id="amlProgressoContainer" style="display:none;">
+        <p id="amlProgressoTexto" style="font-size:14px;"></p>
+        <div id="amlResultados" style="max-height:320px; overflow-y:auto;"></div>
+        <div class="botoes">
+          <button class="primario" id="botaoAmlFechar" style="margin-left:auto;" disabled>Concluir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="modalNumeroProcessoFundo">
     <div class="modal" style="max-width:440px;">
       <h2>Novo cadastro</h2>
@@ -1896,6 +1924,7 @@
     configurarModalLembreteAtpve_();
     configurarModalSegundaViaAtpve_();
     configurarModalOficioIpva_();
+    configurarModalAnoModeloLote_();
     configurarModalNumeroProcesso_();
     configurarModalVeiculo_();
     configurarModalErroCadastro_();
@@ -4331,6 +4360,70 @@
     }
     mostrarMensagem('mensagemOficioIpva', copiado ? 'sucesso' : 'erro',
       copiado ? 'Código-fonte copiado! Cole no editor de "código fonte" do documento no SEI.' : 'Não consegui copiar automaticamente — o texto já está selecionado, use Ctrl+C.');
+  }
+
+  // ---------- Atualizar Ano/Modelo em lote, a partir de vários PDFs ----------
+  function configurarModalAnoModeloLote_() {
+    document.getElementById('botaoAmlCancelar').addEventListener('click', fecharModalAnoModeloLote_);
+    document.getElementById('botaoAmlProcessar').addEventListener('click', processarAnoModeloLote_);
+    document.getElementById('botaoAmlFechar').addEventListener('click', fecharModalAnoModeloLote_);
+  }
+
+  function abrirModalAnoModeloLote_() {
+    document.getElementById('aml_Arquivos').value = '';
+    document.getElementById('mensagemAnoModeloLote').innerHTML = '';
+    document.getElementById('amlSelecaoContainer').style.display = '';
+    document.getElementById('amlProgressoContainer').style.display = 'none';
+    document.getElementById('amlResultados').innerHTML = '';
+    document.getElementById('botaoAmlFechar').disabled = true;
+    document.getElementById('modalAnoModeloLoteFundo').classList.add('ativo');
+  }
+
+  function fecharModalAnoModeloLote_() {
+    document.getElementById('modalAnoModeloLoteFundo').classList.remove('ativo');
+    // A lista de Processos pode estar mostrando dados desatualizados se
+    // algum Ano/Modelo foi preenchido durante o processamento.
+    if (document.getElementById('tela-listagem').classList.contains('ativa')) carregarListagem();
+  }
+
+  async function processarAnoModeloLote_() {
+    var input = document.getElementById('aml_Arquivos');
+    var arquivos = Array.prototype.slice.call(input.files || []);
+    if (!arquivos.length) {
+      mostrarMensagem('mensagemAnoModeloLote', 'erro', 'Escolha ao menos um arquivo PDF.');
+      return;
+    }
+
+    document.getElementById('amlSelecaoContainer').style.display = 'none';
+    document.getElementById('amlProgressoContainer').style.display = '';
+    var resultadosDiv = document.getElementById('amlResultados');
+    resultadosDiv.innerHTML = '';
+
+    var totalAtualizados = 0;
+    // Um PDF de cada vez (não em paralelo) — cada leitura já converte o PDF
+    // num Google Doc temporário via Drive; disparar tudo de uma vez só
+    // multiplicaria a carga na cota do Drive/OCR à toa.
+    for (var i = 0; i < arquivos.length; i++) {
+      document.getElementById('amlProgressoTexto').textContent =
+        'Processando ' + (i + 1) + ' de ' + arquivos.length + ': ' + arquivos[i].name + '...';
+      try {
+        var base64 = await lerArquivoComoBase64_(arquivos[i]);
+        var resp = await chamarServidor_('atualizarAnoModeloDoPdf', base64, arquivos[i].name);
+        totalAtualizados += resp.atualizados;
+        var detalhes = resp.atualizados + ' atualizado(s), ' + resp.jaPreenchidos + ' já preenchido(s) antes' +
+          (resp.naoEncontrados.length ? ', ' + resp.naoEncontrados.length + ' chassi(s) não encontrado(s) na base' : '') + '.';
+        resultadosDiv.innerHTML += '<div class="mensagem sucesso"><strong>' + escaparHtml(arquivos[i].name) + '</strong>: ' + detalhes +
+          (resp.avisos.length ? '<br>' + resp.avisos.map(escaparHtml).join('<br>') : '') + '</div>';
+      } catch (erro) {
+        resultadosDiv.innerHTML += '<div class="mensagem erro"><strong>' + escaparHtml(arquivos[i].name) + '</strong>: ' +
+          escaparHtml(erro.message || String(erro)) + '</div>';
+      }
+      resultadosDiv.scrollTop = resultadosDiv.scrollHeight;
+    }
+
+    document.getElementById('amlProgressoTexto').textContent =
+      'Concluído: ' + arquivos.length + ' arquivo(s) processado(s) — ' + totalAtualizados + ' veículo(s) atualizado(s) no total.';
+    document.getElementById('botaoAmlFechar').disabled = false;
   }
 
   function carregarListagem() {

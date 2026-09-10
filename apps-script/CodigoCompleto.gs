@@ -3966,6 +3966,160 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
   return veiculos;
 }
 
+// ======================================================================
+// ATUALIZAR ANO/MODELO EM LOTE (a partir de PDFs já emitidos) — backfill
+// pra veículos cadastrados ANTES do campo AnoModelo existir. A pessoa
+// reenvia vários PDFs de Termo de Doação/Ofício de Transferência de uma
+// vez (mesmos documentos já usados no cadastro original); pra cada um, só
+// lê Chassi + Ano/Modelo da tabela (não precisa do resto dos dados — o
+// veículo já está cadastrado) e casa pelo Chassi. Só PREENCHE o que
+// estiver vazio — nunca sobrescreve um Ano/Modelo já preenchido, pra não
+// arriscar substituir uma correção manual por um valor de OCR.
+// ======================================================================
+
+function atualizarAnoModeloDoPdf(base64Pdf, nomeArquivo) {
+  exigirPerfilEditor_();
+  if (!base64Pdf) throw new Error('Nenhum arquivo recebido.');
+
+  var arquivoTemp = null;
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Pdf), MimeType.PDF, nomeArquivo || 'documento.pdf');
+    arquivoTemp = Drive.Files.create(
+      { name: '(temp) Ano-Modelo — ' + (nomeArquivo || 'documento.pdf'), mimeType: MimeType.GOOGLE_DOCS },
+      blob,
+      { ocrLanguage: 'pt' }
+    );
+    var doc = DocumentApp.openById(arquivoTemp.id);
+    var avisos = [];
+    var pares = extrairChassiEAnoModeloDeTabelas_(doc.getBody(), avisos);
+
+    if (!pares.length) {
+      return { arquivo: nomeArquivo, atualizados: 0, jaPreenchidos: 0, naoEncontrados: [], avisos: avisos };
+    }
+
+    var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+    garantirColunasVeiculos_();
+    var idxChassiCol = colunaParaIndice_('Chassi') + 1;
+    var idxAnoModeloCol = colunaParaIndice_('AnoModelo') + 1;
+    var ultimaLinha = sheet.getLastRow();
+    var larguraLeitura = Math.max(idxChassiCol, idxAnoModeloCol);
+    var dados = ultimaLinha >= 2 ? sheet.getRange(2, 1, ultimaLinha - 1, larguraLeitura).getValues() : [];
+
+    var linhaPorChassi = {};
+    for (var i = 0; i < dados.length; i++) {
+      var chassiLinha = normalizarChassi_(dados[i][idxChassiCol - 1]);
+      if (chassiLinha && !linhaPorChassi[chassiLinha]) {
+        linhaPorChassi[chassiLinha] = { linha: i + 2, anoModeloAtual: dados[i][idxAnoModeloCol - 1] };
+      }
+    }
+
+    var jaPreenchidos = 0;
+    var naoEncontrados = [];
+    var atualizacoes = [];
+    pares.forEach(function (par) {
+      var info = linhaPorChassi[par.Chassi];
+      if (!info) {
+        naoEncontrados.push(par.Chassi);
+        return;
+      }
+      if (info.anoModeloAtual) {
+        jaPreenchidos++;
+        return;
+      }
+      atualizacoes.push({ linha: info.linha, valor: par.AnoModelo });
+    });
+
+    atualizacoes.forEach(function (item) {
+      sheet.getRange(item.linha, idxAnoModeloCol).setValue(item.valor);
+    });
+
+    if (atualizacoes.length) {
+      invalidarCacheVeiculos_();
+      invalidarCacheDashboard_();
+    }
+
+    return {
+      arquivo: nomeArquivo,
+      atualizados: atualizacoes.length,
+      jaPreenchidos: jaPreenchidos,
+      naoEncontrados: naoEncontrados,
+      avisos: avisos
+    };
+  } catch (e) {
+    throw new Error('Não foi possível ler "' + (nomeArquivo || 'o PDF') + '": ' + (e.message || String(e)));
+  } finally {
+    if (arquivoTemp) {
+      try { Drive.Files.remove(arquivoTemp.id); } catch (e2) { /* limpeza best-effort */ }
+    }
+  }
+}
+
+// Versão enxuta da extração usada em extrairVeiculosTermoDoacao_/
+// extrairVeiculosOficioTransferencia_ — só precisa de Chassi (pra casar
+// com o veículo já cadastrado) e Ano/Modelo (o único dado que falta),
+// nada mais.
+function extrairChassiEAnoModeloDeTabelas_(corpo, avisos) {
+  var tabelas = corpo.getTables();
+  if (!tabelas.length) {
+    avisos.push('Não encontrei nenhuma tabela nesse PDF.');
+    return [];
+  }
+
+  var idxChassi = -1, idxAnoModelo = -1;
+  var achouCabecalho = false;
+  for (var t = 0; t < tabelas.length; t++) {
+    if (!tabelas[t].getNumRows()) continue;
+    var linhaCabecalho = tabelas[t].getRow(0);
+    var cabecalho = [];
+    for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
+      cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+    }
+    if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
+    var acharColuna = function (pedaco) {
+      for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
+      return -1;
+    };
+    idxChassi = acharColuna('CHASSI');
+    idxAnoModelo = acharColuna('ANO');
+    achouCabecalho = true;
+    break;
+  }
+  if (!achouCabecalho) {
+    avisos.push('Encontrei tabela(s) nesse PDF, mas nenhuma com coluna "Chassi".');
+    return [];
+  }
+  if (idxAnoModelo === -1) {
+    avisos.push('Esse PDF não tem uma coluna de "Ano/Modelo" — nada pra atualizar a partir dele.');
+    return [];
+  }
+
+  var deslocAnoModelo = idxAnoModelo - idxChassi;
+  var resultado = [];
+  for (var t2 = 0; t2 < tabelas.length; t2++) {
+    var tabelaAtual = tabelas[t2];
+    for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
+      var linha = tabelaAtual.getRow(l);
+      var lerCelula = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : null; };
+
+      var chassiBruto = lerCelula(idxChassi);
+      var chassiTexto = chassiBruto === null ? '' : chassiBruto.replace(/\s+/g, '').toUpperCase();
+      var idxChassiLinha = idxChassi;
+      if (!validarChassi_(chassiTexto)) {
+        idxChassiLinha = -1;
+        for (var cc = 0; cc < linha.getNumCells(); cc++) {
+          var candidato = juntarCelulaQuebrada_(linha.getCell(cc).getText()).replace(/\s+/g, '').toUpperCase();
+          if (validarChassi_(candidato)) { idxChassiLinha = cc; chassiTexto = candidato; break; }
+        }
+        if (idxChassiLinha === -1) continue;
+      }
+
+      var anoModeloTexto = normalizarAnoModelo_(lerCelula(idxChassiLinha + deslocAnoModelo) || '');
+      if (anoModeloTexto) resultado.push({ Chassi: chassiTexto, AnoModelo: anoModeloTexto });
+    }
+  }
+  return resultado;
+}
+
 /**
  * Motor genérico de importação em lote — usado pela importação de PDF
  * (Ofício/Termo de Doação) e por scripts pontuais de importação de ofício
