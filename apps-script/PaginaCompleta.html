@@ -23,6 +23,9 @@
     --vermelho-bg: #FDEBEA; --vermelho-fg: #B3261E;
     --verde-bg: #E3F3E1; --verde-fg: #1E5B25;
     --amarelo-bg: #FFF3CD; --amarelo-fg: #7A5B00;
+    /* Hover do card de processo incompleto — mesma família do
+       --vermelho-bg, só um tom mais escuro pra dar feedback de hover. */
+    --vermelho-bg-hover: #FBD9D5;
   }
   * { box-sizing: border-box; }
   body {
@@ -301,6 +304,12 @@
   .kpi.vermelho { background: var(--vermelho-bg); }
   .kpi .rotulo { font-size: 12px; font-weight: 700; opacity: 0.75; }
   .kpi .valor { font-size: 28px; font-weight: 800; margin-top: 6px; }
+  /* Trilha de progresso do KPI "% Concluído" — o preenchimento herda a
+     cor do texto do card via currentColor (sem precisar de cor nova); a
+     trilha usa um overlay neutro (não pode usar opacity aqui, porque
+     opacity no elemento-pai também apagaria o preenchimento filho). */
+  .kpi-progresso-trilha { height: 6px; border-radius: 999px; background: rgba(0,0,0,.12); margin-top: 10px; overflow: hidden; }
+  .kpi-progresso-fill { height: 100%; border-radius: 999px; background: currentColor; }
   .kpi.clicavel { cursor: pointer; transition: transform 0.1s; }
   .kpi.clicavel:hover { transform: translateY(-2px); }
 
@@ -347,14 +356,14 @@
      é a mesma ideia de cor, mas na silhueta geográfica de verdade. */
   .regiao-bloco { margin-top: 14px; }
   .regiao-bloco:first-child { margin-top: 0; }
-  .regiao-titulo { display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--texto-suave); margin-bottom: 6px; }
-  .regiao-total { font-size: 12px; font-weight: 800; text-transform: none; letter-spacing: normal; color: var(--primario); }
+  .regiao-titulo { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--texto-suave); margin-bottom: 6px; }
+  .regiao-total { font-size: 13px; font-weight: 800; text-transform: none; letter-spacing: normal; color: var(--primario); }
   .regiao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
   .heat-celula { border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: transform 0.1s; }
   .heat-celula:hover { transform: translateY(-2px); }
-  .heat-celula .uf { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.8; }
-  .heat-celula .v { font-size: 20px; font-weight: 800; margin: 3px 0 2px; }
-  .heat-celula .l { font-size: 11.5px; opacity: 0.85; white-space: nowrap; }
+  .heat-celula .uf { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.8; }
+  .heat-celula .v { font-size: 21px; font-weight: 800; margin: 3px 0 2px; }
+  .heat-celula .l { font-size: 12px; opacity: 0.85; white-space: nowrap; }
   .heat-h1 { background: #EAF1FB; color: var(--primario-escuro); }
   .heat-h2 { background: #C3D7F3; color: var(--primario-escuro); }
   .heat-h3 { background: #8FB2E7; color: #fff; }
@@ -402,7 +411,7 @@
   .processo-cabecalho:hover { background: #f9fafb; }
   .processo-card.processo-incompleto { border-color: var(--vermelho); }
   .processo-card.processo-incompleto .processo-cabecalho { background: var(--vermelho-bg); }
-  .processo-card.processo-incompleto .processo-cabecalho:hover { background: #fecaca; }
+  .processo-card.processo-incompleto .processo-cabecalho:hover { background: var(--vermelho-bg-hover); }
   .selo-vermelho { background: var(--vermelho-bg); color: var(--vermelho-fg); }
   .selo-azul { background: var(--azul-bg); color: var(--azul-fg); }
   .selo-roxo { background: var(--roxo-bg); color: var(--roxo-fg); }
@@ -510,7 +519,7 @@
       <div class="app-nav-item" data-tela="relatorioProdutividade" onclick="abrirEscolhaModeloProdutividade_()">📈 Produtividade</div>
       <div class="app-nav-item" data-tela="usuarios" onclick="irParaTela('usuarios')">👤 Usuários</div>
       <div class="app-nav-item" data-tela="lixeira" onclick="irParaTela('lixeira')">🗑️ Lixeira</div>
-      <div class="app-nav-item" id="navTep" data-tela="tep" style="display:none; background:#dc2626; color:#fff;" onclick="irParaTela('tep')">🔴 TEP <span id="navTepContagem"></span></div>
+      <div class="app-nav-item" id="navTep" data-tela="tep" style="display:none; background:var(--vermelho); color:#fff;" onclick="irParaTela('tep')">🔴 TEP <span id="navTepContagem"></span></div>
     </nav>
     <main>
     <div id="mensagemGlobal"></div>
@@ -977,7 +986,9 @@
         <div class="kpi roxo"><div class="rotulo">🚗 TOTAL DE VEÍCULOS</div><div class="valor" id="kpiTotal">–</div></div>
         <div class="kpi verde clicavel" onclick="irParaListagemComFiltro('transferido', 'SIM')"><div class="rotulo">✅ TRANSFERIDOS</div><div class="valor" id="kpiTransferidos">–</div></div>
         <div class="kpi amarelo clicavel" onclick="irParaListagemComFiltro('transferido', 'NÃO')"><div class="rotulo">⏳ PENDENTES</div><div class="valor" id="kpiPendentes">–</div></div>
-        <div class="kpi azul"><div class="rotulo">📊 % CONCLUÍDO</div><div class="valor" id="kpiPercentual">–</div></div>
+        <div class="kpi azul"><div class="rotulo">📊 % CONCLUÍDO</div><div class="valor" id="kpiPercentual">–</div>
+          <div class="kpi-progresso-trilha"><div class="kpi-progresso-fill" id="kpiPercentualBarra" style="width:0%;"></div></div>
+        </div>
       </div>
 
       <p class="dica-painel">Clique em qualquer card abaixo para ver a lista de veículos correspondente.</p>
@@ -3125,9 +3136,9 @@
         return;
       }
       container.innerHTML = linkAlternarHtml + TEP_PENDENTES_ATUAL.map(function (p, i) {
-        return '<div class="card" style="border:2px solid #dc2626; background:#fef2f2; margin-bottom:14px;">' +
-          '<p style="color:#991b1b; font-weight:700; margin:0 0 8px;">⚠️ Processo concluído (todos os veículos transferidos) — faça o Termo de Encerramento de Processo.' +
-          (p.novo ? ' <span style="background:#dc2626; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; vertical-align:middle;">NOVO</span>' : '') +
+        return '<div class="card" style="border:2px solid var(--vermelho); background:var(--vermelho-bg); margin-bottom:14px;">' +
+          '<p style="color:var(--vermelho); font-weight:700; margin:0 0 8px;">⚠️ Processo concluído (todos os veículos transferidos) — faça o Termo de Encerramento de Processo.' +
+          (p.novo ? ' <span style="background:var(--vermelho); color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; vertical-align:middle;">NOVO</span>' : '') +
           '</p>' +
           '<p style="margin:0;"><strong>' + escaparHtml(p.processo || p.termoDoacao || p.chave) + '</strong></p>' +
           (p.numeroSei ? '<p style="margin:2px 0 0; color:var(--texto-suave); font-size:13px;">Número SEI do Termo: ' + escaparHtml(p.numeroSei) + '</p>' : '') +
@@ -5664,11 +5675,20 @@
     renderizarPainel(stats);
   }
 
+  // Atualiza o número e a barra de progresso do KPI "% Concluído" juntos —
+  // usada tanto no carregamento normal do painel quanto no filtro de
+  // Estatísticas, pra não duplicar essa lógica nos dois lugares.
+  function atualizarKpiPercentual_(percentual) {
+    document.getElementById('kpiPercentual').textContent = percentual + '%';
+    var larguraBarra = Math.max(0, Math.min(100, Number(percentual) || 0));
+    document.getElementById('kpiPercentualBarra').style.width = larguraBarra + '%';
+  }
+
   function renderizarPainel(stats) {
     document.getElementById('kpiTotal').textContent = stats.total;
     document.getElementById('kpiTransferidos').textContent = stats.transferidos;
     document.getElementById('kpiPendentes').textContent = stats.pendentes;
-    document.getElementById('kpiPercentual').textContent = stats.percentualTransferido + '%';
+    atualizarKpiPercentual_(stats.percentualTransferido);
 
     renderizarRankUF_(stats.porUF);
     renderizarMapaRegional_(stats.porUF);
@@ -5809,7 +5829,7 @@
       document.getElementById('kpiTotal').textContent = stats.total;
       document.getElementById('kpiTransferidos').textContent = stats.transferidos;
       document.getElementById('kpiPendentes').textContent = stats.pendentes;
-      document.getElementById('kpiPercentual').textContent = stats.percentualTransferido + '%';
+      atualizarKpiPercentual_(stats.percentualTransferido);
     } catch (erro) {
       mostrarErroGlobal(erro);
     }
