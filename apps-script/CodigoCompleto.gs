@@ -479,11 +479,26 @@ function colunaParaIndice_(nomeColuna) {
 // visitante: só visualiza — nenhuma ação de escrita é permitida.
 // ======================================================================
 
+var CACHE_PERFIL_PREFIXO_ = 'perfil_';
+var CACHE_PERFIL_SEGUNDOS_ = 60;
+
+// getPerfilUsuarioAtual_ é chamada em praticamente toda ação do sistema (é a
+// checagem de permissão) — cada chamada RPC do frontend é uma execução nova
+// do Apps Script, sem memória compartilhada entre elas, então sem esse cache
+// toda ação relia a aba Usuarios do zero. TTL curto (60s) porque é dado de
+// permissão; cadastrarUsuario invalida a entrada na hora quando o perfil de
+// alguém muda, então o TTL só importa em cenário de falha desse invalidar.
 function getPerfilUsuarioAtual_() {
   var email = getEmailUsuarioAtual_();
+  var cache = CacheService.getDocumentCache();
+  var chaveCache = CACHE_PERFIL_PREFIXO_ + email.toLowerCase();
+  var cacheado = cache.get(chaveCache);
+  if (cacheado) return JSON.parse(cacheado);
+
   var sheet = getOrCreateSheet_(SHEET_USUARIOS, CABECALHO_USUARIOS);
   var dados = sheet.getDataRange().getValues();
 
+  var perfilEncontrado = null;
   for (var i = 1; i < dados.length; i++) {
     var linha = dados[i];
     if (String(linha[0]).trim().toLowerCase() === email.toLowerCase()) {
@@ -492,7 +507,7 @@ function getPerfilUsuarioAtual_() {
       // Equivale ao novo perfil "usuario" (cadastra/edita, sem restrição de
       // UF) — mantém acesso de quem já estava cadastrado assim antes.
       var perfil = perfilBruto === 'uf' ? PERFIL_USUARIO : (perfilBruto || PERFIL_VISITANTE);
-      return {
+      perfilEncontrado = {
         email: email,
         perfil: perfil,
         uf: normalizarUF_(linha[2] || ''),
@@ -501,9 +516,19 @@ function getPerfilUsuarioAtual_() {
         // importa pra estender esse acesso a usuários/visitantes específicos.
         acessoProdutividade: perfil === PERFIL_ADMIN || normalizarTexto_(linha[4]).toUpperCase() === 'SIM'
       };
+      break;
     }
   }
-  return { email: email, perfil: 'sem_acesso', uf: '', nome: email, acessoProdutividade: false };
+  if (!perfilEncontrado) {
+    perfilEncontrado = { email: email, perfil: 'sem_acesso', uf: '', nome: email, acessoProdutividade: false };
+  }
+
+  cache.put(chaveCache, JSON.stringify(perfilEncontrado), CACHE_PERFIL_SEGUNDOS_);
+  return perfilEncontrado;
+}
+
+function invalidarCachePerfilUsuario_(email) {
+  CacheService.getDocumentCache().remove(CACHE_PERFIL_PREFIXO_ + String(email || '').trim().toLowerCase());
 }
 
 function exigirPerfilAdmin_() {
@@ -930,6 +955,7 @@ function cadastrarUsuario(dados) {
     mensagem = 'Usuário "' + email + '" cadastrado com sucesso. Ele já pode acessar o sistema pelo mesmo link.';
   }
   aplicarAcessoPlanilha_(email, acessoPlanilha);
+  invalidarCachePerfilUsuario_(email);
   return { mensagem: mensagem };
 }
 
@@ -1587,7 +1613,45 @@ function paraDtoListagem_(r) {
  * dos cards ainda fechados — trabalho e tráfego desperdiçados numa tela
  * com muitos processos.
  */
+// A tela de Processos é a mais acessada do sistema, e o agrupamento por
+// processo (mais a ordenação) era refeito do zero a cada clique — trocar de
+// página, mudar um filtro, tudo recalculava tudo em memória de novo. Cacheia
+// o resultado agrupado (antes da paginação) por combinação de filtro, com
+// invalidação por versão em vez de TTL curto: qualquer gravação chama
+// invalidarCacheDashboard_ (que chama invalidarCacheProcessos_), que
+// incrementa a versão — os caches da versão antiga somem sozinhos do
+// CacheService quando expiram, sem precisar enumerar/apagar cada
+// combinação de filtro que exista.
+var CACHE_PROCESSOS_VERSAO_CHAVE_ = 'processos_versao';
+var CACHE_PROCESSOS_SEGUNDOS_ = 90;
+
+function invalidarCacheProcessos_() {
+  var cache = CacheService.getDocumentCache();
+  var atual = parseInt(cache.get(CACHE_PROCESSOS_VERSAO_CHAVE_), 10) || 0;
+  cache.put(CACHE_PROCESSOS_VERSAO_CHAVE_, String(atual + 1), 21600);
+}
+
+function chaveCacheProcessos_(filtros) {
+  var cache = CacheService.getDocumentCache();
+  var versao = cache.get(CACHE_PROCESSOS_VERSAO_CHAVE_) || '0';
+  var chaveFiltros = JSON.stringify({
+    uf: filtros.uf || '', ente: filtros.ente || '', ano: filtros.ano || '',
+    transferido: filtros.transferido || '', busca: filtros.busca || '',
+    buscaCampo: filtros.buscaCampo || '', somenteRascunho: !!filtros.somenteRascunho
+  });
+  var hash = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, chaveFiltros));
+  return 'processos_v' + versao + '_' + hash;
+}
+
 function listarProcessos(filtros) {
+  filtros = filtros || {};
+  var cache = CacheService.getDocumentCache();
+  var chaveCache = chaveCacheProcessos_(filtros);
+  var cacheado = cache.get(chaveCache);
+  if (cacheado) {
+    return montarRespostaListarProcessos_(JSON.parse(cacheado), filtros);
+  }
+
   var todos = listarVeiculos(filtros);
   var grupos = {};
   var ordem = [];
@@ -1663,6 +1727,21 @@ function listarProcessos(filtros) {
     p.qtdEsperada = qtdContrato + qtdAditivo;
     p.temRascunho = p.totalRascunhos > 0;
   });
+
+  try {
+    cache.put(chaveCache, JSON.stringify(processos), CACHE_PROCESSOS_SEGUNDOS_);
+  } catch (e) {
+    // Lote de processos grande demais pro CacheService (limite de tamanho
+    // por item) — segue sem cachear essa combinação de filtro específica.
+  }
+
+  return montarRespostaListarProcessos_(processos, filtros);
+}
+
+// Aplica a paginação em memória sobre o array de processos já agrupado —
+// compartilhada entre o caminho de cache-hit e o de cache-miss de
+// listarProcessos, pra paginação nunca ficar dessincronizada entre os dois.
+function montarRespostaListarProcessos_(processos, filtros) {
   var totalPaginas = Math.max(1, Math.ceil(processos.length / LIMITE_LISTAGEM_PADRAO));
   var pagina = Math.min(totalPaginas, Math.max(1, parseInt(filtros && filtros.pagina, 10) || 1));
   var inicio = (pagina - 1) * LIMITE_LISTAGEM_PADRAO;
@@ -2293,9 +2372,10 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
 
 /**
  * Identidade ESTÁVEL de um processo pra fins administrativos (TEP,
- * Cobrança, e listas fechadas de chaves de correções pontuais já feitas —
- * ver PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_). NumeroProcesso quando
- * existe; senão Ano + Número SEI (quando tiver) ou Ano + Termo de Doação.
+ * Cobrança, e listas fechadas de chaves de correções pontuais já feitas
+ * — inclusive scripts de uso único já apagados depois de rodados).
+ * NumeroProcesso quando existe; senão Ano + Número SEI (quando tiver) ou
+ * Ano + Termo de Doação.
  * O Ano entra porque o SENASP reaproveita os mesmos números de termo a
  * cada ano (ex.: "Termo de Doação SENASP 85" existiu em 2024 E de novo,
  * sem relação nenhuma, em 2026). O Número SEI tem prioridade sobre o
@@ -2313,11 +2393,10 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
  * classe de bug não pode mais acontecer aqui.
  *
  * IMPORTANTE: esta função é referenciada por dado já GRAVADO (a coluna
- * "Chave" de CobrancaProcessos/TepFinalizados/TepObservacoes, e a lista
- * fechada PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_) — nunca mude a fórmula
- * dela; qualquer ajuste no agrupamento "processo" pra telas/edição/
- * exportação vai em chaveListagemProcesso_ abaixo, que não é persistida
- * em lugar nenhum.
+ * "Chave" de CobrancaProcessos/TepFinalizados/TepObservacoes) — nunca
+ * mude a fórmula dela; qualquer ajuste no agrupamento "processo" pra
+ * telas/edição/exportação vai em chaveListagemProcesso_ abaixo, que não
+ * é persistida em lugar nenhum.
  */
 function chaveProcesso_(registro) {
   if (registro.NumeroProcesso) return registro.NumeroProcesso;
@@ -2873,30 +2952,46 @@ function criarVeiculo_(sheet, perfil, registro) {
 
   garantirColunasVeiculos_();
 
-  var duplicado = encontrarDuplicado_(sheet, registro.Chassi, registro.Placa);
-  if (duplicado) {
-    throw new Error('Já existe um veículo cadastrado com este chassi ou placa (ID ' + duplicado + ').');
+  // Trava checagem de duplicidade + geração de ID + gravação como uma única
+  // seção crítica — sem isso, dois cadastros rodando ao mesmo tempo podiam
+  // os dois passar pela checagem de duplicidade antes de qualquer um
+  // gravar (mesmo chassi/placa duplicado escapando), ou gerar o mesmo ID
+  // sequencial (gerarProximoId_ lê e incrementa uma propriedade sem lock).
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    throw new Error('O sistema está processando outro cadastro no momento — tente de novo em alguns segundos.');
   }
 
-  var id = gerarProximoId_();
-  var agora = new Date();
-  var linha = CABECALHO_VEICULOS.map(function (campo) {
-    switch (campo) {
-      case 'ID': return id;
-      case 'DataCadastro': return agora;
-      case 'DataTransferencia': return registro.Transferido === 'SIM' ? agora : '';
-      case 'DataEmissaoATPVe': return registro.ATPVeEmitido === 'SIM' ? agora : '';
-      case 'CadastradoPor': return perfil.email;
-      case 'UltimaAtualizacao': return agora;
-      case 'AtualizadoPor': return perfil.email;
-      default: return registro[campo] !== undefined ? registro[campo] : '';
+  try {
+    var duplicado = encontrarDuplicado_(registro.Chassi, registro.Placa);
+    if (duplicado) {
+      throw new Error('Já existe um veículo cadastrado com este chassi ou placa (ID ' + duplicado + ').');
     }
-  });
 
-  sheet.appendRow(linha);
-  registrarLog_('CRIAR', id, JSON.stringify(registro));
-  invalidarCacheDashboard_();
-  return { ID: id, mensagem: 'Veículo cadastrado com sucesso.' };
+    var id = gerarProximoId_();
+    var agora = new Date();
+    var linha = CABECALHO_VEICULOS.map(function (campo) {
+      switch (campo) {
+        case 'ID': return id;
+        case 'DataCadastro': return agora;
+        case 'DataTransferencia': return registro.Transferido === 'SIM' ? agora : '';
+        case 'DataEmissaoATPVe': return registro.ATPVeEmitido === 'SIM' ? agora : '';
+        case 'CadastradoPor': return perfil.email;
+        case 'UltimaAtualizacao': return agora;
+        case 'AtualizadoPor': return perfil.email;
+        default: return registro[campo] !== undefined ? registro[campo] : '';
+      }
+    });
+
+    sheet.appendRow(linha);
+    registrarLog_('CRIAR', id, JSON.stringify(registro));
+    invalidarCacheDashboard_();
+    return { ID: id, mensagem: 'Veículo cadastrado com sucesso.' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ======================================================================
@@ -3646,9 +3741,10 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
 }
 
 /**
- * Motor genérico de importação em lote — usado pelas funções de
- * importação pontual de ofícios/termos de doação (ex.:
- * importarOficio480_2026). Ao contrário de chamar salvarVeiculo() num
+ * Motor genérico de importação em lote — usado pela importação de PDF
+ * (Ofício/Termo de Doação) e por scripts pontuais de importação de ofício
+ * específico (uso único, apagados depois de rodados). Ao contrário de
+ * chamar salvarVeiculo() num
  * loop (que relê a planilha inteira do zero a cada veículo só pra
  * checar duplicidade — com ~3.500 linhas, isso levou mais de 3 minutos
  * pra importar 67 veículos), lê a planilha UMA VEZ, valida cada linha
@@ -3672,6 +3768,17 @@ function importarVeiculosEmLote_(comum, veiculos) {
   if (perfil.perfil !== PERFIL_ADMIN && perfil.perfil !== PERFIL_USUARIO) {
     throw new Error('Você não tem permissão para cadastrar veículos — visitantes só podem visualizar.');
   }
+
+  // Mesma trava de criarVeiculo_/salvarProcessoEditado — essa é a rota de
+  // importação em lote (Ofício/Termo em PDF), com a mesma seção crítica de
+  // checagem de duplicidade + geração de ID.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    throw new Error('O sistema está processando outro cadastro no momento — tente de novo em alguns segundos.');
+  }
+  try {
 
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
   garantirColunasVeiculos_();
@@ -3736,427 +3843,15 @@ function importarVeiculosEmLote_(comum, veiculos) {
   }
 
   return { criados: criados, jaExistiam: jaExistiam, erros: erros };
-}
-
-/**
- * Importação/atualização em lote da base de contatos dos municípios
- * (autoridade responsável, e-mails, telefone), a partir da planilha
- * "CONTATOS_MUNICIPIOS.xlsx" enviada em 19/08/2026 — 133 municípios com
- * dados preenchidos. Rode manualmente pelo editor (selecione
- * "importarContatosMunicipios" no menu de funções e clique em Executar)
- * sempre que receber uma base atualizada — identifica cada linha por
- * UF + Município (normalizado), então já existentes são ATUALIZADOS em
- * vez de duplicados, e pode rodar quantas vezes precisar.
- */
-var CONTATOS_MUNICIPIOS_IMPORTAR_ = [
-  { uf: 'AL', orgao: 'MACEIÓ/AL', autoridade: 'RODRIGO SANTOS CUNHA', ato: 'conforme Termo de Posse da Câmara Municipal de Maceió, de 05 de abril de 2026 (35426038)', emailPessoal: 'rodrigocunha@gp.maceio.al.gov.br', emailGerais: 'gabinete@gp.maceio.al.gov.br; gabinete@arser.maceio.al.gov.br; gabinete@semsc.maceio.al.gov.br; gabcivil@gp.maceio.al.gov.br', telefone: '' },
-  { uf: 'AP', orgao: 'MUNICÍPIO DE MACAPÁ/AP', autoridade: 'PEDRO DOS SANTOS MARTINS', ato: 'Presidente da Câmara Municipal, no exercício da Prefeitura desde a renúncia do titular em março de 2026, após afastamento determinado pelo STF', emailPessoal: 'daluadorota@gmail.com', emailGerais: 'comando.gcmm@gmail.com; gabinete@macapa.ap.gov.br', telefone: '' },
-  { uf: 'BA', orgao: 'MUNICÍPIO DE ALAGOINHAS - BA', autoridade: 'GUSTAVO AUGUSTO DE SOUZA CARMO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31988707).', emailPessoal: 'gustavocarmo@alagoinhas.ba.gov.br', emailGerais: 'cmt.gcm@alagoinhas.com.br', telefone: '' },
-  { uf: 'BA', orgao: 'MUNICÍPIO DE AMARGOSA -BA', autoridade: 'GETÚLIO ALMEIDA SAMPAIO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31871542)', emailPessoal: 'getulioalmeidasampaio@gmail.com', emailGerais: 'convenios@amargosa.ba.gov.br', telefone: '' },
-  { uf: 'BA', orgao: 'MUNICÍPIO DE LUÍS EDUARDO MAGALHÃES -BA', autoridade: 'ONDUMAR FERREIRA BORGES JUNIOR', ato: 'Nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31768735)', emailPessoal: 'ondumarferreira@gmail.com', emailGerais: 'gcm@pmlem.ba.gov.br', telefone: '' },
-  { uf: 'BA', orgao: 'MUNICÍPIO DE SALVADOR -BA', autoridade: 'BRUNO SOARES REIS', ato: 'Nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32492970)', emailPessoal: 'bruno.reis@salvador.ba.gov.br', emailGerais: 'ricardo.571@salvador.ba.gov.br; flavia.nascimento@salvador.ba.gov.br; prefeito@salvador.ba.gov.br', telefone: ': Palácio Thomé de Souza, Praça Municipal, s/n, Centro, Salvador/BA, CEP: 40020-010' },
-  { uf: 'CE', orgao: 'MUNICÍPIO DE ARACATI/CE', autoridade: 'ROBERTA CARDOSO BARBOSA DE ALMEIDA', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34916861)', emailPessoal: '', emailGerais: 'comando.gma@aracati.ce.gov.br', telefone: '' },
-  { uf: 'CE', orgao: 'MUNICÍPIO DE CAUCAIA/CE', autoridade: 'NAUMI GOMES DE AMORIM', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34911198).', emailPessoal: 'amorimnaumi55@gmail.com', emailGerais: 'secretaria.seguranca@caucaia.ce.gov.br', telefone: '' },
-  { uf: 'CE', orgao: 'MUNICÍPIO DE FORTALEZA/CE', autoridade: 'EVANDRO SÁ BARRETO LEITÃO', ato: 'posse da Câmara Municipal de Fortaleza - CE, no dia 01 de janeiro de 2025 (30424166).', emailPessoal: 'evandro.leitao@gabpref.fortaleza.ce.gov.br', emailGerais: 'pmpu@sesec.fortaleza.ce.gov.br', telefone: '' },
-  { uf: 'CE', orgao: 'MUNICÍPIO DE RUSSAS/CE', autoridade: 'SÁVIO GURGEL NOGUEIRA', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34911705)', emailPessoal: 'saviogurgel@hotmail.com', emailGerais: 'chefe_gabinete@russas.ce.gov.br', telefone: '' },
-  { uf: 'ES', orgao: 'MUNICÍPIO DE CARIACICA - ES', autoridade: 'EUCLERIO DE AZEVEDO SAMPAIO JUNIOR', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31795478).', emailPessoal: 'euclerio.sampaio@cariacica.es.gov.br', emailGerais: 'lauedis.tomazelli@cariacica.es.gov.br; guilherme.oliveira2@mj.gov.br', telefone: '' },
-  { uf: 'ES', orgao: 'MUNICÍPIO DE SERRA - ES', autoridade: 'WEVERSON VALCKER MEIRELES', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32137020)', emailPessoal: 'weversonmeireles.serra@gmail.com', emailGerais: 'lais.matos@serra.es.gov.br; diego.costa@serra.es.gov.br', telefone: '' },
-  { uf: 'ES', orgao: 'Vila Velha - ES', autoridade: 'ARNALDO BORGO FILHO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31432215).', emailPessoal: 'arnaldo.filho@vilavelha.es.gov.br', emailGerais: 'semdest@vilavelha.es.gov.br; gabinete@vilavelha.es.gov.br; gilberto.araujo@vilavelha.es.gov.br', telefone: '' },
-  { uf: 'GO', orgao: 'MUNICÍPIO DE APARECIDA DE GOIÂNIA/GO', autoridade: 'LEANDRO VILELA VELLOSO', ato: 'Nomeado conforme ato de posse da Câmara Municipal de Aparecida de Goiânia, no dia 01 de janeiro de 2025 (30315749).', emailPessoal: 'v.vilela2025@gmail.com', emailGerais: 'casacivilap@gmail.com;', telefone: '' },
-  { uf: 'GO', orgao: 'MUNICÍPIO DE CALDAS NOVAS/GO', autoridade: 'KLEBER LUIZ MARRA', ato: 'conforme Diploma do Prefeito (36220518)', emailPessoal: '', emailGerais: 'willenrcs@gmail.com; gabineteklebermarra@caldasnovas.go.gov.br; smt@caldasnovas.go.gov.br', telefone: '' },
-  { uf: 'GO', orgao: 'MUNICÍPIO DE FORMOSA/GO', autoridade: 'SIMONE DIAS DE SOUSA RIBEIRO', ato: 'conforme ato de posse da Câmara Municipal de Formosa/GO (34620082)', emailPessoal: 'prefeitasimoneribeiro@gmail.com', emailGerais: 'guarda@formosa.go.gov.br; gabinete@formosa.go.gov.br', telefone: '' },
-  { uf: 'GO', orgao: 'MUNICÍPIO DE GOIÂNIA/GO', autoridade: 'SANDRO DA MABEL ANTONIO SCODRO', ato: 'comunicado de posse nº 15610/2025 da prefeitura de Goiânia, em 01/01/2025. (34760492)', emailPessoal: 'sandro.mabel@scodro.com.br', emailGerais: 'gabpresidente@goiania.go.gov.br; secger.gcmgoiania@gmail.com; gabinete.prefeito@goiania.go.go', telefone: '' },
-  { uf: 'GO', orgao: 'MUNICÍPIO DE PALMEIRAS DE GOIÁS/GO', autoridade: 'OSVALDO CASSIANO DE FARIA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32095102)', emailPessoal: '', emailGerais: 'chefedegabinete@palmeirasdegoias.go.gov.br; gcr.sme.pmpg@gmail.com', telefone: '' },
-  { uf: 'GO', orgao: 'MUNICÍPIO DE SENADOR CANEDO/GO', autoridade: 'FERNANDO PELLOZO', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Senador canedo/GO, no dia 01 de janeiro de 2021.', emailPessoal: 'fernandopellozo@gmail.com', emailGerais: 'gabineteprefeito@senadorcanedo.go.gov.br', telefone: '' },
-  { uf: 'GO', orgao: 'MUNICÍPIO DE PALMEIRAS DE GOIÁS/GO', autoridade: 'OSVALDO CASSIANO DE FARIA', ato: 'nomeado conforme Termo de Posse do Prefeito, de 01 de Janeiro de 2025 (32360382)', emailPessoal: 'cassianodefariaosvaldo@gmail.com', emailGerais: 'gabinete@palmeirasdegoias.go.gov.br; chefedegabinete@palmeirasdegoias.go.gov.br; gcr.smepmpg@gmail.com', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE ANAPURUS - MA', autoridade: 'TÂNIOS MATIAS LIMA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (31946610).', emailPessoal: 'prefeitotanios@anapurus.ma.gov.br', emailGerais: 'prefeitura.anapurus@gmail.com; gamonteles@gmail.com', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE BARREIRINHAS - MA', autoridade: 'MARCUS VINICIUS VALE LIMA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32600526)', emailPessoal: 'marcusvvl97@gmail.com', emailGerais: 'seguranca@barreirinhas.ma.gov.br; prefeito@barreirinhas.ma.gov.br', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE GOVERNADOR EUGÊNIO BARROS', autoridade: 'FRANCISCO CARNEIRO RIBEIRO', ato: 'nomeado conforme SessãoEspecial de Posse em 01 de janeiro de 2025 (3498111).', emailPessoal: 'franciscocdob21@gmail.com', emailGerais: 'pmgeb@hotmail.com; prefeiturageb@outlook.com', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE LAGO DA PEDRA - MA', autoridade: 'MAURA JORGE ALVES DE MELO RIBEIRO', ato: 'Nomeada conforme ato de posse no dia 01 de janeiro de 2025 (30392467).', emailPessoal: 'maura.prefeita@gmail.com', emailGerais: 'prefeituralp@lagodapedra.ma.gov.br; secdeseguranca@lagodapedra.ma.gov.br', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE LAJEADO NOVO/MA', autoridade: 'ATAÍRES LOBO SANTOS DE ANDRADE', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Lajeado Novo/MA datado de 01/01/2025 (30571502).', emailPessoal: 'prefeitoitairestratozao@gmail.com', emailGerais: 'admlajeadonovo@gmail.com; gabiente@lajeadonovo.ma.gov.br; prefeitura@lajeadonovo.ma.gov.br', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE PENALVA - MA', autoridade: 'LUIZ HENRIQUE ALVES GUERRA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Penalva - MA, em 1º de janeiro de 2025 (32221258)', emailPessoal: '', emailGerais: 'prefeiturapenalva45@gmail.com; gabsspma@gmail.com; prefeiturapenalva.ma@gmail.com', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE PERITORÓ - MA', autoridade: 'JOSUÉ PINHO DA SILVA JUNIOR', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Peritoró - MA, no dia 1º de janeiro de 2025 (32854041).', emailPessoal: 'drjuniorprefeito@peritoro.ma.gov.br', emailGerais: 'gabinete@peritoro.ma.gov.br', telefone: '' },
-  { uf: 'MA', orgao: 'MUNICÍPIO DE VIANA -MA', autoridade: 'CARLOS AUGUSTO FURTADO CIDREIRA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Viana - MA, no dia 1º de janeiro de 2025 (32862672)', emailPessoal: 'carlosaugustofurtadocidreira@gmail.com', emailGerais: 'Prefeituradevianama@gmail.com', telefone: 'Rua Praça Ozimo de Carvalho, 141, Centro, Viana - MA, 65.215-000' },
-  { uf: 'MS', orgao: 'MUNICÍPIO DE BONITO/MS', autoridade: 'JOSMAIL RODRIGUES', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Bonito/MS datado de 01/01/2021.', emailPessoal: 'josmailrodrigues.ms@gmail.com', emailGerais: 'gabinete.prefeito@bonito.ms.gov.br', telefone: '(67) 3255-1351 (67) 3255-1471' },
-  { uf: 'MS', orgao: 'MUNICÍPIO DE DOURADOS - MS', autoridade: 'MARÇAL GONÇALVES LEITE FILHO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32025146).', emailPessoal: 'marcal.filho@dourados.ms.gov.br', emailGerais: 'gmd@dourados.ms.gov.br', telefone: '' },
-  { uf: 'MG', orgao: 'MUNICÍPIO DE PLANURA/MG', autoridade: 'ANTONIO LUIZ BOTELHO', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Planura/MG, em 01 de janeiro de 2025 (32665570).', emailPessoal: 'antonioluizbotelho@planura.mg.br', emailGerais: 'PREFEITURA@PLANURA.MG.GOV.BR', telefone: '' },
-  { uf: 'MG', orgao: 'MUNICÍPIO DE SANTA LUZIA/MG', autoridade: 'PAULO HENRIQUE PAULINO E SILVA', ato: 'conforme Termo de Posse (34505792)', emailPessoal: 'paulobigodinho@santaluzia.mg.gov.br', emailGerais: 'guardamunicipal@santaluzia.mg.gov.br; felipemendescarvalho@santaluzia.mg.gov.br', telefone: '' },
-  { uf: 'PB', orgao: 'MUNICÍPIO DE JOÃO PESSOA - PB', autoridade: 'CICERO DE LUCENA FILHO', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de João Pessoa - PB, no dia 1º de janeiro de 2025 (32709871).', emailPessoal: 'cicerolucena11@outlook.com', emailGerais: 'semusb.comando@joaopessoa.pb.gov.br gapre@joaopessoa.pb.gov.br; gabinetesemusbjp@gmail.com', telefone: '' },
-  { uf: 'PB', orgao: 'MUNICÍPIO DE POCINHOS - PB', autoridade: 'ELIANE MOURA DOS SANTOS GALDINO', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal no dia 01 de janeiro de 2025 (34393335)', emailPessoal: 'elianemourasgaldino@gmail.com', emailGerais: 'prefmunicipalpocinhospb@gmail.com', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE APUCARANA - PR', autoridade: 'RODOLFO MOTA DA SILVA', ato: 'Nomeado no dia 01 de janeiro de 2025 (33360970).', emailPessoal: 'rodolfoapucarana@gmail.com/rodolfomota@outlook.com', emailGerais: 'gcm@apucarana.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE ARAPONGAS - PR', autoridade: 'RAFAEL FELIPE CITA', ato: 'Posse do Cine Teatro Mauá de Arapongas -PR, em 01 de janeiro de 2025 (30895619).', emailPessoal: 'sei.rafaelcita@gmail.com', emailGerais: 'gabinete@arapongas.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE ARAUCÁRIA - PR', autoridade: 'LUIZ GUSTAVO BOTOGOSKI', ato: '', emailPessoal: 'gustavo.botogoski@araucaria.pr.gov.br', emailGerais: 'prefeito@araucaria.pr.gov.br; prefeitura@araucaria.pr.gov.br; guardamunicipal@araucaria.pr.gov.br', telefone: '(41) 3614-1511 (Gabinete do Prefeito)' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE CAMPO LARGO - PR', autoridade: 'MAURÍCIO ROBERTO RIVABEM', ato: 'nomeado conforme ata da reunião solene de posse da Câmara Municipal de Campo Largo PR, de 01 de janeiro de 2025 (35239873)', emailPessoal: 'mauriciorivabem@campolargo.pr.gov.br', emailGerais: 'messiasgmcl11@gmail.com; guardamunicipal@campolargo.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE CASCAVEL - PR', autoridade: 'RENATO DA SILVA', ato: 'Nomeado no dia 01 de Janeiro de 2025 (30297220)', emailPessoal: 'renato-silva@cascavel.pr.gov.br', emailGerais: 'cristianob@cascavel.pr.gov.br casacivil@cascavel.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE LONDRINA - PR', autoridade: 'JOSÉ TIAGO CAMARGO DO AMARAL', ato: 'nomeado conforme ato de posse da Câmara Municipal de Londrina - PR, no dia 01 de janeiro de 2025 (30994611).', emailPessoal: 'tiago.prefeito@londrina.pr.gov.br', emailGerais: 'gabprefeito@londrina.pr.gov.br; defesa.convenio@londrina.pr.gov.br; defesa.social@londrina.pr.gov.br; seplan@londrina.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE MARINGÁ - PR', autoridade: 'SILVIO MAGALHÃES BARROS II', ato: 'Nomeado conforme ato de posse da Câmara Municipal de Maringá - PR, no dia 01 de janeiro de 2025 (30900434).', emailPessoal: 'contato@silviobarros.com.br', emailGerais: 'prefeito@maringa.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE PONTA GROSSA - PR', autoridade: 'ELIZABETH SILVEIRA SCHMIDT', ato: 'Termo de posse da Câmara Municipal de Ponta Grossa - PR, no dia 01 de janeiro de 2025 (33695145)', emailPessoal: 'prefeitaelizabeth@pontagrossa.pr.gov.br', emailGerais: 'emmanuel.santos@pontagrossa.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE SANDARI - PR', autoridade: 'CARLOS ALBERTO DE PAULA JÚNIOR', ato: 'posse da Câmara Municipal de Sarandi - PR, no dia 01 de janeiro de 2025 (30927131)', emailPessoal: 'gap@sarandi.pr.gov.br', emailGerais: 'gap@sarandi.pr.gov.br; sec.adm@sarandi.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE SAO JOSÉ DOS PINHAIS - PR', autoridade: 'MARGARIDA MARIA SINGER', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (36535192)', emailPessoal: 'nina.singer@sjp.pr.gov.br', emailGerais: 'mario.kosiol@sjp.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE SIQUEIRA CAMPOS - PR', autoridade: 'LUIZ HENRIQUE GERMANO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (33689813)', emailPessoal: 'luizhenriquegermano@siqueiracampos.pr.gov.br', emailGerais: 'gabinete@siqueiracampos.pr.gov.br; administracao@siqueiracampos.pr.gov.br; siqueiracampos@bm.pr.gov.br; pbc-siqueiracampos@bbm.pr.gov.br', telefone: '' },
-  { uf: 'PR', orgao: 'MUNICÍPIO DE UMUARAMA - PR', autoridade: 'ANTÔNIO FERNANDO SCANAVACA', ato: 'conforme ato de transmissão de cargo de Prefeito, publicado no Umuarama Ilustrado de 03 de janeiro de 2025 de nº 13.206 (34213416)', emailPessoal: 'deputado@fernandoscanavaca.com.br', emailGerais: 'gmu@umuarama.pr.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE BELO JARDIM - PE', autoridade: 'GILVANDRO ESTRELA DE OLIVEIRA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Belo Jardim - PE, no dia 01 de janeiro de 2025 (31809106).', emailPessoal: 'gilvandroestrela@belojardim.pe.gov.br', emailGerais: 'ouvidoria@belojardim.pe.gov.br; sedec@belojardim.pe.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE CAMARAGIBE/PE', autoridade: 'DIEGO DA ROCHA CABRAL', ato: 'Nomeado no dia 01 de janeiro de 2025 (30315500).', emailPessoal: 'diego.cabral@camaragibe.pe.gov.br', emailGerais: 'sesep@camaragibe.pe.gov.br; gabinete@camaragibe.pe.gov.br; segov@camaragibe.pe.gov.br; dranadegi@camaragibe.pe.gov.br; secad@camaragibe.pe.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE CARUARU - PE', autoridade: 'RODRIGO ANSELMO PINHEIRO DOS SANTOS', ato: 'nomeado conforme Termo de Compromisso de Posse do dia 01 de janeiro de 2025 (32682824)', emailPessoal: 'rodrigo.pinheiro@caruaru.pe.gov.br', emailGerais: 'guarda.municipal@caruaru.pe.gov.br; ouvidoria@caruaru.pe.gov.br; secop@caruaru.pe.gov.br; alinealana2009@hotmail.com', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DA ILHA DE ITAMARACÁ - PE', autoridade: 'PAULO FERNANDO PIMENTEL GALVÃO,', ato: 'conforme Diploma expedido pelo Presidente da 131ª Junta Eleitoral do TRE de Pernambuco, 17 de dezembro de 2024. (33329816)', emailPessoal: '', emailGerais: 'seguranca@ilhadeitamaraca.pe.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE ITAPISSUMA - PE', autoridade: 'VALDEMIR LOURENÇO DOS SANTOS JÚNIOR', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Itapissuma - PE, no dia 01 de janeiro de 2025 (332878).', emailPessoal: 'juniorsanttos2@yahoo.com.br', emailGerais: 'gerconvenios.pmi@itapissuma.pe.gov.br; guardamunicipaldeitapissuma@hotmail.com', telefone: 'Telefone: (81) 3548-1647' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE JABOATÃO DOS GUARARAPES/PE', autoridade: 'LUIZ JOSÉ INOJOSA DE MEDEIROS', ato: 'nomeado conforme Ata da Reunião Solene de Posse em 01 de janeiro de 2025 (34392804)', emailPessoal: 'luiz.medeiros@jaboatao.pe.gov.br', emailGerais: 'comandodaguardajaboatao@gmail.com; sesc.jaboatao@gmail.com; defesacivil@jaboatao.pe.gov.br; defesaautuacao.transito@jaboatao.pe.gov.br; gab.semob.pmjg@gmail.com; ouvidoria@jaboatao.pe.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE OLINDA/PE', autoridade: 'MIRELLA FERNANDA BEZERRA DE ALMEIDA', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (30674539).', emailPessoal: 'prefeitamirella@olinda.pe.gov.br', emailGerais: 'admgabineteolinda@gmail.com; secretariosesc@olinda.pe.gov.br;', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE PALMARES/PE', autoridade: 'JOSÉ BARTOLOMEU DE ALMEIDA MELO JUNIOR', ato: 'nomeado conforme Diploma no dia 01 de janeiro de 2025 (32586495)', emailPessoal: 'juniormelo.pmp@gmail.com', emailGerais: 'mdestran@palmares.pe.gov.br; notificacao@1doc.com.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE PASSIRA/PE', autoridade: 'SEVERINO SILVESTRE DE ALBUQUERQUE', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Passira/PE, no dia 01 de janeiro de 2021.', emailPessoal: 'silvestrepassira@hotmail.com', emailGerais: 'secadm.passira@gmail.com', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DO PAULISTA - PE', autoridade: 'SEVERINO RAMOS DE SANTANA', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Paulista/PE, no dia 01 de janeiro de 2025 (30461081).', emailPessoal: 'ramosgabinete.paulista@gmail.com', emailGerais: 'ssmdcpaulista.pe@gmail.com; gabinetedoprefeito@paulista.pe.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE POMBOS - PE', autoridade: 'ELIAS BATISTA DE LIMA', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Pombos - PE, no dia 01 de janeiro de 2025 (31655856).', emailPessoal: 'gabinetedoprefeitoeliasmeufii@gmail.com', emailGerais: 'adm@pombos.pe.gov.br; prefeitura@pombos.pe.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE SANTA CRUZ DO CAPIBARIBE - PE', autoridade: 'HELIO LIMA ARAGÃO FILHO', ato: 'nomeado conforme Sessão Solene de Posse da Câmara de Vereadores de Santa Cruz do Capibaribe -PE em 01 de janeiro de 2025 (32970404).', emailPessoal: 'heliolimaaragaofilho@gmail.com', emailGerais: 'leticiastevam51@gmail.com; secretariosds.scc@gmail.com; contato@santacruzdocapibaribe.pe.gov.br; segov@santacruzdocapibaribe.pe.gov.br; sedes@santacruzdocapibaribe.pe.gov.br; gabinete@santacruzdocapibaribe.pe.gov.br', telefone: 'Gabinete do Prefeito: (81) 3731-1479' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE SÃO VICENTE FERRER - PE', autoridade: 'MARCONE VICENTE DOS SANTOS', ato: 'nomeado conforme Sessão Solene de Posse da Câmara Municipal de São Vicente Ferrer - PE, de 01 de janeiro de 2025 (33206938​​​​​​​)', emailPessoal: 'pref.marcone@gmail.com', emailGerais: 'prefeiturasaovicenteferrer@gmail.com.br', telefone: '81 - 3655-1133 (Gabinete do Prefeito)' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE TORITAMA - PE', autoridade: 'SERGIO PROCOPIO COLIN DA SILVA CARVALHO', ato: 'nomeado conforme ata da reunião solene de posse da Câmara Municipal de Toritama - PE, de 01 de janeiro de 2025 (31695932, 31695934).', emailPessoal: 'gabinetesergiocollin@gmail.com', emailGerais: 'chefiadegabinete@toritama.pe.gov.br; administracao@toritama.pe.gov.br; ordemsocial@toritama.pe.gov.br', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE VENTUROSA - PE', autoridade: 'KELVIN DOUGLAS CAVALCANTI ALMEIDA', ato: 'nomeado conforme Ata da Sessão Solene de Posse da Câmara Municipal de Venturosa - PE, no dia 01 de janeiro de 2025 (32593741)', emailPessoal: 'kelvincavalcantioficial@gmail.com', emailGerais: 'administracao@venturosa.pe.gov.br; luizfbfilho@hotmail.com', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE VITÓRIA DE SANTO ANTÃO - PE', autoridade: 'PAULO ROBERTO LEITE DE ARRUD', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (30342880).', emailPessoal: 'paulorobertoleitedearruda6@gmail.com', emailGerais: 'ouvidoria@prefeituradavitoria.pe.gov.br; gabinete@prefeituradavitoria.pe.gov.br;', telefone: '' },
-  { uf: 'PE', orgao: 'MUNICÍPIO DE JABOATÃO DOS GUARARAPES - PE.', autoridade: 'LUIZ JOSÉ INOJOSA DE MEDEIROS', ato: 'nomeado conforme Ata da Reunião Solene de Posse em 01 de janeiro de 2025 (32643988).', emailPessoal: 'luiz.medeiros@jaboatao.pe.gov.br', emailGerais: 'comandodaguardajaboatao@gmail.com; sesc.jaboatao@gmail.com', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO DE BELFORD ROXO - RJ', autoridade: 'MARCIO CORREIA DE OLIVEIRA', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31869746).', emailPessoal: 'marciocanellabr@gmail.com', emailGerais: 'smsp@prefeituradebelfordroxo.rj.gov.br; semsep@prefeituradebelfordroxo.rj.gov.br; gabineteprefeito@prefeituradebelfordroxo.rj.gov.br; broxo.semsep@gmail.com; comunicacao@prefeituradebelfordroxo.rj.gov.br; gabcompras@prefeituradebelfordroxo.rj.gov.br; licitacao@prefeituradebelfordroxo.rj.gov.br', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO DE BOM JESUS DE ITABAPOANA/RJ', autoridade: 'PAULO SERGIO CYRILLO', ato: 'Conforme termo de posse, datada de 01 de janeiro de 2025 (30342980).', emailPessoal: 'paulosergiocyrillo@gmail.com', emailGerais: 'gabinete@bomjesus.rj.gov.br', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO DE ITAGUAÍ - RJ', autoridade: 'HAROLDO RODRIGUES JESUS NETO', ato: 'Nomeado conforme ato de posse da Câmara Municipal de Itaguaí - RJ, no dia 01 de janeiro de 2025 (30282684).', emailPessoal: 'haroldorjn@gmail.com', emailGerais: '', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO DE ITATIAIA - RJ', autoridade: 'KAIO MARCIO RESENDE DE PAIVA', ato: 'nomeado conforme Ata da Sessão Solene de Posse, no dia 01 de janeiro de 2025 (34962404)', emailPessoal: 'kaiomarcio.itatiaia@gmail.com', emailGerais: 'convenios.itatiaia@gmail.com', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNÍCIPIO DE NOVA FRIBURGO - RJ', autoridade: 'JOHNNY MAYCON CORDEIRO RIBEIRO', ato: 'Nomeada conforme ato de posse da Câmara Municipal de Nova Friburgo/RJ, no dia 01 de janeiro de 2021 (30329563).', emailPessoal: 'johnnyieq441@gmail.com', emailGerais: 'sgabinete@pmnf.rj.gov.br; mayrasecgab@gmail.com', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO DE PETRÓPOLIS - RJ', autoridade: 'HINGO HAMMES', ato: 'Nomeado conforme termo de compromisso e posse da Câmara Municipal de Petrópolis - RJ, no dia 01 de janeiro de 2025 (33025859).', emailPessoal: '', emailGerais: 'petropolisconvenios@gmail.com; gap@petropolis.rj.gov.br; rubensbomtempo@petropolis.rj.gov.br;', telefone: 'Av. Koeller 260 – Centro – Petrópolis/RJ CEP: 25680-060 - telefone (24) 2246-9240' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO DE RIO DAS OSTRAS - RJ', autoridade: 'CARLOS AUGUSTO CARVALHO BALTAZAR', ato: 'posse da Câmara Municipal de Rio das Ostras/RJ, no dia 01 de janeiro de 2025 (30423946).', emailPessoal: '', emailGerais: 'cissa.pmro@gmail.com', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO SÃO JOÃO DA BARRA - RJ', autoridade: 'KARLA CHAGAS MAIA', ato: 'nomeada conforme ato de posse no dia 01 de janeiro de 2025 (30356260).', emailPessoal: '', emailGerais: 'gabinete@sjb.rj.gov.br', telefone: '' },
-  { uf: 'RJ', orgao: 'MUNICÍPIO TANGUÁ - RJ', autoridade: 'RODRIGO DA COSTA MEDEIROS', ato: 'nomeado conforme Termo de Posse (33939962)', emailPessoal: '', emailGerais: 'gabinete@tangua.rj.gov.br; secmsop@tangua.rj.gov.br; gcm@tangua.rj.gov.br', telefone: '' },
-  { uf: 'RN', orgao: 'MUNICÍPIO DE VERA CRUZ - RN​​', autoridade: 'JOSÉ JUNIOR DE OLIVEIRA', ato: 'Nomeado no dia 01 de Janeiro de 2025 (31040047).', emailPessoal: '', emailGerais: 'gabineteveracruz2025@hotmail.com', telefone: '' },
-  { uf: 'RS', orgao: 'MUNICÍPIO DE SAPUCAIA DO SUL/RS', autoridade: 'VOLMIR RODRIGUES', ato: 'Nomeado pela Camara de Vereadores de Sapucaia do Sul/RS conforme Termo de transmissão de cargo datado de 01 de janeiro de 2021.', emailPessoal: 'volmirrodrigues@terra.com.br', emailGerais: 'gabinete@sapucaiadosul.rs.gov.br; contato@sapucaiadosul.rs.gov.br; volmirrodrigues@terra.com.br', telefone: '' },
-  { uf: 'RS', orgao: 'MUNICÍPIO DE PORTO ALEGRE/RS', autoridade: 'SEBASTIÃO DE ARAÚJO MELO', ato: 'Nomeado conforme Termo de Posse emitido pela Câmara Municipal de Porto Alegre, no primeiro dia de janeiro de 2025 (30681060).', emailPessoal: 'sebastiao.melo@portoalegre.rs.gov.br', emailGerais: 'prefeito@portoalegre.rs.gov.br; ricardo.gomes@portoalegre.rs.gov.br; veridiana.carpes@portoalegre.rs.gov.br; marcoa.filho@portoalegre.rs.gov.br; richard.rodrigues@portoalegre.rs.gov.br; carmenlucia@portoalegre.rs.gov.br', telefone: '' },
-  { uf: 'RR', orgao: 'MUNICÍPIO DE BOA VISTA - RR', autoridade: 'MARCELO ZEITOUNE', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (35453230).', emailPessoal: 'marcelo.zeitoune@prefeitura.boavista.br', emailGerais: 'cappsmst@outlook.com; smgov@prefeitura.boavista.br; smst.gab@boavista.rr.gov.br; leda.paixao@boavista.rr.gov.br', telefone: '' },
-  { uf: 'RR', orgao: 'MUNICÍPIO DE BONFIM - RR', autoridade: 'ROMUALDO FEITOSA SILVA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32416891)', emailPessoal: 'romualdofeitosa32@gmail.com', emailGerais: 'bell.pinheiros@gmail.com; gcmbonfim21@gmail.com; pmbonfimrr@gmail.com', telefone: '' },
-  { uf: 'RR', orgao: 'MUNICÍPIO DE CANTÁ -RR', autoridade: 'ANDRE LUIS COSTA DE CASTRO', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (33707833)', emailPessoal: 'ac623698@gmail.com/castroecastro.cc.ltda@gmail.com', emailGerais: 'prefeitura.canta@gmail.com', telefone: '' },
-  { uf: 'RR', orgao: 'MUNICÍPIO DE CARACARAÍ - RR', autoridade: 'DIANIERY DE SOUZA COELHO', ato: 'nomeada conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32600313)', emailPessoal: 'diane.coelho@caracarai.rr.gov.br / dianecoelho.cci@gmail.com', emailGerais: 'gcm@caracarai.rr.gov.br; gapre@caracarai.rr.gov.br; raimundo.figueiredo@caracarai.rr.gov.br', telefone: '' },
-  { uf: 'RR', orgao: 'MUNICÍPIO DE MUCAJAÍ - RR', autoridade: 'FRANCISCO RUFINO DE SOUZA', ato: 'nomeado conforme Termo de Posse da Câmara Municipal de Mucajaí - RR em 01 de janeiro de 2025 (32533850).', emailPessoal: 'chiquinhorufino10@gmail.com', emailGerais: 'prefeiturademucajairr@gmail.com; segurancamucajai@gmail.com; segurancamucajai@outlook.com', telefone: '' },
-  { uf: 'RR', orgao: 'MUNICÍPIO DE PACARAIMA - RR', autoridade: 'WALDERY DAVILA SAMPAIO', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (33811804)', emailPessoal: 'walderydavila@gmail.com', emailGerais: 'segop@pacaraima.rr.gov.br; gabinete@pacaraima.rr.gov.br', telefone: '' },
-  { uf: 'SC', orgao: 'Florianópolis - SC', autoridade: 'TOPÁZIO SILVEIRA NETO', ato: 'conforme Diploma expedido pela Justiça Eleitoral de santa Catarina, em 17 de dezembro de 2024 (34266888)', emailPessoal: 'topazio.neto@pmf.sc.gov.br', emailGerais: 'topazio.neto@floripa.sc.gov.br; guardaflorianopolis@floripa.sc.gov.br.', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE AGUDOS -SP', autoridade: 'RAFAEL LIMA FERNANDES', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Agudos/SP no dia 01 de janeiro de 2025 (34652851)', emailPessoal: 'rafaellimaf@uol.com.br', emailGerais: 'vagner.dias@agudos.sp.gov.br; convenios@agudos.sp.gov.br; gabinete@agudos.sp.gov.br; cesar.alpaniez@agudos.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE APARECIDA -SP', autoridade: 'JOSÉ LUIZ RODRIGUES', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Aparecida/SP, no dia 01 de janeiro de 2025 (34664340)', emailPessoal: 'zelouquinho@uol.com.br', emailGerais: 'convenios@aparecida.sp.gov.br; admtransito@aparecida.sp.gov.br; gabinete@aparecida.sp.gov.br', telefone: '(19) 3547-3150 - GABINETE DO PREFEITO' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE ARARAS -SP', autoridade: 'IRINEU NORIVAL MARETTO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32315976).', emailPessoal: 'irineumaretto2025@gmail.com', emailGerais: 'seguranca@araras.sp.gov.br', telefone: '(19) 3547-3150 - GABINETE DO PREFEITO' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE ARTHUR NOGUEIRA - SP.', autoridade: 'LUCAS SIA RISSATO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31469135).', emailPessoal: 'lucassiarissato@gmail.com', emailGerais: 'contato@arturnogueira.sp.gov.br; gabinete@arturnogueira.sp.gov.br; seguranca.sec@arturnogueira.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE ATIBAIA - SP', autoridade: 'DANIEL DA ROCHA MARTINI', ato: 'nomeado no dia 01 de janeiro de 2025 (33879951)', emailPessoal: 'daniel.martini@atibaia.sp.gov.br', emailGerais: 'prefeito@atibaia.sp.gov.br; tsiqueira@atibaia.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE CAÇAPAVA - SP', autoridade: 'YAN LOPES DE ALMEIDA', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Caçapava/SP, no dia 01 de janeiro de 2025 (35142092).', emailPessoal: 'yanlopes2k@gmail.com', emailGerais: 'gabinete.prefeito@cacapava.sp.gov.br; silvana.gcm@cacapava.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE CAIEIRAS - SP', autoridade: 'GILMAR SOARES VICENTE', ato: 'nomeado conforme ato de posse, de 1º de janeiro de 2025 (34617029)', emailPessoal: 'gilmar.soares@caieiras.sp.gov.br', emailGerais: 'guarda@caieiras.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE CAMPO LIMPO PAULISTA/SP', autoridade: 'ADEILDO NOGUERIA DA SILVA', ato: 'Nomeado pela Câmara Municipal de Campo Limpo Paulista por meio do Termo de Posse de 1º de janeiro de 2025 (30510920).', emailPessoal: 'nogueira.adeildo@gmail.com; prefeito.adeildo@campolimpopaulista.sp.gov.br', emailGerais: 'jonascespedes@gmail.com; jonas.cespedes@campolimpopauklista.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE COSMÓPOLIS - SP', autoridade: 'ANTONIO CLAUDIO FELISBINO JUNIOR', ato: 'Nomeado no dia 01 de janeiro de 2025 (30360691).', emailPessoal: 'antonioclaudiofelisbinojunior@gmail.com', emailGerais: 'sspt@cosmopolis.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE DIADEMA - SP', autoridade: 'TAKAHARU YAMAUCHI', ato: 'nomeado conforme ato de posse, de 1º de janeiro de 2025 (35094939)', emailPessoal: 'taka.yamauchi@diadema.sp.gov.br', emailGerais: 'anderson.celso@diadema.sp.gov.br; segurancacidada@diadema.sp.gov.br; nilton.dias@diadema.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE EMBU-GUAÇU -SP', autoridade: 'FRANCISCO JOSÉ DO NASCIMENTO', ato: 'nomeado conforme ato de posse no dia 21 de julho de 2025 (33817281).', emailPessoal: 'francisco.nascimento@eg.sp.gov.br', emailGerais: 'gabinete@eg.sp.gov.br; administracao@eg.sp.gov.br; gcm@eg.sp.gov.br; desenvolvimento@eg.sp.gov.br', telefone: 'Rua Coronel Luiz Tenório de Brito, número 458, no bairro Centro, com o CEP 06900-000 - (11) 4662-7351' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE FRANCISCO MORATO - SP', autoridade: 'ILDO DA SILVA GUSMÃO', ato: 'conforme Termo de Posse da Câmara Municipal de Francisco Morato - SP, em 01 de janeiro de 2025 (32189417)', emailPessoal: 'ildo.gusmao@franciscomorato.sp.gov.br', emailGerais: 'jucineide.santos@franciscomorato.sp.gov.br; luigi.molon@franciscomorato.sp.gov.br; seguranca.cidada@franciscomorato.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE FRANCO DA ROCHA - SP', autoridade: 'LORENA RODRIGUES DE OLIVEIRA', ato: 'conforme Termo de Posse nº 002/2025 da Câmara Municipal de Franco da Rocha - SP, em 01 de janeiro de 2025 (34339308)', emailPessoal: 'lorena.oliveira@francodarocha.sp.gov.br', emailGerais: 'marcio.coelho@francodarocha.sp.gov.br; jose.cardoso@francodarocha.sp.gov.br; izabele.brazhighim@francodarocha.sp.gov.br', telefone: 'situado à Avenida Liberdade, 250 - Centro, Franco da Rocha - SP, CEP 07.850-325' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE ITAPETININGA/SP', autoridade: 'JEFERSON RODRIGO BRUN', ato: 'conforme termo de Posse (34807902)', emailPessoal: 'jefersonbrun@itapetininga.sp.gov.br', emailGerais: 'seguranapublica@itapetininga.sp.gov.br; governo@itapetininga.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE ITAPEVI/SP', autoridade: 'MARCOS FERREIRA GODOY', ato: 'nomeado conforme ato de posse, de 1º de janeiro de 2025 (34339995)', emailPessoal: '', emailGerais: 'sec.seguranca@itapevi.sp.gov.br; priscila.camargo@itapevi.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE ITAPIRA/SP', autoridade: 'ANTONIO HELIO NICOLATI', ato: 'Termo de Posse e Compromisso no dia 01 de janeiro de 2025 (330159239)', emailPessoal: 'toninho.bellini@hotmail.com', emailGerais: 'prefeito@itapira.sp.gov.br; gabinetedoprefeito@itapira.sp.gov.br; adm.secretario@itapira.sp.gov.br; gov.secretario@itapira.sp.gov.br; convenios@itapira.sp.gov.br; convenios.itapira@gmail.com', telefone: 'Rua João de Moraes, 490 centro. Itapira/SP - CEP. 13.970-903 - Telefone: (19) 3843-9100' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE JAGUARIÚNA/SP', autoridade: 'DAVID HILARIO NETO', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal da Jaguariúna/SP no dia 01 de janeiro de 2025 (33417562).', emailPessoal: '(david.liiiiihhh@gmail.com', emailGerais: 'segurancapublica@jaguariuna.sp.gov.br; convenios@jaguariuna.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE JUNDIAÍ - SP', autoridade: 'GUSTAVO MARTINELLI', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31469135).', emailPessoal: 'gmartinelli@jundiai.sp.gov.br', emailGerais: 'comandantegm@jundiai.sp.gov.br;fzarantonello@jundiai.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE LEME- SP', autoridade: 'CLAUDEMIR APARECIDO BORGES', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31571828).', emailPessoal: 'claudemirapborges@ig.com.br', emailGerais: 'gabinete@leme.sp.gov.br; corregedoria@gcmleme.sp.gov.br; cmtgcm@leme.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE LENÇOIS PAULISTA - SP', autoridade: 'ANDRÉ PACCOLA SASS', ato: '', emailPessoal: 'segurancapublica@lencoispaulista.sp.gov.br', emailGerais: '', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE LOUVEIRA - SP', autoridade: 'PAULO ALBERTO FINAMORE', ato: 'conforme Termo de Posse nº 2 da Câmara Municipal da Louveira/SP, de 01 de janeiro de 2025 (33365318)', emailPessoal: 'paulo.finamore@yahoo.com.br', emailGerais: 'gislaine.chiquetto@louveira.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE MOGI DAS CRUZES - SP', autoridade: 'RODRIGO FALSETTI', ato: 'nomeado conforme Ata da Sessão Solene no dia 01 de janeiro de 2025 (33361258).', emailPessoal: 'rodrigofalsetti@hotmail.com', emailGerais: 'diretoriagcmmg@mogiguacu.sp.gov.br; gabinete@mogidascruzes.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE MONTE ALTO - SP', autoridade: 'MARIA HELENA AGUIAR RETTONDINI', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal no dia 01 de janeiro de 2025 (33365403).', emailPessoal: 'luiz_nunes@yahoo.com', emailGerais: 'seguranca.publica@montealto.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE OLIMPIA - SP', autoridade: 'EUGENIO JOSÉ ZULIANI', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Olímpia/SP no dia 01 de janeiro de 2025 (33367107', emailPessoal: 'geninhozuliani@terra.com.br', emailGerais: 'gcm@olimpia.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE ORLÂNDIA- SP', autoridade: 'JORGE GABRIEL GRASI', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Orlândia/SP, no dia 01 de janeiro de 2025 (35179503)', emailPessoal: 'gabrielthor89@hotmail.com', emailGerais: 'carlos.mattiuzzo@orlandia.sp.gov.br; segurancapublica@orlandia.sp.gov.br andreza.miranda@orlandia.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE PAULÍNEA -SP', autoridade: 'DANILO HENRIQUE MACEDO DE BARROS', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31655759).', emailPessoal: 'danilobarrosprefeito@gmail.com', emailGerais: 'seguranca@paulinia.sp.gov.br; gabinete@paulinia.sp.gov.br; sspcompras@paulinia.sp.gov.br;gm@paulinia.sp.gov.br; smsp@paulinia.sp.gov.br', telefone: 'Av. Prefeito José Lazano Araújo, 1551 - Parque Brasil - Cep 13141-901 - Paulínea /SP Tel: (19)38745600' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE PEDREIRA/SP', autoridade: 'FABIO VINICIUS POLIDORO', ato: 'Nomeado no dia 04 de abril de 2022 (33429481).', emailPessoal: 'fabioviniciuspolidoro@gmail.com', emailGerais: 'gm@pedreira.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE PIRAPORA DO BOM JESUS - SP', autoridade: 'GREGÓRIO RODRIGUES PONTES MAGLIO', ato: 'conforme termo de posse de Prefeito da Câmara Municipal de Pirapora do Bom Jesus, de 01 de janeiro de 2025 (36039514)', emailPessoal: 'gregoriomaglio2019@gmail.com', emailGerais: 'defesacivil@piraporadobomjesus.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE PITANGUEIRAS/SP', autoridade: 'DIMAS TADEU BOLZAN', ato: 'Nomeado no dia 01 de Janeiro de 2025 (30904400).', emailPessoal: 'dimasbolzan@yahoo.com.br', emailGerais: '', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE PORTO FERREIRA/SP', autoridade: 'ANDRÉ LUIZ ANCHÃO BRAGA', ato: 'Termo de Posse e Compromisso no dia 31 de dezembro de 2024 (33295758)', emailPessoal: '', emailGerais: 'ouvidoria@portoferreira.sp.gov.br; miguel.bragioni@portoferreira.sp.gov.br; gustavo.freitas@portoferreira.sp.gov.br; Jose.ruiz@portoferreira.sp.gov.br; lucas.lima@portoferreira.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE QUADRA -SP', autoridade: 'LHEONIDES DE OLIVEIRA ANDRADE', ato: 'nomeada conforme ato de posse no dia 01 de janeiro de 2025 (32432115).', emailPessoal: 'gabinete1@quadra.sp.gov.br', emailGerais: 'gabinete1@quadra.sp.gov.br administracao@quadra.sp.gov.br; protocolo@quadra.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE RIBEIRÃO PRETO - SP', autoridade: 'RICARDO AUGUSTO MACHADO DA SILVA', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31501855).', emailPessoal: 'prefeitoricardosilva@ribeiraopreto.sp.gov.br', emailGerais: 'superintendencia@guarda.ribeiraopreto.sp.gov.br; ouvidoria@guarda.ribeiraopreto.sp.gov.br; rsluiz@guarda.ribeiraopreto.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SANTA CRUZ DO RIO PARDO - SP', autoridade: 'OTACÍLIO PARRAS ASSIS', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (34535174)', emailPessoal: 'clinicamedicinadotransito@gmail.com', emailGerais: 'relacoesinstitucionais@santacruzdoriopardo.sp.gov.br; convenios@santacruzdoriopardo.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SANTO ANDRÉ - SP', autoridade: 'GILVAN FERREIRA DE SOUZA JÚNIOR', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Londrina/PR no dia 01 de janeiro de 2025 (34322881)', emailPessoal: 'gfsouza@santoandre.sp.gov.br', emailGerais: 'sscidada@santoandre.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SANTO ANTONIO DE POSSE - SP', autoridade: 'JOSÉ RICARDO CORTEZ,', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Santo Antônio de Posse/SP, no dia 01 de janeiro de 2025 (33360349)', emailPessoal: 'prefeitojrcortez@gmail.com', emailGerais: 'segurancapublica@pmsaposse.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO CAETANO DO SUL-SP', autoridade: 'ANACLETO CAMPANELLA JÚNIOR', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (33598785)', emailPessoal: 'anacleto.campanella@saocaetanodosul.sp.gov.br', emailGerais: 'rogerio.dourado@saocaetanodosul.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO JOAQUIM DA BARRA-SP', autoridade: 'WAGNER JOSÉ SCHIMIDT', ato: 'conforme ata da Sessão solene de Posse em 01 de janeiro de 2025 (34729602)', emailPessoal: '', emailGerais: 'chefedegabinete@saojoaquimdabarra.sp.gov.br; demutran@saojoaquimdabarra.sp.gov.br; convenios@saojoaquimdabarra.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO JOSÉ DOS CAMPOS - SP', autoridade: 'ANDERSON FARIAS FERREIRA', ato: 'Nomeado no dia 01 de janeiro de 2025 (30316058).', emailPessoal: 'andersonfariasferreira@gmail.com', emailGerais: '', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO JOSÉ DO RIO PRETO - SP', autoridade: 'FÁBIO ROGÉRIO CÂNDIDO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (30440532)', emailPessoal: '', emailGerais: 'gabinete@riopreto.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE SÃO PAULO-SP', autoridade: 'RICARDO LUIS REIS NUNES', ato: 'nomeado conforme Certidão de Posse da Câmara Municipal de São Paulo - SP, de 01 de Janeiro de 2025 (31471462).', emailPessoal: 'ricardo.nunes@prefeitura.sp.gov.br', emailGerais: 'casacivil@prefeitura.sp.gov.br; casacivil.emendas@prefeitura.sp.gov.br; chgprefeito@prefeitura.sp.gov.br; carlosmachadosilva@prefeitura.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE TABOÃO DA SERRA - SP', autoridade: 'DANIEL PLANA BOGALHO', ato: 'nomeado conforme ato de posse no dia 01 de janeiro de 2025 (32561019).', emailPessoal: 'prefeito.daniel@ts.sp.gov.br', emailGerais: 'gabinete.prefeito@ts.sp.gov.br; gabinete.vice-prefeita@ts.sp.gov; smag@ts.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE TAPIRATIBA - SP', autoridade: 'RAMON JESUS VIEIRA', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Tapiratiba/SP no dia 01 de janeiro de 2025 (34670195)', emailPessoal: 'ramonvieira.pref@gmail.com', emailGerais: 'gcm@tapiratiba.sp.gov.br', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE TAUBATÉ - SP', autoridade: 'SÉRGIO LUIZ VICTOR JUNIOR', ato: 'Nomeado conforme Termo de posse da Câmara Municipal de Taubaté, no dia 01 de janeiro de 2025 (30315897).', emailPessoal: 'sergio.victor@taubate.sp.gov.br', emailGerais: 'cgp.gabinetetaubate@gmail.com; gcmwagneroliveira@gmail.com', telefone: '' },
-  { uf: 'SP', orgao: 'MUNICÍPIO DE VOTORAMTIM - SP', autoridade: 'WEBER MAGANHATO JUNIOR', ato: 'nomeado conforme Ata da Sessão Solene da Câmara Municipal de Votoramtim no dia 01 de janeiro de 2025 (35302766)', emailPessoal: 'webermanga2024@gmail.com; (agendaprefeitoweber@gmail.com', emailGerais: 'cleber.abreu@votorantim.sp.gov.br; convenios.gcm@votorantim.sp.gov.br; dtt@votorantim.sp.gov.br; seg@votorantim.sp.gov.br', telefone: '' },
-  { uf: 'SE', orgao: 'MUNICÍPIO DE ESTÂNCIA/SE', autoridade: 'ANDRÉ GRAÇA SANTOS', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Estância/SE datado de 01/01/2025.', emailPessoal: '', emailGerais: 'gabinete@estancia.se.gov.br; guardamunicipal@estancia.se.gov.br', telefone: '' },
-  { uf: 'SE', orgao: 'MUNICÍPIO DE TOBIAS BARRETO/SE', autoridade: 'ADILSON DE JESUS SANTOS', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Tobias Barreto/SE datado de 01/01/2021.', emailPessoal: 'dilsondeagripino@hotmail.com', emailGerais: 'gabinetecivilpmtb@gmail.com', telefone: '' },
-  { uf: 'SE', orgao: 'MUNICÍPIO DE NOSSA SENHORA DO SOCORRO/SE', autoridade: 'SAMUEL CARVALHO DOS SANTOS', ato: 'Nomeado conforme Termo de Posse da Câmara Municipal de Nossa Senhora do Socorro/SE datado de 01/01/2025.', emailPessoal: '', emailGerais: 'gabinete@socorro.se.gov.br; prefeito@socorro.se.gov.br', telefone: '' },
-  { uf: 'SE', orgao: 'MUNICÍPIO DE CARMÓPOLIS - SE', autoridade: 'WELBER ANDRADE LEITE', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (30593343).', emailPessoal: 'welberleite@hotmail.com', emailGerais: 'planejamento@carmopolis.se.gov.br administracao@carmopolis.se.gov.br', telefone: '' },
-  { uf: 'SE', orgao: 'MUNICÍPIO DE PRÓPRIA - SE', autoridade: 'JOSÉ LUCIANO NASCIMENTO LIMA', ato: 'nomeado conforme Sessão Solene de Posse em 01 de janeiro de 2025 (32325069)', emailPessoal: 'jluciano1708@gmail.com', emailGerais: 'gabinete@propria.se.gov.br guardamunicipal@propria.se.gov.brsmtt@propria.se.gov.br', telefone: '' },
-  { uf: 'SE', orgao: 'MUNICÍPIO DE PORTO DA FOLHA/SE', autoridade: 'EVERTON LIMA GOIS', ato: 'Nomeado conforme Ata de Posse da Câmara Municipal de Porto da Folha/SE datado de 01/01/2025.', emailPessoal: 'evertonlimagoisgois@yahoo.com.br', emailGerais: 'gabinete.portodafolha@gmail.com; gabinete@portodafolha.se.gov.br; camarapfolh@gmail.com', telefone: '' },
-  { uf: 'TO', orgao: 'MUNICÍPIO DE ARAGUAÍNA - TO', autoridade: 'WAGNER RODRIGUES BARROS', ato: 'Nomeado conforme ato de posse no dia 01 de janeiro de 2025 (31737156).', emailPessoal: 'wagner.rodrigues@araguaina.to.gov.br', emailGerais: 'dir-compras-astt@araguaina.to.gov.br', telefone: '' },
-];
-
-function importarContatosMunicipios() {
-  var sheet = getOrCreateSheet_(SHEET_CONTATOS_MUNICIPIOS, CABECALHO_CONTATOS_MUNICIPIOS);
-  var valores = sheet.getDataRange().getValues();
-
-  var linhaPorChave = {};
-  for (var i = 1; i < valores.length; i++) {
-    var chave = valores[i][0] + '|' + normalizarNomeMunicipioParaMatch_(valores[i][1]);
-    linhaPorChave[chave] = i + 1; // linha real na planilha
+  } finally {
+    lock.releaseLock();
   }
-
-  var atualizados = 0, novos = 0;
-  var novasLinhas = [];
-  CONTATOS_MUNICIPIOS_IMPORTAR_.forEach(function (c) {
-    var linha = [c.uf, c.orgao, c.autoridade, c.ato, c.emailPessoal, c.emailGerais, c.telefone];
-    var chave = c.uf + '|' + normalizarNomeMunicipioParaMatch_(c.orgao);
-    if (linhaPorChave[chave]) {
-      sheet.getRange(linhaPorChave[chave], 1, 1, CABECALHO_CONTATOS_MUNICIPIOS.length).setValues([linha]);
-      atualizados++;
-    } else {
-      novasLinhas.push(linha);
-      novos++;
-    }
-  });
-
-  if (novasLinhas.length) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, novasLinhas.length, CABECALHO_CONTATOS_MUNICIPIOS.length).setValues(novasLinhas);
-  }
-
-  PropertiesService.getScriptProperties().setProperty('CONTATOS_MUNICIPIOS_REVISADO_EM', new Date().toISOString());
-  registrarLog_('IMPORTAR_CONTATOS_MUNICIPIOS', '-', novos + ' novo(s), ' + atualizados + ' atualizado(s).');
-  Logger.log('Contatos dos municípios: ' + novos + ' novo(s), ' + atualizados + ' atualizado(s).');
-}
-
-/**
- * Marca ATPVeEmitido e ATPVeEnviado como 'SIM' em massa para todos os
- * veículos de 2024 e 2025 que ainda estavam com algum dos dois em aberto —
- * SEM preencher DataEmissaoATPVe/DataEnvioATPVe (ficam como estavam, em
- * branco), pra essa marcação não entrar como emissão/envio no Relatório de
- * Produtividade (que soma por essas datas, não pelo clique).
- *
- * NUNCA mexe em veículo já marcado como Transferido — só lê o campo pra
- * decidir se pula a linha, nenhuma célula de um veículo transferido é
- * escrita. Também pula veículos na lixeira (Excluido = SIM) e os que já
- * estavam com os dois campos SIM (idempotente — pode rodar de novo sem
- * problema).
- *
- * Rode manualmente pelo editor (selecione
- * "marcarAtpveEmitidoEnviado2024e2025" no menu de funções, clique em
- * Executar) e confira o resumo em Ver > Registros de execução.
- */
-function marcarAtpveEmitidoEnviado2024e2025() {
-  var perfil = exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxAno = cabecalho.indexOf('Ano');
-  var idxTransferido = cabecalho.indexOf('Transferido');
-  var idxExcluido = cabecalho.indexOf('Excluido');
-  var idxEmitido = cabecalho.indexOf('ATPVeEmitido');
-  var idxEnviado = cabecalho.indexOf('ATPVeEnviado');
-  var idxId = cabecalho.indexOf('ID');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var agora = new Date();
-  var idsAtualizados = [];
-  var totalTransferidosIgnorados = 0;
-
-  for (var i = 1; i < valores.length; i++) {
-    var linha = valores[i];
-    if (!linha[idxId]) continue;
-
-    var ano = parseInt(linha[idxAno], 10);
-    if (ano !== 2024 && ano !== 2025) continue;
-    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
-
-    // NUNCA mexe em veículo já transferido — pedido explícito do usuário.
-    if (String(linha[idxTransferido]).toUpperCase() === 'SIM') {
-      totalTransferidosIgnorados++;
-      continue;
-    }
-
-    var jaEmitido = String(linha[idxEmitido]).toUpperCase() === 'SIM';
-    var jaEnviado = String(linha[idxEnviado]).toUpperCase() === 'SIM';
-    if (jaEmitido && jaEnviado) continue; // já estava com os dois SIM, nada a fazer.
-
-    var linhaAtualizada = linha.slice();
-    linhaAtualizada[idxEmitido] = 'SIM';
-    linhaAtualizada[idxEnviado] = 'SIM';
-    linhaAtualizada[idxUltimaAtualizacao] = agora;
-    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (marcação em massa ATPVe 2024/2025)';
-    // Propositalmente NÃO mexe em DataEmissaoATPVe/DataEnvioATPVe.
-
-    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
-    idsAtualizados.push(linha[idxId]);
-  }
-
-  registrarLog_('MARCAR_ATPVE_EM_MASSA', '-',
-    idsAtualizados.length + ' veículo(s) de 2024/2025 marcados como ATPVe emitido/enviado, sem data (' +
-    totalTransferidosIgnorados + ' já transferido(s) foram ignorados/preservados). IDs: ' + idsAtualizados.join(', '));
-  invalidarCacheDashboard_();
-
-  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s): ' + idsAtualizados.join(', '));
-  Logger.log(totalTransferidosIgnorados + ' veículo(s) já transferido(s) foram ignorados (não mexidos).');
-  return { atualizados: idsAtualizados.length, transferidosIgnorados: totalTransferidosIgnorados };
-}
-
-/**
- * Marca ATPVeEmitido e ATPVeEnviado como 'SIM' para todos os veículos que
- * já estão com Transferido = SIM mas ainda não tinham os dois campos de
- * ATPVe marcados — caso comum em dados migrados (BDADOS2024/2026), onde o
- * veículo já foi transferido de verdade mas o campo de ATPVe nunca foi
- * preenchido na migração. Ao contrário de marcarAtpveEmitidoEnviado2024e2025
- * (que propositalmente NUNCA mexe em transferido), esta função faz o
- * oposto: só mexe em quem JÁ está transferido — se já foi transferido, o
- * ATPVe necessariamente já foi enviado, então é seguro marcar.
- *
- * SEM ano fixo (cobre a base toda) e, como as demais funções de marcação em
- * massa deste arquivo, SEM preencher DataEmissaoATPVe/DataEnvioATPVe —
- * fica em branco, pra essa marcação não entrar como emissão/envio no
- * Relatório de Produtividade (que soma por essas datas, não pelo clique).
- *
- * Pula veículos na lixeira (Excluido = SIM) e os que já estavam com os dois
- * campos SIM (idempotente — pode rodar de novo sem problema).
- *
- * Rode manualmente pelo editor (selecione
- * "marcarAtpveEnviadoParaTransferidos" no menu de funções, clique em
- * Executar) e confira o resumo em Ver > Registros de execução.
- */
-function marcarAtpveEnviadoParaTransferidos() {
-  var perfil = exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxTransferido = cabecalho.indexOf('Transferido');
-  var idxExcluido = cabecalho.indexOf('Excluido');
-  var idxEmitido = cabecalho.indexOf('ATPVeEmitido');
-  var idxEnviado = cabecalho.indexOf('ATPVeEnviado');
-  var idxId = cabecalho.indexOf('ID');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var agora = new Date();
-  var idsAtualizados = [];
-
-  for (var i = 1; i < valores.length; i++) {
-    var linha = valores[i];
-    if (!linha[idxId]) continue;
-    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
-
-    // Só mexe em quem JÁ está transferido — é justamente o caso oposto de
-    // marcarAtpveEmitidoEnviado2024e2025.
-    if (String(linha[idxTransferido]).toUpperCase() !== 'SIM') continue;
-
-    var jaEmitido = String(linha[idxEmitido]).toUpperCase() === 'SIM';
-    var jaEnviado = String(linha[idxEnviado]).toUpperCase() === 'SIM';
-    if (jaEmitido && jaEnviado) continue; // já estava certo, nada a fazer.
-
-    var linhaAtualizada = linha.slice();
-    linhaAtualizada[idxEmitido] = 'SIM';
-    linhaAtualizada[idxEnviado] = 'SIM';
-    linhaAtualizada[idxUltimaAtualizacao] = agora;
-    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (correção em massa: já transferidos sem ATPVe marcado)';
-    // Propositalmente NÃO mexe em DataEmissaoATPVe/DataEnvioATPVe.
-
-    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
-    idsAtualizados.push(linha[idxId]);
-  }
-
-  registrarLog_('MARCAR_ATPVE_TRANSFERIDOS', '-',
-    idsAtualizados.length + ' veículo(s) já transferido(s) marcados como ATPVe emitido/enviado, sem data. IDs: ' + idsAtualizados.join(', '));
-  invalidarCacheDashboard_();
-
-  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s): ' + idsAtualizados.join(', '));
-  return { atualizados: idsAtualizados.length };
 }
 
 // Lista fechada dos 28 processos confirmados pelo usuário (24/08/2026) como
 // já com ATPVe enviado de verdade, mesmo aparecendo pendente/não-transferido
 // no sistema — mesma "chave" que chaveProcesso_() calcula (NumeroProcesso
 // quando existe, senão Ano_NumeroSei/TermoDoacao).
-var PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_ = [
-  '2026_33976454', '2026_33680646', '2026_34158622', '2026_34154748',
-  '08020.007709/2025-76', '2026_33708591', '2026_33616013',
-  '08020.004276/2025-05', '08020.007930/2025-24', '08020.006435/2025-06',
-  '08020.000296/2026-80', '08020.008468/2025-82', '08020.004378/2025-12',
-  '08020.007143/2025-82', '08020.011185/2025-18', '08020.007874/2025-28',
-  '08020.000351/2026-31', '08020.011116/2025-12', '08020.009094/2025-12',
-  '08020.009087/2025-11', '08020.009782/2025-82', '08020.006756/2025-01',
-  '08020.000383/2026-37', '08020.009093/2025-78', '08020.003925/2026-23',
-  '08020.005261/2026-37', '08020.007855/2025-00', '08020.011446/2025-08'
-];
-
-/**
- * Marca ATPVeEmitido/ATPVeEnviado como 'SIM' só para os veículos dos 28
- * processos em PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_ — pedido pontual do
- * usuário, que confirmou que o ATPVe já foi enviado de verdade pra esses
- * processos específicos, mesmo aparecendo no sistema como pendente (a
- * maioria ainda sem Transferido = SIM). Por isso, ao contrário das outras
- * funções de marcação em massa deste arquivo, esta NÃO usa Transferido como
- * critério — usa a lista fechada de processos acima.
- *
- * Não mexe em Transferido (fica como está). Sem data em
- * DataEmissaoATPVe/DataEnvioATPVe (não afeta o Relatório de Produtividade).
- * Pula lixeira e veículo já com os dois campos SIM. Idempotente.
- *
- * Rode pelo editor (selecione "marcarAtpveEnviadoProcessosConfirmados24Ago"
- * no menu de funções, clique em Executar) e confira o resumo em Ver >
- * Registros de execução.
- */
-function marcarAtpveEnviadoProcessosConfirmados24Ago() {
-  var perfil = exigirPerfilAdmin_();
-  var chavesSet = {};
-  PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_.forEach(function (c) { chavesSet[c] = true; });
-
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxExcluido = cabecalho.indexOf('Excluido');
-  var idxEmitido = cabecalho.indexOf('ATPVeEmitido');
-  var idxEnviado = cabecalho.indexOf('ATPVeEnviado');
-  var idxId = cabecalho.indexOf('ID');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var agora = new Date();
-  var idsAtualizados = [];
-  var processosAfetados = {};
-
-  for (var i = 1; i < valores.length; i++) {
-    var linha = valores[i];
-    if (!linha[idxId]) continue;
-    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
-
-    var registro = linhaParaObjeto_(cabecalho, linha);
-    var chave = chaveProcesso_(registro);
-    if (!chavesSet[chave]) continue;
-
-    var jaEmitido = String(linha[idxEmitido]).toUpperCase() === 'SIM';
-    var jaEnviado = String(linha[idxEnviado]).toUpperCase() === 'SIM';
-    if (jaEmitido && jaEnviado) continue;
-
-    var linhaAtualizada = linha.slice();
-    linhaAtualizada[idxEmitido] = 'SIM';
-    linhaAtualizada[idxEnviado] = 'SIM';
-    linhaAtualizada[idxUltimaAtualizacao] = agora;
-    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (correção pontual: 28 processos confirmados em 24/08/2026)';
-    // Propositalmente NÃO mexe em Transferido nem em
-    // DataEmissaoATPVe/DataEnvioATPVe.
-
-    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
-    idsAtualizados.push(linha[idxId]);
-    processosAfetados[chave] = true;
-  }
-
-  registrarLog_('MARCAR_ATPVE_LISTA_CONFIRMADA', '-',
-    idsAtualizados.length + ' veículo(s) de ' + Object.keys(processosAfetados).length +
-    ' processo(s) marcados como ATPVe emitido/enviado, sem data. IDs: ' + idsAtualizados.join(', '));
-  invalidarCacheDashboard_();
-
-  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s) em ' + Object.keys(processosAfetados).length + ' processo(s): ' + idsAtualizados.join(', '));
-  var chavesNaoEncontradas = PROCESSOS_ATPVE_CONFIRMADO_24AGO2026_.filter(function (c) { return !processosAfetados[c]; });
-  if (chavesNaoEncontradas.length) {
-    Logger.log('Atenção: ' + chavesNaoEncontradas.length + ' chave(s) da lista não bateram com nenhum veículo (já estavam OK, ou a chave não existe mais): ' + chavesNaoEncontradas.join(', '));
-  }
-  return { atualizados: idsAtualizados.length, processosAfetados: Object.keys(processosAfetados).length };
-}
 
 /**
  * De-Para de unificação de nomenclatura de Donatária — só para Ente =
@@ -4291,2051 +3986,6 @@ var UNIFICACAO_DONATARIA_ESTADO_ = [
   { uf: 'BA', de: 'Corpo de Bombeiros Militar do Estado da Bahia', para: 'Corpo de Bombeiros' }
 ];
 
-/**
- * Aplica o De-Para acima em massa na aba Veiculos — só em registros com
- * Ente = "Estado" (Município e União ficam de fora por enquanto). Não
- * mexe em NumeroSei/Chassi/Placa/Transferido/ATPVe/nada além do texto da
- * Donatária. Idempotente: rodar de novo não faz nada nas linhas já
- * unificadas (o valor atual já não bate com nenhum "de" da lista).
- *
- * Rode manualmente pelo editor (selecione
- * "unificarNomenclaturaDonatariaEstado" no menu de funções, clique em
- * Executar) e confira o resumo em Ver > Registros de execução.
- */
-function unificarNomenclaturaDonatariaEstado() {
-  var perfil = exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var deParaPorChave = {};
-  UNIFICACAO_DONATARIA_ESTADO_.forEach(function (m) {
-    deParaPorChave[m.uf + '|' + m.de.trim()] = m.para;
-  });
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxEnte = cabecalho.indexOf('Ente');
-  var idxUF = cabecalho.indexOf('UF');
-  var idxDonataria = cabecalho.indexOf('Donataria');
-  var idxExcluido = cabecalho.indexOf('Excluido');
-  var idxId = cabecalho.indexOf('ID');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var agora = new Date();
-  var idsAtualizados = [];
-  var contagemPorUf = {};
-
-  for (var i = 1; i < valores.length; i++) {
-    var linha = valores[i];
-    if (!linha[idxId]) continue;
-    if (String(linha[idxExcluido]).toUpperCase() === 'SIM') continue;
-    if (linha[idxEnte] !== 'Estado') continue;
-
-    var chave = linha[idxUF] + '|' + String(linha[idxDonataria] || '').trim();
-    var nomeCanonico = deParaPorChave[chave];
-    if (!nomeCanonico || nomeCanonico === linha[idxDonataria]) continue;
-
-    var linhaAtualizada = linha.slice();
-    linhaAtualizada[idxDonataria] = nomeCanonico;
-    linhaAtualizada[idxUltimaAtualizacao] = agora;
-    linhaAtualizada[idxAtualizadoPor] = perfil.email + ' (unificação de nomenclatura Estado)';
-
-    sheet.getRange(i + 1, 1, 1, cabecalho.length).setValues([linhaAtualizada]);
-    idsAtualizados.push(linha[idxId]);
-    contagemPorUf[linha[idxUF]] = (contagemPorUf[linha[idxUF]] || 0) + 1;
-  }
-
-  registrarLog_('UNIFICAR_DONATARIA_ESTADO', '-',
-    idsAtualizados.length + ' veículo(s) com Donatária unificada (Ente=Estado). Por UF: ' + JSON.stringify(contagemPorUf));
-  invalidarCacheDashboard_();
-
-  Logger.log(idsAtualizados.length + ' veículo(s) atualizado(s).');
-  Logger.log('Por UF: ' + JSON.stringify(contagemPorUf));
-  return { atualizados: idsAtualizados.length, porUf: contagemPorUf };
-}
-
-var PREENCHER_NUMERO_PROCESSO_2026_ = [
-  { id: 'VC-002977', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-002978', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-002979', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-002980', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-002981', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-002982', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-002983', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-002984', numeroProcesso: '08020.007709/2025-76' },
-  { id: 'VC-003011', numeroProcesso: '08020.007710/2025-09' },
-  { id: 'VC-003012', numeroProcesso: '08020.007710/2025-09' },
-  { id: 'VC-003013', numeroProcesso: '08020.007710/2025-09' },
-  { id: 'VC-003014', numeroProcesso: '08020.007710/2025-09' },
-  { id: 'VC-003015', numeroProcesso: '08020.000424/2026-95' },
-  { id: 'VC-003016', numeroProcesso: '08020.000424/2026-95' },
-  { id: 'VC-003039', numeroProcesso: '08020.009099/2025-45' },
-  { id: 'VC-003040', numeroProcesso: '08020.009099/2025-45' },
-  { id: 'VC-003041', numeroProcesso: '08020.009099/2025-45' },
-  { id: 'VC-003046', numeroProcesso: '08020.011115/2025-60' },
-  { id: 'VC-003047', numeroProcesso: '08020.000296/2026-80' },
-  { id: 'VC-003051', numeroProcesso: '08020.011192/2025-10' },
-  { id: 'VC-003055', numeroProcesso: '08020.011428/2025-18' },
-  { id: 'VC-003059', numeroProcesso: '08020.011185/2025-18' },
-  { id: 'VC-003064', numeroProcesso: '08020.011195/2025-53' },
-  { id: 'VC-003065', numeroProcesso: '08020.011188/2025-51' },
-  { id: 'VC-003066', numeroProcesso: '08020.000351/2026-31' },
-  { id: 'VC-003067', numeroProcesso: '08020.000351/2026-31' },
-  { id: 'VC-003071', numeroProcesso: '08020.011111/2025-81' },
-  { id: 'VC-003072', numeroProcesso: '08020.006762/2025-50' },
-  { id: 'VC-003073', numeroProcesso: '08020.006762/2025-50' },
-  { id: 'VC-003074', numeroProcesso: '08020.006762/2025-50' },
-  { id: 'VC-003075', numeroProcesso: '08020.006762/2025-50' },
-  { id: 'VC-003076', numeroProcesso: '08020.006762/2025-50' },
-  { id: 'VC-003077', numeroProcesso: '08020.009608/2025-30' },
-  { id: 'VC-003078', numeroProcesso: '08020.011116/2025-12' },
-  { id: 'VC-003079', numeroProcesso: '08020.011116/2025-12' },
-  { id: 'VC-003080', numeroProcesso: '08020.011116/2025-12' },
-  { id: 'VC-003081', numeroProcesso: '08020.009094/2025-12' },
-  { id: 'VC-003082', numeroProcesso: '08020.006798/2025-33' },
-  { id: 'VC-003083', numeroProcesso: '08020.009087/2025-11' },
-  { id: 'VC-003086', numeroProcesso: '08020.001941/2025-09' },
-  { id: 'VC-003087', numeroProcesso: '08020.001941/2025-09' },
-  { id: 'VC-003088', numeroProcesso: '08020.001941/2025-09' },
-  { id: 'VC-003089', numeroProcesso: '08020.001941/2025-09' },
-  { id: 'VC-003090', numeroProcesso: '08020.001941/2025-09' },
-  { id: 'VC-003091', numeroProcesso: '08020.001941/2025-09' },
-  { id: 'VC-003092', numeroProcesso: '08020.009090/2025-34' },
-  { id: 'VC-003093', numeroProcesso: '08020.009782/2025-82' },
-  { id: 'VC-003094', numeroProcesso: '08020.009782/2025-82' },
-  { id: 'VC-003095', numeroProcesso: '08020.009774/2025-36' },
-  { id: 'VC-003096', numeroProcesso: '08020.009096/2025-10' },
-  { id: 'VC-003097', numeroProcesso: '08020.009866/2025-16' },
-  { id: 'VC-003098', numeroProcesso: '08020.000503/2026-04' },
-  { id: 'VC-003099', numeroProcesso: '08020.006756/2025-01' },
-  { id: 'VC-003100', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003101', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003102', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003103', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003104', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003105', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003106', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003107', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003108', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003109', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003110', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003111', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003112', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003113', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003114', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003115', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003116', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003117', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003118', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003119', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003120', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003121', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003122', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003123', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003124', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003125', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003126', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003127', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003128', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003129', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003130', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003131', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003132', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003133', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003134', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003135', numeroProcesso: '08020.000383/2026-37' },
-  { id: 'VC-003136', numeroProcesso: '08020.009098/2025-09' },
-  { id: 'VC-003137', numeroProcesso: '08020.009916/2025-65' },
-  { id: 'VC-003138', numeroProcesso: '08020.009093/2025-78' },
-  { id: 'VC-003139', numeroProcesso: '08020.009093/2025-78' },
-  { id: 'VC-003140', numeroProcesso: '08020.000403/2026-70' },
-  { id: 'VC-003141', numeroProcesso: '08020.009914/2025-76' },
-  { id: 'VC-003142', numeroProcesso: '08020.009913/2025-21' },
-  { id: 'VC-003143', numeroProcesso: '08020.009086/2025-76' },
-  { id: 'VC-003144', numeroProcesso: '08020.009912/2025-87' },
-  { id: 'VC-003145', numeroProcesso: '08020.009911/2025-32' },
-  { id: 'VC-003149', numeroProcesso: '08020.008522/2025-90' },
-  { id: 'VC-003150', numeroProcesso: '08020.008522/2025-90' },
-  { id: 'VC-003151', numeroProcesso: '08020.003624/2026-08' },
-  { id: 'VC-003152', numeroProcesso: '08020.003925/2026-23' },
-  { id: 'VC-003153', numeroProcesso: '08020.003925/2026-23' },
-  { id: 'VC-003154', numeroProcesso: '08020.004691/2026-31' },
-  { id: 'VC-003155', numeroProcesso: '08020.004685/2026-84' },
-  { id: 'VC-003156', numeroProcesso: '08020.005261/2026-37' },
-  { id: 'VC-003157', numeroProcesso: '08020.003935/2026-69' },
-  { id: 'VC-003158', numeroProcesso: '08020.009904/2025-31' },
-  { id: 'VC-003159', numeroProcesso: '08020.005333/2026-46' },
-  { id: 'VC-003160', numeroProcesso: '08020.009795/2025-51' },
-  { id: 'VC-003161', numeroProcesso: '08020.009901/2025-05' },
-  { id: 'VC-003162', numeroProcesso: '08020.007855/2025-00' },
-  { id: 'VC-003163', numeroProcesso: '08020.009917/2025-18' },
-  { id: 'VC-003164', numeroProcesso: '08020.007733/2025-13' },
-  { id: 'VC-003165', numeroProcesso: '08020.007733/2025-13' },
-  { id: 'VC-003166', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003167', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003168', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003169', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003170', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003171', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003172', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003173', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003174', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003175', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003176', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003177', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003178', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003179', numeroProcesso: '08020.011446/2025-08' },
-  { id: 'VC-003180', numeroProcesso: '08020.009091/2025-89' },
-  { id: 'VC-003181', numeroProcesso: '08020.009091/2025-89' },
-  { id: 'VC-003182', numeroProcesso: '08020.009867/2025-61' },
-  { id: 'VC-003183', numeroProcesso: '08020.009412/2025-45' },
-  { id: 'VC-003184', numeroProcesso: '08020.009412/2025-45' },
-  { id: 'VC-003185', numeroProcesso: '08020.009412/2025-45' },
-  { id: 'VC-003186', numeroProcesso: '08020.007850/2025-79' },
-  { id: 'VC-003187', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003188', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003189', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003190', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003191', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003192', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003193', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003194', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003195', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003196', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003197', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003198', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003199', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003200', numeroProcesso: '08020.011449/2025-33' },
-  { id: 'VC-003201', numeroProcesso: '08020.003930/2026-36' },
-  { id: 'VC-003202', numeroProcesso: '08020.003930/2026-36' },
-  { id: 'VC-003203', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003204', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003205', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003206', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003207', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003208', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003209', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003210', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003211', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003212', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003213', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003214', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003215', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003216', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003217', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003218', numeroProcesso: '08020.009809/2025-37' },
-  { id: 'VC-003219', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003220', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003221', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003222', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003223', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003224', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003225', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003226', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003227', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003228', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003229', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003230', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003231', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003232', numeroProcesso: '08020.006759/2025-36' },
-  { id: 'VC-003233', numeroProcesso: '08020.000113/2026-26' },
-  { id: 'VC-003234', numeroProcesso: '08020.000111/2026-37' },
-  { id: 'VC-003235', numeroProcesso: '08020.000111/2026-37' },
-  { id: 'VC-003236', numeroProcesso: '08020.006708/2025-12' },
-  { id: 'VC-003237', numeroProcesso: '08020.009900/2025-52' },
-  { id: 'VC-003238', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003239', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003240', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003241', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003242', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003243', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003244', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003245', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003246', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003247', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003248', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003249', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003250', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003251', numeroProcesso: '08020.011450/2025-68' },
-  { id: 'VC-003252', numeroProcesso: '08020.009411/2025-09' },
-  { id: 'VC-003253', numeroProcesso: '08020.006702/2025-37' },
-  { id: 'VC-003254', numeroProcesso: '08020.006702/2025-37' },
-  { id: 'VC-003255', numeroProcesso: '08020.006702/2025-37' },
-  { id: 'VC-003256', numeroProcesso: '08020.006702/2025-37' },
-  { id: 'VC-003257', numeroProcesso: '08020.006702/2025-37' },
-  { id: 'VC-003258', numeroProcesso: '08020.006702/2025-37' },
-  { id: 'VC-003259', numeroProcesso: '08020.000109/2026-68' },
-  { id: 'VC-003260', numeroProcesso: '08020.009413/2025-90' },
-  { id: 'VC-003261', numeroProcesso: '08020.009413/2025-90' },
-  { id: 'VC-003262', numeroProcesso: '08020.005334/2026-91' },
-  { id: 'VC-003264', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003265', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003266', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003267', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003268', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003269', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003270', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003271', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003272', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003273', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003274', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003275', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003276', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003277', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003278', numeroProcesso: '08020.011451/2025-11' },
-  { id: 'VC-003279', numeroProcesso: '08020.011365/2025-08' },
-  { id: 'VC-003280', numeroProcesso: '08020.009406/2025-98' },
-  { id: 'VC-003281', numeroProcesso: '08020.009906/2025-20' },
-  { id: 'VC-003282', numeroProcesso: '08000.047035/2025-81' },
-  { id: 'VC-003283', numeroProcesso: '08000.047035/2025-81' },
-  { id: 'VC-003284', numeroProcesso: '08000.047035/2025-81' },
-  { id: 'VC-003285', numeroProcesso: '08020.007731/2025-16' },
-  { id: 'VC-003286', numeroProcesso: '08020.007731/2025-16' },
-  { id: 'VC-003287', numeroProcesso: '08020.007731/2025-16' },
-  { id: 'VC-003288', numeroProcesso: '08020.007731/2025-16' },
-  { id: 'VC-003289', numeroProcesso: '08020.007731/2025-16' },
-  { id: 'VC-003290', numeroProcesso: '08020.007731/2025-16' },
-  { id: 'VC-003291', numeroProcesso: '08020.009909/2025-63' },
-  { id: 'VC-003292', numeroProcesso: '08020.007856/2025-46' },
-  { id: 'VC-003293', numeroProcesso: '08020.009823/2025-31' },
-  { id: 'VC-003294', numeroProcesso: '08020.011362/2025-66' },
-  { id: 'VC-003295', numeroProcesso: '08020.011362/2025-66' },
-  { id: 'VC-003296', numeroProcesso: '08020.011362/2025-66' },
-  { id: 'VC-003297', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003298', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003299', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003300', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003301', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003302', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003303', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003304', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003305', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003306', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003307', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003308', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003309', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003310', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003311', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003312', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003313', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003314', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003315', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003316', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003317', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003318', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003319', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003320', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003321', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003322', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003323', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003324', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003325', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003326', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003327', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003328', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003329', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003330', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003331', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003332', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003333', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003334', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003335', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003336', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003337', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003338', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003339', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003340', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003341', numeroProcesso: '08020.011859/2025-84' },
-  { id: 'VC-003342', numeroProcesso: '08000.047738/2025-17' },
-  { id: 'VC-003343', numeroProcesso: '08000.047738/2025-17' },
-  { id: 'VC-003344', numeroProcesso: '08020.004835/2026-50' },
-  { id: 'VC-003345', numeroProcesso: '08020.004835/2026-50' },
-  { id: 'VC-003347', numeroProcesso: '08020.009405/2025-43' },
-  { id: 'VC-003348', numeroProcesso: '08020.009405/2025-43' },
-  { id: 'VC-003349', numeroProcesso: '08020.009405/2025-43' },
-  { id: 'VC-003350', numeroProcesso: '08020.009405/2025-43' },
-  { id: 'VC-003351', numeroProcesso: '08020.009405/2025-43' },
-  { id: 'VC-003352', numeroProcesso: '08020.004857/2026-10' },
-  { id: 'VC-003353', numeroProcesso: '08020.004857/2026-10' },
-  { id: 'VC-003354', numeroProcesso: '08020.001928/2026-22' },
-  { id: 'VC-003355', numeroProcesso: '08020.001928/2026-22' },
-  { id: 'VC-003356', numeroProcesso: '08020.004848/2026-29' },
-  { id: 'VC-003357', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003358', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003359', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003360', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003361', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003362', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003363', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003364', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003365', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003366', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003367', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003368', numeroProcesso: '08020.004584/2026-11' },
-  { id: 'VC-003369', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003370', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003371', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003372', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003373', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003374', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003375', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003376', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003377', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003378', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003379', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003380', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003381', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003382', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003383', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003384', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003385', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003386', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003387', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003388', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003389', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003390', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003391', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003392', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003393', numeroProcesso: '08020.001816/2026-71' },
-  { id: 'VC-003394', numeroProcesso: '08020.007834/2025-86' },
-  { id: 'VC-003395', numeroProcesso: '08020.012903/2025-73' },
-  { id: 'VC-003396', numeroProcesso: '08020.012903/2025-73' },
-  { id: 'VC-003397', numeroProcesso: '08020.012903/2025-73' },
-  { id: 'VC-003398', numeroProcesso: '08020.004854/2026-86' },
-  { id: 'VC-003399', numeroProcesso: '08020.009812/2025-51' },
-  { id: 'VC-003400', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003401', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003402', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003403', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003404', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003405', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003406', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003407', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003408', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003409', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003410', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003411', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003412', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003413', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003414', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003415', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003416', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003417', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003418', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003419', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003420', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003421', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003422', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003423', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003424', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003425', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003426', numeroProcesso: '08020.009483/2026-29' },
-  { id: 'VC-003427', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003428', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003429', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003430', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003431', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003432', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003433', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003434', numeroProcesso: '08020.011459/2025-79' },
-  { id: 'VC-003435', numeroProcesso: '08020.000782/2026-06' },
-  { id: 'VC-003436', numeroProcesso: '08020.009915/2025-11' },
-  { id: 'VC-003437', numeroProcesso: '08020.008230/2026-38' },
-  { id: 'VC-003438', numeroProcesso: '08020.008230/2026-38' },
-  { id: 'VC-003439', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003440', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003441', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003442', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003443', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003444', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003445', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003446', numeroProcesso: '08020.009947/2026-05' },
-  { id: 'VC-003447', numeroProcesso: '08000.044823/2025-15' },
-  { id: 'VC-003448', numeroProcesso: '08000.044823/2025-15' },
-  { id: 'VC-003449', numeroProcesso: '08000.044823/2025-15' },
-  { id: 'VC-002992', numeroProcesso: '08020.006803/2025-16' },
-  { id: 'VC-002993', numeroProcesso: '08020.006803/2025-16' },
-  { id: 'VC-002994', numeroProcesso: '08020.006803/2025-16' },
-  { id: 'VC-002995', numeroProcesso: '08020.006803/2025-16' },
-  { id: 'VC-002996', numeroProcesso: '08020.006803/2025-16' },
-  { id: 'VC-002997', numeroProcesso: '08020.006803/2025-16' },
-  { id: 'VC-002998', numeroProcesso: '08020.006803/2025-16' },
-  { id: 'VC-002999', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003000', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003001', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003002', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003003', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003004', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003005', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003006', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003007', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003008', numeroProcesso: '08020.006484/2025-31' },
-  { id: 'VC-003026', numeroProcesso: '08020.008552/2025-04' },
-  { id: 'VC-003027', numeroProcesso: '08020.004276/2025-05' },
-  { id: 'VC-003028', numeroProcesso: '08020.004276/2025-05' },
-  { id: 'VC-003029', numeroProcesso: '08020.007914/2025-31' },
-  { id: 'VC-003030', numeroProcesso: '08020.007914/2025-31' },
-  { id: 'VC-003031', numeroProcesso: '08020.007914/2025-31' },
-  { id: 'VC-003032', numeroProcesso: '08020.007914/2025-31' },
-  { id: 'VC-003033', numeroProcesso: '08020.007914/2025-31' },
-  { id: 'VC-003034', numeroProcesso: '08020.007914/2025-31' },
-  { id: 'VC-003035', numeroProcesso: '08020.007216/2025-36' },
-  { id: 'VC-003036', numeroProcesso: '08020.007930/2025-24' },
-  { id: 'VC-003037', numeroProcesso: '08020.007930/2025-24' },
-  { id: 'VC-003038', numeroProcesso: '08020.007930/2025-24' },
-  { id: 'VC-003042', numeroProcesso: '08020.001942/2025-45' },
-  { id: 'VC-003043', numeroProcesso: '08020.001942/2025-45' },
-  { id: 'VC-003044', numeroProcesso: '08020.001942/2025-45' },
-  { id: 'VC-003045', numeroProcesso: '08020.006435/2025-06' },
-  { id: 'VC-003048', numeroProcesso: '08020.007882/2025-74' },
-  { id: 'VC-003049', numeroProcesso: '08020.004388/2025-58' },
-  { id: 'VC-003050', numeroProcesso: '08020.005629/2025-86' },
-  { id: 'VC-003052', numeroProcesso: '08020.008468/2025-82' },
-  { id: 'VC-003053', numeroProcesso: '08020.008468/2025-82' },
-  { id: 'VC-003056', numeroProcesso: '08020.004378/2025-12' },
-  { id: 'VC-003057', numeroProcesso: '08020.004378/2025-12' },
-  { id: 'VC-003058', numeroProcesso: '08020.007143/2025-82' },
-  { id: 'VC-003060', numeroProcesso: '08020.007874/2025-28' },
-  { id: 'VC-003061', numeroProcesso: '08020.007874/2025-28' },
-  { id: 'VC-003062', numeroProcesso: '08020.007874/2025-28' },
-  { id: 'VC-003063', numeroProcesso: '08020.007874/2025-28' },
-  { id: 'VC-003084', numeroProcesso: '08020.005650/2025-81' },
-  { id: 'VC-003085', numeroProcesso: '08020.006783/2025-75' },
-  { id: 'VC-003146', numeroProcesso: '08020.004311/2025-88' },
-  { id: 'VC-003147', numeroProcesso: '08020.004311/2025-88' },
-  { id: 'VC-003148', numeroProcesso: '08020.004311/2025-88' },
-  { id: 'VC-003263', numeroProcesso: '08020.010085/2024-93' },
-];
-
-/**
- * Preenche o Número do Processo dos veículos de 2026 que ainda estavam sem
- * esse dado, cruzando o Termo de Doação de cada um contra duas planilhas
- * de referência (Processo x Termo x SEI) fornecidas pelo usuário — uma só
- * com termos numerados em 2026, outra cobrindo também termos de anos
- * anteriores (2016 a 2025) que só foram processados agora. 120 processos
- * encontrados, cobrindo 450 veículos; os que não bateram com nenhuma das
- * duas planilhas continuam sem Número de Processo.
- *
- * Só grava em veículos que ainda estão com NumeroProcesso vazio — nunca
- * sobrescreve um valor já preenchido. Não mexe em mais nenhum campo
- * (Chassi, Placa, NumeroSei, Transferido etc.) — o NumeroSei já cadastrado
- * em cada veículo é do Termo de Doação, diferente do SEI que aparecia nas
- * planilhas de referência (esse é de outro documento), por isso não é
- * tocado aqui.
- *
- * Rode manualmente pelo editor (selecione "preencherNumeroProcesso2026" no
- * menu de funções, clique em Executar) — é seguro rodar mais de uma vez.
- */
-function preencherNumeroProcesso2026() {
-  var perfil = exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxId = cabecalho.indexOf('ID');
-  var idxNumeroProcesso = cabecalho.indexOf('NumeroProcesso');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var linhaPorId = {};
-  for (var i = 1; i < valores.length; i++) {
-    var id = valores[i][idxId];
-    if (id) linhaPorId[id] = i;
-  }
-
-  var agora = new Date();
-  var atualizados = [];
-  var jaTinhamProcesso = [];
-  var idsNaoEncontrados = [];
-
-  PREENCHER_NUMERO_PROCESSO_2026_.forEach(function (item) {
-    var i = linhaPorId[item.id];
-    if (i === undefined) { idsNaoEncontrados.push(item.id); return; }
-    if (valores[i][idxNumeroProcesso]) { jaTinhamProcesso.push(item.id); return; }
-    valores[i][idxNumeroProcesso] = item.numeroProcesso;
-    valores[i][idxUltimaAtualizacao] = agora;
-    valores[i][idxAtualizadoPor] = perfil.email + ' (preenchimento em massa de Número do Processo)';
-    atualizados.push({ id: item.id, linha: i + 1 });
-  });
-
-  atualizados.forEach(function (a) {
-    sheet.getRange(a.linha, 1, 1, cabecalho.length).setValues([valores[a.linha - 1]]);
-  });
-
-  registrarLog_('PREENCHER_NUMERO_PROCESSO', '-',
-    atualizados.length + ' veículo(s) tiveram o Número do Processo preenchido. ' +
-    jaTinhamProcesso.length + ' já tinham (ignorados). ' + idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base.');
-  invalidarCacheDashboard_();
-
-  Logger.log(atualizados.length + ' veículo(s) atualizado(s): ' + atualizados.map(function (a) { return a.id; }).join(', '));
-  if (jaTinhamProcesso.length) Logger.log(jaTinhamProcesso.length + ' já tinham processo (ignorados): ' + jaTinhamProcesso.join(', '));
-  if (idsNaoEncontrados.length) Logger.log(idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base: ' + idsNaoEncontrados.join(', '));
-
-  return { atualizados: atualizados.length, jaTinham: jaTinhamProcesso.length, naoEncontrados: idsNaoEncontrados.length };
-}
-
-var PREENCHER_NUMERO_PROCESSO_2026_LOTE2_ = [
-  { id: 'VC-002932', numeroProcesso: '08020.004253/2025-92' },
-  { id: 'VC-002933', numeroProcesso: '08020.004253/2025-92' },
-  { id: 'VC-002934', numeroProcesso: '08020.004181/2025-83' },
-  { id: 'VC-002935', numeroProcesso: '08020.006636/2025-03' },
-  { id: 'VC-002936', numeroProcesso: '08020.006625/2025-15' },
-  { id: 'VC-002937', numeroProcesso: '08020.009407/2024-51' },
-  { id: 'VC-002938', numeroProcesso: '08020.007921/2025-33' },
-  { id: 'VC-002939', numeroProcesso: '08020.007935/2025-57' },
-  { id: 'VC-002940', numeroProcesso: '08020.007935/2025-57' },
-  { id: 'VC-002941', numeroProcesso: '08020.007935/2025-57' },
-  { id: 'VC-002942', numeroProcesso: '08020.007935/2025-57' },
-  { id: 'VC-002943', numeroProcesso: '08020.007861/2025-59' },
-  { id: 'VC-002944', numeroProcesso: '08020.007861/2025-59' },
-  { id: 'VC-002945', numeroProcesso: '08020.007861/2025-59' },
-  { id: 'VC-002946', numeroProcesso: '08020.007861/2025-59' },
-  { id: 'VC-002947', numeroProcesso: '08020.007861/2025-59' },
-  { id: 'VC-002948', numeroProcesso: '08020.007861/2025-59' },
-  { id: 'VC-002949', numeroProcesso: '08020.009100/2025-31' },
-  { id: 'VC-002950', numeroProcesso: '08020.009100/2025-31' },
-  { id: 'VC-002951', numeroProcesso: '08020.009100/2025-31' },
-  { id: 'VC-002952', numeroProcesso: '08020.009100/2025-31' },
-  { id: 'VC-002953', numeroProcesso: '08020.006814/2025-98' },
-  { id: 'VC-002954', numeroProcesso: '08020.006814/2025-98' },
-  { id: 'VC-002955', numeroProcesso: '08020.006814/2025-98' },
-  { id: 'VC-002956', numeroProcesso: '08020.006814/2025-98' },
-  { id: 'VC-002957', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002958', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002959', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002960', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002961', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002962', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002963', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002964', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002965', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002966', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002967', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002968', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002969', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002970', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002971', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002972', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002973', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002974', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002975', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002976', numeroProcesso: '08020.004137/2025-73' },
-  { id: 'VC-002985', numeroProcesso: '08020.006713/2025-17' },
-  { id: 'VC-002986', numeroProcesso: '08020.006713/2025-17' },
-  { id: 'VC-002987', numeroProcesso: '08020.006713/2025-17' },
-  { id: 'VC-002988', numeroProcesso: '08020.006713/2025-17' },
-  { id: 'VC-002989', numeroProcesso: '08020.008621/2025-71' },
-  { id: 'VC-002990', numeroProcesso: '08020.006624/2025-71' },
-  { id: 'VC-002991', numeroProcesso: '08020.008527/2025-12' },
-  { id: 'VC-003009', numeroProcesso: '08020.006826/2025-12' },
-  { id: 'VC-003010', numeroProcesso: '08020.006826/2025-12' },
-  { id: 'VC-003017', numeroProcesso: '08020.001907/2025-26' },
-  { id: 'VC-003018', numeroProcesso: '08020.001907/2025-26' },
-  { id: 'VC-003019', numeroProcesso: '08020.007858/2025-35' },
-  { id: 'VC-003020', numeroProcesso: '08020.006771/2025-41' },
-  { id: 'VC-003021', numeroProcesso: '08020.010788/2025-01' },
-  { id: 'VC-003022', numeroProcesso: '08020.006789/2025-42' },
-  { id: 'VC-003023', numeroProcesso: '08020.006789/2025-42' },
-  { id: 'VC-003024', numeroProcesso: '08020.006717/2025-03' },
-  { id: 'VC-003025', numeroProcesso: '08020.005653/2025-15' },
-  { id: 'VC-003346', numeroProcesso: '08020.008530/2025-36' },
-];
-
-/**
- * Segundo lote do preenchimento de Número do Processo (2026) — os 24
- * processos (64 veículos) que não bateram nas duas primeiras planilhas de
- * referência, agora cruzados contra uma terceira planilha (935 termos,
- * todos numerados em 2025). Fechou 100% dos que faltavam.
- *
- * Mesmas regras do lote 1 (ver preencherNumeroProcesso2026): só grava
- * onde NumeroProcesso está vazio, não mexe em NumeroSei nem em outro
- * campo. Rode manualmente pelo editor (selecione
- * "preencherNumeroProcesso2026Lote2" no menu de funções, clique em
- * Executar) — seguro rodar mais de uma vez.
- */
-var PREENCHER_NUMERO_PROCESSO_2025_ = [
-  { id: 'VC-001810', numeroProcesso: '08020.008167/2024-78' },
-  { id: 'VC-001811', numeroProcesso: '08020.000135/2025-13' },
-  { id: 'VC-001849', numeroProcesso: '08020.005854/2024-31' },
-  { id: 'VC-001850', numeroProcesso: '08020.005854/2024-31' },
-  { id: 'VC-001854', numeroProcesso: '08020.007931/2024-98' },
-  { id: 'VC-001855', numeroProcesso: '08020.007931/2024-98' },
-  { id: 'VC-001857', numeroProcesso: '08020.009077/2024-02' },
-  { id: 'VC-001858', numeroProcesso: '08020.009077/2024-02' },
-  { id: 'VC-001859', numeroProcesso: '08020.009077/2024-02' },
-  { id: 'VC-001860', numeroProcesso: '08020.009752/2024-95' },
-  { id: 'VC-001862', numeroProcesso: '08020.000384/2025-09' },
-  { id: 'VC-001864', numeroProcesso: '08020.003383/2024-27' },
-  { id: 'VC-001865', numeroProcesso: '08020.003383/2024-27' },
-  { id: 'VC-001868', numeroProcesso: '08020.007916/2024-40' },
-  { id: 'VC-001869', numeroProcesso: '08020.005912/2024-27' },
-  { id: 'VC-001870', numeroProcesso: '08020.005912/2024-27' },
-  { id: 'VC-001871', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001872', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001873', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001874', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001875', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001876', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001877', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001878', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001879', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001880', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001881', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001882', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001883', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001884', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001885', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001886', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001887', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001888', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001889', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001890', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001891', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001892', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001893', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001894', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001895', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001896', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001897', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001898', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001899', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001900', numeroProcesso: '08020.002296/2025-33' },
-  { id: 'VC-001902', numeroProcesso: '08020.002270/2025-95' },
-  { id: 'VC-001903', numeroProcesso: '08020.002270/2025-95' },
-  { id: 'VC-001904', numeroProcesso: '08020.002270/2025-95' },
-  { id: 'VC-001905', numeroProcesso: '08020.002270/2025-95' },
-  { id: 'VC-001906', numeroProcesso: '08020.002266/2025-27' },
-  { id: 'VC-001907', numeroProcesso: '08020.002266/2025-27' },
-  { id: 'VC-001908', numeroProcesso: '08020.003442/2024-67' },
-  { id: 'VC-001909', numeroProcesso: '08020.003442/2024-67' },
-  { id: 'VC-001910', numeroProcesso: '08020.003442/2024-67' },
-  { id: 'VC-001911', numeroProcesso: '08020.003442/2024-67' },
-  { id: 'VC-001912', numeroProcesso: '08020.003442/2024-67' },
-  { id: 'VC-001914', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001915', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001916', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001917', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001918', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001919', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001920', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001921', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001922', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001923', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001924', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001925', numeroProcesso: '08020.002102/2025-08' },
-  { id: 'VC-001926', numeroProcesso: '08020.005518/2024-99' },
-  { id: 'VC-001927', numeroProcesso: '08020.005518/2024-99' },
-  { id: 'VC-001928', numeroProcesso: '08020.002271/2025-30' },
-  { id: 'VC-001929', numeroProcesso: '08020.002271/2025-30' },
-  { id: 'VC-001930', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001931', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001932', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001933', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001934', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001935', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001936', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001937', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001938', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001939', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001940', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001941', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001942', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001943', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001944', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001945', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001946', numeroProcesso: '08020.002269/2025-61' },
-  { id: 'VC-001947', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001948', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001949', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001950', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001951', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001952', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001953', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001954', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001955', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001956', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001957', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001958', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001959', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001960', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001961', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001962', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001963', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001964', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001965', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001966', numeroProcesso: '08020.002268/2025-16' },
-  { id: 'VC-001967', numeroProcesso: '08020.007773/2024-76' },
-  { id: 'VC-001969', numeroProcesso: '08020.002353/2024-01' },
-  { id: 'VC-001970', numeroProcesso: '08020.002353/2024-01' },
-  { id: 'VC-001971', numeroProcesso: '08020.000133/2025-16' },
-  { id: 'VC-001972', numeroProcesso: '08020.002275/2025-18' },
-  { id: 'VC-001973', numeroProcesso: '08000.009184/2024-61' },
-  { id: 'VC-001974', numeroProcesso: '08000.009184/2024-61' },
-  { id: 'VC-001977', numeroProcesso: '08020.002273/2025-29' },
-  { id: 'VC-001978', numeroProcesso: '08020.002273/2025-29' },
-  { id: 'VC-001979', numeroProcesso: '08020.007482/2024-88' },
-  { id: 'VC-001980', numeroProcesso: '08020.007482/2024-88' },
-  { id: 'VC-001981', numeroProcesso: '08000.033292/2024-54' },
-  { id: 'VC-001982', numeroProcesso: '08000.033292/2024-54' },
-  { id: 'VC-001983', numeroProcesso: '08000.033275/2024-17' },
-  { id: 'VC-001984', numeroProcesso: '08000.032965/2024-59' },
-  { id: 'VC-001985', numeroProcesso: '08000.032965/2024-59' },
-  { id: 'VC-001986', numeroProcesso: '08020.003548/2025-41' },
-  { id: 'VC-001987', numeroProcesso: '08020.003548/2025-41' },
-  { id: 'VC-001988', numeroProcesso: '08020.009810/2024-81' },
-  { id: 'VC-001989', numeroProcesso: '08020.002715/2025-37' },
-  { id: 'VC-001997', numeroProcesso: '08020.007341/2024-65' },
-  { id: 'VC-001998', numeroProcesso: '08020.002244/2025-67' },
-  { id: 'VC-001999', numeroProcesso: '08020.002244/2025-67' },
-  { id: 'VC-002000', numeroProcesso: '08020.003342/2025-11' },
-  { id: 'VC-002001', numeroProcesso: '08020.003342/2025-11' },
-  { id: 'VC-002002', numeroProcesso: '08020.007326/2024-17' },
-  { id: 'VC-002003', numeroProcesso: '08020.007326/2024-17' },
-  { id: 'VC-002004', numeroProcesso: '08020.007346/2024-98' },
-  { id: 'VC-002005', numeroProcesso: '08020.007542/2024-62' },
-  { id: 'VC-002006', numeroProcesso: '08020.007319/2024-15' },
-  { id: 'VC-002007', numeroProcesso: '08020.007324/2024-28' },
-  { id: 'VC-002008', numeroProcesso: '08020.002357/2024-81' },
-  { id: 'VC-002009', numeroProcesso: '08020.002357/2024-81' },
-  { id: 'VC-002010', numeroProcesso: '08020.002357/2024-81' },
-  { id: 'VC-002011', numeroProcesso: '08020.002357/2024-81' },
-  { id: 'VC-002012', numeroProcesso: '08020.003107/2025-40' },
-  { id: 'VC-002013', numeroProcesso: '08020.003107/2025-40' },
-  { id: 'VC-002014', numeroProcesso: '08020.003107/2025-40' },
-  { id: 'VC-002015', numeroProcesso: '08020.003107/2025-40' },
-  { id: 'VC-002016', numeroProcesso: '08020.003107/2025-40' },
-  { id: 'VC-002017', numeroProcesso: '08020.003107/2025-40' },
-  { id: 'VC-002018', numeroProcesso: '08020.003107/2025-40' },
-  { id: 'VC-002019', numeroProcesso: '08020.003405/2025-30' },
-  { id: 'VC-002020', numeroProcesso: '08020.003405/2025-30' },
-  { id: 'VC-002021', numeroProcesso: '08020.007340/2024-11' },
-  { id: 'VC-002022', numeroProcesso: '08020.002274/2025-73' },
-  { id: 'VC-002023', numeroProcesso: '08020.003371/2025-83' },
-  { id: 'VC-002024', numeroProcesso: '08020.007435/2024-34' },
-  { id: 'VC-002025', numeroProcesso: '08020.007435/2024-34' },
-  { id: 'VC-002026', numeroProcesso: '08020.007786/2024-45' },
-  { id: 'VC-002027', numeroProcesso: '08020.004544/2025-81' },
-  { id: 'VC-002028', numeroProcesso: '08020.004544/2025-81' },
-  { id: 'VC-002029', numeroProcesso: '08020.004544/2025-81' },
-  { id: 'VC-002030', numeroProcesso: '08020.004544/2025-81' },
-  { id: 'VC-002031', numeroProcesso: '08020.004544/2025-81' },
-  { id: 'VC-002032', numeroProcesso: '08020.004544/2025-81' },
-  { id: 'VC-002033', numeroProcesso: '08000.026269/2024-11' },
-  { id: 'VC-002034', numeroProcesso: '08000.049592/2024-55' },
-  { id: 'VC-002035', numeroProcesso: '08000.049592/2024-55' },
-  { id: 'VC-002036', numeroProcesso: '08020.005023/2025-41' },
-  { id: 'VC-002037', numeroProcesso: '08020.005023/2025-41' },
-  { id: 'VC-002038', numeroProcesso: '08020.005023/2025-41' },
-  { id: 'VC-002039', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002040', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002041', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002042', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002043', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002044', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002045', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002046', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002047', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002048', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002049', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002050', numeroProcesso: '08020.004852/2025-14' },
-  { id: 'VC-002051', numeroProcesso: '08020.004854/2025-03' },
-  { id: 'VC-002052', numeroProcesso: '08020.003783/2024-32' },
-  { id: 'VC-002053', numeroProcesso: '08020.003783/2024-32' },
-  { id: 'VC-002054', numeroProcesso: '08020.003899/2024-71' },
-  { id: 'VC-002055', numeroProcesso: '08020.003899/2024-71' },
-  { id: 'VC-002056', numeroProcesso: '08020.003887/2024-47' },
-  { id: 'VC-002057', numeroProcesso: '08020.007344/2024-07' },
-  { id: 'VC-002058', numeroProcesso: '08020.007344/2024-07' },
-  { id: 'VC-002059', numeroProcesso: '08020.007344/2024-07' },
-  { id: 'VC-002060', numeroProcesso: '08020.007849/2024-63' },
-  { id: 'VC-002061', numeroProcesso: '08020.007849/2024-63' },
-  { id: 'VC-002062', numeroProcesso: '08020.007319/2024-15' },
-  { id: 'VC-002063', numeroProcesso: '08020.007319/2024-15' },
-  { id: 'VC-002064', numeroProcesso: '08020.007319/2024-15' },
-  { id: 'VC-002065', numeroProcesso: '08020.007319/2024-15' },
-  { id: 'VC-002066', numeroProcesso: '08020.007327/2024-61' },
-  { id: 'VC-002067', numeroProcesso: '08020.007327/2024-61' },
-  { id: 'VC-002068', numeroProcesso: '08020.007731/2024-35' },
-  { id: 'VC-002070', numeroProcesso: '08020.007407/2024-17' },
-  { id: 'VC-002071', numeroProcesso: '08020.007407/2024-17' },
-  { id: 'VC-002072', numeroProcesso: '08020.007407/2024-17' },
-  { id: 'VC-002073', numeroProcesso: '08020.007407/2024-17' },
-  { id: 'VC-002074', numeroProcesso: '08020.005025/2025-30' },
-  { id: 'VC-002075', numeroProcesso: '08020.007716/2024-97' },
-  { id: 'VC-002076', numeroProcesso: '08020.007716/2024-97' },
-  { id: 'VC-002077', numeroProcesso: '08020.007716/2024-97' },
-  { id: 'VC-002078', numeroProcesso: '08020.007716/2024-97' },
-  { id: 'VC-002079', numeroProcesso: '08020.007716/2024-97' },
-  { id: 'VC-002080', numeroProcesso: '08020.007716/2024-97' },
-  { id: 'VC-002081', numeroProcesso: '08020.007343/2024-54' },
-  { id: 'VC-002082', numeroProcesso: '08020.007343/2024-54' },
-  { id: 'VC-002083', numeroProcesso: '08020.001686/2024-13' },
-  { id: 'VC-002084', numeroProcesso: '08020.004375/2025-89' },
-  { id: 'VC-002085', numeroProcesso: '08020.007728/2024-11' },
-  { id: 'VC-002086', numeroProcesso: '08020.007728/2024-11' },
-  { id: 'VC-002087', numeroProcesso: '08020.007728/2024-11' },
-  { id: 'VC-002088', numeroProcesso: '08020.007728/2024-11' },
-  { id: 'VC-002089', numeroProcesso: '08020.007728/2024-11' },
-  { id: 'VC-002090', numeroProcesso: '08020.007728/2024-11' },
-  { id: 'VC-002091', numeroProcesso: '08020.007725/2024-88' },
-  { id: 'VC-002092', numeroProcesso: '08020.007725/2024-88' },
-  { id: 'VC-002093', numeroProcesso: '08020.007725/2024-88' },
-  { id: 'VC-002094', numeroProcesso: '08020.007725/2024-88' },
-  { id: 'VC-002095', numeroProcesso: '08020.007725/2024-88' },
-  { id: 'VC-002096', numeroProcesso: '08020.007725/2024-88' },
-  { id: 'VC-002097', numeroProcesso: '08020.007332/2024-74' },
-  { id: 'VC-002098', numeroProcesso: '08020.007332/2024-74' },
-  { id: 'VC-002099', numeroProcesso: '08020.003882/2024-14' },
-  { id: 'VC-002100', numeroProcesso: '08020.003882/2024-14' },
-  { id: 'VC-002101', numeroProcesso: '08020.003882/2024-14' },
-  { id: 'VC-002102', numeroProcesso: '08020.003882/2024-14' },
-  { id: 'VC-002103', numeroProcesso: '08000.048464/2024-94' },
-  { id: 'VC-002104', numeroProcesso: '08000.048464/2024-94' },
-  { id: 'VC-002105', numeroProcesso: '08020.007748/2024-92' },
-  { id: 'VC-002106', numeroProcesso: '08020.003784/2024-87' },
-  { id: 'VC-002107', numeroProcesso: '08020.001710/2024-14' },
-  { id: 'VC-002108', numeroProcesso: '08020.001710/2024-14' },
-  { id: 'VC-002109', numeroProcesso: '08020.007739/2024-00' },
-  { id: 'VC-002110', numeroProcesso: '08020.007739/2024-00' },
-  { id: 'VC-002111', numeroProcesso: '08020.007739/2024-00' },
-  { id: 'VC-002112', numeroProcesso: '08020.007739/2024-00' },
-  { id: 'VC-002113', numeroProcesso: '08020.007739/2024-00' },
-  { id: 'VC-002114', numeroProcesso: '08020.007739/2024-00' },
-  { id: 'VC-002115', numeroProcesso: '08020.007542/2024-62' },
-  { id: 'VC-002116', numeroProcesso: '08020.007542/2024-62' },
-  { id: 'VC-002117', numeroProcesso: '08020.007542/2024-62' },
-  { id: 'VC-002118', numeroProcesso: '08020.007542/2024-62' },
-  { id: 'VC-002119', numeroProcesso: '08020.007730/2024-91' },
-  { id: 'VC-002120', numeroProcesso: '08020.007730/2024-91' },
-  { id: 'VC-002121', numeroProcesso: '08020.007730/2024-91' },
-  { id: 'VC-002122', numeroProcesso: '08020.007730/2024-91' },
-  { id: 'VC-002123', numeroProcesso: '08020.007730/2024-91' },
-  { id: 'VC-002124', numeroProcesso: '08020.007730/2024-91' },
-  { id: 'VC-002125', numeroProcesso: '08020.003892/2024-50' },
-  { id: 'VC-002126', numeroProcesso: '08020.003892/2024-50' },
-  { id: 'VC-002127', numeroProcesso: '08020.003892/2024-50' },
-  { id: 'VC-002128', numeroProcesso: '08020.003892/2024-50' },
-  { id: 'VC-002130', numeroProcesso: '08020.007324/2024-28' },
-  { id: 'VC-002131', numeroProcesso: '08020.007324/2024-28' },
-  { id: 'VC-002132', numeroProcesso: '08020.007324/2024-28' },
-  { id: 'VC-002133', numeroProcesso: '08020.007324/2024-28' },
-  { id: 'VC-002134', numeroProcesso: '08020.005338/2025-98' },
-  { id: 'VC-002135', numeroProcesso: '08020.005338/2025-98' },
-  { id: 'VC-002136', numeroProcesso: '08020.001711/2024-51' },
-  { id: 'VC-002137', numeroProcesso: '08020.001722/2024-31' },
-  { id: 'VC-002138', numeroProcesso: '08020.001722/2024-31' },
-  { id: 'VC-002139', numeroProcesso: '08020.001722/2024-31' },
-  { id: 'VC-002140', numeroProcesso: '08020.007724/2024-33' },
-  { id: 'VC-002141', numeroProcesso: '08020.007724/2024-33' },
-  { id: 'VC-002142', numeroProcesso: '08020.007724/2024-33' },
-  { id: 'VC-002143', numeroProcesso: '08020.007724/2024-33' },
-  { id: 'VC-002144', numeroProcesso: '08020.007724/2024-33' },
-  { id: 'VC-002145', numeroProcesso: '08020.007724/2024-33' },
-  { id: 'VC-002146', numeroProcesso: '08020.001718/2024-72' },
-  { id: 'VC-002150', numeroProcesso: '08020.007868/2024-90' },
-  { id: 'VC-002151', numeroProcesso: '08020.007868/2024-90' },
-  { id: 'VC-002152', numeroProcesso: '08020.007868/2024-90' },
-  { id: 'VC-002153', numeroProcesso: '08020.007868/2024-90' },
-  { id: 'VC-002154', numeroProcesso: '08020.003906/2024-35' },
-  { id: 'VC-002155', numeroProcesso: '08020.003906/2024-35' },
-  { id: 'VC-002156', numeroProcesso: '08020.001712/2024-03' },
-  { id: 'VC-002164', numeroProcesso: '08020.005024/2025-95' },
-  { id: 'VC-002165', numeroProcesso: '08020.007876/2024-36' },
-  { id: 'VC-002166', numeroProcesso: '08020.003912/2024-92' },
-  { id: 'VC-002167', numeroProcesso: '08020.003912/2024-92' },
-  { id: 'VC-002168', numeroProcesso: '08020.005291/2024-81' },
-  { id: 'VC-002169', numeroProcesso: '08020.005291/2024-81' },
-  { id: 'VC-002170', numeroProcesso: '08020.005291/2024-81' },
-  { id: 'VC-002171', numeroProcesso: '08020.007710/2024-10' },
-  { id: 'VC-002172', numeroProcesso: '08020.007710/2024-10' },
-  { id: 'VC-002173', numeroProcesso: '08020.007710/2024-10' },
-  { id: 'VC-002174', numeroProcesso: '08020.007710/2024-10' },
-  { id: 'VC-002175', numeroProcesso: '08020.007710/2024-10' },
-  { id: 'VC-002176', numeroProcesso: '08020.007710/2024-10' },
-  { id: 'VC-002177', numeroProcesso: '08020.007353/2024-90' },
-  { id: 'VC-002178', numeroProcesso: '08020.007353/2024-90' },
-  { id: 'VC-002179', numeroProcesso: '08020.001704/2024-59' },
-  { id: 'VC-002180', numeroProcesso: '08020.001719/2024-17' },
-  { id: 'VC-002181', numeroProcesso: '08020.007723/2024-99' },
-  { id: 'VC-002182', numeroProcesso: '08020.007723/2024-99' },
-  { id: 'VC-002183', numeroProcesso: '08020.007723/2024-99' },
-  { id: 'VC-002184', numeroProcesso: '08020.007723/2024-99' },
-  { id: 'VC-002185', numeroProcesso: '08020.007723/2024-99' },
-  { id: 'VC-002186', numeroProcesso: '08020.007723/2024-99' },
-  { id: 'VC-002187', numeroProcesso: '08020.007723/2024-99' },
-  { id: 'VC-002190', numeroProcesso: '08020.004853/2025-51' },
-  { id: 'VC-002191', numeroProcesso: '08020.007761/2024-41' },
-  { id: 'VC-002192', numeroProcesso: '08020.007738/2024-57' },
-  { id: 'VC-002193', numeroProcesso: '08020.007738/2024-57' },
-  { id: 'VC-002194', numeroProcesso: '08020.007738/2024-57' },
-  { id: 'VC-002195', numeroProcesso: '08020.007738/2024-57' },
-  { id: 'VC-002196', numeroProcesso: '08020.007738/2024-57' },
-  { id: 'VC-002197', numeroProcesso: '08020.007738/2024-57' },
-  { id: 'VC-002198', numeroProcesso: '08020.007738/2024-57' },
-  { id: 'VC-002199', numeroProcesso: '08020.006148/2025-98' },
-  { id: 'VC-002200', numeroProcesso: '08020.006148/2025-98' },
-  { id: 'VC-002201', numeroProcesso: '08020.006148/2025-98' },
-  { id: 'VC-002202', numeroProcesso: '08020.006148/2025-98' },
-  { id: 'VC-002203', numeroProcesso: '08020.006148/2025-98' },
-  { id: 'VC-002204', numeroProcesso: '08020.006148/2025-98' },
-  { id: 'VC-002205', numeroProcesso: '08020.007717/2024-31' },
-  { id: 'VC-002206', numeroProcesso: '08020.007717/2024-31' },
-  { id: 'VC-002207', numeroProcesso: '08020.007717/2024-31' },
-  { id: 'VC-002208', numeroProcesso: '08020.007717/2024-31' },
-  { id: 'VC-002209', numeroProcesso: '08020.007717/2024-31' },
-  { id: 'VC-002210', numeroProcesso: '08020.007717/2024-31' },
-  { id: 'VC-002211', numeroProcesso: '08020.007327/2024-61' },
-  { id: 'VC-002212', numeroProcesso: '08020.007327/2024-61' },
-  { id: 'VC-002213', numeroProcesso: '08020.007327/2024-61' },
-  { id: 'VC-002214', numeroProcesso: '08020.007732/2024-80' },
-  { id: 'VC-002215', numeroProcesso: '08020.007732/2024-80' },
-  { id: 'VC-002216', numeroProcesso: '08020.007732/2024-80' },
-  { id: 'VC-002217', numeroProcesso: '08020.007732/2024-80' },
-  { id: 'VC-002218', numeroProcesso: '08020.007732/2024-80' },
-  { id: 'VC-002219', numeroProcesso: '08020.007732/2024-80' },
-  { id: 'VC-002220', numeroProcesso: '08020.007732/2024-80' },
-  { id: 'VC-002221', numeroProcesso: '08020.003881/2024-70' },
-  { id: 'VC-002222', numeroProcesso: '08020.003881/2024-70' },
-  { id: 'VC-002223', numeroProcesso: '08020.003881/2024-70' },
-  { id: 'VC-002224', numeroProcesso: '08020.003881/2024-70' },
-  { id: 'VC-002225', numeroProcesso: '08020.003881/2024-70' },
-  { id: 'VC-002226', numeroProcesso: '08020.003881/2024-70' },
-  { id: 'VC-002227', numeroProcesso: '08020.007331/2024-20' },
-  { id: 'VC-002228', numeroProcesso: '08020.007331/2024-20' },
-  { id: 'VC-002229', numeroProcesso: '08020.007718/2024-86' },
-  { id: 'VC-002230', numeroProcesso: '08020.007718/2024-86' },
-  { id: 'VC-002231', numeroProcesso: '08020.007718/2024-86' },
-  { id: 'VC-002232', numeroProcesso: '08020.007718/2024-86' },
-  { id: 'VC-002233', numeroProcesso: '08020.007718/2024-86' },
-  { id: 'VC-002234', numeroProcesso: '08020.007718/2024-86' },
-  { id: 'VC-002235', numeroProcesso: '08020.007718/2024-86' },
-  { id: 'VC-002236', numeroProcesso: '08020.007418/2024-05' },
-  { id: 'VC-002237', numeroProcesso: '08020.007418/2024-05' },
-  { id: 'VC-002238', numeroProcesso: '08020.007737/2024-11' },
-  { id: 'VC-002239', numeroProcesso: '08020.007737/2024-11' },
-  { id: 'VC-002240', numeroProcesso: '08020.007737/2024-11' },
-  { id: 'VC-002241', numeroProcesso: '08020.007737/2024-11' },
-  { id: 'VC-002242', numeroProcesso: '08020.007737/2024-11' },
-  { id: 'VC-002243', numeroProcesso: '08020.007737/2024-11' },
-  { id: 'VC-002244', numeroProcesso: '08020.001707/2024-92' },
-  { id: 'VC-002245', numeroProcesso: '08020.001707/2024-92' },
-  { id: 'VC-002246', numeroProcesso: '08020.003917/2024-15' },
-  { id: 'VC-002247', numeroProcesso: '08020.007720/2024-55' },
-  { id: 'VC-002248', numeroProcesso: '08020.007720/2024-55' },
-  { id: 'VC-002249', numeroProcesso: '08020.007720/2024-55' },
-  { id: 'VC-002250', numeroProcesso: '08020.007720/2024-55' },
-  { id: 'VC-002251', numeroProcesso: '08020.007720/2024-55' },
-  { id: 'VC-002252', numeroProcesso: '08020.007720/2024-55' },
-  { id: 'VC-002253', numeroProcesso: '08020.005550/2025-55' },
-  { id: 'VC-002254', numeroProcesso: '08020.009801/2024-90' },
-  { id: 'VC-002255', numeroProcesso: '08020.003920/2024-39' },
-  { id: 'VC-002256', numeroProcesso: '08020.003920/2024-39' },
-  { id: 'VC-002257', numeroProcesso: '08020.005461/2025-17' },
-  { id: 'VC-002258', numeroProcesso: '08020.007714/2024-06' },
-  { id: 'VC-002259', numeroProcesso: '08020.007714/2024-06' },
-  { id: 'VC-002260', numeroProcesso: '08020.007714/2024-06' },
-  { id: 'VC-002261', numeroProcesso: '08020.007714/2024-06' },
-  { id: 'VC-002262', numeroProcesso: '08020.007714/2024-06' },
-  { id: 'VC-002263', numeroProcesso: '08020.007714/2024-06' },
-  { id: 'VC-002264', numeroProcesso: '08020.003921/2024-83' },
-  { id: 'VC-002265', numeroProcesso: '08020.007883/2024-38' },
-  { id: 'VC-002266', numeroProcesso: '08020.007733/2024-24' },
-  { id: 'VC-002267', numeroProcesso: '08020.007733/2024-24' },
-  { id: 'VC-002268', numeroProcesso: '08020.007733/2024-24' },
-  { id: 'VC-002269', numeroProcesso: '08020.007733/2024-24' },
-  { id: 'VC-002270', numeroProcesso: '08020.007733/2024-24' },
-  { id: 'VC-002271', numeroProcesso: '08020.007733/2024-24' },
-  { id: 'VC-002272', numeroProcesso: '08020.007733/2024-24' },
-  { id: 'VC-002273', numeroProcesso: '08020.007722/2024-44' },
-  { id: 'VC-002274', numeroProcesso: '08020.007722/2024-44' },
-  { id: 'VC-002275', numeroProcesso: '08020.007722/2024-44' },
-  { id: 'VC-002276', numeroProcesso: '08020.007722/2024-44' },
-  { id: 'VC-002277', numeroProcesso: '08020.007722/2024-44' },
-  { id: 'VC-002278', numeroProcesso: '08020.007722/2024-44' },
-  { id: 'VC-002279', numeroProcesso: '08020.003904/2024-46' },
-  { id: 'VC-002280', numeroProcesso: '08020.003904/2024-46' },
-  { id: 'VC-002281', numeroProcesso: '08020.009815/2024-11' },
-  { id: 'VC-002282', numeroProcesso: '08020.003919/2024-12' },
-  { id: 'VC-002283', numeroProcesso: '08020.003919/2024-12' },
-  { id: 'VC-002284', numeroProcesso: '08020.003919/2024-12' },
-  { id: 'VC-002285', numeroProcesso: '08020.003919/2024-12' },
-  { id: 'VC-002286', numeroProcesso: '08020.003919/2024-12' },
-  { id: 'VC-002287', numeroProcesso: '08020.003919/2024-12' },
-  { id: 'VC-002288', numeroProcesso: '08020.003777/2024-85' },
-  { id: 'VC-002289', numeroProcesso: '08020.003777/2024-85' },
-  { id: 'VC-002290', numeroProcesso: '08020.007712/2024-17' },
-  { id: 'VC-002291', numeroProcesso: '08020.007712/2024-17' },
-  { id: 'VC-002292', numeroProcesso: '08020.007712/2024-17' },
-  { id: 'VC-002293', numeroProcesso: '08020.007712/2024-17' },
-  { id: 'VC-002294', numeroProcesso: '08020.007712/2024-17' },
-  { id: 'VC-002295', numeroProcesso: '08020.007712/2024-17' },
-  { id: 'VC-002296', numeroProcesso: '08020.003772/2024-52' },
-  { id: 'VC-002297', numeroProcesso: '08020.007727/2024-77' },
-  { id: 'VC-002298', numeroProcesso: '08020.007727/2024-77' },
-  { id: 'VC-002299', numeroProcesso: '08020.007727/2024-77' },
-  { id: 'VC-002300', numeroProcesso: '08020.007727/2024-77' },
-  { id: 'VC-002301', numeroProcesso: '08020.007727/2024-77' },
-  { id: 'VC-002302', numeroProcesso: '08020.007727/2024-77' },
-  { id: 'VC-002303', numeroProcesso: '08020.007736/2024-68' },
-  { id: 'VC-002304', numeroProcesso: '08020.007736/2024-68' },
-  { id: 'VC-002305', numeroProcesso: '08020.007736/2024-68' },
-  { id: 'VC-002306', numeroProcesso: '08020.007736/2024-68' },
-  { id: 'VC-002307', numeroProcesso: '08020.007736/2024-68' },
-  { id: 'VC-002308', numeroProcesso: '08020.007736/2024-68' },
-  { id: 'VC-002309', numeroProcesso: '08020.001708/2024-37' },
-  { id: 'VC-002310', numeroProcesso: '08020.001708/2024-37' },
-  { id: 'VC-002311', numeroProcesso: '08020.007726/2024-22' },
-  { id: 'VC-002312', numeroProcesso: '08020.007726/2024-22' },
-  { id: 'VC-002313', numeroProcesso: '08020.007726/2024-22' },
-  { id: 'VC-002314', numeroProcesso: '08020.007726/2024-22' },
-  { id: 'VC-002315', numeroProcesso: '08020.007726/2024-22' },
-  { id: 'VC-002316', numeroProcesso: '08020.007726/2024-22' },
-  { id: 'VC-002317', numeroProcesso: '08020.007726/2024-22' },
-  { id: 'VC-002319', numeroProcesso: '08020.003884/2024-11' },
-  { id: 'VC-002320', numeroProcesso: '08020.008502/2024-38' },
-  { id: 'VC-002321', numeroProcesso: '08020.008502/2024-38' },
-  { id: 'VC-002322', numeroProcesso: '08020.008502/2024-38' },
-  { id: 'VC-002323', numeroProcesso: '08020.008502/2024-38' },
-  { id: 'VC-002324', numeroProcesso: '08020.007734/2024-79' },
-  { id: 'VC-002325', numeroProcesso: '08020.007734/2024-79' },
-  { id: 'VC-002326', numeroProcesso: '08020.007734/2024-79' },
-  { id: 'VC-002327', numeroProcesso: '08020.007734/2024-79' },
-  { id: 'VC-002328', numeroProcesso: '08020.007734/2024-79' },
-  { id: 'VC-002329', numeroProcesso: '08020.007734/2024-79' },
-  { id: 'VC-002330', numeroProcesso: '08020.007734/2024-79' },
-  { id: 'VC-002331', numeroProcesso: '08020.007721/2024-08' },
-  { id: 'VC-002332', numeroProcesso: '08020.007721/2024-08' },
-  { id: 'VC-002333', numeroProcesso: '08020.007721/2024-08' },
-  { id: 'VC-002334', numeroProcesso: '08020.007721/2024-08' },
-  { id: 'VC-002335', numeroProcesso: '08020.007721/2024-08' },
-  { id: 'VC-002336', numeroProcesso: '08020.007721/2024-08' },
-  { id: 'VC-002337', numeroProcesso: '08020.007721/2024-08' },
-  { id: 'VC-002338', numeroProcesso: '08020.003901/2024-11' },
-  { id: 'VC-002339', numeroProcesso: '08020.003889/2024-36' },
-  { id: 'VC-002340', numeroProcesso: '08020.003889/2024-36' },
-  { id: 'VC-002341', numeroProcesso: '08020.003889/2024-36' },
-  { id: 'VC-002342', numeroProcesso: '08020.003889/2024-36' },
-  { id: 'VC-002343', numeroProcesso: '08020.003903/2024-00' },
-  { id: 'VC-002344', numeroProcesso: '08020.003903/2024-00' },
-  { id: 'VC-002345', numeroProcesso: '08020.003903/2024-00' },
-  { id: 'VC-002346', numeroProcesso: '08020.003903/2024-00' },
-  { id: 'VC-002347', numeroProcesso: '08020.003903/2024-00' },
-  { id: 'VC-002348', numeroProcesso: '08020.003903/2024-00' },
-  { id: 'VC-002349', numeroProcesso: '08020.006171/2025-82' },
-  { id: 'VC-002350', numeroProcesso: '08020.007334/2024-63' },
-  { id: 'VC-002351', numeroProcesso: '08020.007714/2024-06' },
-  { id: 'VC-002352', numeroProcesso: '08020.007333/2024-19' },
-  { id: 'VC-002353', numeroProcesso: '08020.003905/2024-91' },
-  { id: 'VC-002354', numeroProcesso: '08020.005553/2025-99' },
-  { id: 'VC-002355', numeroProcesso: '08020.001713/2024-40' },
-  { id: 'VC-002356', numeroProcesso: '08020.001713/2024-40' },
-  { id: 'VC-002357', numeroProcesso: '08020.007326/2024-17' },
-  { id: 'VC-002358', numeroProcesso: '08020.007326/2024-17' },
-  { id: 'VC-002359', numeroProcesso: '08020.007326/2024-17' },
-  { id: 'VC-002360', numeroProcesso: '08020.006944/2025-21' },
-  { id: 'VC-002361', numeroProcesso: '08020.003888/2024-91' },
-  { id: 'VC-002362', numeroProcesso: '08020.003888/2024-91' },
-  { id: 'VC-002363', numeroProcesso: '08020.003888/2024-91' },
-  { id: 'VC-002364', numeroProcesso: '08020.003888/2024-91' },
-  { id: 'VC-002365', numeroProcesso: '08000.048530/2024-26' },
-  { id: 'VC-002366', numeroProcesso: '08000.048530/2024-26' },
-  { id: 'VC-002367', numeroProcesso: '08020.003909/2024-79' },
-  { id: 'VC-002368', numeroProcesso: '08020.003909/2024-79' },
-  { id: 'VC-002369', numeroProcesso: '08020.003909/2024-79' },
-  { id: 'VC-002370', numeroProcesso: '08020.003909/2024-79' },
-  { id: 'VC-002371', numeroProcesso: '08020.007345/2024-43' },
-  { id: 'VC-002372', numeroProcesso: '08020.007345/2024-43' },
-  { id: 'VC-002373', numeroProcesso: '08020.007345/2024-43' },
-  { id: 'VC-002374', numeroProcesso: '08020.007345/2024-43' },
-  { id: 'VC-002375', numeroProcesso: '08020.007345/2024-43' },
-  { id: 'VC-002376', numeroProcesso: '08020.007173/2025-99' },
-  { id: 'VC-002377', numeroProcesso: '08020.007173/2025-99' },
-  { id: 'VC-002378', numeroProcesso: '08020.007173/2025-99' },
-  { id: 'VC-002379', numeroProcesso: '08020.007173/2025-99' },
-  { id: 'VC-002380', numeroProcesso: '08020.007173/2025-99' },
-  { id: 'VC-002381', numeroProcesso: '08000.033525/2024-19' },
-  { id: 'VC-002382', numeroProcesso: '08000.033525/2024-19' },
-  { id: 'VC-002383', numeroProcesso: '08020.007344/2024-07' },
-  { id: 'VC-002384', numeroProcesso: '08020.007344/2024-07' },
-  { id: 'VC-002385', numeroProcesso: '08020.003913/2024-37' },
-  { id: 'VC-002386', numeroProcesso: '08020.007332/2024-74' },
-  { id: 'VC-002387', numeroProcesso: '08000.048489/2024-98' },
-  { id: 'VC-002388', numeroProcesso: '08000.048489/2024-98' },
-  { id: 'VC-002389', numeroProcesso: '08000.023970/2025-51' },
-  { id: 'VC-002390', numeroProcesso: '08000.023970/2025-51' },
-  { id: 'VC-002391', numeroProcesso: '08000.023970/2025-51' },
-  { id: 'VC-002392', numeroProcesso: '08000.049838/2024-99' },
-  { id: 'VC-002393', numeroProcesso: '08000.049838/2024-99' },
-  { id: 'VC-002394', numeroProcesso: '08020.010060/2024-90' },
-  { id: 'VC-002395', numeroProcesso: '08020.010060/2024-90' },
-  { id: 'VC-002396', numeroProcesso: '08020.010060/2024-90' },
-  { id: 'VC-002397', numeroProcesso: '08020.010060/2024-90' },
-  { id: 'VC-002398', numeroProcesso: '08020.010060/2024-90' },
-  { id: 'VC-002399', numeroProcesso: '08020.006572/2025-32' },
-  { id: 'VC-002400', numeroProcesso: '08020.006572/2025-32' },
-  { id: 'VC-002401', numeroProcesso: '08020.006572/2025-32' },
-  { id: 'VC-002402', numeroProcesso: '08020.003555/2025-43' },
-  { id: 'VC-002403', numeroProcesso: '08020.007335/2024-16' },
-  { id: 'VC-002404', numeroProcesso: '08020.007335/2024-16' },
-  { id: 'VC-002405', numeroProcesso: '08020.009957/2024-71' },
-  { id: 'VC-002406', numeroProcesso: '08020.009957/2024-71' },
-  { id: 'VC-002407', numeroProcesso: '08020.009957/2024-71' },
-  { id: 'VC-002408', numeroProcesso: '08020.009957/2024-71' },
-  { id: 'VC-002409', numeroProcesso: '08020.009957/2024-71' },
-  { id: 'VC-002410', numeroProcesso: '08020.009957/2024-71' },
-  { id: 'VC-002411', numeroProcesso: '08020.009957/2024-71' },
-  { id: 'VC-002412', numeroProcesso: '08020.009899/2024-85' },
-  { id: 'VC-002413', numeroProcesso: '08020.009899/2024-85' },
-  { id: 'VC-002414', numeroProcesso: '08020.009899/2024-85' },
-  { id: 'VC-002415', numeroProcesso: '08020.009899/2024-85' },
-  { id: 'VC-002416', numeroProcesso: '08020.009899/2024-85' },
-  { id: 'VC-002417', numeroProcesso: '08020.009899/2024-85' },
-  { id: 'VC-002418', numeroProcesso: '08020.009899/2024-85' },
-  { id: 'VC-002419', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002420', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002421', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002422', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002423', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002424', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002425', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002426', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002427', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002428', numeroProcesso: '08020.010030/2024-83' },
-  { id: 'VC-002429', numeroProcesso: '08020.006362/2025-44' },
-  { id: 'VC-002430', numeroProcesso: '08020.003808/2024-06' },
-  { id: 'VC-002431', numeroProcesso: '08020.003890/2024-61' },
-  { id: 'VC-002432', numeroProcesso: '08020.003890/2024-61' },
-  { id: 'VC-002433', numeroProcesso: '08020.003890/2024-61' },
-  { id: 'VC-002434', numeroProcesso: '08020.003890/2024-61' },
-  { id: 'VC-002435', numeroProcesso: '08020.003890/2024-61' },
-  { id: 'VC-002436', numeroProcesso: '08020.007271/2025-26' },
-  { id: 'VC-002437', numeroProcesso: '08020.007340/2024-11' },
-  { id: 'VC-002438', numeroProcesso: '08020.007340/2024-11' },
-  { id: 'VC-002439', numeroProcesso: '08020.007471/2025-89' },
-  { id: 'VC-002440', numeroProcesso: '08020.000134/2025-61' },
-  { id: 'VC-002441', numeroProcesso: '08020.007262/2025-35' },
-  { id: 'VC-002442', numeroProcesso: '08020.007729/2024-66' },
-  { id: 'VC-002443', numeroProcesso: '08020.007729/2024-66' },
-  { id: 'VC-002444', numeroProcesso: '08020.007729/2024-66' },
-  { id: 'VC-002445', numeroProcesso: '08020.007729/2024-66' },
-  { id: 'VC-002446', numeroProcesso: '08020.007729/2024-66' },
-  { id: 'VC-002447', numeroProcesso: '08020.007729/2024-66' },
-  { id: 'VC-002448', numeroProcesso: '08020.009890/2024-74' },
-  { id: 'VC-002449', numeroProcesso: '08020.009890/2024-74' },
-  { id: 'VC-002450', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002451', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002452', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002453', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002454', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002455', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002456', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002457', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002458', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002459', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002460', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002461', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002462', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002463', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002464', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002465', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002466', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002467', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002468', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002469', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002470', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002471', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002472', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002473', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002474', numeroProcesso: '08020.006857/2025-73' },
-  { id: 'VC-002475', numeroProcesso: '08020.010069/2024-09' },
-  { id: 'VC-002476', numeroProcesso: '08020.010069/2024-09' },
-  { id: 'VC-002477', numeroProcesso: '08020.010069/2024-09' },
-  { id: 'VC-002478', numeroProcesso: '08020.010069/2024-09' },
-  { id: 'VC-002479', numeroProcesso: '08020.010069/2024-09' },
-  { id: 'VC-002480', numeroProcesso: '08020.010069/2024-09' },
-  { id: 'VC-002481', numeroProcesso: '08020.007261/2025-91' },
-  { id: 'VC-002482', numeroProcesso: '08020.010041/2024-63' },
-  { id: 'VC-002483', numeroProcesso: '08020.007727/2024-77' },
-  { id: 'VC-002484', numeroProcesso: '08020.010062/2024-89' },
-  { id: 'VC-002485', numeroProcesso: '08020.010062/2024-89' },
-  { id: 'VC-002486', numeroProcesso: '08020.010062/2024-89' },
-  { id: 'VC-002487', numeroProcesso: '08020.010062/2024-89' },
-  { id: 'VC-002488', numeroProcesso: '08020.010062/2024-89' },
-  { id: 'VC-002489', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002490', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002491', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002492', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002493', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002494', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002495', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002496', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002497', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002498', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002499', numeroProcesso: '08020.010036/2024-51' },
-  { id: 'VC-002500', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002501', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002502', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002503', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002504', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002505', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002506', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002507', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002508', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002509', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002510', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002511', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002512', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002513', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002514', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002515', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002516', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002517', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002518', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002519', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002520', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002521', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002522', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002523', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002524', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002525', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002526', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002527', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002528', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002529', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002530', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002531', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002532', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002533', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002534', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002535', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002536', numeroProcesso: '08020.006952/2025-77' },
-  { id: 'VC-002537', numeroProcesso: '08020.007346/2024-98' },
-  { id: 'VC-002538', numeroProcesso: '08020.007346/2024-98' },
-  { id: 'VC-002539', numeroProcesso: '08020.007346/2024-98' },
-  { id: 'VC-002540', numeroProcesso: '08020.007346/2024-98' },
-  { id: 'VC-002541', numeroProcesso: '08020.007735/2024-13' },
-  { id: 'VC-002542', numeroProcesso: '08020.007735/2024-13' },
-  { id: 'VC-002543', numeroProcesso: '08020.007735/2024-13' },
-  { id: 'VC-002544', numeroProcesso: '08020.007735/2024-13' },
-  { id: 'VC-002545', numeroProcesso: '08020.007735/2024-13' },
-  { id: 'VC-002546', numeroProcesso: '08020.007735/2024-13' },
-  { id: 'VC-002547', numeroProcesso: '08020.007907/2024-59' },
-  { id: 'VC-002548', numeroProcesso: '08020.007907/2024-59' },
-  { id: 'VC-002549', numeroProcesso: '08020.007907/2024-59' },
-  { id: 'VC-002550', numeroProcesso: '08020.007907/2024-59' },
-  { id: 'VC-002551', numeroProcesso: '08020.009806/2024-12' },
-  { id: 'VC-002552', numeroProcesso: '08020.004371/2025-09' },
-  { id: 'VC-002553', numeroProcesso: '08020.004371/2025-09' },
-  { id: 'VC-002554', numeroProcesso: '08020.007892/2024-29' },
-  { id: 'VC-002555', numeroProcesso: '08020.007892/2024-29' },
-  { id: 'VC-002556', numeroProcesso: '08020.007288/2025-83' },
-  { id: 'VC-002557', numeroProcesso: '08020.009914/2024-95' },
-  { id: 'VC-002558', numeroProcesso: '08020.009914/2024-95' },
-  { id: 'VC-002559', numeroProcesso: '08020.010035/2024-14' },
-  { id: 'VC-002560', numeroProcesso: '08020.010035/2024-14' },
-  { id: 'VC-002561', numeroProcesso: '08020.007166/2025-97' },
-  { id: 'VC-002562', numeroProcesso: '08020.007806/2025-69' },
-  { id: 'VC-002563', numeroProcesso: '08020.007806/2025-69' },
-  { id: 'VC-002564', numeroProcesso: '08020.007806/2025-69' },
-  { id: 'VC-002565', numeroProcesso: '08020.007806/2025-69' },
-  { id: 'VC-002566', numeroProcesso: '08020.010039/2024-94' },
-  { id: 'VC-002567', numeroProcesso: '08020.007338/2024-41' },
-  { id: 'VC-002568', numeroProcesso: '08020.007338/2024-41' },
-  { id: 'VC-002574', numeroProcesso: '08020.008230/2025-57' },
-  { id: 'VC-002575', numeroProcesso: '08020.001723/2024-85' },
-  { id: 'VC-002576', numeroProcesso: '08020.008249/2025-01' },
-  { id: 'VC-002577', numeroProcesso: '08020.007719/2024-21' },
-  { id: 'VC-002578', numeroProcesso: '08020.007719/2024-21' },
-  { id: 'VC-002579', numeroProcesso: '08020.007719/2024-21' },
-  { id: 'VC-002580', numeroProcesso: '08020.007719/2024-21' },
-  { id: 'VC-002581', numeroProcesso: '08020.007719/2024-21' },
-  { id: 'VC-002582', numeroProcesso: '08020.007291/2025-05' },
-  { id: 'VC-002583', numeroProcesso: '08020.002243/2025-12' },
-  { id: 'VC-002584', numeroProcesso: '08020.002243/2025-12' },
-  { id: 'VC-002585', numeroProcesso: '08020.002243/2025-12' },
-  { id: 'VC-002586', numeroProcesso: '08020.001709/2024-81' },
-  { id: 'VC-002587', numeroProcesso: '08020.001720/2024-41' },
-  { id: 'VC-002588', numeroProcesso: '08020.001720/2024-41' },
-  { id: 'VC-002589', numeroProcesso: '08020.006948/2025-17' },
-  { id: 'VC-002590', numeroProcesso: '08020.006948/2025-17' },
-  { id: 'VC-002591', numeroProcesso: '08020.006176/2025-13' },
-  { id: 'VC-002592', numeroProcesso: '08020.006176/2025-13' },
-  { id: 'VC-002593', numeroProcesso: '08020.006176/2025-13' },
-  { id: 'VC-002594', numeroProcesso: '08020.006176/2025-13' },
-  { id: 'VC-002595', numeroProcesso: '08020.006176/2025-13' },
-  { id: 'VC-002596', numeroProcesso: '08020.001706/2024-48' },
-  { id: 'VC-002597', numeroProcesso: '08020.001706/2024-48' },
-  { id: 'VC-002598', numeroProcesso: '08020.001706/2024-48' },
-  { id: 'VC-002599', numeroProcesso: '08020.001706/2024-48' },
-  { id: 'VC-002600', numeroProcesso: '08020.003795/2024-67' },
-  { id: 'VC-002601', numeroProcesso: '08020.000113/2025-45' },
-  { id: 'VC-002604', numeroProcesso: '08020.000132/2025-71' },
-  { id: 'VC-002605', numeroProcesso: '08020.006705/2024-90' },
-  { id: 'VC-002606', numeroProcesso: '08020.010040/2024-19' },
-  { id: 'VC-002607', numeroProcesso: '08020.008282/2025-23' },
-  { id: 'VC-002610', numeroProcesso: '08020.001936/2025-98' },
-  { id: 'VC-002611', numeroProcesso: '08020.001936/2025-98' },
-  { id: 'VC-002612', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002613', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002614', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002615', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002616', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002617', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002618', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002619', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002620', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002621', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002622', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002623', numeroProcesso: '08020.003868/2025-00' },
-  { id: 'VC-002624', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002625', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002626', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002627', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002628', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002629', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002630', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002631', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002632', numeroProcesso: '08020.007885/2025-16' },
-  { id: 'VC-002633', numeroProcesso: '08020.007676/2024-83' },
-  { id: 'VC-002634', numeroProcesso: '08020.007269/2025-57' },
-  { id: 'VC-002635', numeroProcesso: '08020.007795/2025-17' },
-  { id: 'VC-002636', numeroProcesso: '08020.006762/2024-79' },
-  { id: 'VC-002637', numeroProcesso: '08020.010081/2024-13' },
-  { id: 'VC-002638', numeroProcesso: '08020.010081/2024-13' },
-  { id: 'VC-002639', numeroProcesso: '08020.010081/2024-13' },
-  { id: 'VC-002640', numeroProcesso: '08020.010081/2024-13' },
-  { id: 'VC-002641', numeroProcesso: '08020.010081/2024-13' },
-  { id: 'VC-002642', numeroProcesso: '08020.010081/2024-13' },
-  { id: 'VC-002643', numeroProcesso: '08020.010081/2024-13' },
-  { id: 'VC-002644', numeroProcesso: '08020.007283/2025-51' },
-  { id: 'VC-002645', numeroProcesso: '08020.007444/2024-25' },
-  { id: 'VC-002646', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002647', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002648', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002649', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002650', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002651', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002652', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002653', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002654', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002655', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002656', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002657', numeroProcesso: '08020.008201/2025-95' },
-  { id: 'VC-002658', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002659', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002660', numeroProcesso: '08020.006809/2025-85' },
-  { id: 'VC-002661', numeroProcesso: '08020.006809/2025-85' },
-  { id: 'VC-002662', numeroProcesso: '08020.006809/2025-85' },
-  { id: 'VC-002663', numeroProcesso: '08020.001939/2025-21' },
-  { id: 'VC-002666', numeroProcesso: '08020.007153/2025-18' },
-  { id: 'VC-002667', numeroProcesso: '08020.007153/2025-18' },
-  { id: 'VC-002668', numeroProcesso: '08020.002024/2025-33' },
-  { id: 'VC-002669', numeroProcesso: '08106.005695/2015-34' },
-  { id: 'VC-002670', numeroProcesso: '08020.007144/2025-27' },
-  { id: 'VC-002671', numeroProcesso: '08020.007144/2025-27' },
-  { id: 'VC-002672', numeroProcesso: '08020.007144/2025-27' },
-  { id: 'VC-002673', numeroProcesso: '08020.001909/2025-15' },
-  { id: 'VC-002674', numeroProcesso: '08020.001909/2025-15' },
-  { id: 'VC-002675', numeroProcesso: '08020.001909/2025-15' },
-  { id: 'VC-002676', numeroProcesso: '08020.001909/2025-15' },
-  { id: 'VC-002677', numeroProcesso: '08020.001931/2025-65' },
-  { id: 'VC-002678', numeroProcesso: '08020.001931/2025-65' },
-  { id: 'VC-002679', numeroProcesso: '08020.001944/2025-34' },
-  { id: 'VC-002680', numeroProcesso: '08020.001944/2025-34' },
-  { id: 'VC-002681', numeroProcesso: '08020.002071/2025-87' },
-  { id: 'VC-002682', numeroProcesso: '08020.001916/2025-17' },
-  { id: 'VC-002683', numeroProcesso: '08020.003356/2025-35' },
-  { id: 'VC-002684', numeroProcesso: '08020.003356/2025-35' },
-  { id: 'VC-002685', numeroProcesso: '08020.009420/2024-19' },
-  { id: 'VC-002686', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002687', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002688', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002689', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002690', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002691', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002692', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002693', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002694', numeroProcesso: '08020.001912/2025-39' },
-  { id: 'VC-002695', numeroProcesso: '08020.006697/2025-62' },
-  { id: 'VC-002696', numeroProcesso: '08020.006697/2025-62' },
-  { id: 'VC-002697', numeroProcesso: '08020.006697/2025-62' },
-  { id: 'VC-002698', numeroProcesso: '08020.007670/2024-14' },
-  { id: 'VC-002699', numeroProcesso: '08020.007670/2024-14' },
-  { id: 'VC-002700', numeroProcesso: '08020.001916/2025-17' },
-  { id: 'VC-002701', numeroProcesso: '08020.001916/2025-17' },
-  { id: 'VC-002702', numeroProcesso: '08020.001916/2025-17' },
-  { id: 'VC-002703', numeroProcesso: '08020.002070/2025-32' },
-  { id: 'VC-002704', numeroProcesso: '08020.002070/2025-32' },
-  { id: 'VC-002705', numeroProcesso: '08020.002070/2025-32' },
-  { id: 'VC-002706', numeroProcesso: '08020.001904/2025-92' },
-  { id: 'VC-002707', numeroProcesso: '08020.001904/2025-92' },
-  { id: 'VC-002708', numeroProcesso: '08020.001904/2025-92' },
-  { id: 'VC-002709', numeroProcesso: '08020.001904/2025-92' },
-  { id: 'VC-002710', numeroProcesso: '08020.001904/2025-92' },
-  { id: 'VC-002711', numeroProcesso: '08020.001904/2025-92' },
-  { id: 'VC-002712', numeroProcesso: '08020.003722/2025-56' },
-  { id: 'VC-002713', numeroProcesso: '08020.003722/2025-56' },
-  { id: 'VC-002714', numeroProcesso: '08020.002093/2025-47' },
-  { id: 'VC-002715', numeroProcesso: '08020.002093/2025-47' },
-  { id: 'VC-002716', numeroProcesso: '08020.003665/2025-13' },
-  { id: 'VC-002717', numeroProcesso: '08020.001930/2025-11' },
-  { id: 'VC-002718', numeroProcesso: '08020.001930/2025-11' },
-  { id: 'VC-002719', numeroProcesso: '08020.001930/2025-11' },
-  { id: 'VC-002720', numeroProcesso: '08020.001930/2025-11' },
-  { id: 'VC-002721', numeroProcesso: '08020.001930/2025-11' },
-  { id: 'VC-002722', numeroProcesso: '08020.007675/2024-39' },
-  { id: 'VC-002723', numeroProcesso: '08020.003704/2025-74' },
-  { id: 'VC-002724', numeroProcesso: '08020.003704/2025-74' },
-  { id: 'VC-002725', numeroProcesso: '08020.003288/2025-12' },
-  { id: 'VC-002726', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002727', numeroProcesso: '08020.009424/2024-99' },
-  { id: 'VC-002728', numeroProcesso: '08020.009424/2024-99' },
-  { id: 'VC-002729', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002730', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002731', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002732', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002733', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002734', numeroProcesso: '08020.001908/2025-71' },
-  { id: 'VC-002735', numeroProcesso: '08020.007121/2025-12' },
-  { id: 'VC-002736', numeroProcesso: '08020.007121/2025-12' },
-  { id: 'VC-002737', numeroProcesso: '08020.007121/2025-12' },
-  { id: 'VC-002738', numeroProcesso: '08020.007121/2025-12' },
-  { id: 'VC-002739', numeroProcesso: '08020.007121/2025-12' },
-  { id: 'VC-002740', numeroProcesso: '08020.007121/2025-12' },
-  { id: 'VC-002741', numeroProcesso: '08020.009971/2025-55' },
-  { id: 'VC-002742', numeroProcesso: '08020.009506/2024-33' },
-  { id: 'VC-002743', numeroProcesso: '08020.003687/2025-75' },
-  { id: 'VC-002744', numeroProcesso: '08020.002066/2025-74' },
-  { id: 'VC-002745', numeroProcesso: '08020.002066/2025-74' },
-  { id: 'VC-002746', numeroProcesso: '08020.007095/2025-22' },
-  { id: 'VC-002747', numeroProcesso: '08020.007095/2025-22' },
-  { id: 'VC-002748', numeroProcesso: '08020.003742/2025-27' },
-  { id: 'VC-002749', numeroProcesso: '08020.003742/2025-27' },
-  { id: 'VC-002750', numeroProcesso: '08020.007100/2025-05' },
-  { id: 'VC-002751', numeroProcesso: '08020.007100/2025-05' },
-  { id: 'VC-002752', numeroProcesso: '08020.004111/2025-25' },
-  { id: 'VC-002753', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002754', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002755', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002756', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002757', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002758', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002759', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002760', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002761', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002762', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002763', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002764', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002765', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002766', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002767', numeroProcesso: '08020.009410/2024-75' },
-  { id: 'VC-002768', numeroProcesso: '08020.001931/2025-65' },
-  { id: 'VC-002769', numeroProcesso: '08020.001931/2025-65' },
-  { id: 'VC-002770', numeroProcesso: '08020.001931/2025-65' },
-  { id: 'VC-002771', numeroProcesso: '08020.001931/2025-65' },
-  { id: 'VC-002772', numeroProcesso: '08020.000142/2025-15' },
-  { id: 'VC-002773', numeroProcesso: '08020.007105/2025-20' },
-  { id: 'VC-002774', numeroProcesso: '08020.007105/2025-20' },
-  { id: 'VC-002775', numeroProcesso: '08020.007105/2025-20' },
-  { id: 'VC-002776', numeroProcesso: '08020.007105/2025-20' },
-  { id: 'VC-002777', numeroProcesso: '08020.001910/2025-40' },
-  { id: 'VC-002778', numeroProcesso: '08020.001910/2025-40' },
-  { id: 'VC-002779', numeroProcesso: '08020.001910/2025-40' },
-  { id: 'VC-002780', numeroProcesso: '08020.001910/2025-40' },
-  { id: 'VC-002781', numeroProcesso: '08020.007394/2024-86' },
-  { id: 'VC-002782', numeroProcesso: '08020.007394/2024-86' },
-  { id: 'VC-002783', numeroProcesso: '08020.007394/2024-86' },
-  { id: 'VC-002784', numeroProcesso: '08020.001938/2025-87' },
-  { id: 'VC-002785', numeroProcesso: '08020.001938/2025-87' },
-  { id: 'VC-002786', numeroProcesso: '08020.001938/2025-87' },
-  { id: 'VC-002787', numeroProcesso: '08020.001938/2025-87' },
-  { id: 'VC-002788', numeroProcesso: '08020.002077/2025-54' },
-  { id: 'VC-002789', numeroProcesso: '08020.009415/2024-06' },
-  { id: 'VC-002790', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002791', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002792', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002793', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002794', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002795', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002796', numeroProcesso: '08020.001906/2025-81' },
-  { id: 'VC-002797', numeroProcesso: '08020.010082/2024-50' },
-  { id: 'VC-002798', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002799', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002800', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002801', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002802', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002803', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002804', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002805', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002806', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002807', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002808', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002809', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002810', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002811', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002812', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002813', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002814', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002815', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002816', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002817', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002818', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002819', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002820', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002821', numeroProcesso: '08020.007530/2025-19' },
-  { id: 'VC-002822', numeroProcesso: '08020.004143/2025-21' },
-  { id: 'VC-002823', numeroProcesso: '08020.004376/2025-23' },
-  { id: 'VC-002824', numeroProcesso: '08020.004376/2025-23' },
-  { id: 'VC-002825', numeroProcesso: '08020.004173/2025-37' },
-  { id: 'VC-002826', numeroProcesso: '08020.004173/2025-37' },
-  { id: 'VC-002827', numeroProcesso: '08020.007674/2024-94' },
-  { id: 'VC-002828', numeroProcesso: '08020.004325/2025-00' },
-  { id: 'VC-002829', numeroProcesso: '08020.004325/2025-00' },
-  { id: 'VC-002830', numeroProcesso: '08020.008158/2025-68' },
-  { id: 'VC-002831', numeroProcesso: '08020.008158/2025-68' },
-  { id: 'VC-002832', numeroProcesso: '08020.008158/2025-68' },
-  { id: 'VC-002833', numeroProcesso: '08020.006372/2025-80' },
-  { id: 'VC-002834', numeroProcesso: '08020.006565/2025-31' },
-  { id: 'VC-002835', numeroProcesso: '08020.006565/2025-31' },
-  { id: 'VC-002836', numeroProcesso: '08020.006565/2025-31' },
-  { id: 'VC-002837', numeroProcesso: '08020.004396/2025-02' },
-  { id: 'VC-002838', numeroProcesso: '08106.000340/2018-00' },
-  { id: 'VC-002873', numeroProcesso: '08106.000340/2018-00' },
-  { id: 'VC-002922', numeroProcesso: '08106.000340/2018-00' },
-  { id: 'VC-002839', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002840', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002841', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002842', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002843', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002844', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002845', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002846', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002847', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002848', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002849', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002850', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002851', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002928', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002929', numeroProcesso: '08020.004139/2025-62' },
-  { id: 'VC-002852', numeroProcesso: '08020.004372/2025-45' },
-  { id: 'VC-002853', numeroProcesso: '08106.005695/2015-34' },
-  { id: 'VC-003054', numeroProcesso: '08106.005695/2015-34' },
-  { id: 'VC-002854', numeroProcesso: '08020.008501/2025-74' },
-  { id: 'VC-002855', numeroProcesso: '08020.008501/2025-74' },
-  { id: 'VC-002856', numeroProcesso: '08020.008501/2025-74' },
-  { id: 'VC-002857', numeroProcesso: '08020.008501/2025-74' },
-  { id: 'VC-002858', numeroProcesso: '08020.007923/2025-22' },
-  { id: 'VC-002859', numeroProcesso: '08020.007923/2025-22' },
-  { id: 'VC-002860', numeroProcesso: '08020.004277/2025-41' },
-  { id: 'VC-002861', numeroProcesso: '08020.004277/2025-41' },
-  { id: 'VC-002862', numeroProcesso: '08020.004272/2025-19' },
-  { id: 'VC-002863', numeroProcesso: '08020.004272/2025-19' },
-  { id: 'VC-002864', numeroProcesso: '08020.004169/2025-79' },
-  { id: 'VC-002865', numeroProcesso: '08020.004169/2025-79' },
-  { id: 'VC-002866', numeroProcesso: '08020.004169/2025-79' },
-  { id: 'VC-002867', numeroProcesso: '08020.004169/2025-79' },
-  { id: 'VC-002868', numeroProcesso: '08020.004169/2025-79' },
-  { id: 'VC-002869', numeroProcesso: '08020.004169/2025-79' },
-  { id: 'VC-002870', numeroProcesso: '08020.004169/2025-79' },
-  { id: 'VC-002871', numeroProcesso: '08020.008517/2025-87' },
-  { id: 'VC-002872', numeroProcesso: '08020.008517/2025-87' },
-  { id: 'VC-002874', numeroProcesso: '08020.004382/2025-81' },
-  { id: 'VC-002875', numeroProcesso: '08020.011860/2025-17' },
-  { id: 'VC-002876', numeroProcesso: '08020.011860/2025-17' },
-  { id: 'VC-002877', numeroProcesso: '08020.004316/2025-19' },
-  { id: 'VC-002878', numeroProcesso: '08020.004316/2025-19' },
-  { id: 'VC-002879', numeroProcesso: '08020.004329/2025-80' },
-  { id: 'VC-002880', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002881', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002882', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002883', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002884', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002885', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002886', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002887', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002888', numeroProcesso: '08020.006610/2025-57' },
-  { id: 'VC-002889', numeroProcesso: '08020.006629/2025-01' },
-  { id: 'VC-002890', numeroProcesso: '08020.006555/2025-03' },
-  { id: 'VC-002891', numeroProcesso: '08020.010794/2025-50' },
-  { id: 'VC-002892', numeroProcesso: '08020.007531/2025-63' },
-  { id: 'VC-002893', numeroProcesso: '08020.011424/2025-30' },
-  { id: 'VC-002894', numeroProcesso: '08020.004337/2025-26' },
-  { id: 'VC-002895', numeroProcesso: '08020.006437/2025-97' },
-  { id: 'VC-002896', numeroProcesso: '08020.006437/2025-97' },
-  { id: 'VC-002897', numeroProcesso: '08020.006437/2025-97' },
-  { id: 'VC-002898', numeroProcesso: '08020.006437/2025-97' },
-  { id: 'VC-002899', numeroProcesso: '08020.007258/2025-77' },
-  { id: 'VC-002900', numeroProcesso: '08106.005695/2015-34' },
-  { id: 'VC-002901', numeroProcesso: '08020.002025/2025-88' },
-  { id: 'VC-002902', numeroProcesso: '08020.002025/2025-88' },
-  { id: 'VC-002903', numeroProcesso: '08020.010056/2024-21' },
-  { id: 'VC-002904', numeroProcesso: '08020.003496/2025-11' },
-  { id: 'VC-002905', numeroProcesso: '08020.003600/2025-60' },
-  { id: 'VC-002906', numeroProcesso: '08020.003600/2025-60' },
-  { id: 'VC-002907', numeroProcesso: '08020.001926/2025-52' },
-  { id: 'VC-002908', numeroProcesso: '08020.003695/2025-11' },
-  { id: 'VC-002909', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002910', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002911', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002912', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002913', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002914', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002915', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002916', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002917', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002918', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002919', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002920', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002921', numeroProcesso: '08020.009448/2025-29' },
-  { id: 'VC-002923', numeroProcesso: '08020.008490/2025-22' },
-  { id: 'VC-002924', numeroProcesso: '08020.008490/2025-22' },
-  { id: 'VC-002925', numeroProcesso: '08020.003922/2024-28' },
-  { id: 'VC-002926', numeroProcesso: '08020.004323/2025-11' },
-  { id: 'VC-002927', numeroProcesso: '08020.004323/2025-11' },
-  { id: 'VC-002930', numeroProcesso: '08020.009944/2024-00' },
-  { id: 'VC-002931', numeroProcesso: '08020.001915/2025-72' },
-];
-
-/**
- * Preenche o Número do Processo dos veículos de 2025 que ainda estavam sem
- * esse dado (1.040 veículos, 323 processos), cruzando o Termo de Doação
- * contra uma planilha de referência com 935 termos numerados em 2025.
- * Mesmas regras de segurança do preenchimento de 2026: só grava onde
- * NumeroProcesso está vazio, não mexe em mais nenhum campo.
- *
- * Como são muitas linhas, grava tudo de uma vez com um único setValues()
- * no final (em vez de uma chamada por linha) — bem mais rápido e evita o
- * erro "Service Spreadsheets failed" que apareceu num lote anterior menor
- * feito linha a linha.
- *
- * Rode manualmente pelo editor (selecione "preencherNumeroProcesso2025" no
- * menu de funções, clique em Executar) — seguro rodar mais de uma vez.
- */
-function preencherNumeroProcesso2025() {
-  var perfil = exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxId = cabecalho.indexOf('ID');
-  var idxNumeroProcesso = cabecalho.indexOf('NumeroProcesso');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var linhaPorId = {};
-  for (var i = 1; i < valores.length; i++) {
-    var id = valores[i][idxId];
-    if (id) linhaPorId[id] = i;
-  }
-
-  var agora = new Date();
-  var atualizados = [];
-  var jaTinhamProcesso = [];
-  var idsNaoEncontrados = [];
-
-  PREENCHER_NUMERO_PROCESSO_2025_.forEach(function (item) {
-    var i = linhaPorId[item.id];
-    if (i === undefined) { idsNaoEncontrados.push(item.id); return; }
-    if (valores[i][idxNumeroProcesso]) { jaTinhamProcesso.push(item.id); return; }
-    valores[i][idxNumeroProcesso] = item.numeroProcesso;
-    valores[i][idxUltimaAtualizacao] = agora;
-    valores[i][idxAtualizadoPor] = perfil.email + ' (preenchimento em massa de Número do Processo - 2025)';
-    atualizados.push(item.id);
-  });
-
-  if (atualizados.length) {
-    sheet.getRange(1, 1, valores.length, cabecalho.length).setValues(valores);
-  }
-
-  registrarLog_('PREENCHER_NUMERO_PROCESSO_2025', '-',
-    atualizados.length + ' veículo(s) de 2025 tiveram o Número do Processo preenchido. ' +
-    jaTinhamProcesso.length + ' já tinham (ignorados). ' + idsNaoEncontrados.length + ' ID(s) não encontrado(s).');
-  invalidarCacheDashboard_();
-
-  Logger.log(atualizados.length + ' veículo(s) atualizado(s).');
-  if (jaTinhamProcesso.length) Logger.log(jaTinhamProcesso.length + ' já tinham processo (ignorados): ' + jaTinhamProcesso.join(', '));
-  if (idsNaoEncontrados.length) Logger.log(idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base: ' + idsNaoEncontrados.join(', '));
-
-  return { atualizados: atualizados.length, jaTinham: jaTinhamProcesso.length, naoEncontrados: idsNaoEncontrados.length };
-}
-
-function preencherNumeroProcesso2026Lote2() {
-  var perfil = exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxId = cabecalho.indexOf('ID');
-  var idxNumeroProcesso = cabecalho.indexOf('NumeroProcesso');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var linhaPorId = {};
-  for (var i = 1; i < valores.length; i++) {
-    var id = valores[i][idxId];
-    if (id) linhaPorId[id] = i;
-  }
-
-  var agora = new Date();
-  var atualizados = [];
-  var jaTinhamProcesso = [];
-  var idsNaoEncontrados = [];
-
-  PREENCHER_NUMERO_PROCESSO_2026_LOTE2_.forEach(function (item) {
-    var i = linhaPorId[item.id];
-    if (i === undefined) { idsNaoEncontrados.push(item.id); return; }
-    if (valores[i][idxNumeroProcesso]) { jaTinhamProcesso.push(item.id); return; }
-    valores[i][idxNumeroProcesso] = item.numeroProcesso;
-    valores[i][idxUltimaAtualizacao] = agora;
-    valores[i][idxAtualizadoPor] = perfil.email + ' (preenchimento em massa de Número do Processo - lote 2)';
-    atualizados.push({ id: item.id, linha: i + 1 });
-  });
-
-  atualizados.forEach(function (a) {
-    sheet.getRange(a.linha, 1, 1, cabecalho.length).setValues([valores[a.linha - 1]]);
-  });
-
-  registrarLog_('PREENCHER_NUMERO_PROCESSO_LOTE2', '-',
-    atualizados.length + ' veículo(s) tiveram o Número do Processo preenchido (lote 2). ' +
-    jaTinhamProcesso.length + ' já tinham (ignorados). ' + idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base.');
-  invalidarCacheDashboard_();
-
-  Logger.log(atualizados.length + ' veículo(s) atualizado(s): ' + atualizados.map(function (a) { return a.id; }).join(', '));
-  if (jaTinhamProcesso.length) Logger.log(jaTinhamProcesso.length + ' já tinham processo (ignorados): ' + jaTinhamProcesso.join(', '));
-  if (idsNaoEncontrados.length) Logger.log(idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base: ' + idsNaoEncontrados.join(', '));
-
-  return { atualizados: atualizados.length, jaTinham: jaTinhamProcesso.length, naoEncontrados: idsNaoEncontrados.length };
-}
-
-var PREENCHER_NUMERO_PROCESSO_2025_LOTE2_ = [
-  { id: 'VC-001589', numeroProcesso: '08020.008936/2024-38' },
-  { id: 'VC-001590', numeroProcesso: '08020.008936/2024-38' },
-  { id: 'VC-001593', numeroProcesso: '08020.003696/2024-85' },
-  { id: 'VC-001594', numeroProcesso: '08020.003696/2024-85' },
-  { id: 'VC-001595', numeroProcesso: '08020.003696/2024-85' },
-  { id: 'VC-001596', numeroProcesso: '08020.003696/2024-85' },
-  { id: 'VC-001601', numeroProcesso: '08020.009258/2024-21' },
-  { id: 'VC-001602', numeroProcesso: '08020.003701/2024-50' },
-  { id: 'VC-001603', numeroProcesso: '08020.003692/2024-05' },
-  { id: 'VC-001604', numeroProcesso: '08020.003692/2024-05' },
-  { id: 'VC-001605', numeroProcesso: '08020.003695/2024-31' },
-  { id: 'VC-001606', numeroProcesso: '08020.003695/2024-31' },
-  { id: 'VC-001607', numeroProcesso: '08020.003695/2024-31' },
-  { id: 'VC-001608', numeroProcesso: '08020.003695/2024-31' },
-  { id: 'VC-001609', numeroProcesso: '08020.003690/2024-16' },
-  { id: 'VC-001638', numeroProcesso: '08020.003694/2024-96' },
-  { id: 'VC-001639', numeroProcesso: '08020.003694/2024-96' },
-  { id: 'VC-001651', numeroProcesso: '08020.009626/2024-31' },
-  { id: 'VC-001652', numeroProcesso: '08020.009626/2024-31' },
-  { id: 'VC-001653', numeroProcesso: '08020.009626/2024-31' },
-  { id: 'VC-001654', numeroProcesso: '08020.003676/2024-12' },
-  { id: 'VC-001655', numeroProcesso: '08020.009711/2024-07' },
-  { id: 'VC-001793', numeroProcesso: '08000.034739/2024-11' },
-  { id: 'VC-001794', numeroProcesso: '08000.034739/2024-11' },
-  { id: 'VC-001812', numeroProcesso: '08020.003677/2024-59' },
-  { id: 'VC-001813', numeroProcesso: '08020.003677/2024-59' },
-  { id: 'VC-001866', numeroProcesso: '08020.003700/2024-13' },
-  { id: 'VC-001867', numeroProcesso: '08020.003700/2024-13' },
-  { id: 'VC-001901', numeroProcesso: '08020.007943/2024-12' },
-];
-
-/**
- * Segundo lote do preenchimento de Número do Processo (2025) — 15
- * processos (29 veículos) cujo Termo de Doação é numerado em 2024 (não
- * 2025), cruzados contra uma planilha de referência específica de termos
- * de 2024. Mesmas regras de segurança: só grava onde NumeroProcesso está
- * vazio, grava tudo num único setValues() no final.
- *
- * Rode manualmente pelo editor (selecione
- * "preencherNumeroProcesso2025Lote2" no menu de funções, clique em
- * Executar) — seguro rodar mais de uma vez.
- */
-function preencherNumeroProcesso2025Lote2() {
-  var perfil = exigirPerfilAdmin_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-
-  var valores = sheet.getDataRange().getValues();
-  var cabecalho = valores[0];
-  var idxId = cabecalho.indexOf('ID');
-  var idxNumeroProcesso = cabecalho.indexOf('NumeroProcesso');
-  var idxUltimaAtualizacao = cabecalho.indexOf('UltimaAtualizacao');
-  var idxAtualizadoPor = cabecalho.indexOf('AtualizadoPor');
-
-  var linhaPorId = {};
-  for (var i = 1; i < valores.length; i++) {
-    var id = valores[i][idxId];
-    if (id) linhaPorId[id] = i;
-  }
-
-  var agora = new Date();
-  var atualizados = [];
-  var jaTinhamProcesso = [];
-  var idsNaoEncontrados = [];
-
-  PREENCHER_NUMERO_PROCESSO_2025_LOTE2_.forEach(function (item) {
-    var i = linhaPorId[item.id];
-    if (i === undefined) { idsNaoEncontrados.push(item.id); return; }
-    if (valores[i][idxNumeroProcesso]) { jaTinhamProcesso.push(item.id); return; }
-    valores[i][idxNumeroProcesso] = item.numeroProcesso;
-    valores[i][idxUltimaAtualizacao] = agora;
-    valores[i][idxAtualizadoPor] = perfil.email + ' (preenchimento em massa de Número do Processo - 2025 lote 2)';
-    atualizados.push(item.id);
-  });
-
-  if (atualizados.length) {
-    sheet.getRange(1, 1, valores.length, cabecalho.length).setValues(valores);
-  }
-
-  registrarLog_('PREENCHER_NUMERO_PROCESSO_2025_LOTE2', '-',
-    atualizados.length + ' veículo(s) de 2025 (termo de 2024) tiveram o Número do Processo preenchido. ' +
-    jaTinhamProcesso.length + ' já tinham (ignorados). ' + idsNaoEncontrados.length + ' ID(s) não encontrado(s).');
-  invalidarCacheDashboard_();
-
-  Logger.log(atualizados.length + ' veículo(s) atualizado(s): ' + atualizados.join(', '));
-  if (jaTinhamProcesso.length) Logger.log(jaTinhamProcesso.length + ' já tinham processo (ignorados): ' + jaTinhamProcesso.join(', '));
-  if (idsNaoEncontrados.length) Logger.log(idsNaoEncontrados.length + ' ID(s) não encontrado(s) na base: ' + idsNaoEncontrados.join(', '));
-
-  return { atualizados: atualizados.length, jaTinham: jaTinhamProcesso.length, naoEncontrados: idsNaoEncontrados.length };
-}
-
-/**
- * Importação pontual dos 5 veículos do Ofício nº 480/2026/TRANSV/COLOG/
- * DGFNSP/SENASP/MJ (Termo de Doação SENASP 439/2026, à Secretaria de
- * Estado da Segurança Pública do Paraná — SEI 36509302, Processo
- * 08020.000781/2026-53). Usa importarVeiculosEmLote_ — lê a planilha
- * uma vez só e grava tudo de uma vez, então roda em segundos mesmo com
- * a base já grande. Rode manualmente pelo editor (selecione
- * "importarOficio480_2026" no menu de funções, clique em Executar,
- * depois Ver > Registros/Execuções pra conferir) — função de uso
- * único, pode apagar depois de rodada.
- */
-function importarOficio480_2026() {
-  var comum = {
-    Ano: 2026,
-    Mes: 'AGO',
-    UF: 'PR',
-    Ente: 'Estado',
-    Donataria: 'Secretaria de Estado da Segurança Pública do Paraná',
-    TermoDoacao: 'Termo de Doação SENASP 439/2026',
-    NumeroSei: '36509302',
-    NumeroProcesso: '08020.000781/2026-53',
-    Descricao: 'TRAILBLAZER LT D4A',
-    Marca: 'CHEVROLET',
-    CNPJDonataria: '76.416.932/0001-81',
-    CEP: '80420170',
-    Logradouro: 'Rua Cel. Dulcídio',
-    Numero: '800',
-    Bairro: 'Batel',
-    Municipio: 'Curitiba',
-    ValorVeiculo: 289017.00,
-    Transferido: 'NÃO'
-  };
-
-  // Anexo I do Ofício 480/2026 (o mesmo Termo de Doação 439/2026 tinha
-  // esses dados sem o Renavam completo; o ofício trouxe a tabela
-  // completa) — Destinação vira Observações, só de referência.
-  var veiculos = [
-    { Chassi: '9BG156FK0TC443806', Renavam: '1489869651', Placa: 'UIZ2B44', Observacoes: 'Destinação (Anexo I): Corpo de Bombeiros Militar do Estado do Paraná - 1º GBM Curitiba' },
-    { Chassi: '9BG156FK0TC443819', Renavam: '1489876089', Placa: 'UIZ2B59', Observacoes: 'Destinação (Anexo I): Polícia Militar do Estado do Paraná - 18º BPM de Cornélio Procópio - PR' },
-    { Chassi: '9BG156FK0TC444587', Renavam: '1489889350', Placa: 'UIZ2B91', Observacoes: 'Destinação (Anexo I): Polícia Militar do Estado do Paraná - 15º BPM de Porecatu - PR' },
-    { Chassi: '9BG156FK0TC444654', Renavam: '1489898651', Placa: 'UIZ2C06', Observacoes: 'Destinação (Anexo I): Polícia Civil do Estado do Paraná' },
-    { Chassi: '9BG156FK0TC444581', Renavam: '1489894010', Placa: 'UIZ2C00', Observacoes: 'Destinação (Anexo I): Polícia Civil do Estado do Paraná' }
-  ];
-
-  var resultado = importarVeiculosEmLote_(comum, veiculos);
-  Logger.log('Cadastrados: ' + resultado.criados.length + (resultado.criados.length ? '\n' + resultado.criados.join('\n') : ''));
-  if (resultado.jaExistiam.length) Logger.log('Já existiam (ignorados): ' + resultado.jaExistiam.length + '\n' + resultado.jaExistiam.join(', '));
-  if (resultado.erros.length) Logger.log('Erros: ' + resultado.erros.length + '\n' + resultado.erros.join('\n'));
-
-  var mensagem = resultado.criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
-    (resultado.jaExistiam.length ? ' ' + resultado.jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
-    (resultado.erros.length ? ' ' + resultado.erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
-  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importar Ofício 480/2026', 15);
-  return { criados: resultado.criados.length, jaExistiam: resultado.jaExistiam.length, erros: resultado.erros.length, mensagem: mensagem };
-}
-
-/**
- * Importação pontual dos 29 veículos do Ofício nº 495/2026/TRANSV/COLOG/
- * DGFNSP/SENASP/MJ (Termo de Doação nº 477/2026, à Secretaria de Estado da
- * Justiça e Segurança Pública do Acre — SEI 36601724, Processo
- * 08020.001379/2026-96, Contrato 269/2025 conforme informado). Rode
- * manualmente pelo editor (selecione "importarOficio495_2026" no menu de
- * funções, clique em Executar) — é seguro rodar mais de uma vez, veículos
- * já cadastrados (mesmo chassi/placa) são ignorados sem duplicar.
- */
-function importarOficio495_2026() {
-  var comum = {
-    Ano: 2026,
-    Mes: 'AGO',
-    UF: 'AC',
-    Ente: 'Estado',
-    Donataria: 'Secretaria de Estado da Justiça e Segurança Pública do Acre',
-    TermoDoacao: 'Termo de Doação nº 477/2026',
-    NumeroSei: '36601724',
-    NumeroProcesso: '08020.001379/2026-96',
-    Contrato: '269/2025',
-    QtdVeiculosContrato: 29,
-    Descricao: 'TRAILBLAZER LT D4A',
-    Marca: 'CHEVROLET',
-    CNPJDonataria: '63.608.947/0001-08',
-    CEP: '69900660',
-    Logradouro: 'Avenida Getúlio Vargas',
-    Numero: '232',
-    Bairro: 'Centro',
-    Municipio: 'Rio Branco',
-    ValorVeiculo: 289017.00,
-    Transferido: 'NÃO'
-  };
-
-  var veiculos = [
-    { Chassi: '9BG156FK0TC445233', Renavam: '1496054056', Placa: 'UJA6E14' },
-    { Chassi: '9BG156FK0TC447150', Renavam: '1496058477', Placa: 'UJA6E28' },
-    { Chassi: '9BG156FK0TC448127', Renavam: '1496060170', Placa: 'UJA6E32' },
-    { Chassi: '9BG156FK0TC447140', Renavam: '1496061796', Placa: 'UJA6E43' },
-    { Chassi: '9BG156FK0TC448073', Renavam: '1496069177', Placa: 'UJA6E67' },
-    { Chassi: '9BG156FK0TC448043', Renavam: '1496071244', Placa: 'UJA6E79' },
-    { Chassi: '9BG156FK0TC448028', Renavam: '1496078176', Placa: 'UJA6E85' },
-    { Chassi: '9BG156FK0TC448023', Renavam: '1496097120', Placa: 'UJA6F61' },
-    { Chassi: '9BG156FK0TC447773', Renavam: '1496100279', Placa: 'UJA6F69' },
-    { Chassi: '9BG156FK0TC446917', Renavam: '1496102530', Placa: 'UJA6F81' },
-    { Chassi: '9BG156FK0TC446889', Renavam: '1496104630', Placa: 'UJA6F88' },
-    { Chassi: '9BG156FK0TC446880', Renavam: '1496107036', Placa: 'UJA6G01' },
-    { Chassi: '9BG156FK0TC446873', Renavam: '1496108580', Placa: 'UJA6G05' },
-    { Chassi: '9BG156FK0TC446862', Renavam: '1496109977', Placa: 'UJA6G09' },
-    { Chassi: '9BG156FK0TC446801', Renavam: '1496111068', Placa: 'UJA6G11' },
-    { Chassi: '9BG156FK0TC449137', Renavam: '1496124933', Placa: 'UJA6G31' },
-    { Chassi: '9BG156FK0TC448781', Renavam: '1496126065', Placa: 'UJA6G33' },
-    { Chassi: '9BG156FK0TC446131', Renavam: '1496126820', Placa: 'UJA6G34' },
-    { Chassi: '9BG156FK0TC446574', Renavam: '1496127290', Placa: 'UJA6G36' },
-    { Chassi: '9BG156FK0TC446573', Renavam: '1496129498', Placa: 'UJA6G40' },
-    { Chassi: '9BG156FK0TC446569', Renavam: '1496130453', Placa: 'UJA6G42' },
-    { Chassi: '9BG156FK0TC446562', Renavam: '1496131557', Placa: 'UJA6G44' },
-    { Chassi: '9BG156FK0TC446560', Renavam: '1496132138', Placa: 'UJA6G46' },
-    { Chassi: '9BG156FK0TC446602', Renavam: '1496132553', Placa: 'UJA6G47' },
-    { Chassi: '9BG156FK0TC446601', Renavam: '1496132928', Placa: 'UJA6G48' },
-    { Chassi: '9BG156FK0TC446600', Renavam: '1496133045', Placa: 'UJA6G50' },
-    { Chassi: '9BG156FK0TC446598', Renavam: '1496133274', Placa: 'UJA6G51' },
-    { Chassi: '9BG156FK0TC446597', Renavam: '1496133720', Placa: 'UJA6G52' },
-    { Chassi: '9BG156FK0TC446593', Renavam: '1496134025', Placa: 'UJA6G53' }
-  ];
-
-  var resultado = importarVeiculosEmLote_(comum, veiculos);
-  Logger.log('Cadastrados: ' + resultado.criados.length + (resultado.criados.length ? '\n' + resultado.criados.join('\n') : ''));
-  if (resultado.jaExistiam.length) Logger.log('Já existiam (ignorados): ' + resultado.jaExistiam.length + '\n' + resultado.jaExistiam.join(', '));
-  if (resultado.erros.length) Logger.log('Erros: ' + resultado.erros.length + '\n' + resultado.erros.join('\n'));
-
-  var mensagem = resultado.criados.length + ' de ' + veiculos.length + ' veículo(s) cadastrado(s) com sucesso.' +
-    (resultado.jaExistiam.length ? ' ' + resultado.jaExistiam.length + ' já existia(m) (ignorado(s)).' : '') +
-    (resultado.erros.length ? ' ' + resultado.erros.length + ' com erro — veja Ver > Registros/Execuções.' : '');
-  SpreadsheetApp.getActiveSpreadsheet().toast(mensagem, 'Importar Ofício 495/2026', 15);
-  return { criados: resultado.criados.length, jaExistiam: resultado.jaExistiam.length, erros: resultado.erros.length, mensagem: mensagem };
-}
-
 function atualizarVeiculo_(sheet, perfil, id, registro) {
   // Garante que colunas adicionadas depois da criação original da planilha
   // (como ValorVeiculo) já existem com o cabeçalho certo antes de gravar —
@@ -6351,7 +4001,7 @@ function atualizarVeiculo_(sheet, perfil, id, registro) {
   }
 
   var agora = new Date();
-  var duplicado = encontrarDuplicado_(sheet, registro.Chassi, registro.Placa, id);
+  var duplicado = encontrarDuplicado_(registro.Chassi, registro.Placa, id);
   if (duplicado) {
     throw new Error('Já existe outro veículo com este chassi ou placa (ID ' + duplicado + ').');
   }
@@ -6414,6 +4064,18 @@ function salvarProcessoEditado(comuns, veiculos) {
   var perfil = exigirPerfilEditor_();
   if (!veiculos || !veiculos.length) throw new Error('O processo precisa ter ao menos um veículo.');
 
+  // Mesma trava de criarVeiculo_ — este é hoje também o caminho principal
+  // de CRIAÇÃO de processo novo (cadastro em lote), então tem a mesma
+  // seção crítica de checagem de duplicidade + geração de ID a proteger
+  // contra dois cadastros simultâneos.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    throw new Error('O sistema está processando outro cadastro no momento — tente de novo em alguns segundos.');
+  }
+
+  try {
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
   garantirColunasVeiculos_();
 
@@ -6520,6 +4182,9 @@ function salvarProcessoEditado(comuns, veiculos) {
   invalidarCacheDashboard_();
 
   return { mensagem: 'Processo atualizado com sucesso.', idsNovos: idsNovos };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Exclusão lógica: a linha nunca é apagada de verdade, só marcada como
@@ -6600,8 +4265,14 @@ function encontrarLinhaPorId_(sheet, id) {
   return null;
 }
 
-function encontrarDuplicado_(sheet, chassi, placa, ignorarId) {
-  var dados = sheet.getDataRange().getValues();
+function encontrarDuplicado_(chassi, placa, ignorarId) {
+  // Usa o snapshot cacheado (o mesmo que listarVeiculos usa) em vez de reler
+  // a aba inteira a cada checagem de duplicidade — antes, cadastrar um
+  // processo com N veículos disparava N leituras completas da planilha só
+  // pra essa checagem. O cache é invalidado a cada gravação
+  // (invalidarCacheDashboard_), então nunca fica desatualizado por mais
+  // que o TTL de CACHE_VEICULOS_SEGUNDOS.
+  var dados = obterDadosVeiculosCacheados_();
   var cabecalho = dados[0];
   var idCol = cabecalho.indexOf('ID');
   var chassiCol = cabecalho.indexOf('Chassi');
@@ -7531,6 +5202,7 @@ function invalidarCacheVeiculos_() {
 function invalidarCacheDashboard_() {
   CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base', 'ultimos_transferidos', 'contadores_inicio']);
   invalidarCacheVeiculos_();
+  invalidarCacheProcessos_();
 }
 
 /**
