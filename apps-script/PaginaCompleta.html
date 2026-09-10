@@ -102,10 +102,12 @@
   .welcome-text h2 { margin: 0; font-size: 21px; font-weight: 800; }
   .welcome-date { opacity: 0.85; font-size: 13px; }
   .welcome-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-  .action-btn {
-    padding: 9px 18px; border: none; border-radius: 9px; font-weight: 700; font-size: 13.5px;
-    cursor: pointer; transition: transform 0.1s, filter 0.1s; font-family: inherit;
-  }
+  /* .action-btn é a variante do sistema de botão (ver button.primario/
+     .secundario/.perigo mais abaixo) usada só dentro do banner de
+     boas-vindas — a base estrutural (padding/borda/fonte/cursor) é
+     compartilhada com o resto do sistema; só a cor muda, porque aqui o
+     fundo é um gradiente escuro em vez do branco/cinza-claro do resto do
+     site. */
   .action-btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
   .action-btn.primary { background: rgba(255,255,255,0.18); color: #fff; }
   .action-btn.success { background: var(--verde); color: #fff; }
@@ -138,7 +140,7 @@
   @keyframes loader-girar { to { transform: rotate(360deg); } }
   .loader-container p { margin: 0; font-weight: 700; color: var(--texto); font-size: 14px; }
 
-  button.primario, button.secundario, button.perigo {
+  button.primario, button.secundario, button.perigo, .action-btn {
     border: none;
     border-radius: 8px;
     padding: 10px 18px;
@@ -148,6 +150,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    font-family: inherit;
   }
   button.primario { background: var(--primario); color: #fff; }
   button.primario:hover { background: var(--primario-escuro); }
@@ -463,6 +466,18 @@
     #painelDetalheUF button { display: none !important; }
   }
 
+  /* Elementos clicáveis que não são <button>/<a> (menu lateral, card de
+     processo, KPI clicável, ranking, mapa de calor) agora recebem foco de
+     teclado — sem essa marcação o foco padrão do navegador fica pouco
+     visível neles por não terem borda própria. */
+  .app-nav-item:focus-visible, .processo-cabecalho:focus-visible,
+  .kpi.clicavel:focus-visible, .stat-card:focus-visible,
+  .rank-linha:focus-visible, .rank-linha-donataria:focus-visible,
+  .heat-celula:focus-visible {
+    outline: 2px solid var(--primario);
+    outline-offset: 2px;
+  }
+
   </style>
 </head>
 <body>
@@ -699,7 +714,7 @@
             </div>
           </div>
           <div class="botoes">
-            <button class="secundario" id="botaoConfirmarQtdNao">Revisar</button>
+            <button class="secundario" id="botaoConfirmarQtdNao" data-fecha-modal>Revisar</button>
             <button class="primario" id="botaoConfirmarQtdSim" style="margin-left:auto;">Confirmar e continuar</button>
           </div>
         </div>
@@ -942,7 +957,7 @@
           </div>
 
           <div class="botoes" style="margin-top:18px;">
-            <button class="secundario" id="botaoPeFechar">Cancelar</button>
+            <button class="secundario" id="botaoPeFechar" data-fecha-modal>Cancelar</button>
             <button class="primario" id="botaoPeSalvar" style="margin-left:auto;">Salvar processo</button>
           </div>
         </div>
@@ -1517,7 +1532,7 @@
     <div class="modal" style="max-width:420px;">
       <p id="confirmacaoMensagem" style="font-size:15px; margin-top:0;"></p>
       <div class="botoes">
-        <button type="button" class="secundario" id="botaoConfirmacaoNao">Não</button>
+        <button type="button" class="secundario" id="botaoConfirmacaoNao" data-fecha-modal>Não</button>
         <button type="button" class="primario" id="botaoConfirmacaoSim" style="margin-left:auto;">Sim</button>
       </div>
     </div>
@@ -1528,7 +1543,7 @@
       <h2>Lembrete</h2>
       <p style="font-size:15px;">Coloque o ATPVe escaneado no Drive.</p>
       <div class="botoes">
-        <button type="button" class="secundario" id="botaoLembreteAtpveFechar">Fechar</button>
+        <button type="button" class="secundario" id="botaoLembreteAtpveFechar" data-fecha-modal>Fechar</button>
         <button type="button" class="primario" id="botaoLembreteAtpveDrive" style="margin-left:auto;">Link do Drive</button>
       </div>
     </div>
@@ -1571,7 +1586,7 @@
         </div>
       </div>
       <div class="botoes">
-        <button class="secundario" id="botaoNovoUsuarioCancelar">Cancelar</button>
+        <button class="secundario" id="botaoNovoUsuarioCancelar" data-fecha-modal>Cancelar</button>
         <button class="primario" id="botaoNovoUsuarioSalvar" style="margin-left:auto;">Salvar usuário</button>
       </div>
     </div>
@@ -1586,7 +1601,7 @@
         <button type="button" class="secundario" id="botaoEscolhaModelo2">Modelo 2 — Clique e conte (novo)</button>
       </div>
       <div class="botoes">
-        <button class="secundario" id="botaoEscolhaProdutividadeFechar" style="margin-left:auto;">Cancelar</button>
+        <button class="secundario" id="botaoEscolhaProdutividadeFechar" data-fecha-modal style="margin-left:auto;">Cancelar</button>
       </div>
     </div>
   </div>
@@ -1600,7 +1615,7 @@
       </div>
       <div id="mensagemCliqueProdutividade"></div>
       <div class="botoes">
-        <button type="button" class="secundario" id="botaoCliqueCancelar">Cancelar</button>
+        <button type="button" class="secundario" id="botaoCliqueCancelar" data-fecha-modal>Cancelar</button>
         <button type="button" class="primario" id="botaoCliqueConfirmar" style="margin-left:auto;">Registrar +1</button>
       </div>
     </div>
@@ -1619,7 +1634,7 @@
           </div>
         </div>
         <div class="botoes">
-          <button class="secundario" id="botaoSvCancelarBusca">Cancelar</button>
+          <button class="secundario" id="botaoSvCancelarBusca" data-fecha-modal>Cancelar</button>
           <button class="primario" id="botaoSvBuscar" style="margin-left:auto;">Buscar veículo</button>
         </div>
       </div>
@@ -1675,7 +1690,7 @@
       </div>
       <div id="mensagemNumeroProcesso"></div>
       <div class="botoes">
-        <button class="secundario" id="botaoNumeroProcessoCancelar">Cancelar</button>
+        <button class="secundario" id="botaoNumeroProcessoCancelar" data-fecha-modal>Cancelar</button>
         <button class="primario" id="botaoNumeroProcessoConfirmar" style="margin-left:auto;">Continuar para o cadastro</button>
       </div>
     </div>
@@ -1695,7 +1710,7 @@
         </div>
       </div>
       <div class="botoes">
-        <button class="secundario" id="botaoNumeroSeiCancelar">Cancelar</button>
+        <button class="secundario" id="botaoNumeroSeiCancelar" data-fecha-modal>Cancelar</button>
         <button class="primario" id="botaoNumeroSeiConfirmar" style="margin-left:auto;">Confirmar</button>
       </div>
     </div>
@@ -1705,7 +1720,7 @@
     <div class="modal" style="max-width:640px;">
       <div style="display:flex; align-items:flex-start; justify-content:space-between;">
         <h2 id="cobrancaModalTitulo" style="margin:0;">E-mail de cobrança</h2>
-        <button type="button" class="secundario" style="padding:2px 10px;" onclick="fecharModalCobranca_()">✕</button>
+        <button type="button" class="secundario" style="padding:2px 10px;" onclick="fecharModalCobranca_()" data-fecha-modal>✕</button>
       </div>
       <p id="cobrancaModalSubtitulo" style="font-size:14px; color:var(--texto-suave);"></p>
       <div id="cobrancaJaEnviadoAviso" style="display:none; margin-bottom:10px;"></div>
@@ -1754,7 +1769,7 @@
         </div>
       </div>
       <div class="botoes">
-        <button class="secundario" onclick="fecharModalDataAtpve_(false)">Cancelar</button>
+        <button class="secundario" onclick="fecharModalDataAtpve_(false)" data-fecha-modal>Cancelar</button>
         <button class="primario" style="margin-left:auto;" onclick="fecharModalDataAtpve_(true)">Confirmar</button>
       </div>
     </div>
@@ -1769,7 +1784,7 @@
       </div>
       <p id="textoErroCadastro" style="font-size:14px; color:var(--texto-suave); margin-top:10px; white-space:pre-line;"></p>
       <div class="botoes">
-        <button class="primario" id="botaoErroCadastroFechar" style="margin-left:auto;">Entendi</button>
+        <button class="primario" id="botaoErroCadastroFechar" data-fecha-modal style="margin-left:auto;">Entendi</button>
       </div>
     </div>
   </div>
@@ -1813,7 +1828,69 @@
     configurarEscolhaModeloProdutividade_();
     configurarModalCliqueProdutividade_();
     configurarTransferidos_();
+    configurarFechamentoPadraoModais_();
+    configurarAcessibilidadeTeclado_();
   });
+
+  // ---------- Fechamento padrão de modal (Esc / clique fora) ----------
+  // Cada um dos modais já tem seu próprio botão de cancelar/fechar (com toda
+  // a limpeza específica que ele precisa) — em vez de duplicar essa lógica
+  // aqui, o Esc/clique-fora só "clica" no botão já marcado com
+  // data-fecha-modal em cada modal (ver HTML). O modal de coleta de veículo
+  // (modalVeiculoFundo) fica de fora de propósito: nenhum dos botões dele
+  // ("‹ Voltar"/"Concluir e continuar") significa "descartar e fechar", só
+  // Esc/clique fora não teria uma ação clara ali.
+  function configurarFechamentoPadraoModais_() {
+    document.querySelectorAll('.modal-fundo').forEach(function (fundo) {
+      fundo.addEventListener('click', function (evento) {
+        if (evento.target === fundo) fecharModalAberto_();
+      });
+    });
+    document.addEventListener('keydown', function (evento) {
+      if (evento.key === 'Escape') fecharModalAberto_();
+    });
+  }
+
+  function fecharModalAberto_() {
+    var fundoAberto = document.querySelector('.modal-fundo.ativo');
+    if (!fundoAberto) return;
+    var botao = fundoAberto.querySelector('[data-fecha-modal]');
+    if (botao) botao.click();
+  }
+
+  // ---------- Acessibilidade por teclado ----------
+  // Vários elementos clicáveis do sistema são <div>/<span> com onclick (menu
+  // lateral, card de processo, KPI clicável, linha de ranking, célula do
+  // mapa de calor) — sem tabindex/role nenhum, só funcionavam com o mouse.
+  // Em vez de reescrever cada tela pra usar <button>, aplica foco e resposta
+  // a Enter/Espaço de forma genérica, e reaplica sozinho quando telas com
+  // conteúdo gerado dinamicamente (Processos, Estatísticas) são recriadas.
+  var SELETORES_CLICAVEIS_TECLADO_ = '.app-nav-item, .processo-cabecalho, .kpi.clicavel, .stat-card, .rank-linha, .rank-linha-donataria, .heat-celula';
+
+  function aplicarFocoTeclado_(container) {
+    container.querySelectorAll(SELETORES_CLICAVEIS_TECLADO_).forEach(function (el) {
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+      if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+    });
+  }
+
+  function configurarAcessibilidadeTeclado_() {
+    document.addEventListener('keydown', function (evento) {
+      if (evento.key !== 'Enter' && evento.key !== ' ') return;
+      var alvo = evento.target.closest(SELETORES_CLICAVEIS_TECLADO_);
+      if (!alvo) return;
+      evento.preventDefault();
+      alvo.click();
+    });
+
+    aplicarFocoTeclado_(document.body);
+    // O menu lateral é estático, mas os cards/linhas das telas de Processos
+    // e Estatísticas são recriados via innerHTML a cada atualização — o
+    // observer reaplica tabindex/role sozinho sempre que isso acontece, sem
+    // precisar caçar cada função de renderização uma por uma.
+    new MutationObserver(function () { aplicarFocoTeclado_(document.body); })
+      .observe(document.body, { childList: true, subtree: true });
+  }
 
   // ---------- Navegação entre telas ----------
   function irParaTela(nome) {
@@ -2402,6 +2479,21 @@
     var div = document.createElement('div');
     div.textContent = texto == null ? '' : String(texto);
     return div.innerHTML;
+  }
+
+  // escaparHtml() não escapa aspas — serve pra texto ENTRE tags, não pra
+  // dentro de um atributo (o método via textContent/innerHTML do navegador
+  // não precisa escapar " ou ' fora de um atributo). Usar essa função
+  // sempre que um valor dinâmico for escrito dentro de um atributo HTML
+  // (ex.: data-chave="...") pra não correr risco de fechar o atributo
+  // antes da hora se o valor contiver aspas.
+  function escaparAtributo_(texto) {
+    return String(texto == null ? '' : texto)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // Realça o trecho que bateu com a busca ativa, para deixar claro por que
@@ -3629,9 +3721,6 @@
     });
   }
 
-  var INDICE_RETOMADA_CADASTRO = 0;
-  var IDS_GERADOS_CADASTRO = [];
-
   function reiniciarFormularioCadastro_() {
     document.getElementById('formCadastro').reset();
     document.getElementById('c_ID').value = '';
@@ -3646,8 +3735,6 @@
     VEICULOS_COLETADOS = [];
     VEICULOS_EXTRAIDOS_PDF = null;
     INDICE_VEICULO_MODAL = 0;
-    INDICE_RETOMADA_CADASTRO = 0;
-    IDS_GERADOS_CADASTRO = [];
     atualizarModoDonataria_();
     irParaEtapa(1);
   }
@@ -3682,40 +3769,49 @@
 
       var botao = document.getElementById('botaoSalvarCadastro');
       botao.disabled = true;
-      mostrarLoader_('Cadastrando veículo ' + (INDICE_RETOMADA_CADASTRO + 1) + ' de ' + QUANTIDADE_TOTAL_VEICULOS + ', aguarde...');
+      mostrarLoader_('Cadastrando ' + QUANTIDADE_TOTAL_VEICULOS + ' veículo(s), aguarde...');
+
+      // Manda todos os veículos do processo numa única chamada ao servidor
+      // (salvarProcessoEditado já faz isso em lote — uma leitura só da
+      // planilha pra checar duplicidade, uma gravação só no final — em vez
+      // de uma ida e volta ao servidor POR veículo, que relia a planilha
+      // inteira a cada um e deixava o cadastro de processos grandes lento).
+      var veiculosParaSalvar = [];
+      for (var i = 0; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
+        var veiculoColetado = VEICULOS_COLETADOS[i] || {};
+        veiculosParaSalvar.push({
+          Marca: veiculoColetado.Marca,
+          Descricao: veiculoColetado.Descricao,
+          Chassi: veiculoColetado.Chassi,
+          Placa: veiculoColetado.Placa,
+          Renavam: veiculoColetado.Renavam,
+          ValorVeiculo: veiculoColetado.ValorVeiculo
+        });
+      }
 
       try {
-        for (var i = INDICE_RETOMADA_CADASTRO; i < QUANTIDADE_TOTAL_VEICULOS; i++) {
-          atualizarTextoLoader_('Cadastrando veículo ' + (i + 1) + ' de ' + QUANTIDADE_TOTAL_VEICULOS + ', aguarde...');
-          var veiculoColetado = VEICULOS_COLETADOS[i] || {};
-          var dadosVeiculo = Object.assign({}, comuns, {
-            Marca: veiculoColetado.Marca,
-            Descricao: veiculoColetado.Descricao,
-            Chassi: veiculoColetado.Chassi,
-            Placa: veiculoColetado.Placa,
-            Renavam: veiculoColetado.Renavam,
-            ValorVeiculo: veiculoColetado.ValorVeiculo
-          });
-          var resp = await chamarServidor_('salvarVeiculo', dadosVeiculo);
-          IDS_GERADOS_CADASTRO.push(resp.ID);
-          INDICE_RETOMADA_CADASTRO = i + 1;
-        }
+        var resp = await chamarServidor_('salvarProcessoEditado', comuns, veiculosParaSalvar);
+        var idsGerados = (resp.idsNovos || [])
+          .slice()
+          .sort(function (a, b) { return a.indice - b.indice; })
+          .map(function (x) { return x.id; });
         esconderLoader_();
         botao.disabled = false;
         var numeroProcessoConcluido = NUMERO_PROCESSO_ATUAL;
         mostrarMensagem('mensagemGlobal', 'sucesso',
-          IDS_GERADOS_CADASTRO.length + ' veículo(s) cadastrado(s) com sucesso (' + IDS_GERADOS_CADASTRO.join(', ') + ').');
+          idsGerados.length + ' veículo(s) cadastrado(s) com sucesso (' + idsGerados.join(', ') + ').');
         reiniciarFormularioCadastro_();
         irParaProcessoRecemCriado_(numeroProcessoConcluido);
       } catch (erro) {
         esconderLoader_();
         botao.disabled = false;
         document.getElementById('mensagemCadastro').innerHTML = '';
+        // Como o lote é tudo-ou-nada, um erro aqui significa que NENHUM
+        // veículo do processo foi salvo ainda — a mensagem do servidor já
+        // diz qual veículo (por número) tem o problema.
         mostrarErroCadastro_(
-          'Cadastrados ' + IDS_GERADOS_CADASTRO.length + ' de ' + QUANTIDADE_TOTAL_VEICULOS +
-          ' veículo(s) antes deste erro (veículo ' + (INDICE_RETOMADA_CADASTRO + 1) + '):\n' + (erro.message || String(erro)) +
-          '\n\nPara corrigir: clique em "‹ Anterior" até voltar à etapa "Veículo", depois clique no veículo ' +
-          (INDICE_RETOMADA_CADASTRO + 1) + ' na lista para editar os dados dele. Depois é só avançar de novo até "Salvar processo" para continuar de onde parou.');
+          'Nenhum veículo foi salvo ainda — corrija o problema abaixo e clique em "Salvar processo" de novo:\n' +
+          (erro.message || String(erro)));
       }
     });
 
@@ -4188,7 +4284,7 @@
 
     return '<div class="processo-card' + (faltam > 0 ? ' processo-incompleto' : '') + '">' +
       '<div class="processo-cabecalho" onclick="alternarProcesso_(' + indice + ')">' +
-        '<input type="checkbox" onclick="event.stopPropagation();" onchange="alternarSelecaoExportProcesso_(\'' + p.chave + '\', this.checked)" ' +
+        '<input type="checkbox" data-chave="' + escaparAtributo_(p.chave) + '" onclick="event.stopPropagation();" onchange="alternarSelecaoExportProcesso_(this.dataset.chave, this.checked)" ' +
           (PROCESSOS_SELECIONADOS_EXPORT[p.chave] ? 'checked' : '') + '>' +
         '<span class="processo-chevron">' + (expandido ? '▾' : '▸') + '</span>' +
         '<div class="processo-info">' +
