@@ -1033,7 +1033,15 @@ function getContextoInicial() {
     // Só os "novos" desde a última vez que esse usuário viu a aba TEP —
     // não o total de pendentes (esses continuam todos visíveis na aba).
     tepPendentes: contarTepNovos_(perfil.email),
-    processosEmAberto: contarProcessosEmAberto_()
+    processosEmAberto: contarProcessosEmAberto_(),
+    // KPIs e últimos processos da tela Início: antes eram buscados numa
+    // segunda ida ao servidor, só depois que este contexto já tinha
+    // chegado no navegador (ver carregarInicio/aoCarregarContexto no
+    // PaginaCompleta.html). Como getEstatisticas() e listarProcessos() já
+    // são cacheados, calculá-los aqui é barato e elimina essa segunda ida
+    // sequencial logo na primeira tela que todo usuário vê.
+    estatisticasIniciais: getEstatisticas(),
+    processosIniciais: listarProcessos({ pagina: 1 })
   };
 }
 

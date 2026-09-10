@@ -2449,7 +2449,17 @@
     document.getElementById('inicioSaudacao').textContent = 'Bem-vindo, ' + (ctx.usuario.nome || ctx.usuario.email);
     var dataPorExtenso = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     document.getElementById('inicioData').textContent = dataPorExtenso.charAt(0).toUpperCase() + dataPorExtenso.slice(1);
-    carregarInicio();
+    // KPIs e últimos processos da tela Início já vêm prontos dentro do
+    // próprio contexto (ver getContextoInicial no CodigoCompleto.gs) — evita
+    // a segunda ida ao servidor que carregarInicio() faria logo em seguida.
+    // Só cai no carregarInicio() tradicional se, por algum motivo, esses
+    // dados não vierem preenchidos.
+    if (ctx.estatisticasIniciais && ctx.processosIniciais) {
+      aplicarKpisInicio_(ctx.estatisticasIniciais);
+      renderizarUltimosProcessosInicio_((ctx.processosIniciais.processos || []).slice(0, 5));
+    } else {
+      carregarInicio();
+    }
 
     LISTAS_CONTEXTO_ATUAL = ctx.listas;
     preencherSelect('c_Mes', ctx.listas.mes, true);
@@ -2612,11 +2622,7 @@
 
     var resultadoStats = resultados[0];
     if (resultadoStats.status === 'fulfilled' && resultadoStats.value) {
-      var stats = resultadoStats.value;
-      document.getElementById('inicioKpiTotal').textContent = stats.total;
-      document.getElementById('inicioKpiTransferidos').textContent = stats.transferidos;
-      document.getElementById('inicioKpiPendentes').textContent = stats.pendentes;
-      document.getElementById('inicioKpiPercentual').textContent = stats.percentualTransferido + '%';
+      aplicarKpisInicio_(resultadoStats.value);
     } else if (resultadoStats.status === 'rejected') {
       mostrarErroGlobal(resultadoStats.reason);
     }
@@ -2627,6 +2633,17 @@
     } else if (resultadoProcessos.status === 'rejected') {
       mostrarErroGlobal(resultadoProcessos.reason);
     }
+  }
+
+  // Compartilhado entre o carregamento inicial (dados já vêm prontos dentro
+  // do contexto — ver aoCarregarContexto) e carregarInicio() (usado quando a
+  // pessoa volta pra essa tela depois de visitar outra, e os dados podem já
+  // ter mudado).
+  function aplicarKpisInicio_(stats) {
+    document.getElementById('inicioKpiTotal').textContent = stats.total;
+    document.getElementById('inicioKpiTransferidos').textContent = stats.transferidos;
+    document.getElementById('inicioKpiPendentes').textContent = stats.pendentes;
+    document.getElementById('inicioKpiPercentual').textContent = stats.percentualTransferido + '%';
   }
 
   var INICIO_PROCESSOS_RECENTES = [];
