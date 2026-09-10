@@ -1648,6 +1648,9 @@
           <button class="secundario" id="botaoSvCancelarBusca" data-fecha-modal>Cancelar</button>
           <button class="primario" id="botaoSvBuscar" style="margin-left:auto;">Buscar veículo</button>
         </div>
+        <div id="svOfertaAvulso" style="display:none; margin-top:12px;">
+          <button type="button" class="secundario" id="botaoSvAbrirAvulso" style="width:100%;">Veículo doado antes deste sistema existir? Registrar 2ª via assim mesmo</button>
+        </div>
       </div>
       <div id="svResultadoContainer" style="display:none;">
         <div class="card" style="margin-bottom:14px;">
@@ -1663,6 +1666,30 @@
         <div class="botoes">
           <button class="secundario" id="botaoSvVoltarBusca">‹ Buscar outro veículo</button>
           <button class="primario" id="botaoSvSalvar" style="margin-left:auto;">Salvar</button>
+        </div>
+      </div>
+      <div id="svAvulsoContainer" style="display:none;">
+        <div class="card" style="margin-bottom:14px;">
+          <p style="font-size:14px; margin:0 0 4px;"><strong>Veículo fora da base</strong> — doado antes deste sistema existir. Não vai aparecer em Processos/Estatísticas, só no Relatório de Produtividade.</p>
+          <p style="font-size:13px; color:var(--texto-suave); margin:0;">Placa/Chassi: <span id="svAvulsoIdentificador"></span></p>
+        </div>
+        <div class="grid-form">
+          <div class="campo">
+            <label for="sv_AvulsoMarca">Marca (opcional)</label>
+            <input type="text" id="sv_AvulsoMarca" maxlength="60">
+          </div>
+          <div class="campo">
+            <label for="sv_AvulsoDescricao">Descrição (opcional)</label>
+            <input type="text" id="sv_AvulsoDescricao" maxlength="120">
+          </div>
+          <div class="campo">
+            <label for="sv_AvulsoDataEmissao">Data de emissão da 2ª via *</label>
+            <input type="date" id="sv_AvulsoDataEmissao">
+          </div>
+        </div>
+        <div class="botoes">
+          <button class="secundario" id="botaoSvAvulsoVoltar">‹ Buscar outro veículo</button>
+          <button class="primario" id="botaoSvAvulsoSalvar" style="margin-left:auto;">Registrar assim mesmo</button>
         </div>
       </div>
     </div>
@@ -2813,6 +2840,9 @@
     });
     document.getElementById('botaoSvVoltarBusca').addEventListener('click', voltarBuscaSegundaVia_);
     document.getElementById('botaoSvSalvar').addEventListener('click', salvarSegundaViaAtpve_);
+    document.getElementById('botaoSvAbrirAvulso').addEventListener('click', abrirAvulsoSegundaVia_);
+    document.getElementById('botaoSvAvulsoVoltar').addEventListener('click', voltarBuscaSegundaVia_);
+    document.getElementById('botaoSvAvulsoSalvar').addEventListener('click', salvarAvulsoSegundaVia_);
   }
 
   function abrirModalSegundaViaAtpve_(placaPreenchida) {
@@ -2821,6 +2851,8 @@
     document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
     document.getElementById('svBuscaContainer').style.display = '';
     document.getElementById('svResultadoContainer').style.display = 'none';
+    document.getElementById('svAvulsoContainer').style.display = 'none';
+    document.getElementById('svOfertaAvulso').style.display = 'none';
     VEICULO_SEGUNDA_VIA_ATUAL = null;
     document.getElementById('modalSegundaViaAtpveFundo').classList.add('ativo');
     if (placaPreenchida) buscarVeiculoSegundaVia_();
@@ -2835,6 +2867,8 @@
     document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
     document.getElementById('svBuscaContainer').style.display = '';
     document.getElementById('svResultadoContainer').style.display = 'none';
+    document.getElementById('svAvulsoContainer').style.display = 'none';
+    document.getElementById('svOfertaAvulso').style.display = 'none';
   }
 
   async function buscarVeiculoSegundaVia_() {
@@ -2844,19 +2878,29 @@
         '<div class="mensagem erro">Digite a placa ou o chassi do veículo.</div>';
       return;
     }
+    document.getElementById('svOfertaAvulso').style.display = 'none';
     document.getElementById('mensagemSegundaViaAtpve').innerHTML = '<div class="carregando">Buscando...</div>';
     try {
       var veiculo = await chamarServidor_('buscarVeiculoParaSegundaVia', busca);
       if (!veiculo) {
         document.getElementById('mensagemSegundaViaAtpve').innerHTML =
           '<div class="mensagem erro">Nenhum veículo encontrado com essa placa/chassi.</div>';
+        document.getElementById('svOfertaAvulso').style.display = '';
         return;
       }
       VEICULO_SEGUNDA_VIA_ATUAL = veiculo;
-      document.getElementById('svInfoVeiculo').innerHTML =
-        '<strong>' + escaparHtml(veiculo.Marca) + ' — ' + escaparHtml(veiculo.Descricao) + '</strong><br>' +
-        'Chassi: ' + escaparHtml(veiculo.Chassi) + ' • Placa: ' + escaparHtml(veiculo.Placa) + '<br>' +
-        escaparHtml(veiculo.Donataria) + ' • ' + escaparHtml(veiculo.UF);
+      if (veiculo.avulso) {
+        var tituloAvulso = [veiculo.Marca, veiculo.Descricao].filter(Boolean).join(' — ') || 'Veículo fora da base';
+        document.getElementById('svInfoVeiculo').innerHTML =
+          '<strong>' + escaparHtml(tituloAvulso) + '</strong><br>' +
+          (veiculo.Placa ? 'Placa: ' + escaparHtml(veiculo.Placa) : 'Chassi: ' + escaparHtml(veiculo.Chassi)) + '<br>' +
+          '<span style="color:var(--texto-suave);">Registro avulso — doado antes deste sistema existir.</span>';
+      } else {
+        document.getElementById('svInfoVeiculo').innerHTML =
+          '<strong>' + escaparHtml(veiculo.Marca) + ' — ' + escaparHtml(veiculo.Descricao) + '</strong><br>' +
+          'Chassi: ' + escaparHtml(veiculo.Chassi) + ' • Placa: ' + escaparHtml(veiculo.Placa) + '<br>' +
+          escaparHtml(veiculo.Donataria) + ' • ' + escaparHtml(veiculo.UF);
+      }
       var avisoJaEmitida = document.getElementById('svAvisoJaEmitida');
       if (veiculo.DataEmissaoSegundaViaATPVe) {
         var dataFormatada = new Date(veiculo.DataEmissaoSegundaViaATPVe).toLocaleDateString('pt-BR');
@@ -2873,6 +2917,46 @@
     } catch (erro) {
       document.getElementById('mensagemSegundaViaAtpve').innerHTML =
         '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    }
+  }
+
+  // ---------- Registro avulso (veículo fora da base) dentro do mesmo modal ----------
+  function abrirAvulsoSegundaVia_() {
+    var busca = document.getElementById('sv_Busca').value.trim().toUpperCase();
+    document.getElementById('svAvulsoIdentificador').textContent = busca;
+    document.getElementById('sv_AvulsoMarca').value = '';
+    document.getElementById('sv_AvulsoDescricao').value = '';
+    document.getElementById('sv_AvulsoDataEmissao').value = '';
+    document.getElementById('mensagemSegundaViaAtpve').innerHTML = '';
+    document.getElementById('svBuscaContainer').style.display = 'none';
+    document.getElementById('svAvulsoContainer').style.display = '';
+  }
+
+  async function salvarAvulsoSegundaVia_() {
+    var identificador = document.getElementById('svAvulsoIdentificador').textContent;
+    var dataEmissao = document.getElementById('sv_AvulsoDataEmissao').value;
+    if (!dataEmissao) {
+      document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+        '<div class="mensagem erro">Informe a data de emissão da 2ª via.</div>';
+      return;
+    }
+    var botao = document.getElementById('botaoSvAvulsoSalvar');
+    botao.disabled = true;
+    try {
+      await chamarServidor_('registrarSegundaViaAvulsa', {
+        Identificador: identificador,
+        Marca: document.getElementById('sv_AvulsoMarca').value,
+        Descricao: document.getElementById('sv_AvulsoDescricao').value,
+        DataEmissao: dataEmissao
+      });
+      fecharModalSegundaViaAtpve_();
+      mostrarMensagem('mensagemGlobal', 'sucesso', '2ª via de ATPVe registrada para ' + identificador + ' (veículo fora da base).');
+      abrirModalLembreteAtpve_();
+    } catch (erro) {
+      document.getElementById('mensagemSegundaViaAtpve').innerHTML =
+        '<div class="mensagem erro">' + escaparHtml(erro.message || String(erro)) + '</div>';
+    } finally {
+      botao.disabled = false;
     }
   }
 
@@ -2905,10 +2989,17 @@
     try {
       await chamarServidor_('registrarSegundaViaAtpve', VEICULO_SEGUNDA_VIA_ATUAL.ID, dataEmissao);
       var idVeiculo = VEICULO_SEGUNDA_VIA_ATUAL.ID;
+      var eraAvulso = !!VEICULO_SEGUNDA_VIA_ATUAL.avulso;
       fecharModalSegundaViaAtpve_();
-      irParaTela('listagem');
-      carregarListagem();
-      mostrarMensagem('mensagemListagem', 'sucesso', '2ª via de ATPVe registrada para o veículo ' + idVeiculo + '.');
+      // Registro avulso não é um veículo cadastrado — não existe em
+      // Processos/Listagem pra navegar até lá.
+      if (eraAvulso) {
+        mostrarMensagem('mensagemGlobal', 'sucesso', '2ª via de ATPVe registrada (veículo fora da base).');
+      } else {
+        irParaTela('listagem');
+        carregarListagem();
+        mostrarMensagem('mensagemListagem', 'sucesso', '2ª via de ATPVe registrada para o veículo ' + idVeiculo + '.');
+      }
       abrirModalLembreteAtpve_();
     } catch (erro) {
       document.getElementById('mensagemSegundaViaAtpve').innerHTML =

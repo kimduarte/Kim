@@ -1916,13 +1916,98 @@ function atualizarStatusVeiculo(id, campo, valor, dataEmissaoAtpve, dataEnvioAtp
   return { mensagem: 'Atualizado com sucesso.', campo: campo, valor: valorNormalizado, cascata: cascataTransferido };
 }
 
+// ======================================================================
+// 2ª VIA DE ATPVe "AVULSA" — veículo doado ANTES de existir este sistema,
+// nunca cadastrado na aba Veiculos, mas que mesmo assim precisa ficar
+// registrado quando alguém emite uma 2ª via do ATPVe dele. Fica numa aba
+// própria (não mistura com Veiculos, pra não distorcer contagens/
+// estatísticas de um veículo que nunca foi "cadastrado" de verdade) — só
+// guarda o essencial pra identificar o veículo e contar na produtividade.
+// IDs começam com "AV-" (em vez de "VC-") justamente pra dar pra
+// diferenciar os dois casos onde quer que um ID apareça.
+// ======================================================================
+var SHEET_SEGUNDA_VIA_AVULSA = 'SegundaViaAvulsa';
+var CABECALHO_SEGUNDA_VIA_AVULSA = [
+  'ID', 'Identificador', 'Marca', 'Descricao', 'DataEmissaoSegundaViaATPVe', 'RegistradoPor', 'DataRegistro'
+];
+
+function gerarProximoIdAvulso_() {
+  var props = PropertiesService.getDocumentProperties();
+  var seq = Number(props.getProperty('SEQ_SEGUNDA_VIA_AVULSA') || '0') + 1;
+  props.setProperty('SEQ_SEGUNDA_VIA_AVULSA', String(seq));
+  return 'AV-' + ('000000' + seq).slice(-6);
+}
+
+function encontrarLinhaAvulsaPorId_(sheet, id) {
+  var valores = sheet.getRange(1, 1, sheet.getLastRow(), 1).getValues();
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][0] === id) return i + 1;
+  }
+  return null;
+}
+
+// Mesma lógica de correspondência exata (via normalizarChassi_/
+// normalizarPlaca_) usada pra achar veículo de verdade — reaproveitada
+// aqui pra achar um registro avulso pelo mesmo termo digitado.
+function buscarAvulsoPorTermo_(termo) {
+  var chassiBusca = normalizarChassi_(termo);
+  var placaBusca = normalizarPlaca_(termo);
+  var sheet = getOrCreateSheet_(SHEET_SEGUNDA_VIA_AVULSA, CABECALHO_SEGUNDA_VIA_AVULSA);
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    var identificador = dados[i][1];
+    if (normalizarChassi_(identificador) === chassiBusca || normalizarPlaca_(identificador) === placaBusca) {
+      return {
+        ID: dados[i][0],
+        Identificador: identificador,
+        Marca: dados[i][2],
+        Descricao: dados[i][3],
+        DataEmissaoSegundaViaATPVe: dados[i][4]
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Cria um registro avulso (veículo doado antes deste sistema existir, sem
+ * cadastro na aba Veiculos) e já registra nele a emissão da 2ª via — tudo
+ * numa gravação só, chamada quando a busca em buscarVeiculoParaSegundaVia
+ * não encontra nada e a pessoa opta por "registrar assim mesmo".
+ */
+function registrarSegundaViaAvulsa(dados) {
+  var perfil = exigirPerfilEditor_();
+  var identificador = normalizarTexto_(dados && dados.Identificador).toUpperCase();
+  if (!identificador) throw new Error('Informe a placa ou o chassi do veículo.');
+  if (!dados.DataEmissao) throw new Error('Informe a data de emissão da 2ª via.');
+
+  var sheet = getOrCreateSheet_(SHEET_SEGUNDA_VIA_AVULSA, CABECALHO_SEGUNDA_VIA_AVULSA);
+  var id = gerarProximoIdAvulso_();
+  var agora = new Date();
+  sheet.appendRow([
+    id, identificador, normalizarTexto_(dados.Marca), normalizarTexto_(dados.Descricao),
+    new Date(dados.DataEmissao), perfil.email, agora
+  ]);
+
+  // Mesma ação de log que uma emissão normal — é o que faz esse registro
+  // contar no Relatório de Produtividade (getRelatorioProdutividade já lê
+  // essa mesma aba de log por ação "SEGUNDA_VIA_ATPVE") sem precisar de
+  // nenhuma lógica de contagem separada.
+  registrarLog_('SEGUNDA_VIA_ATPVE', id, 'Emissão: ' + dados.DataEmissao);
+  invalidarCacheDashboard_();
+  return { mensagem: '2ª via de ATPVe registrada com sucesso (veículo fora da base — registro avulso).', ID: id };
+}
+
 /**
  * Busca um veículo já cadastrado por Placa OU Chassi — usada pelo fluxo
  * "Cadastrar Emissão de 2ª via de ATPVe" pra localizar o veículo antes de
- * registrar a emissão. Não cria nada; devolve null se não achar (ou se a
- * busca vier vazia). Reaproveita listarVeiculos (já filtra por UF conforme
- * o perfil do usuário) e depois exige bater exatamente com Chassi ou
- * Placa — busca por substring aqui poderia trazer o veículo errado.
+ * registrar a emissão. Devolve null se não achar (ou se a busca vier
+ * vazia) na base normal NEM nos registros avulsos (ver
+ * SHEET_SEGUNDA_VIA_AVULSA) — aí quem chamou oferece "registrar assim
+ * mesmo" pra veículo doado antes deste sistema existir. Reaproveita
+ * listarVeiculos (já filtra por UF conforme o perfil do usuário) e depois
+ * exige bater exatamente com Chassi ou Placa — busca por substring aqui
+ * poderia trazer o veículo errado.
  */
 function buscarVeiculoParaSegundaVia(busca) {
   exigirPerfilEditor_(); // aba/opção fica visível a todos, mas só admin/usuário podem usar
@@ -1939,17 +2024,36 @@ function buscarVeiculoParaSegundaVia(busca) {
   var encontrado = candidatos.filter(function (r) {
     return normalizarChassi_(r.Chassi) === chassiBusca || normalizarPlaca_(r.Placa) === placaBusca;
   })[0];
-  if (!encontrado) return null;
+  if (encontrado) {
+    return {
+      ID: encontrado.ID,
+      Marca: encontrado.Marca,
+      Descricao: encontrado.Descricao,
+      Chassi: encontrado.Chassi,
+      Placa: encontrado.Placa,
+      Donataria: encontrado.Donataria,
+      UF: encontrado.UF,
+      DataEmissaoSegundaViaATPVe: encontrado.DataEmissaoSegundaViaATPVe
+    };
+  }
 
+  var avulso = buscarAvulsoPorTermo_(termo);
+  if (!avulso) return null;
+  // O identificador avulso não diferencia placa de chassi na hora de
+  // guardar (ver registrarSegundaViaAvulsa) — decide aqui, só pra
+  // exibição, com base no formato de cada um.
+  var identificadorNormalizado = normalizarPlaca_(avulso.Identificador);
+  var ehPlaca = validarPlaca_(identificadorNormalizado);
   return {
-    ID: encontrado.ID,
-    Marca: encontrado.Marca,
-    Descricao: encontrado.Descricao,
-    Chassi: encontrado.Chassi,
-    Placa: encontrado.Placa,
-    Donataria: encontrado.Donataria,
-    UF: encontrado.UF,
-    DataEmissaoSegundaViaATPVe: encontrado.DataEmissaoSegundaViaATPVe
+    ID: avulso.ID,
+    Marca: avulso.Marca,
+    Descricao: avulso.Descricao,
+    Chassi: ehPlaca ? '' : avulso.Identificador,
+    Placa: ehPlaca ? avulso.Identificador : '',
+    Donataria: '',
+    UF: '',
+    avulso: true,
+    DataEmissaoSegundaViaATPVe: avulso.DataEmissaoSegundaViaATPVe
   };
 }
 
@@ -1961,6 +2065,19 @@ function buscarVeiculoParaSegundaVia(busca) {
  */
 function registrarSegundaViaAtpve(id, dataEmissao) {
   if (!dataEmissao) throw new Error('Informe a data de emissão da 2ª via.');
+
+  // ID "AV-..." é um registro avulso (veículo fora da base — ver
+  // SHEET_SEGUNDA_VIA_AVULSA), não uma linha da aba Veiculos.
+  if (String(id).indexOf('AV-') === 0) {
+    var perfilAvulso = exigirPerfilEditor_();
+    var sheetAvulso = getOrCreateSheet_(SHEET_SEGUNDA_VIA_AVULSA, CABECALHO_SEGUNDA_VIA_AVULSA);
+    var linhaAvulsa = encontrarLinhaAvulsaPorId_(sheetAvulso, id);
+    if (!linhaAvulsa) throw new Error('Registro avulso não encontrado: ' + id);
+    sheetAvulso.getRange(linhaAvulsa, 5).setValue(new Date(dataEmissao));
+    registrarLog_('SEGUNDA_VIA_ATPVE', id, 'Emissão: ' + dataEmissao);
+    invalidarCacheDashboard_();
+    return { mensagem: '2ª via de ATPVe registrada com sucesso (registro avulso).', ID: id };
+  }
 
   var perfil = getPerfilUsuarioAtual_();
   var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
@@ -1993,11 +2110,19 @@ function removerSegundaViaAtpve(idVeiculo) {
   exigirPerfilAdmin_();
   if (!idVeiculo) throw new Error('Veículo inválido.');
 
-  var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  var linhaVeiculo = encontrarLinhaPorId_(sheetVeiculos, idVeiculo);
-  if (!linhaVeiculo) throw new Error('Veículo não encontrado: ' + idVeiculo);
-  sheetVeiculos.getRange(linhaVeiculo, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1).setValue('');
-  invalidarCacheDashboard_();
+  if (String(idVeiculo).indexOf('AV-') === 0) {
+    var sheetAvulso = getOrCreateSheet_(SHEET_SEGUNDA_VIA_AVULSA, CABECALHO_SEGUNDA_VIA_AVULSA);
+    var linhaAvulsa = encontrarLinhaAvulsaPorId_(sheetAvulso, idVeiculo);
+    if (!linhaAvulsa) throw new Error('Registro avulso não encontrado: ' + idVeiculo);
+    sheetAvulso.getRange(linhaAvulsa, 5).setValue('');
+    invalidarCacheDashboard_();
+  } else {
+    var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+    var linhaVeiculo = encontrarLinhaPorId_(sheetVeiculos, idVeiculo);
+    if (!linhaVeiculo) throw new Error('Veículo não encontrado: ' + idVeiculo);
+    sheetVeiculos.getRange(linhaVeiculo, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1).setValue('');
+    invalidarCacheDashboard_();
+  }
 
   var sheetLog = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
   var dadosLog = sheetLog.getDataRange().getValues();
@@ -2020,9 +2145,9 @@ function removerSegundaViaAtpve(idVeiculo) {
  */
 function listarVeiculosComSegundaViaEmitida() {
   exigirPerfilAdmin_();
-  var lista = listarVeiculos({}).filter(function (v) { return !!v.DataEmissaoSegundaViaATPVe; });
   var fuso = Session.getScriptTimeZone();
-  return lista.map(function (v) {
+  var lista = listarVeiculos({}).filter(function (v) { return !!v.DataEmissaoSegundaViaATPVe; });
+  var resultado = lista.map(function (v) {
     return {
       ID: v.ID,
       Placa: v.Placa,
@@ -2034,6 +2159,26 @@ function listarVeiculosComSegundaViaEmitida() {
       DataEmissaoSegundaViaATPVe: Utilities.formatDate(new Date(v.DataEmissaoSegundaViaATPVe), fuso, 'dd/MM/yyyy')
     };
   });
+
+  // Registros avulsos (veículo fora da base — ver SHEET_SEGUNDA_VIA_AVULSA)
+  // entram na mesma lista, pra ter um único lugar de revisão/remoção.
+  var sheetAvulso = getOrCreateSheet_(SHEET_SEGUNDA_VIA_AVULSA, CABECALHO_SEGUNDA_VIA_AVULSA);
+  sheetAvulso.getDataRange().getValues().slice(1).forEach(function (linha) {
+    if (!linha[4]) return;
+    var ehPlaca = validarPlaca_(normalizarPlaca_(linha[1]));
+    resultado.push({
+      ID: linha[0],
+      Placa: ehPlaca ? linha[1] : '',
+      Chassi: ehPlaca ? '' : linha[1],
+      Marca: linha[2],
+      Descricao: linha[3],
+      Donataria: '(fora da base)',
+      UF: '',
+      DataEmissaoSegundaViaATPVe: Utilities.formatDate(new Date(linha[4]), fuso, 'dd/MM/yyyy')
+    });
+  });
+
+  return resultado;
 }
 
 /**
@@ -2057,6 +2202,15 @@ function getRelatorioProdutividade(dataInicio, dataFim) {
   var veiculoPorId = {};
   listarVeiculos({}).forEach(function (v) { veiculoPorId[v.ID] = v; });
 
+  // Registros avulsos (ver SHEET_SEGUNDA_VIA_AVULSA) resolvidos à parte —
+  // não estão em listarVeiculos() porque nunca foram cadastrados de
+  // verdade como veículo.
+  var avulsoPorId = {};
+  getOrCreateSheet_(SHEET_SEGUNDA_VIA_AVULSA, CABECALHO_SEGUNDA_VIA_AVULSA)
+    .getDataRange().getValues().slice(1).forEach(function (linha) {
+      if (linha[0]) avulsoPorId[linha[0]] = { Placa: linha[1], Marca: linha[2], Descricao: linha[3] };
+    });
+
   var sheetLog = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
   var dadosLog = sheetLog.getDataRange().getValues().slice(1);
   var fuso = Session.getScriptTimeZone();
@@ -2072,6 +2226,7 @@ function getRelatorioProdutividade(dataInicio, dataFim) {
     var email = String(linha[1] || '').trim().toLowerCase();
     var nome = nomesPorEmail[email] || email || 'Desconhecido';
     var veiculo = veiculoPorId[linha[3]];
+    var avulso = avulsoPorId[linha[3]];
 
     porUsuario[nome] = (porUsuario[nome] || 0) + 1;
     emissoes.push({
@@ -2079,9 +2234,9 @@ function getRelatorioProdutividade(dataInicio, dataFim) {
       dataHoraIso: new Date(dataHora).toISOString(),
       dataHora: Utilities.formatDate(new Date(dataHora), fuso, 'dd/MM/yyyy HH:mm'),
       idVeiculo: linha[3],
-      placa: veiculo ? veiculo.Placa : '(veículo excluído)',
-      marca: veiculo ? veiculo.Marca : '',
-      descricao: veiculo ? veiculo.Descricao : '',
+      placa: veiculo ? veiculo.Placa : (avulso ? avulso.Placa + ' (fora da base)' : '(veículo excluído)'),
+      marca: veiculo ? veiculo.Marca : (avulso ? avulso.Marca : ''),
+      descricao: veiculo ? veiculo.Descricao : (avulso ? avulso.Descricao : ''),
       usuario: nome
     });
   });
@@ -2127,18 +2282,35 @@ function excluirEmissaoAtpve(idVeiculo, dataHoraIso) {
   if (!linhaAlvo) throw new Error('Registro de emissão não encontrado — pode já ter sido excluído.');
   sheetLog.deleteRow(linhaAlvo);
 
+  // O log guarda o instante exato do clique (com hora); o campo do
+  // veículo/registro avulso guarda só a data digitada no formulário (sem
+  // hora) — os dois timestamps nunca batem exatamente. A comparação certa
+  // é por data, usando o texto salvo em "Detalhes" (formato "Emissão:
+  // AAAA-MM-DD").
+  var dataEmissaoTexto = detalhesAlvo.replace('Emissão:', '').trim();
+  var fuso = Session.getScriptTimeZone();
+
+  if (String(idVeiculo).indexOf('AV-') === 0) {
+    var sheetAvulso = getOrCreateSheet_(SHEET_SEGUNDA_VIA_AVULSA, CABECALHO_SEGUNDA_VIA_AVULSA);
+    var linhaAvulsa = encontrarLinhaAvulsaPorId_(sheetAvulso, idVeiculo);
+    if (linhaAvulsa) {
+      var celulaAvulsa = sheetAvulso.getRange(linhaAvulsa, 5);
+      var valorAvulsoAtual = celulaAvulsa.getValue();
+      if (valorAvulsoAtual && dataEmissaoTexto &&
+        Utilities.formatDate(new Date(valorAvulsoAtual), fuso, 'yyyy-MM-dd') === dataEmissaoTexto) {
+        celulaAvulsa.setValue('');
+        invalidarCacheDashboard_();
+      }
+    }
+    return { mensagem: 'Emissão de 2ª via excluída com sucesso.' };
+  }
+
   var sheetVeiculos = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
   var linhaVeiculo = encontrarLinhaPorId_(sheetVeiculos, idVeiculo);
   if (linhaVeiculo) {
     var celula = sheetVeiculos.getRange(linhaVeiculo, colunaParaIndice_('DataEmissaoSegundaViaATPVe') + 1);
     var valorAtual = celula.getValue();
-    // O log guarda o instante exato do clique (com hora); o campo do
-    // veículo guarda só a data digitada no formulário (sem hora) — os dois
-    // timestamps nunca batem exatamente. A comparação certa é por data,
-    // usando o texto salvo em "Detalhes" (formato "Emissão: AAAA-MM-DD").
-    var dataEmissaoTexto = detalhesAlvo.replace('Emissão:', '').trim();
     if (valorAtual && dataEmissaoTexto) {
-      var fuso = Session.getScriptTimeZone();
       if (Utilities.formatDate(new Date(valorAtual), fuso, 'yyyy-MM-dd') === dataEmissaoTexto) {
         celula.setValue('');
         invalidarCacheDashboard_();
