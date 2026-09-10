@@ -446,11 +446,26 @@ function validarRenavam_(renavam) {
 }
 
 function gerarProximoId_() {
+  return reservarProximosIds_(1)[0];
+}
+
+// Reserva "quantidade" IDs sequenciais de uma vez só — uma leitura e uma
+// escrita em PropertiesService, não uma leitura/escrita por veículo. As
+// rotas de cadastro em lote (salvarProcessoEditado, importarVeiculosEmLote_)
+// chamavam gerarProximoId_() um a um dentro do loop; num processo com muitos
+// veículos isso virava dezenas de idas sequenciais ao PropertiesService só
+// pra gerar ID. Continua dentro da mesma seção crítica (LockService) de
+// quem chama, então a exclusividade do bloco reservado não muda.
+function reservarProximosIds_(quantidade) {
+  if (!quantidade) return [];
   var props = PropertiesService.getDocumentProperties();
   var seq = Number(props.getProperty('SEQ_VEICULO') || '0');
-  seq += 1;
-  props.setProperty('SEQ_VEICULO', String(seq));
-  return 'VC-' + ('000000' + seq).slice(-6);
+  var ids = [];
+  for (var i = 1; i <= quantidade; i++) {
+    ids.push('VC-' + ('000000' + (seq + i)).slice(-6));
+  }
+  props.setProperty('SEQ_VEICULO', String(seq + quantidade));
+  return ids;
 }
 
 function registrarLog_(acao, idVeiculo, detalhes) {
@@ -3808,6 +3823,10 @@ function importarVeiculosEmLote_(comum, veiculos) {
   var agora = new Date();
   var criados = [], jaExistiam = [], erros = [], novasLinhas = [];
 
+  // 1ª passada: só validação e checagem de duplicidade, sem gerar ID ainda
+  // — não dá pra saber de antemão quantos veículos vão realmente ser
+  // criados (alguns caem em erro/duplicidade e são pulados).
+  var registrosParaCriar = [];
   veiculos.forEach(function (v) {
     var dadosVeiculo = {};
     for (var campo in comum) dadosVeiculo[campo] = comum[campo];
@@ -3826,7 +3845,16 @@ function importarVeiculosEmLote_(comum, veiculos) {
       return;
     }
 
-    var id = gerarProximoId_();
+    chassisExistentes[registro.Chassi] = true;
+    placasExistentes[registro.Placa] = true;
+    registrosParaCriar.push(registro);
+  });
+
+  // 2ª passada: reserva de uma vez só os IDs de quem realmente vai ser
+  // criado (ver reservarProximosIds_) e monta as linhas.
+  var idsReservados = reservarProximosIds_(registrosParaCriar.length);
+  registrosParaCriar.forEach(function (registro, indice) {
+    var id = idsReservados[indice];
     novasLinhas.push(CABECALHO_VEICULOS.map(function (campoCabecalho) {
       switch (campoCabecalho) {
         case 'ID': return id;
@@ -3839,8 +3867,6 @@ function importarVeiculosEmLote_(comum, veiculos) {
         default: return registro[campoCabecalho] !== undefined ? registro[campoCabecalho] : '';
       }
     }));
-    chassisExistentes[registro.Chassi] = true;
-    placasExistentes[registro.Placa] = true;
     criados.push(id + ' — ' + (registro.Placa || registro.Chassi));
   });
 
@@ -4115,6 +4141,16 @@ function salvarProcessoEditado(comuns, veiculos) {
   var idsNovos = [];
   var novasLinhas = [];
 
+  // Reserva de uma vez só os IDs de todos os veículos novos deste lote
+  // (os que não trazem "ID" — os com ID são edição de um veículo já
+  // existente, não precisam de ID novo). Ver reservarProximosIds_.
+  var qtdVeiculosNovos = 0;
+  for (var vNovo = 0; vNovo < veiculos.length; vNovo++) {
+    if (!veiculos[vNovo].ID) qtdVeiculosNovos++;
+  }
+  var idsReservados = reservarProximosIds_(qtdVeiculosNovos);
+  var proximoIdReservadoIdx = 0;
+
   for (var v = 0; v < veiculos.length; v++) {
     var veiculo = veiculos[v];
     var dadosVeiculo = {};
@@ -4160,7 +4196,7 @@ function salvarProcessoEditado(comuns, veiculos) {
       linhaAtual[idxAtualizadoPor] = perfil.email;
       faixaLinha.setValues([linhaAtual]);
     } else {
-      var novoId = gerarProximoId_();
+      var novoId = idsReservados[proximoIdReservadoIdx++];
       var novaLinha = CABECALHO_VEICULOS.map(function (campo) {
         switch (campo) {
           case 'ID': return novoId;
