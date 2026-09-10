@@ -5088,7 +5088,14 @@ function processarLinhaOrigem_(linha, aba, numLinha, chassisExistentes, origensE
 // PAINEL — agregações estatísticas (dashboard)
 // ======================================================================
 
-var CACHE_DASHBOARD_SEGUNDOS = 300;
+// 6h (máximo do CacheService). Os dados aqui embaixo (Estatísticas,
+// Cobrança, últimos transferidos) não dependem desse prazo pra ficar
+// atualizados — toda gravação relevante (cadastro, edição, exclusão, TEP,
+// ATPVe etc.) já chama invalidarCacheDashboard_() na hora, que apaga essas
+// chaves na hora. O TTL só serve de rede de segurança; 300s fazia
+// recalcular tudo a cada 5 minutos mesmo sem nenhuma mudança de verdade —
+// 6h reduz bastante esse recálculo à toa.
+var CACHE_DASHBOARD_SEGUNDOS = 21600;
 var CACHE_ANOS_SEGUNDOS = 21600; // 6h (máximo do CacheService) — anos disponíveis raríssimo mudam
 
 // ======================================================================
