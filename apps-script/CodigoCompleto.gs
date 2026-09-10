@@ -5092,7 +5092,15 @@ var CACHE_VEICULOS_PREFIXO = 'veiculos_snapshot_v2_';
 var CACHE_VEICULOS_META = CACHE_VEICULOS_PREFIXO + 'meta';
 var CACHE_VEICULOS_SEGUNDOS = 120;
 var CACHE_VEICULOS_TAMANHO_PEDACO = 85000;
-var CACHE_VEICULOS_MAX_PEDACOS = 20;
+// A base de veículos já passou de 2,1 MB de JSON (medido em 09/2026, ~3.850
+// linhas) — com o limite antigo de 20 pedaços (1,7 MB), o cache estava
+// SEMPRE excedendo o teto e desistindo silenciosamente (ver condição
+// "pedacos <= CACHE_VEICULOS_MAX_PEDACOS" abaixo), ou seja: nunca
+// cacheava de verdade, sempre relia a planilha inteira em toda chamada.
+// 40 pedaços (3,4 MB) dá folga de ~60% sobre o tamanho atual pro
+// crescimento natural da base — bem dentro do limite documentado do
+// CacheService (até 1.000 chaves por putAll/getAll).
+var CACHE_VEICULOS_MAX_PEDACOS = 40;
 var CAMPOS_DATA_VEICULO_CACHE = [
   'DataCadastro', 'DataTransferencia', 'UltimaAtualizacao',
   'DataEmissaoSegundaViaATPVe', 'DataEmissaoATPVe', 'DataExclusao',
@@ -5157,6 +5165,15 @@ function obterDadosVeiculosCacheados_() {
       }
       valoresCache[CACHE_VEICULOS_META] = JSON.stringify({ pedacos: pedacos });
       cache.putAll(valoresCache, CACHE_VEICULOS_SEGUNDOS);
+    } else {
+      // Isso NÃO pode passar em silêncio de novo — foi exatamente esse
+      // caso, sem log nenhum, que deixou o cache de veículos desistindo
+      // sempre por meses sem ninguém perceber. Fica registrado nas
+      // Execuções do Apps Script pra dar pra notar antes de virar
+      // lentidão generalizada de novo.
+      Logger.log('AVISO: cache de veículos excedeu o limite (' + pedacos + ' pedaços, máximo ' +
+        CACHE_VEICULOS_MAX_PEDACOS + ') — não foi cacheado desta vez. Considere aumentar ' +
+        'CACHE_VEICULOS_MAX_PEDACOS ou reduzir os campos guardados no cache.');
     }
   } catch (e2) {
     // Falha de cache nunca deve impedir a leitura normal da aplicação.
