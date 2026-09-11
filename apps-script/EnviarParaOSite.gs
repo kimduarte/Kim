@@ -14,7 +14,9 @@
  *  4. Preencha o CODIGO_DE_SEGURANCA logo abaixo (é o SETUP_TOKEN que você
  *     guardou quando criou as variáveis na Vercel).
  *  5. Clique no ícone de disquete (Salvar).
- *  6. Rode PRIMEIRO a função PASSO_1_conferir (escolha o nome dela na
+ *  6. Rode PRIMEIRO a função PASSO_0_testarConexao — ela só bate no site e
+ *     volta, para confirmar que o código de segurança está certo antes de
+ *     qualquer outra coisa. Depois rode PASSO_1_conferir (escolha o nome dela na
  *     caixinha ao lado do botão "Executar" e clique em Executar).
  *     Ela não envia nada — só confere a planilha e escreve um relatório.
  *     No fim do relatório aparece "PROBLEMAS ENCONTRADOS: 0". Se o número
@@ -141,6 +143,98 @@ var COLUNAS = [
   ['UltimaAtualizacao', 'data', 0],
   ['AtualizadoPor', 'texto', 120]
 ];
+
+// =====================================================================
+// PASSO 0 — testar a conexão com o site (não lê a planilha)
+// =====================================================================
+
+/**
+ * Roda isto primeiro, ou sempre que der "código de segurança inválido".
+ * Não lê a planilha e não grava nada: só bate no site e volta.
+ */
+function PASSO_0_testarConexao() {
+  var r = [];
+  r.push('==========================================================');
+  r.push('TESTE DE CONEXÃO — não lê a planilha, não grava nada');
+  r.push('==========================================================');
+  r.push('Endereço do site: ' + ENDERECO_DO_SITE);
+  r.push('');
+
+  var bruto = String(CODIGO_DE_SEGURANCA || '');
+  if (!bruto || bruto.indexOf('COLE_AQUI') === 0) {
+    r.push('O CODIGO_DE_SEGURANCA ainda é o texto de exemplo.');
+    r.push('Lá em cima, troque COLE_AQUI_O_SETUP_TOKEN pelo código de verdade,');
+    r.push('mantendo as aspas. Salve e rode de novo.');
+    mostrar_(r.join('\n'));
+    return;
+  }
+
+  // Descreve o que está escrito no script, sem mostrar o código em si.
+  r.push('Sobre o código que está escrito neste arquivo:');
+  r.push('  tamanho: ' + bruto.length + ' caractere(s)');
+  if (bruto !== bruto.trim()) {
+    r.push('  ATENÇÃO: tem espaço em branco no começo ou no fim — vou tirar antes de enviar.');
+  }
+  if (/[\u2018\u2019\u201C\u201D]/.test(bruto)) {
+    r.push('  ATENÇÃO: tem aspas curvas (“ ” ‘ ’) dentro dele. Isso costuma');
+    r.push('           acontecer quando o código passou pelo Word. Apague e');
+    r.push('           digite as aspas direto aqui no editor.');
+  }
+  if (/\s/.test(bruto.trim())) {
+    r.push('  ATENÇÃO: tem espaço no meio do código. Confira se copiou só o valor.');
+  }
+  r.push('');
+
+  var resposta;
+  try {
+    resposta = UrlFetchApp.fetch(
+      ENDERECO_DO_SITE + '/api/importar?formato=json&token=' +
+        encodeURIComponent(codigoLimpo_()),
+      { muteHttpExceptions: true }
+    );
+  } catch (e) {
+    r.push('Não consegui nem chegar ao site: ' + e);
+    r.push('Confira se o endereço acima está certo e se há internet.');
+    mostrar_(r.join('\n'));
+    return;
+  }
+
+  var codigoHttp = resposta.getResponseCode();
+  var texto = resposta.getContentText();
+  var dados = null;
+  try { dados = JSON.parse(texto); } catch (e) { /* resposta não é JSON */ }
+
+  if (codigoHttp === 200 && dados && dados.ok) {
+    r.push('FUNCIONOU. O site aceitou o código.');
+    r.push('');
+    r.push('O banco tem agora ' + dados.contagem.total + ' veículo(s).');
+    r.push('');
+    r.push('Pode seguir para o PASSO_1_conferir.');
+  } else if (codigoHttp === 403) {
+    r.push('O SITE RECUSOU O CÓDIGO.');
+    r.push('');
+    r.push('  ' + (dados && dados.erro ? dados.erro : texto.substring(0, 300)));
+    r.push('');
+    r.push('O código existe na Vercel, mas o valor é outro. Para comparar:');
+    r.push('  1. Abra vercel.com, entre no projeto sisget;');
+    r.push('  2. Settings > Environment Variables;');
+    r.push('  3. Na linha SETUP_TOKEN, clique no olhinho para revelar o valor;');
+    r.push('  4. Copie de lá e cole aqui entre as aspas, sem espaços.');
+    r.push('');
+    r.push('Se preferir, troque o SETUP_TOKEN na Vercel por um valor novo e');
+    r.push('simples (só letras e números). Depois de mudar, é PRECISO republicar:');
+    r.push('  Deployments > nos três pontinhos do primeiro da lista > Redeploy.');
+  } else if (codigoHttp === 404) {
+    r.push('O site respondeu "não encontrei esse endereço" (404).');
+    r.push('Isso quer dizer que a versão publicada ainda não tem /api/importar.');
+    r.push('Espere um minuto e tente de novo, ou me avise.');
+  } else {
+    r.push('O site respondeu de um jeito que eu não esperava (HTTP ' + codigoHttp + '):');
+    r.push('  ' + texto.substring(0, 400));
+  }
+
+  mostrar_(r.join('\n'));
+}
 
 // =====================================================================
 // PASSO 1 — conferir a planilha (não envia nada, não muda nada)
@@ -690,13 +784,21 @@ function lerPlanilha_() {
   return { linhas: uteis, posicao: posicao, faltando: faltando, primeiraLinhaDeDados: 2 };
 }
 
+/**
+ * O código de segurança sem espaço em volta. Colar num editor costuma trazer
+ * um espaço ou uma quebra de linha junto, e isso sozinho faz o site recusar.
+ */
+function codigoLimpo_() {
+  return String(CODIGO_DE_SEGURANCA || '').trim();
+}
+
 /** Manda um pedido para o site e devolve a resposta já lida. */
 function chamar_(acao, nomes, linhas) {
   var corpo = { acao: acao };
   if (nomes) { corpo.colunas = nomes; corpo.linhas = linhas; }
 
   var resposta = UrlFetchApp.fetch(
-    ENDERECO_DO_SITE + '/api/importar?token=' + encodeURIComponent(CODIGO_DE_SEGURANCA),
+    ENDERECO_DO_SITE + '/api/importar?token=' + encodeURIComponent(codigoLimpo_()),
     {
       method: 'post',
       contentType: 'application/json',

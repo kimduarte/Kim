@@ -174,6 +174,39 @@ function tokenConfere(request: Request): boolean {
   return recebido === esperado;
 }
 
+/**
+ * Explica por que o código não foi aceito, sem dizer nada sobre o código
+ * certo. Só descreve o que CHEGOU — e quem mandou já sabe o que mandou.
+ * Sem isto, "código inválido" não diz se faltou colar, se sobrou espaço ou
+ * se é outro código.
+ */
+function descreverTokenErrado(request: Request): string {
+  const url = new URL(request.url);
+  const recebido = url.searchParams.get("token") ?? request.headers.get("x-token");
+
+  if (recebido === null) return "Não veio nenhum código de segurança no pedido.";
+  if (recebido === "") return "O código de segurança veio em branco.";
+
+  const pistas: string[] = [];
+  if (recebido !== recebido.trim()) {
+    pistas.push("ele tem espaço em branco no começo ou no fim");
+  }
+  if (/[\u2018\u2019\u201C\u201D]/.test(recebido)) {
+    pistas.push("ele tem aspas curvas dentro (“ ” ‘ ’), que costumam vir de texto copiado do Word");
+  }
+  if (/COLE_AQUI/i.test(recebido)) {
+    pistas.push("ele ainda é o texto de exemplo, não foi substituído pelo código de verdade");
+  }
+
+  return (
+    `O código de segurança não confere. ` +
+    `Recebi um código de ${recebido.length} caractere(s)` +
+    (pistas.length ? `, e ${pistas.join("; ")}.` : ".") +
+    ` Confira se é exatamente o mesmo valor do SETUP_TOKEN em ` +
+    `Vercel → projeto sisget → Settings → Environment Variables.`
+  );
+}
+
 export async function POST(request: Request) {
   if (!process.env.SETUP_TOKEN) {
     return respostaJson(
@@ -182,7 +215,7 @@ export async function POST(request: Request) {
     );
   }
   if (!tokenConfere(request)) {
-    return respostaJson({ ok: false, erro: "Código de segurança inválido." }, 403);
+    return respostaJson({ ok: false, erro: descreverTokenErrado(request) }, 403);
   }
 
   let corpo: CorpoPedido;
@@ -405,7 +438,7 @@ export async function GET(request: Request) {
   if (!tokenConfere(request)) {
     return pagina(
       `<h1>Link inválido</h1>
-       <p>Esta página só abre com o link completo, que inclui o código de segurança.</p>`,
+       <p>${escapar(descreverTokenErrado(request))}</p>`,
       false
     );
   }
