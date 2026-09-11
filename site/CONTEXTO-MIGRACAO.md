@@ -265,10 +265,21 @@ de conferência nunca rodaram contra o banco de verdade.
 
 ### Achado: o limite de 6 minutos do Apps Script
 
-A primeira execução do `PASSO_1_conferir` na base real levou **5min27**
-(22:43:39 → 22:49:06 nos registros do Cloud). O Apps Script desliga qualquer
-execução aos 6 minutos, e o envio faz tudo o que a conferência faz **mais**
-12 mil conversões de data e 20 idas à internet. Ia estourar.
+A primeira execução do `PASSO_1_conferir` na base real aparecia com **5min27**
+nos registros do Cloud (22:43:39 → 22:49:06), perto do corte de 6 minutos do
+Apps Script.
+
+**Esse diagnóstico estava errado, e vale registrar por quê.** O tempo não era
+computação: era `SpreadsheetApp.getUi().alert()`, a janelinha do relatório, que
+trava a execução até alguém clicar OK. A execução seguinte, já com a
+cronometragem interna, mostrou o número real: **3 segundos**. Lição: em Apps
+Script, o tempo no Cloud Logging inclui espera por interação humana — só a
+medição feita dentro do próprio script diz quanto tempo o código levou.
+
+As mudanças abaixo continuam valendo por mérito próprio (12.117 chamadas de
+serviço eliminadas, e retomada como rede de proteção), mas não pela urgência
+que lhes foi atribuída. O `alert` agora mostra só o desfecho, para a janela ser
+rápida de fechar e não consumir o tempo da execução.
 
 Duas mudanças resolveram:
 

@@ -879,15 +879,30 @@ function paraTexto_(valor) {
 }
 
 /**
- * Mostra o relatório. Aparece sempre no "Registro de execução" (embaixo do
- * editor) e, quando dá, também numa janelinha na planilha.
+ * Mostra o relatório.
+ *
+ * O relatório inteiro vai para o "Registro de execução" (embaixo do editor),
+ * que é de onde dá para copiar. A janelinha na planilha mostra só o desfecho:
+ * ela TRAVA a execução até alguém clicar OK, e esse tempo parado conta para o
+ * limite de 6 minutos do Google. Janela curta, clique rápido.
  */
 function mostrar_(texto) {
   Logger.log(texto);
   try {
-    SpreadsheetApp.getUi().alert(texto.length > 1400 ? texto.substring(0, 1400) +
-      '\n\n[...] veja o restante no "Registro de execução", embaixo do editor.' : texto);
+    SpreadsheetApp.getUi().alert(desfecho_(texto));
   } catch (e) {
     // Rodando pelo editor sem a planilha aberta: o registro já basta.
   }
+}
+
+/** As últimas linhas com conteúdo — é onde fica o veredito. */
+function desfecho_(texto) {
+  var linhas = String(texto).split('\n');
+  var fim = [];
+  for (var i = linhas.length - 1; i >= 0 && fim.length < 12; i--) {
+    if (linhas[i].replace(/[=\s]/g, '') !== '') fim.unshift(linhas[i]);
+  }
+  return fim.join('\n') +
+         '\n\nO relatório completo está no "Registro de execução",\n' +
+         'embaixo do editor — é de lá que dá para copiar.';
 }
