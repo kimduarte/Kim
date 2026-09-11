@@ -100,6 +100,15 @@ Alternativas descartadas (não reabrir sem motivo novo):
 - `app/api/setup/route.ts` — cria banco e tabela (idempotente), protegido por
   token, e **confere no próprio banco** o resultado. Responde em HTML legível.
 - `db/01-criar-tabelas.sql` — o mesmo DDL em arquivo, para referência.
+- `lib/colunas-veiculos.ts` — as 45 colunas (planilha → banco) com tipo e
+  tamanho. Fonte única dessa correspondência; as telas vão ler daqui também.
+- `app/api/importar/route.ts` — recebe os veículos em lotes e grava.
+  Confere tudo antes de gravar qualquer coisa (ver seção 9).
+
+### Código no repositório (pasta `apps-script/`)
+- `EnviarParaOSite.gs` — script que a Kim cola no editor do Apps Script da
+  planilha. Lê a aba `Veiculos` e envia para `/api/importar`. Não altera a
+  planilha, só lê.
 
 ## 5. Restrições importantes do ambiente
 
@@ -118,6 +127,14 @@ Consequências práticas:
 - Para conferir o que está acontecendo, peça capturas de tela a ela.
 - **Você consegue** acessar o Google Drive/Sheets dela pelas ferramentas MCP —
   use isso para conferir dados reais em vez de supor.
+
+**O repositório `kimduarte/Kim` é PÚBLICO.** Confirmado pela API do GitHub.
+Consequência: **nenhum dado real de veículo pode ser commitado** — chassi,
+RENAVAM, placa, CNPJ, endereços e nomes de servidores ficariam visíveis para
+qualquer pessoa. Isso descarta a ideia de commitar um arquivo de dados e
+importar por um endpoint que lê do repositório.
+(A planilha em si está a salvo: é compartilhada apenas com 7 contas nomeadas,
+não com "qualquer pessoa com o link". O ID dela no repositório não abre nada.)
 
 ## 6. Autorizações já concedidas
 
@@ -174,25 +191,76 @@ StatusCadastro→status_cadastro   AnoModelo→ano_modelo
 
 ## 9. PRÓXIMO PASSO — importar os 3.851 veículos
 
-A tabela está criada e **vazia**. Falta levar os dados.
+A tabela está criada e **vazia**. O código para levar os dados está pronto e
+testado; falta a Kim executar.
 
-Caminho planejado: **gerar um CSV** a partir da planilha ao vivo e a Kim sobe
-por **TiDB Cloud → Data → Import → "Upload a local file"** (aceita CSV até
-250 MiB; SQL só via Amazon S3, por isso CSV).
+### Como funciona (e por que não é mais o CSV)
 
-Cuidados que já identificamos para esse CSV:
-- Datas no formato `AAAA-MM-DD HH:MM:SS`.
-- `valor_veiculo` como número com ponto decimal.
-- Células vazias em colunas DATETIME/INT **não podem ir como texto vazio** —
-  precisam da representação de nulo que o importador do TiDB espera
-  (normalmente `\N`). **Peça a ela uma captura da tela de configuração da
-  importação** antes de gerar o arquivo final, para acertar de primeira.
-- UTF-8 (a base tem acentos: "NÃO", nomes de donatárias).
+O plano anterior era gerar um CSV e subir em TiDB Cloud → Data → Import. Foi
+trocado por um caminho melhor: **a própria planilha envia os dados para o
+site**, via `UrlFetchApp` do Apps Script.
 
-Alternativa, se o CSV der trabalho: criar um endpoint de importação no próprio
-site (como foi feito com `/api/setup`), lendo os dados de um arquivo commitado
-no repositório. Atenção ao limite de tempo de execução de função na Vercel —
-seria preciso importar em lotes.
+Vantagens sobre o CSV:
+- Os dados vão da planilha dela direto para o banco dela. Não passam pelo
+  Claude, nem pelo repositório (que é público), nem por um arquivo no
+  computador dela.
+- Acaba a incerteza sobre como o importador do TiDB representa campo vazio
+  (`\N` ou não) — quem converte é código nosso, dos dois lados.
+- Serve depois para **ressincronizar** durante o período em que os dois
+  sistemas vão rodar em paralelo. É só rodar de novo.
+
+### O passo a passo que ela executa
+
+1. Planilha → Extensões → Apps Script → novo arquivo `EnviarParaOSite`,
+   cola `apps-script/EnviarParaOSite.gs`, preenche o `CODIGO_DE_SEGURANCA`
+   (é o `SETUP_TOKEN`) e salva.
+2. Roda **`PASSO_1_conferir`** — não envia nada, só lê a planilha e escreve
+   um relatório. Termina com `PROBLEMAS ENCONTRADOS: N`. Se N não for zero,
+   ela manda o relatório antes de seguir.
+3. Roda **`PASSO_2_enviar`** — envia em lotes de 200.
+4. Abre `https://sisget.vercel.app/api/importar?token=SEU_CODIGO` no
+   navegador: uma página com as contagens para conferir contra a planilha.
+
+### Cuidados que já estão resolvidos no código
+
+- **Duas passadas.** O envio primeiro valida TODOS os lotes sem gravar nada;
+  só grava se não houver nenhum problema. Nunca sobra meia base importada.
+- **Repetir é seguro.** Grava com `REPLACE`, então o mesmo veículo enviado
+  duas vezes é regravado por cima, não duplicado. Isso também resolve o
+  limite de 6 minutos do Apps Script: se estourar, é só rodar de novo.
+- **Datas** viram texto `AAAA-MM-DD HH:MM:SS` no fuso do Brasil, casando com
+  o `dateStrings: true` do `lib/db.ts`. O que ela vê na planilha é o que fica
+  no banco.
+- **Valor do veículo** aceita número e texto no padrão brasileiro
+  ("196.950,00"), com a mesma regra do `normalizarValorMonetario_` atual.
+- **Campos SIM/NÃO em branco** viram `NÃO` (é como o sistema atual sempre
+  leu). Caixa de seleção marcada/desmarcada também é entendida.
+- **RENAVAM/chassi guardados como número** na planilha viram texto sem
+  notação científica nem separador de milhar. O `PASSO_1` ainda avisa
+  quantos estão nessa situação, porque aí pode haver zero à esquerda já
+  perdido na planilha — problema anterior à migração, mas que vale conferir.
+- **Texto que não cabe** no campo é reportado com linha, ID e campo, em vez
+  de o banco cortar pela metade em silêncio.
+
+### O que foi testado
+
+Sem acesso ao banco a partir daqui, foi testado tudo que não depende dele:
+- `npm run build` passa (TypeScript incluído).
+- O endpoint foi exercitado de verdade no caminho `validar` (que não toca o
+  banco): caminho feliz, token errado, corpo inválido, ação desconhecida,
+  data inexistente (31/02), mês 13, texto grande demais, SIM/NÃO inválido,
+  inteiro com letra, ano fora do SMALLINT, valor ilegível, ID em branco, ID
+  repetido, coluna faltando, colunas fora de ordem e lote de 200.
+- O `.gs` foi rodado em Node com a planilha simulada (datas como `Date`,
+  valor como texto brasileiro, RENAVAM como número, caixa de seleção,
+  acentos, linha em branco no fim) e o que ele produziu foi alimentado no
+  endpoint real — passa.
+- O caminho ruim também: planilha com defeitos gera relatório apontando
+  linha, ID, campo e motivo, e o envio para antes de gravar.
+
+**Ainda não testado (só dá para testar com ela):** a conexão real com o
+TiDB e a gravação em si. O `REPLACE INTO` em lote e as contagens da página
+de conferência nunca rodaram contra o banco de verdade.
 
 ### Depois da importação
 1. Conferir: contagem no banco tem que bater com 3.851, e conciliar uma
