@@ -147,7 +147,8 @@ não com "qualquer pessoa com o link". O ID dela no repositório não abre nada.
 
 ## 7. Dados reais (medidos, não estimados)
 
-- **3.851 veículos** na aba `Veiculos`, 45 colunas.
+- **3.852 veículos** na aba `Veiculos`, 45 colunas (eram 3.851 na medição
+  anterior; a base cresce).
 - ~433 bytes de dado por veículo; ~1,67 MB de dado bruto no total.
 - Aba `LogAlteracoes`: 2.231 registros, ~650 KB.
 - **Uma duplicidade intencional**: chassi `93XDLLC2TVCT12957` / placa
@@ -261,6 +262,38 @@ Sem acesso ao banco a partir daqui, foi testado tudo que não depende dele:
 **Ainda não testado (só dá para testar com ela):** a conexão real com o
 TiDB e a gravação em si. O `REPLACE INTO` em lote e as contagens da página
 de conferência nunca rodaram contra o banco de verdade.
+
+### Achado: zeros à esquerda comidos pela planilha
+
+O `PASSO_1_conferir` rodado na base real (3.852 veículos) apontou campos de
+tamanho fixo guardados como NÚMERO na planilha — e número não tem zero à
+esquerda. O Google Sheets converte sozinho qualquer célula que pareça número.
+
+| Campo | Como número | Exemplo achado | Tamanho certo |
+|---|---|---|---|
+| `Renavam` | 3.846 | `1326606414` (10) | 11 |
+| `CEP` | 397 | `3033901` (7) | 8 |
+| `CNPJDonataria` | 395 | `4198514003846` (13) | 14 |
+| `NumeroSei` | 3.839 | `24860169` (8) | variável |
+
+**Resolvido no código (determinístico):** CEP e CNPJ têm tamanho fixo, então
+só existe uma resposta certa. `restaurarZeros_` no `.gs` completa o CEP até 8
+e o CNPJ até 14 — este último só quando já tem 12 ou 13 dígitos, para não
+transformar um CPF (11) em CNPJ. Ligado por `RESTAURAR_ZEROS_PERDIDOS`.
+Reforço de que é o certo: o próprio sistema atual recusa CEP que não tenha 8
+dígitos (`CEP inválido`, em `validarESanitizarVeiculo_`).
+
+**Em aberto:** o `RENAVAM`. `validarRenavam_` aceita de 9 a 11 dígitos, então
+um de 10 pode ser legítimo e o sistema nunca reclamou. Na base **nenhum** tem
+11 dígitos, o que é suspeito para veículos 2024–2026 (o padrão atual é 11),
+mas suspeita não basta. A checagem definitiva é a Kim conferir um RENAVAM num
+CRLV/ATPVe e ver se começa com zero. O código já está pronto: basta virar
+`RESTAURAR_ZERO_DO_RENAVAM` para `true`.
+
+**Importante:** a correção vale só para o que vai ao banco. A planilha não é
+alterada — o script nunca escreve nela. Ou seja, **o dado continua errado na
+planilha e no sistema atual**. Corrigir lá é trabalho para a outra sessão, a
+que cuida do Apps Script.
 
 ### Depois da importação
 1. Conferir: contagem no banco tem que bater com 3.851, e conciliar uma

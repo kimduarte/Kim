@@ -40,6 +40,30 @@ var ENDERECO_DO_SITE = 'https://sisget.vercel.app';
 var CODIGO_DE_SEGURANCA = 'COLE_AQUI_O_SETUP_TOKEN';
 
 /**
+ * O Google Sheets transforma em NÚMERO qualquer célula que pareça número —
+ * e número não tem zero à esquerda. Por isso o CEP "03033901" virou 3033901
+ * e o CNPJ "04198514003846" virou 4198514003846 dentro da planilha.
+ *
+ * Com isto ligado, o zero é devolvido na hora de mandar para o banco:
+ *   CEP  -> completa até 8 dígitos   (o sistema atual já exige 8: ver a
+ *           validação "CEP inválido" no CodigoCompleto)
+ *   CNPJ -> completa até 14 dígitos, e só quando já tem 12 ou 13, para não
+ *           mexer num CPF (11 dígitos) por engano.
+ *
+ * Não é chute: os dois têm tamanho fixo, então só existe uma resposta certa.
+ * A planilha NÃO é alterada — a correção vale só para o que vai ao banco.
+ */
+var RESTAURAR_ZEROS_PERDIDOS = true;
+
+/**
+ * O mesmo para o RENAVAM, que hoje tem 11 dígitos. DESLIGADO de propósito:
+ * validarRenavam_ no sistema atual aceita de 9 a 11 dígitos, então um RENAVAM
+ * de 10 pode ser legítimo. Só ligue depois de conferir um RENAVAM de verdade
+ * num CRLV ou ATPVe e confirmar que ele começa com zero.
+ */
+var RESTAURAR_ZERO_DO_RENAVAM = false;
+
+/**
  * Proteção contra clique errado. Só vire para true se você REALMENTE quiser
  * que PASSO_3_apagarTudoDoBanco apague todos os veículos do banco novo.
  * A planilha nunca é afetada, em nenhuma hipótese.
@@ -236,25 +260,58 @@ function PASSO_1_conferir() {
   // --- Risco de zero à esquerda perdido ------------------------------
   // Chassi/RENAVAM/CEP/CNPJ guardados como NÚMERO na planilha podem ter
   // perdido o zero da frente antes mesmo desta migração. Vale conferir.
-  r.push('--- Campos de texto guardados como número (risco de zero à esquerda) ---');
-  var achouNumero = false;
-  var suspeitos = ['Chassi', 'Renavam', 'Placa', 'CEP', 'CNPJDonataria', 'NumeroSei'];
+  // Campos de tamanho fixo guardados como número perdem o zero da frente
+  // dentro da própria planilha. Aqui a gente mede quantos, de quanto, e o
+  // que a correção vai fazer com eles.
+  r.push('--- Documentos com tamanho fixo (zero à esquerda) ---');
+  var suspeitos = [
+    ['CEP', 8], ['CNPJDonataria', 14], ['Renavam', 11],
+    ['Chassi', 17], ['Placa', 0], ['NumeroSei', 0]
+  ];
   for (var s = 0; s < suspeitos.length; s++) {
-    var posN = base.posicao[suspeitos[s]];
+    var nomeN = suspeitos[s][0], esperado = suspeitos[s][1];
+    var posN = base.posicao[nomeN];
     if (posN === undefined || posN < 0) continue;
-    var comoNumero = 0, exN = '';
+
+    var tamanhos = {}, comoNumero = 0, preenchidosN = 0;
+    var corrigidos = 0, exemploCorrecao = '', curtos = 0, exemploCurto = '';
     for (var n = 0; n < linhas.length; n++) {
-      if (typeof linhas[n][posN] === 'number') {
-        comoNumero++;
-        if (!exN) exN = String(linhas[n][posN]);
+      var bn = linhas[n][posN];
+      if (bn === '' || bn === null) continue;
+      preenchidosN++;
+      if (typeof bn === 'number') comoNumero++;
+
+      var tn = paraTexto_(bn);
+      tamanhos[tn.length] = (tamanhos[tn.length] || 0) + 1;
+
+      var depois = restaurarZeros_(nomeN, tn);
+      if (depois !== tn) {
+        corrigidos++;
+        if (!exemploCorrecao) exemploCorrecao = tn + '  vira  ' + depois;
+      } else if (esperado && /^\d+$/.test(tn) && tn.length < esperado) {
+        // Curto E a correção não pegou: é caso de decidir, não de contar
+        // junto com os que já vão ser consertados.
+        curtos++;
+        if (!exemploCurto) exemploCurto = tn;
       }
     }
-    if (comoNumero) {
-      achouNumero = true;
-      r.push('  ' + suspeitos[s] + ': ' + comoNumero + ' célula(s) (ex.: ' + exN + ')');
+    if (!preenchidosN) continue;
+
+    var chavesT = Object.keys(tamanhos).sort(function (a, b) { return Number(a) - Number(b); });
+    r.push('  ' + nomeN + (esperado ? ' (o certo são ' + esperado + ' dígitos)' : '') + ':');
+    r.push('    preenchidos: ' + preenchidosN + '   |   guardados como número: ' + comoNumero);
+    r.push('    tamanhos encontrados: ' + chavesT.map(function (k) {
+      return tamanhos[k] + ' com ' + k;
+    }).join(', '));
+    if (corrigidos) {
+      r.push('    JÁ CORRIJO: ' + corrigidos + ' vão receber o zero de volta (ex.: ' +
+             exemploCorrecao + ')');
+    }
+    if (curtos) {
+      r.push('    A DECIDIR: ' + curtos + ' estão curtos e eu NÃO vou mexer ' +
+             '(ex.: ' + exemploCurto + ')');
     }
   }
-  if (!achouNumero) r.push('  Nenhum. Todos estão guardados como texto.');
   r.push('');
 
   // --- Números inteiros (Ano, quantidades) ---------------------------
@@ -393,7 +450,7 @@ function PASSO_2_enviar() {
       var bruto = origem[base.posicao[nome]];
       if (tipo === 'data') destino.push(paraDataOuOriginal_(bruto, fuso));
       else if (tipo === 'decimal') destino.push(paraDinheiro_(bruto));
-      else destino.push(paraTexto_(bruto));
+      else destino.push(restaurarZeros_(nome, paraTexto_(bruto)));
     }
     destino.push(base.primeiraLinhaDeDados + i); // nº da linha na planilha
     prontas.push(destino);
@@ -619,6 +676,39 @@ function paraDataOuOriginal_(valor, fuso) {
   var convertida = paraDataTexto_(valor, fuso);
   if (convertida) return convertida;
   return paraTexto_(valor);
+}
+
+/**
+ * Devolve o zero à esquerda que a planilha comeu, para os campos em que o
+ * tamanho é fixo e conhecido. Se o valor já está certo, não muda nada.
+ */
+function restaurarZeros_(nomeCampo, texto) {
+  if (!texto) return texto;
+  // Só mexe quando é só dígito. Se tem hífen/barra, já veio formatado e
+  // completo ("01310-100"), então não há zero perdido.
+  if (!/^\d+$/.test(texto)) return texto;
+
+  if (nomeCampo === 'CEP' && RESTAURAR_ZEROS_PERDIDOS) {
+    if (texto.length < 8 && texto.length >= 5) return zerosAEsquerda_(texto, 8);
+  }
+
+  if (nomeCampo === 'CNPJDonataria' && RESTAURAR_ZEROS_PERDIDOS) {
+    // 12 ou 13 dígitos só pode ser CNPJ encurtado. 11 fica quieto: pode ser
+    // um CPF legítimo.
+    if (texto.length === 12 || texto.length === 13) return zerosAEsquerda_(texto, 14);
+  }
+
+  if (nomeCampo === 'Renavam' && RESTAURAR_ZERO_DO_RENAVAM) {
+    if (texto.length < 11 && texto.length >= 9) return zerosAEsquerda_(texto, 11);
+  }
+
+  return texto;
+}
+
+function zerosAEsquerda_(texto, tamanho) {
+  var saida = String(texto);
+  while (saida.length < tamanho) saida = '0' + saida;
+  return saida;
 }
 
 /**
