@@ -263,6 +263,34 @@ Sem acesso ao banco a partir daqui, foi testado tudo que não depende dele:
 TiDB e a gravação em si. O `REPLACE INTO` em lote e as contagens da página
 de conferência nunca rodaram contra o banco de verdade.
 
+### Achado: o limite de 6 minutos do Apps Script
+
+A primeira execução do `PASSO_1_conferir` na base real levou **5min27**
+(22:43:39 → 22:49:06 nos registros do Cloud). O Apps Script desliga qualquer
+execução aos 6 minutos, e o envio faz tudo o que a conferência faz **mais**
+12 mil conversões de data e 20 idas à internet. Ia estourar.
+
+Duas mudanças resolveram:
+
+1. **`Utilities.formatDate` saiu do caminho.** É uma chamada de serviço do
+   Google, e havia uma por data — 12.117 delas num envio completo. Trocada
+   por `formatarDataLocal_`, conta feita em JavaScript puro com os métodos
+   comuns de `Date`, que já devolvem a hora no fuso do projeto. Medido: zero
+   chamadas de serviço no caminho do envio. O `PASSO_1` compara as duas
+   contas numa amostra de 50 datas reais e acusa se um dia divergirem.
+2. **O envio virou retomável.** `PASSO_2_enviar` lê a planilha em fatias de
+   200 linhas (nunca a aba inteira de uma vez) e guarda em
+   `PropertiesService` a próxima linha a processar. Se bater 4min30, ele
+   para limpo, salva onde parou e manda rodar de novo — a execução seguinte
+   continua dali. `PASSO_2B_recomecarDoPrimeiroVeiculo` zera esse progresso.
+
+Efeito colateral: a validação em duas passadas (validar tudo, só então
+gravar) saiu. Ela não fazia mais sentido com retomada, em que base parcial é
+estado normal e recuperável. A rede de proteção continua: o `PASSO_1` valida
+tudo localmente antes (e é espelho fiel do servidor — há teste conferindo que
+os dois chegam à mesma contagem de problemas), e o servidor valida cada lote
+inteiro antes de gravar qualquer linha dele.
+
 ### Achado: zeros à esquerda comidos pela planilha
 
 O `PASSO_1_conferir` rodado na base real (3.852 veículos) apontou campos de
@@ -271,10 +299,17 @@ esquerda. O Google Sheets converte sozinho qualquer célula que pareça número.
 
 | Campo | Como número | Exemplo achado | Tamanho certo |
 |---|---|---|---|
-| `Renavam` | 3.846 | `1326606414` (10) | 11 |
-| `CEP` | 397 | `3033901` (7) | 8 |
-| `CNPJDonataria` | 395 | `4198514003846` (13) | 14 |
-| `NumeroSei` | 3.839 | `24860169` (8) | variável |
+| `Renavam` | 3.846 de 3.846 | 23 com 9 dígitos, 3.823 com 10, **nenhum com 11** | 11 |
+| `CEP` | 397 de 397 | 67 com 7 dígitos, 330 com 8 | 8 |
+| `CNPJDonataria` | 395 de 395 | 13 com 12, 77 com 13, 305 com 14 | 14 |
+| `NumeroSei` | 3.839 | 8 com 7, 3.831 com 8 | variável |
+
+Medido na base real: 67 CEPs e 90 CNPJs são corrigidos. Os 67 CEPs são 16,9%
+do total — bate com a proporção de CEPs brasileiros que começam com zero (a
+faixa `0…` é São Paulo), o que é uma confirmação independente de que a
+correção está certa. `Chassi` (3.846 com 17) e `Placa` (3.846 com 7) estão
+todos como texto e íntegros. `NumeroSei` não tem tamanho fixo, então fica
+intocado.
 
 **Resolvido no código (determinístico):** CEP e CNPJ têm tamanho fixo, então
 só existe uma resposta certa. `restaurarZeros_` no `.gs` completa o CEP até 8
@@ -283,12 +318,20 @@ transformar um CPF (11) em CNPJ. Ligado por `RESTAURAR_ZEROS_PERDIDOS`.
 Reforço de que é o certo: o próprio sistema atual recusa CEP que não tenha 8
 dígitos (`CEP inválido`, em `validarESanitizarVeiculo_`).
 
-**Em aberto:** o `RENAVAM`. `validarRenavam_` aceita de 9 a 11 dígitos, então
-um de 10 pode ser legítimo e o sistema nunca reclamou. Na base **nenhum** tem
-11 dígitos, o que é suspeito para veículos 2024–2026 (o padrão atual é 11),
-mas suspeita não basta. A checagem definitiva é a Kim conferir um RENAVAM num
-CRLV/ATPVe e ver se começa com zero. O código já está pronto: basta virar
-`RESTAURAR_ZERO_DO_RENAVAM` para `true`.
+**Em aberto:** o `RENAVAM`, e a evidência ficou muito mais forte com os
+números reais. Se os RENAVAMs tivessem tamanhos variados por natureza,
+apareceriam alguns com 11 dígitos. **Nenhum dos 3.846 tem.** O que existe é
+exatamente o padrão de zero perdido: 3.823 com 10 dígitos (perderam um zero)
+e 23 com 9 (perderam dois). Some-se que o valor de exemplo, 1.326.606.414,
+está na casa do contador RENAVAM atual — ou seja, o número real é
+`01326606414`.
+
+Ainda assim não foi ligado: `validarRenavam_` aceita de 9 a 11 dígitos, então
+o sistema nunca reclamou, e são 3.846 registros de patrimônio público. A
+checagem definitiva custa um minuto: a Kim abre um ATPVe ou CRLV e vê se o
+RENAVAM impresso tem 11 dígitos começando com zero. Confirmado, é só virar
+`RESTAURAR_ZERO_DO_RENAVAM` para `true` e rodar o `PASSO_2_enviar` de novo —
+o `REPLACE` atualiza os registros existentes, não duplica.
 
 **Importante:** a correção vale só para o que vai ao banco. A planilha não é
 alterada — o script nunca escreve nela. Ou seja, **o dado continua errado na

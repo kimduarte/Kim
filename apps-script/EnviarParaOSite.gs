@@ -78,6 +78,16 @@ var ABA = 'Veiculos';
 var VEICULOS_POR_LOTE = 200;
 
 /**
+ * O Google desliga qualquer execução aos 6 minutos. Paramos antes disso, com
+ * folga para salvar o progresso e escrever o relatório.
+ */
+var LIMITE_DE_TEMPO_MS = 4.5 * 60 * 1000;
+
+/** Onde o progresso do envio fica guardado entre uma execução e outra. */
+var CHAVE_PROXIMA_LINHA = 'IMPORTACAO_PROXIMA_LINHA';
+var CHAVE_JA_GRAVADOS = 'IMPORTACAO_JA_GRAVADOS';
+
+/**
  * As 45 colunas, com o tipo e o tamanho que o banco aceita.
  *
  * Precisa ficar igual a site/lib/colunas-veiculos.ts. Mudou lá, muda aqui.
@@ -147,7 +157,9 @@ function problema_(r, texto) {
 
 function PASSO_1_conferir() {
   _problemasEncontrados = 0;
+  var comecou = new Date().getTime();
   var base = lerPlanilha_();
+  var segundosLeitura = Math.round((new Date().getTime() - comecou) / 1000);
   var linhas = base.linhas;
   var fuso = Session.getScriptTimeZone();
 
@@ -158,6 +170,37 @@ function PASSO_1_conferir() {
   r.push('Aba lida: ' + ABA);
   r.push('Veículos encontrados: ' + linhas.length);
   r.push('Fuso horário do script: ' + fuso);
+  r.push('Tempo para ler a planilha: ' + segundosLeitura + 's');
+  r.push('');
+
+  // A conversão de data foi feita à mão para não gastar uma chamada de
+  // serviço por data (eram ~12 mil, e isso sozinho estourava o limite de
+  // tempo). Aqui a conta é comparada com o Utilities.formatDate numa amostra
+  // de datas reais — se um dia deixarem de bater, aparece como problema em
+  // vez de passar despercebido.
+  var amostra = [];
+  var posDataC = base.posicao['DataCadastro'];
+  for (var d0 = 0; d0 < linhas.length && amostra.length < 50; d0++) {
+    var cand = linhas[d0][posDataC];
+    if (ehData_(cand)) amostra.push(cand);
+  }
+  var divergencias = 0, exemploDiv = '';
+  for (var a = 0; a < amostra.length; a++) {
+    var naMao = formatarDataLocal_(amostra[a]);
+    var peloGoogle = Utilities.formatDate(amostra[a], fuso, 'yyyy-MM-dd HH:mm:ss');
+    if (naMao !== peloGoogle) {
+      divergencias++;
+      if (!exemploDiv) exemploDiv = naMao + ' x ' + peloGoogle;
+    }
+  }
+  if (divergencias) {
+    problema_(r, 'A conversão rápida de data não bateu com a do Google em ' +
+                 divergencias + ' de ' + amostra.length + ' datas (ex.: ' +
+                 exemploDiv + '). NÃO envie — me avise.');
+  } else {
+    r.push('Conversão de data conferida em ' + amostra.length +
+           ' datas reais: bate com a do Google.');
+  }
   r.push('');
 
   if (base.faltando.length) {
@@ -208,7 +251,7 @@ function PASSO_1_conferir() {
       preenchidas++;
       if (!ehData_(v)) {
         // Não é uma data de verdade: é texto. Pode ou não dar certo.
-        if (!paraDataTexto_(v, fuso)) {
+        if (!paraDataTexto_(v)) {
           naoSaoData++;
           if (!exemploRuim) exemploRuim = String(v);
         }
@@ -402,6 +445,9 @@ function PASSO_1_conferir() {
 
   // Veredito: um número, para não depender de ninguém caçar marcações no
   // meio do relatório.
+  r.push('Tempo total da conferência: ' +
+         Math.round((new Date().getTime() - comecou) / 1000) + 's');
+  r.push('');
   r.push('==========================================================');
   r.push('PROBLEMAS ENCONTRADOS: ' + _problemasEncontrados);
   if (_problemasEncontrados === 0) {
@@ -428,98 +474,157 @@ function PASSO_2_enviar() {
   }
 
   var comecou = new Date().getTime();
-  var base = lerPlanilha_();
-  var fuso = Session.getScriptTimeZone();
+  var props = PropertiesService.getDocumentProperties();
   var r = [];
 
-  if (base.faltando.length) {
-    mostrar_('Não dá para enviar: a planilha não tem estas colunas:\n  ' +
-             base.faltando.join(', '));
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA);
+  if (!sheet) {
+    mostrar_('Não achei a aba "' + ABA + '" nesta planilha.');
     return;
   }
 
-  // Converte tudo de uma vez. A última posição de cada linha é o número da
-  // linha na planilha, para o relatório de problemas saber onde apontar.
-  var nomes = COLUNAS.map(function (c) { return c[0]; });
-  var prontas = [];
-  for (var i = 0; i < base.linhas.length; i++) {
-    var origem = base.linhas[i];
-    var destino = [];
-    for (var c = 0; c < COLUNAS.length; c++) {
-      var nome = COLUNAS[c][0], tipo = COLUNAS[c][1];
-      var bruto = origem[base.posicao[nome]];
-      if (tipo === 'data') destino.push(paraDataOuOriginal_(bruto, fuso));
-      else if (tipo === 'decimal') destino.push(paraDinheiro_(bruto));
-      else destino.push(restaurarZeros_(nome, paraTexto_(bruto)));
-    }
-    destino.push(base.primeiraLinhaDeDados + i); // nº da linha na planilha
-    prontas.push(destino);
+  var totalLinhas = sheet.getLastRow();
+  var totalColunas = sheet.getLastColumn();
+  if (totalLinhas < 2) {
+    mostrar_('A aba "' + ABA + '" não tem nenhum veículo.');
+    return;
   }
 
-  r.push('Veículos lidos da planilha: ' + prontas.length);
+  // Onde estão as colunas — lido uma vez só, não a cada fatia.
+  var cabecalho = sheet.getRange(1, 1, 1, totalColunas).getValues()[0];
+  var posicao = {};
+  for (var i = 0; i < cabecalho.length; i++) posicao[String(cabecalho[i]).trim()] = i;
+
+  var faltando = [];
+  for (var c = 0; c < COLUNAS.length; c++) {
+    if (posicao[COLUNAS[c][0]] === undefined) faltando.push(COLUNAS[c][0]);
+  }
+  if (faltando.length) {
+    mostrar_('Não dá para enviar: a planilha não tem estas colunas:\n  ' +
+             faltando.join(', '));
+    return;
+  }
+
+  var nomes = [];
+  for (var n = 0; n < COLUNAS.length; n++) nomes.push(COLUNAS[n][0]);
+
+  // De onde continuar. O Apps Script desliga qualquer execução aos 6 minutos;
+  // em vez de tentar caber tudo numa só, o progresso fica guardado e cada
+  // execução continua da linha seguinte à última gravada.
+  var proxima = Number(props.getProperty(CHAVE_PROXIMA_LINHA) || '2');
+  if (!proxima || proxima < 2) proxima = 2;
+  var jaGravados = Number(props.getProperty(CHAVE_JA_GRAVADOS) || '0');
+
+  if (proxima > 2) {
+    r.push('Continuando de onde parei: linha ' + proxima + ' da planilha.');
+    r.push('(já gravados até agora: ' + jaGravados + ')');
+    r.push('');
+  }
+
+  r.push('Vou percorrer as linhas 2 a ' + totalLinhas + ' da aba ' +
+         '(linhas em branco no fim são puladas).');
   r.push('');
+  r.push('--- Gravando no banco, de ' + VEICULOS_POR_LOTE + ' em ' +
+         VEICULOS_POR_LOTE + ' ---');
 
-  // --- 1ª passada: conferir tudo, sem gravar -------------------------
-  r.push('--- Conferindo (nada é gravado nesta etapa) ---');
-  var lotes = Math.ceil(prontas.length / VEICULOS_POR_LOTE);
-  for (var v = 0; v < lotes; v++) {
-    var pedaco = prontas.slice(v * VEICULOS_POR_LOTE, (v + 1) * VEICULOS_POR_LOTE);
-    var resp = chamar_('validar', nomes, pedaco);
-    if (!resp.ok) {
-      r.push('  [PROBLEMA] PAREI no lote ' + (v + 1) + ' de ' + lotes);
-      r.push(descreverErro_(resp));
+  var gravadosAgora = 0;
+
+  while (proxima <= totalLinhas) {
+    // Para com folga antes do corte do Google, para conseguir salvar o
+    // progresso e escrever o relatório.
+    if (new Date().getTime() - comecou > LIMITE_DE_TEMPO_MS) {
+      props.setProperty(CHAVE_PROXIMA_LINHA, String(proxima));
+      props.setProperty(CHAVE_JA_GRAVADOS, String(jaGravados));
+      var faltam = totalLinhas - proxima + 1;
       r.push('');
-      r.push('NADA foi gravado no banco. Corrija a planilha e rode de novo,');
-      r.push('ou mande este relatório para o Claude.');
+      r.push('[ATENÇÃO] Parei antes do limite de tempo do Google (6 minutos).');
+      r.push('  Gravados nesta rodada: ' + gravadosAgora);
+      r.push('  Gravados no total: ' + jaGravados);
+      r.push('  Ainda faltam cerca de ' + faltam + ' linha(s).');
+      r.push('');
+      r.push('  RODE PASSO_2_enviar DE NOVO. Ele continua da linha ' + proxima + ',');
+      r.push('  não recomeça do zero e não duplica nada.');
       mostrar_(r.join('\n'));
       return;
     }
-    r.push('  lote ' + (v + 1) + '/' + lotes + ': ' + resp.conferidos + ' ok');
+
+    var quantas = Math.min(VEICULOS_POR_LOTE, totalLinhas - proxima + 1);
+    var fatia = sheet.getRange(proxima, 1, quantas, totalColunas).getValues();
+
+    var prontas = [];
+    for (var f = 0; f < fatia.length; f++) {
+      var origem = fatia[f];
+      // Linha sem ID é linha vazia no fim da aba — pula.
+      if (!paraTexto_(origem[posicao['ID']])) continue;
+
+      var destino = [];
+      for (var k = 0; k < COLUNAS.length; k++) {
+        var nomeCol = COLUNAS[k][0], tipo = COLUNAS[k][1];
+        var bruto = origem[posicao[nomeCol]];
+        if (tipo === 'data') destino.push(paraDataOuOriginal_(bruto));
+        else if (tipo === 'decimal') destino.push(paraDinheiro_(bruto));
+        else destino.push(restaurarZeros_(nomeCol, paraTexto_(bruto)));
+      }
+      destino.push(proxima + f); // nº da linha na planilha, para o relatório
+      prontas.push(destino);
+    }
+
+    if (prontas.length) {
+      var resp = chamar_('gravar', nomes, prontas);
+      if (!resp.ok) {
+        // Guarda o ponto de parada para a próxima execução retomar daqui.
+        props.setProperty(CHAVE_PROXIMA_LINHA, String(proxima));
+        props.setProperty(CHAVE_JA_GRAVADOS, String(jaGravados));
+        r.push('');
+        r.push('  [PROBLEMA] O site recusou as linhas ' + proxima + ' a ' +
+               (proxima + quantas - 1) + ':');
+        r.push(descreverErro_(resp));
+        r.push('');
+        r.push('Gravei ' + jaGravados + ' veículos antes disso, e eles estão salvos.');
+        r.push('Corrija o que está apontado acima e rode PASSO_2_enviar de novo —');
+        r.push('ele continua da linha ' + proxima + '.');
+        mostrar_(r.join('\n'));
+        return;
+      }
+      jaGravados += resp.gravados;
+      gravadosAgora += resp.gravados;
+      r.push('  linhas ' + proxima + ' a ' + (proxima + quantas - 1) + ': ' +
+             resp.gravados + ' gravados');
+    }
+
+    proxima += quantas;
+    props.setProperty(CHAVE_PROXIMA_LINHA, String(proxima));
+    props.setProperty(CHAVE_JA_GRAVADOS, String(jaGravados));
   }
-  r.push('  Tudo conferido, nenhum problema.');
-  r.push('');
 
-  // --- 2ª passada: gravar --------------------------------------------
-  r.push('--- Gravando no banco ---');
-  var gravados = 0;
-  for (var g = 0; g < lotes; g++) {
-    // O Apps Script desliga sozinho depois de 6 minutos. Se estiver perto
-    // disso, para limpo e explica como continuar — em vez de morrer no meio
-    // com uma mensagem de erro que não ajuda ninguém.
-    if (new Date().getTime() - comecou > 5 * 60 * 1000) {
-      r.push('');
-      r.push('[ATENÇÃO] Parei por causa do tempo limite do Google (6 minutos).');
-      r.push('    Já gravei ' + gravados + ' veículos.');
-      r.push('    Rode PASSO_2_enviar de novo: gravar duas vezes o mesmo');
-      r.push('    veículo NÃO duplica nada, ele só é regravado por cima.');
-      mostrar_(r.join('\n'));
-      return;
-    }
-
-    var pedacoG = prontas.slice(g * VEICULOS_POR_LOTE, (g + 1) * VEICULOS_POR_LOTE);
-    var respG = chamar_('gravar', nomes, pedacoG);
-    if (!respG.ok) {
-      r.push('  [PROBLEMA] ERRO no lote ' + (g + 1) + ' de ' + lotes);
-      r.push(descreverErro_(respG));
-      r.push('');
-      r.push('Gravei ' + gravados + ' veículos antes do erro. Rodar de novo é');
-      r.push('seguro — não duplica. Mande este relatório para o Claude.');
-      mostrar_(r.join('\n'));
-      return;
-    }
-    gravados += respG.gravados;
-    r.push('  lote ' + (g + 1) + '/' + lotes + ': ' + respG.gravados + ' gravados');
-  }
+  // Chegou ao fim: limpa o progresso para a próxima vez começar do zero.
+  props.deleteProperty(CHAVE_PROXIMA_LINHA);
+  props.deleteProperty(CHAVE_JA_GRAVADOS);
 
   var segundos = Math.round((new Date().getTime() - comecou) / 1000);
   r.push('');
   r.push('==========================================================');
-  r.push('PRONTO — ' + gravados + ' veículos gravados em ' + segundos + ' segundos.');
+  r.push('PRONTO — ' + jaGravados + ' veículos no banco.');
+  r.push('(' + gravadosAgora + ' nesta rodada, em ' + segundos + ' segundos)');
   r.push('==========================================================');
   r.push('Agora abra este endereço no navegador para conferir os números:');
   r.push(ENDERECO_DO_SITE + '/api/importar?token=SEU_CODIGO');
   r.push('(troque SEU_CODIGO pelo mesmo código de segurança)');
   mostrar_(r.join('\n'));
+}
+
+/**
+ * Esquece o progresso guardado, para o próximo PASSO_2_enviar recomeçar da
+ * primeira linha. Não apaga nada do banco — como a gravação é por cima
+ * (REPLACE), reenviar tudo só atualiza o que já está lá.
+ */
+function PASSO_2B_recomecarDoPrimeiroVeiculo() {
+  var props = PropertiesService.getDocumentProperties();
+  props.deleteProperty(CHAVE_PROXIMA_LINHA);
+  props.deleteProperty(CHAVE_JA_GRAVADOS);
+  mostrar_('Certo. O próximo PASSO_2_enviar vai começar do primeiro veículo.\n\n' +
+           'Nada foi apagado do banco: reenviar um veículo que já está lá só\n' +
+           'atualiza o registro, não cria um segundo.');
 }
 
 // =====================================================================
@@ -629,6 +734,26 @@ function descreverErro_(resp) {
   return saida.join('\n');
 }
 
+/**
+ * Formata uma data como "AAAA-MM-DD HH:MM:SS" no fuso do projeto.
+ *
+ * Feito na mão de propósito. Utilities.formatDate é uma chamada de serviço do
+ * Google; multiplicada pelas ~12 mil datas da base, ela sozinha consumia
+ * quase todo o limite de 6 minutos de execução. Os métodos comuns do Date
+ * (getFullYear, getHours...) já devolvem a hora no fuso configurado no
+ * projeto — que é exatamente o fuso que passaríamos ao Utilities.formatDate.
+ * O PASSO_1 compara os dois numa amostra de datas reais e avisa se algum dia
+ * deixarem de bater.
+ */
+function formatarDataLocal_(data) {
+  return data.getFullYear() + '-' +
+         doisDigitos_(data.getMonth() + 1, 2) + '-' +
+         doisDigitos_(data.getDate(), 2) + ' ' +
+         doisDigitos_(data.getHours(), 2) + ':' +
+         doisDigitos_(data.getMinutes(), 2) + ':' +
+         doisDigitos_(data.getSeconds(), 2);
+}
+
 function ehData_(valor) {
   return Object.prototype.toString.call(valor) === '[object Date]' &&
          !isNaN(valor.getTime());
@@ -638,12 +763,10 @@ function ehData_(valor) {
  * Converte para o texto de data que o banco espera: "AAAA-MM-DD HH:MM:SS".
  * Devolve '' quando não consegue — quem chama decide o que fazer com isso.
  */
-function paraDataTexto_(valor, fuso) {
+function paraDataTexto_(valor) {
   if (valor === '' || valor === null || valor === undefined) return '';
 
-  if (ehData_(valor)) {
-    return Utilities.formatDate(valor, fuso, 'yyyy-MM-dd HH:mm:ss');
-  }
+  if (ehData_(valor)) return formatarDataLocal_(valor);
 
   var texto = String(valor).trim();
   if (!texto) return '';
@@ -672,8 +795,8 @@ function paraDataTexto_(valor, fuso) {
  * original — assim o site consegue mostrar no relatório o que estava
  * escrito na célula, em vez de um campo misteriosamente vazio.
  */
-function paraDataOuOriginal_(valor, fuso) {
-  var convertida = paraDataTexto_(valor, fuso);
+function paraDataOuOriginal_(valor) {
+  var convertida = paraDataTexto_(valor);
   if (convertida) return convertida;
   return paraTexto_(valor);
 }
@@ -746,7 +869,7 @@ function doisDigitos_(valor, casas) {
  */
 function paraTexto_(valor) {
   if (valor === null || valor === undefined) return '';
-  if (ehData_(valor)) return Utilities.formatDate(valor, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  if (ehData_(valor)) return formatarDataLocal_(valor);
   if (typeof valor === 'number') {
     if (Math.floor(valor) === valor && Math.abs(valor) < 1e15) return String(valor);
     return String(valor);
