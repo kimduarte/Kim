@@ -5624,8 +5624,78 @@ function invalidarCacheVeiculos_() {
   cache.removeAll(chaves);
 }
 
+// ======================================================================
+// CACHE EM PEDAÇOS (genérico)
+// ======================================================================
+// O CacheService tem limite de ~100 KB POR ITEM. Guardar um valor maior
+// que isso numa chave só simplesmente não funciona — e, pior, falha em
+// silêncio. Foi exatamente o que aconteceu com dois caches deste sistema:
+// eles tinham uma condição do tipo "só grava se couber", a base cresceu,
+// a condição virou sempre falsa e o cache parou de existir sem ninguém
+// perceber — sobrando só a lentidão.
+//
+// A solução é a mesma já usada no snapshot da aba Veiculos: quebrar o
+// texto em pedaços, guardar cada um numa chave, e uma chave "meta" com a
+// contagem para remontar depois.
+var CACHE_TAMANHO_PEDACO_ = 85000; // folga sobre o limite real, por causa de acentos (UTF-8)
+
+function lerCacheEmPedacos_(prefixo) {
+  try {
+    var cache = CacheService.getDocumentCache();
+    var metaTexto = cache.get(prefixo + 'meta');
+    if (!metaTexto) return null;
+
+    var meta = JSON.parse(metaTexto);
+    var chaves = [];
+    for (var i = 0; i < meta.pedacos; i++) chaves.push(prefixo + i);
+
+    var partes = cache.getAll(chaves);
+    var json = '';
+    for (var j = 0; j < chaves.length; j++) {
+      // Pedaço expirado/ausente: descarta tudo em vez de remontar um JSON
+      // truncado, que quebraria no JSON.parse com erro confuso.
+      if (partes[chaves[j]] === undefined) return null;
+      json += partes[chaves[j]];
+    }
+    return JSON.parse(json);
+  } catch (e) {
+    return null; // cache corrompido nunca deve impedir a leitura normal
+  }
+}
+
+function gravarCacheEmPedacos_(prefixo, valor, segundos, maxPedacos) {
+  try {
+    var json = JSON.stringify(valor);
+    var pedacos = Math.ceil(json.length / CACHE_TAMANHO_PEDACO_);
+
+    if (pedacos > maxPedacos) {
+      // Isso NÃO pode passar em silêncio de novo — é o registro que faltou
+      // nas duas vezes em que um cache deste sistema desistiu sozinho.
+      Logger.log('AVISO: cache "' + prefixo + '" excedeu o limite (' + pedacos +
+        ' pedaços, máximo ' + maxPedacos + ') — não foi cacheado desta vez.');
+      return;
+    }
+
+    var valores = {};
+    for (var p = 0; p < pedacos; p++) {
+      valores[prefixo + p] = json.substring(p * CACHE_TAMANHO_PEDACO_, (p + 1) * CACHE_TAMANHO_PEDACO_);
+    }
+    valores[prefixo + 'meta'] = JSON.stringify({ pedacos: pedacos });
+    CacheService.getDocumentCache().putAll(valores, segundos);
+  } catch (e) {
+    // Falha de cache nunca deve impedir a operação em si.
+  }
+}
+
+function invalidarCacheEmPedacos_(prefixo, maxPedacos) {
+  var chaves = [prefixo + 'meta'];
+  for (var i = 0; i < maxPedacos; i++) chaves.push(prefixo + i);
+  CacheService.getDocumentCache().removeAll(chaves);
+}
+
 function invalidarCacheDashboard_() {
   CacheService.getDocumentCache().removeAll(['dash_admin', 'dash_geral', 'anos_disponiveis', 'cobranca_base', 'ultimos_transferidos', 'contadores_inicio']);
+  invalidarCacheEmPedacos_(CACHE_TRANSFERIDOS_PREFIXO_, CACHE_TRANSFERIDOS_MAX_PEDACOS_);
   invalidarCacheVeiculos_();
   invalidarCacheProcessos_();
 }
@@ -5834,15 +5904,21 @@ var LIMITE_TRANSFERIDOS_PAGINA = 100;
  * em memória em cima do resultado já cacheado, mesma técnica de
  * getCobrancaBaseCache_/getEstatisticas.
  */
+var CACHE_TRANSFERIDOS_PREFIXO_ = 'transferidos_v1_';
+var CACHE_TRANSFERIDOS_MAX_PEDACOS_ = 40;
+
 function listarUltimosTransferidos(filtros) {
   var pagina = Math.max(1, parseInt(filtros && filtros.pagina, 10) || 1);
 
-  var cache = CacheService.getDocumentCache();
-  var cacheado = cache.get('ultimos_transferidos');
-  var todos;
-  if (cacheado) {
-    todos = JSON.parse(cacheado);
-  } else {
+  // Cache em pedaços: a lista completa de transferidos passa de 900 KB de
+  // JSON (3.189 veículos), muito acima do limite de ~100 KB por item do
+  // CacheService. Antes havia um "só grava se couber em 100 KB" que, com a
+  // base já nesse tamanho, nunca era verdadeiro — então a base inteira era
+  // relida, filtrada e ordenada a CADA abertura da tela e a cada troca de
+  // página, e ainda serializava 1 MB só pra descobrir que não cabia.
+  var todos = lerCacheEmPedacos_(CACHE_TRANSFERIDOS_PREFIXO_);
+
+  if (!todos) {
     var transferidos = listarVeiculos({ transferido: 'SIM' });
     transferidos.sort(function (a, b) {
       return new Date(b.DataTransferencia || 0) - new Date(a.DataTransferencia || 0);
@@ -5857,14 +5933,19 @@ function listarUltimosTransferidos(filtros) {
         descricao: v.Descricao,
         donataria: v.Donataria,
         uf: v.UF,
-        dataTransferencia: v.DataTransferencia,
+        // Texto ISO em vez do objeto Date: assim a resposta é idêntica
+        // vindo do cache ou da planilha (o cache passa por JSON, que já
+        // converteria a data em texto de qualquer forma), e não depende da
+        // serialização de Date do google.script.run. A tela continua
+        // fazendo new Date(...) em cima disso, como já fazia.
+        dataTransferencia: v.DataTransferencia ? new Date(v.DataTransferencia).toISOString() : '',
         numeroProcesso: v.NumeroProcesso,
         termoDoacao: v.TermoDoacao
       };
     });
 
-    var json = JSON.stringify(todos);
-    if (json.length < 100 * 1024) cache.put('ultimos_transferidos', json, CACHE_DASHBOARD_SEGUNDOS);
+    gravarCacheEmPedacos_(CACHE_TRANSFERIDOS_PREFIXO_, todos,
+      CACHE_DASHBOARD_SEGUNDOS, CACHE_TRANSFERIDOS_MAX_PEDACOS_);
   }
 
   var totalPaginas = Math.max(1, Math.ceil(todos.length / LIMITE_TRANSFERIDOS_PAGINA));

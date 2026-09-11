@@ -2452,10 +2452,33 @@
     });
   }
 
+  var tentativasTransferidos = 0;
+
   async function carregarTransferidos_() {
     mostrarSkeleton_('transferidosResultado', 4);
     try {
       var resp = await chamarServidor_('listarUltimosTransferidos', { pagina: PAGINA_ATUAL_TRANSFERIDOS });
+
+      // Numa chamada pesada, o Apps Script às vezes devolve null em vez de
+      // erro. Sem esse tratamento a tela quebrava com "Cannot read
+      // properties of null (reading 'pagina')" — mensagem que não ajuda
+      // ninguém. Mesma proteção que Processos e Estatísticas já tinham.
+      if (!resp || !resp.itens) {
+        tentativasTransferidos++;
+        if (tentativasTransferidos > 4) {
+          tentativasTransferidos = 0;
+          document.getElementById('transferidosResultado').innerHTML =
+            '<div class="mensagem erro">Não consegui carregar o histórico agora. ' +
+            'Aguarde alguns instantes e clique em "Transferidos" no menu de novo.</div>';
+          return;
+        }
+        document.getElementById('transferidosResultado').innerHTML =
+          '<div class="carregando">Tentando novamente...</div>';
+        setTimeout(carregarTransferidos_, 1200);
+        return;
+      }
+
+      tentativasTransferidos = 0;
       PAGINA_ATUAL_TRANSFERIDOS = resp.pagina || 1;
       renderizarTransferidos_(resp);
     } catch (erro) {
