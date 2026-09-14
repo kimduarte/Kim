@@ -275,6 +275,9 @@ var ORGAOS_POR_UF = {
     { orgao: 'SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA DO RIO DE JANEIRO', cnpj: '53.267.065/0001-64' },
     { orgao: 'POLÍCIA MILITAR', cnpj: '32.690.668/0001-02' },
     { orgao: 'CORPO DE BOMBEIROS', cnpj: '28.176.998/0001-07' },
+    // Filial 0004 da mesma raiz de CNPJ do Corpo de Bombeiros (28.176.998),
+    // o que confere com a Defesa Civil do RJ estar ligada ao CBMERJ.
+    { orgao: 'SECRETARIA DE ESTADO DE DEFESA CIVIL', cnpj: '28.176.998/0004-41' },
     { orgao: 'POLÍCIA CIVIL', cnpj: '32.855.236/0001-04' }
   ],
   RN: [
@@ -3479,6 +3482,13 @@ var DONATARIA_CANONICA_ = {
   'BA|SECRETARIA DE SEGURANCA PUBLICA DA BAHIA - CORPO DE BOMBEIROS MILITAR': 'Corpo de Bombeiros Militar da Bahia',
   'AP|DELEGACIA GERAL DE POLICIA CIVIL DO ESTADO DO AMAPA': 'Pol\u00edcia Civil do Estado do Amap\u00e1',
   'RJ|SECRETARIA DE ESTADO E DEFESA CIVIL - RJ': 'Secretaria de Estado de Defesa Civil do Rio de Janeiro',
+  // Grafia da Razão Social como vem nos Ofícios ("Secretaria de Estado de
+  // Defesa Civil", sem o "do Rio de Janeiro") e como está na lista de
+  // órgãos do RJ. Aponta pro mesmo nome canônico das 11 doações que já
+  // existem na base — sem isto, escolher o órgão na tela ou importar o
+  // Ofício criaria uma SEGUNDA donatária, com o mesmo órgão escrito de
+  // dois jeitos e as estatísticas divididas entre as duas.
+  'RJ|SECRETARIA DE ESTADO DE DEFESA CIVIL': 'Secretaria de Estado de Defesa Civil do Rio de Janeiro',
   'AL|CORPO DE BOMBEIROS': 'Corpo de Bombeiros Militar de Alagoas',
   'ES|ORPO DE BOMBEIROS MILITAR DO ESTADO DO ESPIRITO SANTO': 'Corpo de Bombeiros Militar do Estado do Esp\u00edrito Santo',
 
