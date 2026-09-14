@@ -4631,23 +4631,37 @@ function salvarProcessoEditado(comuns, veiculos) {
   var idxId = colunaParaIndice_('ID');
   var idxChassi = colunaParaIndice_('Chassi');
   var idxPlaca = colunaParaIndice_('Placa');
+  var idxExcluido = colunaParaIndice_('Excluido');
   var idxTransferencia = colunaParaIndice_('DataTransferencia');
   var idxUltimaAtualizacao = colunaParaIndice_('UltimaAtualizacao');
   var idxAtualizadoPor = colunaParaIndice_('AtualizadoPor');
 
   var ultimaLinha = sheet.getLastRow();
-  var largura = Math.max(idxId, idxChassi, idxPlaca) + 1;
+  // "Excluido" entra na largura de leitura porque a checagem de
+  // duplicidade abaixo precisa dela — sem isso a coluna nem chegava aqui.
+  var largura = Math.max(idxId, idxChassi, idxPlaca, idxExcluido) + 1;
   var referencia = ultimaLinha >= 2 ? sheet.getRange(2, 1, ultimaLinha - 1, largura).getValues() : [];
 
   // Linha de cada ID já existente, e quem é "dono" de cada chassi/placa
   // hoje — pra checar duplicidade em memória (mesma lógica de
   // encontrarDuplicado_, só que pré-calculada de uma leitura só).
+  //
+  // Um veículo na Lixeira (Excluido=SIM) NÃO entra como dono de chassi/
+  // placa: a exclusão é lógica, a linha nunca sai da aba, então contá-la
+  // deixaria aquele chassi/placa bloqueado pra sempre — e com uma mensagem
+  // apontando um ID que não aparece em lugar nenhum do site, já que as
+  // telas escondem os excluídos. É a mesma regra que encontrarDuplicado_ e
+  // importarVeiculosEmLote_ já aplicavam; só esta função tinha ficado de
+  // fora. O linhaPorId, esse sim, continua incluindo os excluídos — é por
+  // ele que se acha a linha na planilha pra editar/restaurar um veículo
+  // que está na Lixeira.
   var linhaPorId = {};
   var donoChassi = {}, donoPlaca = {};
   for (var i = 0; i < referencia.length; i++) {
     var idLinha = referencia[i][idxId];
     if (!idLinha) continue;
     linhaPorId[idLinha] = i + 2; // linha real na planilha (1 = cabeçalho)
+    if (idxExcluido !== -1 && referencia[i][idxExcluido] === 'SIM') continue;
     if (referencia[i][idxChassi]) donoChassi[referencia[i][idxChassi]] = idLinha;
     if (referencia[i][idxPlaca]) donoPlaca[referencia[i][idxPlaca]] = idLinha;
   }
@@ -4685,9 +4699,18 @@ function salvarProcessoEditado(comuns, veiculos) {
     // mesmo processo salvos juntos neste lote.
     var donoAtualChassi = registro.Chassi ? donoChassi[registro.Chassi] : null;
     var donoAtualPlaca = registro.Placa ? donoPlaca[registro.Placa] : null;
-    if ((donoAtualChassi && donoAtualChassi !== idAtual) || (donoAtualPlaca && donoAtualPlaca !== idAtual)) {
-      throw new Error('Veículo ' + (v + 1) + ': já existe outro veículo cadastrado com este chassi ou placa (ID ' +
-        (donoAtualChassi || donoAtualPlaca) + ').');
+    var colideChassi = donoAtualChassi && donoAtualChassi !== idAtual;
+    var colidePlaca = donoAtualPlaca && donoAtualPlaca !== idAtual;
+    if (colideChassi || colidePlaca) {
+      // Diz QUAL campo bateu e com que valor — antes a mensagem só dizia
+      // "chassi ou placa", e descobrir qual dos dois era exigia sair
+      // procurando na mão.
+      var motivo = colideChassi
+        ? 'o chassi ' + registro.Chassi + ' já está no veículo ' + donoAtualChassi
+        : 'a placa ' + registro.Placa + ' já está no veículo ' + donoAtualPlaca;
+      throw new Error('Veículo ' + (v + 1) + ' (' + (registro.Placa || registro.Chassi || '?') + '): ' +
+        motivo + '. Use a busca por chassi/placa pra abrir esse veículo; se ele não aparecer em nenhuma ' +
+        'tela, avise — pode ser um cadastro inconsistente.');
     }
 
     if (idAtual) {
