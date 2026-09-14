@@ -4812,15 +4812,17 @@
     }
 
     var acaoGerundio = alvo === 'SIM' ? 'Marcando' : 'Desmarcando';
-    mostrarLoader_(acaoGerundio + ' 1 de ' + pendentes.length + ' veículo(s), aguarde...');
+    mostrarLoader_(acaoGerundio + ' ' + pendentes.length + ' veículo(s), aguarde...');
+    // Uma única ida ao servidor pro processo inteiro. Antes era uma por
+    // veículo, e cada uma relia a planilha inteira pra achar a linha — num
+    // processo grande isso levava minutos. Ver atualizarStatusVeiculosEmLote.
     var erros = [];
-    for (var i = 0; i < pendentes.length; i++) {
-      atualizarTextoLoader_(acaoGerundio + ' ' + (i + 1) + ' de ' + pendentes.length + ' veículo(s), aguarde...');
-      try {
-        await chamarServidor_('atualizarStatusVeiculo', pendentes[i].ID, campo, alvo, datas.dataEmissao, datas.dataEnvio);
-      } catch (erro) {
-        erros.push(pendentes[i].ID + ': ' + (erro.message || String(erro)));
-      }
+    try {
+      var respLote = await chamarServidor_('atualizarStatusVeiculosEmLote',
+        pendentes.map(function (v) { return v.ID; }), campo, alvo, datas.dataEmissao, datas.dataEnvio);
+      erros = (respLote && respLote.erros) || [];
+    } catch (erro) {
+      erros = [erro.message || String(erro)];
     }
     esconderLoader_();
     carregarListagem();

@@ -490,6 +490,30 @@ function registrarLog_(acao, idVeiculo, detalhes) {
   sheet.appendRow([new Date(), getEmailUsuarioAtual_(), acao, idVeiculo, detalhes || '']);
 }
 
+/**
+ * Grava várias linhas de log de uma vez. Um appendRow por veículo é uma
+ * ida à planilha por veículo; aqui é uma gravação só pro lote inteiro.
+ * Recebe uma lista de [acao, idVeiculo, detalhes] — data e usuário são
+ * preenchidos aqui, iguais pra todas as linhas do lote.
+ */
+function registrarLogsEmLote_(entradas) {
+  if (!entradas || !entradas.length) return;
+  var sheet = getOrCreateSheet_(SHEET_LOG, CABECALHO_LOG);
+  var agora = new Date();
+  var usuario = getEmailUsuarioAtual_();
+  var linhas = entradas.map(function (e) {
+    return [agora, usuario, e[0], e[1], e[2] || ''];
+  });
+  var primeiraLinha = sheet.getLastRow() + 1;
+  // appendRow faz a aba crescer sozinha; getRange(...).setValues() não —
+  // se as linhas de log passarem do tamanho atual da grade, o getRange
+  // falha com "range exceeds grid limits". Por isso cria as linhas que
+  // faltarem antes de gravar.
+  var linhasQueFaltam = (primeiraLinha + linhas.length - 1) - sheet.getMaxRows();
+  if (linhasQueFaltam > 0) sheet.insertRowsAfter(sheet.getMaxRows(), linhasQueFaltam);
+  sheet.getRange(primeiraLinha, 1, linhas.length, CABECALHO_LOG.length).setValues(linhas);
+}
+
 function getEmailUsuarioAtual_() {
   try {
     var email = Session.getActiveUser().getEmail();
@@ -1858,80 +1882,196 @@ function parseDataLocal_(valor) {
   return new Date(ano, mes - 1, dia, 12, 0, 0);
 }
 
-function atualizarStatusVeiculo(id, campo, valor, dataEmissaoAtpve, dataEnvioAtpve) {
+/**
+ * Marca ATPVe Emitido/Enviado/Transferido para UM OU VÁRIOS veículos de
+ * uma vez só.
+ *
+ * Antes, marcar N veículos era uma ida ao servidor por veículo, e cada
+ * uma dessas idas relia a coluna inteira de IDs (~3.900 linhas) só pra
+ * achar a linha, escrevia célula por célula (até 8 gravações separadas),
+ * gravava uma linha de log e ainda invalidava o cache inteiro. Um
+ * processo de 50 veículos custava 50 idas ao servidor e mais de 600
+ * chamadas à planilha — por isso "marcar todos" demorava tanto enquanto o
+ * cadastro, que já era em lote, ficou rápido.
+ *
+ * Agora é o mesmo desenho do cadastro em lote: uma leitura da coluna de
+ * IDs, uma leitura e uma gravação por BLOCO de linhas seguidas (os
+ * veículos de um processo são criados juntos, então caem quase sempre num
+ * bloco só), um único append no log e uma única invalidação de cache.
+ *
+ * Um veículo que não pode ser alterado (ex.: desmarcar ATPVe de um
+ * veículo já transferido) não derruba o lote inteiro: entra na lista
+ * "erros" do retorno e os demais seguem normalmente.
+ */
+function atualizarStatusVeiculosEmLote(ids, campo, valor, dataEmissaoAtpve, dataEnvioAtpve) {
   if (['ATPVeEmitido', 'ATPVeEnviado', 'Transferido'].indexOf(campo) === -1) {
     throw new Error('Campo inválido: ' + campo);
   }
   var valorNormalizado = normalizarTransferido_(valor);
   if (!valorNormalizado) throw new Error('Valor inválido: ' + valor);
 
-  var perfil = getPerfilUsuarioAtual_();
-  var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
-  garantirColunasVeiculos_();
-  var linhaIdx = encontrarLinhaPorId_(sheet, id);
-  if (!linhaIdx) throw new Error('Veículo não encontrado: ' + id);
+  var listaIds = (ids || []).filter(function (id) { return !!id; });
+  if (!listaIds.length) throw new Error('Nenhum veículo informado.');
 
+  var perfil = getPerfilUsuarioAtual_();
   if (!podeEditarLinha_(perfil)) {
     throw new Error('Você não tem permissão para editar este registro — visitantes só podem visualizar.');
   }
 
-  // Um veículo transferido implica que o ATPVe dele já foi emitido e
-  // enviado — por segurança/consistência da base:
-  // - Não deixa desmarcar ATPVeEmitido/ATPVeEnviado enquanto o veículo
-  //   ainda estiver marcado como Transferido (evitaria um estado
-  //   contraditório: transferido mas sem ATPVe).
-  if ((campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado') && valorNormalizado === 'NÃO') {
-    var transferidoAtual = normalizarTransferido_(sheet.getRange(linhaIdx, colunaParaIndice_('Transferido') + 1).getValue());
-    if (transferidoAtual === 'SIM') {
-      throw new Error('Não é possível desmarcar o ATPVe de um veículo já transferido. Desmarque primeiro o status "Transferido".');
-    }
+  // Mesma trava dos demais caminhos de escrita — sem ela, dois "marcar
+  // todos" simultâneos poderiam ler o mesmo bloco de linhas e um
+  // sobrescrever a alteração do outro.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    throw new Error('O sistema está processando outra alteração no momento — tente de novo em alguns segundos.');
   }
 
-  var agora = new Date();
-  // A data informada na caixa "Que data o ATPVe foi emitido/enviado?" (ver
-  // tela) tem prioridade sobre "agora" — permite registrar hoje uma emissão
-  // que na prática aconteceu num dia anterior, sem distorcer o Relatório de
-  // Produtividade (que conta pela data real, não pela data do clique).
-  var dataEmissaoEscolhida = parseDataLocal_(dataEmissaoAtpve) || agora;
-  var dataEnvioEscolhida = parseDataLocal_(dataEnvioAtpve) || agora;
-  var cascataTransferido = campo === 'Transferido' && valorNormalizado === 'SIM';
-  var celulaDataEmissaoAtpve = sheet.getRange(linhaIdx, colunaParaIndice_('DataEmissaoATPVe') + 1);
-  var celulaDataEnvioAtpve = sheet.getRange(linhaIdx, colunaParaIndice_('DataEnvioATPVe') + 1);
+  try {
+    var sheet = getOrCreateSheet_(SHEET_VEICULOS, CABECALHO_VEICULOS);
+    garantirColunasVeiculos_();
 
-  sheet.getRange(linhaIdx, colunaParaIndice_(campo) + 1).setValue(valorNormalizado);
-  // Só grava a data de emissão/envio do ATPVe na primeira vez que cada campo
-  // vira SIM — o relatório de produtividade conta pela data real, então não
-  // pode ser sobrescrita depois por uma cascata de Transferido (senão a
-  // emissão passaria a contar na semana da transferência, não na semana em
-  // que o ATPVe foi de fato emitido/enviado).
-  if (campo === 'ATPVeEmitido' && valorNormalizado === 'SIM' && !celulaDataEmissaoAtpve.getValue()) {
-    celulaDataEmissaoAtpve.setValue(dataEmissaoEscolhida);
-  }
-  if (campo === 'ATPVeEnviado' && valorNormalizado === 'SIM' && !celulaDataEnvioAtpve.getValue()) {
-    celulaDataEnvioAtpve.setValue(dataEnvioEscolhida);
-  }
-  if (cascataTransferido) {
-    // Marcar como transferido também marca o ATPVe como emitido e enviado —
-    // não existe, na prática, veículo transferido sem isso.
-    sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEmitido') + 1).setValue('SIM');
-    sheet.getRange(linhaIdx, colunaParaIndice_('ATPVeEnviado') + 1).setValue('SIM');
-    if (!celulaDataEmissaoAtpve.getValue()) {
-      celulaDataEmissaoAtpve.setValue(dataEmissaoEscolhida);
+    // 1 leitura: só a coluna de IDs, pra achar a linha de cada veículo.
+    var idCol = colunaParaIndice_('ID') + 1;
+    var ultimaLinha = sheet.getLastRow();
+    var idsPlanilha = ultimaLinha >= 2 ? sheet.getRange(2, idCol, ultimaLinha - 1, 1).getValues() : [];
+    var linhaPorId = {};
+    for (var i = 0; i < idsPlanilha.length; i++) {
+      if (idsPlanilha[i][0]) linhaPorId[idsPlanilha[i][0]] = i + 2;
     }
-    if (!celulaDataEnvioAtpve.getValue()) {
-      celulaDataEnvioAtpve.setValue(dataEnvioEscolhida);
-    }
-    // Mesmo comportamento do cadastro/edição completa: registra a data da
-    // primeira vez que o veículo é marcado como transferido; não apaga essa
-    // data se depois for desmarcado.
-    sheet.getRange(linhaIdx, colunaParaIndice_('DataTransferencia') + 1).setValue(agora);
-  }
-  sheet.getRange(linhaIdx, colunaParaIndice_('UltimaAtualizacao') + 1).setValue(agora);
-  sheet.getRange(linhaIdx, colunaParaIndice_('AtualizadoPor') + 1).setValue(perfil.email);
 
-  registrarLog_('ATUALIZAR_STATUS', id, campo + '=' + valorNormalizado);
-  invalidarCacheDashboard_();
-  return { mensagem: 'Atualizado com sucesso.', campo: campo, valor: valorNormalizado, cascata: cascataTransferido };
+    var erros = [];
+    var alvos = [];
+    listaIds.forEach(function (id) {
+      var linha = linhaPorId[id];
+      if (!linha) erros.push(id + ': veículo não encontrado.');
+      else alvos.push({ id: id, linha: linha });
+    });
+    if (!alvos.length) throw new Error(erros.join(' ') || 'Veículo não encontrado.');
+    alvos.sort(function (a, b) { return a.linha - b.linha; });
+
+    var agora = new Date();
+    // A data informada na caixa "Que data o ATPVe foi emitido/enviado?" (ver
+    // tela) tem prioridade sobre "agora" — permite registrar hoje uma emissão
+    // que na prática aconteceu num dia anterior, sem distorcer o Relatório de
+    // Produtividade (que conta pela data real, não pela data do clique).
+    var dataEmissaoEscolhida = parseDataLocal_(dataEmissaoAtpve) || agora;
+    var dataEnvioEscolhida = parseDataLocal_(dataEnvioAtpve) || agora;
+    var cascataTransferido = campo === 'Transferido' && valorNormalizado === 'SIM';
+
+    var iCampo = colunaParaIndice_(campo);
+    var iEmitido = colunaParaIndice_('ATPVeEmitido');
+    var iEnviado = colunaParaIndice_('ATPVeEnviado');
+    var iDataEmissao = colunaParaIndice_('DataEmissaoATPVe');
+    var iDataEnvio = colunaParaIndice_('DataEnvioATPVe');
+    var iTransferido = colunaParaIndice_('Transferido');
+    var iDataTransferencia = colunaParaIndice_('DataTransferencia');
+    var iUltimaAtualizacao = colunaParaIndice_('UltimaAtualizacao');
+    var iAtualizadoPor = colunaParaIndice_('AtualizadoPor');
+    var largura = CABECALHO_VEICULOS.length;
+
+    // Agrupa em blocos de linhas SEGUIDAS: cada bloco vira uma leitura e
+    // uma gravação. Os veículos de um processo são gravados juntos no
+    // cadastro, então na prática quase sempre formam um bloco único.
+    var blocos = [];
+    alvos.forEach(function (alvo) {
+      var ultimo = blocos[blocos.length - 1];
+      if (ultimo && alvo.linha === ultimo.fim + 1) {
+        ultimo.fim = alvo.linha;
+        ultimo.itens.push(alvo);
+      } else {
+        blocos.push({ inicio: alvo.linha, fim: alvo.linha, itens: [alvo] });
+      }
+    });
+
+    var alterados = [];
+    blocos.forEach(function (bloco) {
+      var qtd = bloco.fim - bloco.inicio + 1;
+      var faixa = sheet.getRange(bloco.inicio, 1, qtd, largura);
+      var valores = faixa.getValues();
+      var mudouAlgo = false;
+
+      bloco.itens.forEach(function (alvo) {
+        var linha = valores[alvo.linha - bloco.inicio];
+
+        // Um veículo transferido implica que o ATPVe dele já foi emitido e
+        // enviado — não deixa desmarcar o ATPVe enquanto o veículo ainda
+        // estiver marcado como Transferido (evitaria um estado
+        // contraditório: transferido mas sem ATPVe).
+        if ((campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado') && valorNormalizado === 'NÃO' &&
+            normalizarTransferido_(linha[iTransferido]) === 'SIM') {
+          erros.push(alvo.id + ': não é possível desmarcar o ATPVe de um veículo já transferido. ' +
+            'Desmarque primeiro o status "Transferido".');
+          return;
+        }
+
+        linha[iCampo] = valorNormalizado;
+        // Só grava a data de emissão/envio do ATPVe na primeira vez que cada
+        // campo vira SIM — o relatório de produtividade conta pela data real,
+        // então não pode ser sobrescrita depois por uma cascata de
+        // Transferido (senão a emissão passaria a contar na semana da
+        // transferência, não na semana em que o ATPVe foi de fato emitido).
+        if (campo === 'ATPVeEmitido' && valorNormalizado === 'SIM' && !linha[iDataEmissao]) {
+          linha[iDataEmissao] = dataEmissaoEscolhida;
+        }
+        if (campo === 'ATPVeEnviado' && valorNormalizado === 'SIM' && !linha[iDataEnvio]) {
+          linha[iDataEnvio] = dataEnvioEscolhida;
+        }
+        if (cascataTransferido) {
+          // Marcar como transferido também marca o ATPVe como emitido e
+          // enviado — não existe, na prática, veículo transferido sem isso.
+          linha[iEmitido] = 'SIM';
+          linha[iEnviado] = 'SIM';
+          if (!linha[iDataEmissao]) linha[iDataEmissao] = dataEmissaoEscolhida;
+          if (!linha[iDataEnvio]) linha[iDataEnvio] = dataEnvioEscolhida;
+          // Mesmo comportamento do cadastro/edição completa: registra a data
+          // da primeira vez que o veículo é marcado como transferido; não
+          // apaga essa data se depois for desmarcado.
+          linha[iDataTransferencia] = agora;
+        }
+        linha[iUltimaAtualizacao] = agora;
+        linha[iAtualizadoPor] = perfil.email;
+        alterados.push(alvo.id);
+        mudouAlgo = true;
+      });
+
+      if (mudouAlgo) faixa.setValues(valores);
+    });
+
+    if (alterados.length) {
+      registrarLogsEmLote_(alterados.map(function (id) {
+        return ['ATUALIZAR_STATUS', id, campo + '=' + valorNormalizado];
+      }));
+      invalidarCacheDashboard_();
+    }
+
+    return {
+      mensagem: alterados.length === 1 ? 'Atualizado com sucesso.'
+        : alterados.length + ' veículo(s) atualizado(s).',
+      campo: campo,
+      valor: valorNormalizado,
+      cascata: cascataTransferido,
+      atualizados: alterados,
+      erros: erros
+    };
+  } finally {
+    try { lock.releaseLock(); } catch (e) { /* liberação best-effort */ }
+  }
+}
+
+/**
+ * Marca o status de UM veículo. Fica sobre atualizarStatusVeiculosEmLote
+ * pra não existirem duas cópias da mesma regra (data de emissão só na
+ * primeira vez, cascata do Transferido, trava do veículo já transferido) —
+ * quando uma regra muda, muda nos dois caminhos junto.
+ */
+function atualizarStatusVeiculo(id, campo, valor, dataEmissaoAtpve, dataEnvioAtpve) {
+  var resultado = atualizarStatusVeiculosEmLote([id], campo, valor, dataEmissaoAtpve, dataEnvioAtpve);
+  // Num veículo só, um impedimento é erro mesmo (a tela espera a exceção);
+  // em lote ele vira item da lista de erros e os outros seguem.
+  if (!resultado.atualizados.length) throw new Error(resultado.erros[0] || 'Não foi possível atualizar o veículo.');
+  return resultado;
 }
 
 // ======================================================================
