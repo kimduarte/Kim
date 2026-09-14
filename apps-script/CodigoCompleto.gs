@@ -437,6 +437,21 @@ function normalizarTransferido_(valor) {
   return null;
 }
 
+// Status do ATPVe (Emitido/Enviado). Além de SIM/NÃO, aceita "DUT": são
+// veículos doados antes do ATPVe existir, transferidos pelo DUT em papel.
+// Nesses casos não houve — nem vai haver — emissão de ATPVe, então "NÃO"
+// os deixaria eternamente parecendo pendentes, e "SIM" mentiria dizendo
+// que um ATPVe foi emitido.
+//
+// Proposital: só os dois campos de ATPVe usam este normalizador.
+// Transferido e Aditivo continuam com normalizarTransferido_ (SIM/NÃO),
+// porque "DUT" não significa nada para eles.
+function normalizarStatusAtpve_(valor) {
+  var texto = normalizarTexto_(valor).toUpperCase();
+  if (texto === 'DUT') return 'DUT';
+  return normalizarTransferido_(valor);
+}
+
 // Aceita tanto um número quanto o texto digitado no formato brasileiro (ex.:
 // "1.500,00", vindo da máscara de moeda da tela) e devolve sempre um número.
 function normalizarValorMonetario_(valor) {
@@ -1761,6 +1776,7 @@ function listarProcessos(filtros) {
         totalVeiculos: 0,
         totalEmitidos: 0,
         totalEnviados: 0,
+        totalDut: 0,
         totalTransferidos: 0,
         totalValor: 0,
         totalRascunhos: 0
@@ -1771,6 +1787,11 @@ function listarProcessos(filtros) {
     var grupo = grupos[chave];
     grupo.totalVeiculos++;
     if (v.ATPVeEmitido === 'SIM') grupo.totalEmitidos++;
+    // DUT tem contador próprio: são veículos resolvidos (transferidos pelo
+    // DUT em papel, antes do ATPVe existir), mas em que nenhum ATPVe foi
+    // emitido. Somá-los a "Emitidos" inflaria o indicador de ATPVe; deixá-los
+    // de fora sem contador faria parecerem pendentes pra sempre.
+    else if (v.ATPVeEmitido === 'DUT') grupo.totalDut++;
     if (v.ATPVeEnviado === 'SIM') grupo.totalEnviados++;
     if (v.Transferido === 'SIM') grupo.totalTransferidos++;
     if ((v.StatusCadastro || 'COMPLETO') === 'RASCUNHO') grupo.totalRascunhos++;
@@ -1907,7 +1928,10 @@ function atualizarStatusVeiculosEmLote(ids, campo, valor, dataEmissaoAtpve, data
   if (['ATPVeEmitido', 'ATPVeEnviado', 'Transferido'].indexOf(campo) === -1) {
     throw new Error('Campo inválido: ' + campo);
   }
-  var valorNormalizado = normalizarTransferido_(valor);
+  // "DUT" só faz sentido nos dois campos de ATPVe — Transferido continua
+  // sendo só SIM/NÃO.
+  var ehCampoAtpve = campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado';
+  var valorNormalizado = ehCampoAtpve ? normalizarStatusAtpve_(valor) : normalizarTransferido_(valor);
   if (!valorNormalizado) throw new Error('Valor inválido: ' + valor);
 
   var listaIds = (ids || []).filter(function (id) { return !!id; });
@@ -2007,6 +2031,22 @@ function atualizarStatusVeiculosEmLote(ids, campo, valor, dataEmissaoAtpve, data
         }
 
         linha[iCampo] = valorNormalizado;
+        // Marcar "Emitido" como DUT leva junto o "Enviado": se não houve
+        // ATPVe, também não há o que enviar. As datas de emissão/envio NÃO
+        // são apagadas — quem lê (Estatísticas e Relatório de
+        // Produtividade) ignora a data quando o status é DUT, e assim, se
+        // o DUT tiver sido um clique errado, voltar para SIM recupera a
+        // data original em vez de exigir digitá-la de novo.
+        if (campo === 'ATPVeEmitido' && valorNormalizado === 'DUT') {
+          linha[iEnviado] = 'DUT';
+        }
+        // E o contrário também: se o "Emitido" DEIXA de ser DUT, o
+        // "Enviado" não pode continuar DUT — passa a haver um ATPVe, que
+        // ainda não foi enviado. Sem isto, desfazer um DUT clicado por
+        // engano deixava o veículo num estado meio DUT, meio não.
+        if (campo === 'ATPVeEmitido' && valorNormalizado !== 'DUT' && linha[iEnviado] === 'DUT') {
+          linha[iEnviado] = 'NÃO';
+        }
         // Só grava a data de emissão/envio do ATPVe na primeira vez que cada
         // campo vira SIM — o relatório de produtividade conta pela data real,
         // então não pode ser sobrescrita depois por uma cascata de
@@ -2021,10 +2061,13 @@ function atualizarStatusVeiculosEmLote(ids, campo, valor, dataEmissaoAtpve, data
         if (cascataTransferido) {
           // Marcar como transferido também marca o ATPVe como emitido e
           // enviado — não existe, na prática, veículo transferido sem isso.
-          linha[iEmitido] = 'SIM';
-          linha[iEnviado] = 'SIM';
-          if (!linha[iDataEmissao]) linha[iDataEmissao] = dataEmissaoEscolhida;
-          if (!linha[iDataEnvio]) linha[iDataEnvio] = dataEnvioEscolhida;
+          // Exceto quando já está como DUT: aí a transferência aconteceu
+          // mesmo, mas por DUT, e sobrescrever com SIM apagaria justamente
+          // a informação de que não houve ATPVe.
+          if (linha[iEmitido] !== 'DUT') linha[iEmitido] = 'SIM';
+          if (linha[iEnviado] !== 'DUT') linha[iEnviado] = 'SIM';
+          if (linha[iEmitido] !== 'DUT' && !linha[iDataEmissao]) linha[iDataEmissao] = dataEmissaoEscolhida;
+          if (linha[iEnviado] !== 'DUT' && !linha[iDataEnvio]) linha[iDataEnvio] = dataEnvioEscolhida;
           // Mesmo comportamento do cadastro/edição completa: registra a data
           // da primeira vez que o veículo é marcado como transferido; não
           // apaga essa data se depois for desmarcado.
@@ -2703,7 +2746,12 @@ function getResumoAutomaticoPeriodo(dataInicio, dataFim) {
   var transferenciasPorAno = {};
 
   registros.forEach(function (r) {
-    if (dataDentroDoIntervalo_(r.DataEmissaoATPVe, dataInicio, dataFim)) emissoesAtpve++;
+    // Veículo marcado como DUT não teve ATPVe emitido — se ele chegou a
+    // ficar como SIM antes (e portanto tem data de emissão gravada), essa
+    // data fica guardada mas não conta como emissão aqui. É o que permite
+    // não apagar a data ao marcar DUT: voltar pra SIM recupera a data
+    // original sem ela ter contado produtividade indevidamente no meio.
+    if (r.ATPVeEmitido !== 'DUT' && dataDentroDoIntervalo_(r.DataEmissaoATPVe, dataInicio, dataFim)) emissoesAtpve++;
     if (dataDentroDoIntervalo_(r.DataEmissaoSegundaViaATPVe, dataInicio, dataFim)) emissoesAtpve++;
     if (dataDentroDoIntervalo_(r.DataTransferencia, dataInicio, dataFim)) {
       var ano = String(r.Ano);
@@ -3191,13 +3239,20 @@ function validarESanitizarVeiculo_(dados) {
   var placa = normalizarPlaca_(dados.Placa);
   var renavam = normalizarTexto_(dados.Renavam).replace(/\D/g, '');
   var transferido = normalizarTransferido_(dados.Transferido) || 'NÃO';
-  var atpveEmitido = normalizarTransferido_(dados.ATPVeEmitido) || 'NÃO';
-  var atpveEnviado = normalizarTransferido_(dados.ATPVeEnviado) || 'NÃO';
+  var atpveEmitido = normalizarStatusAtpve_(dados.ATPVeEmitido) || 'NÃO';
+  var atpveEnviado = normalizarStatusAtpve_(dados.ATPVeEnviado) || 'NÃO';
+  // "Emitido = DUT" leva junto o "Enviado": não havendo ATPVe, não há o
+  // que enviar. E se o Emitido não é DUT, o Enviado também não pode ser —
+  // passa a existir um ATPVe, que só ainda não foi enviado.
+  if (atpveEmitido === 'DUT') atpveEnviado = 'DUT';
+  else if (atpveEnviado === 'DUT') atpveEnviado = 'NÃO';
   // Um veículo transferido implica que o ATPVe dele já foi emitido e
   // enviado — não existe, na prática, veículo "transferido" sem isso.
+  // Salvo quando está como DUT: a transferência aconteceu, mas por DUT, e
+  // trocar por SIM apagaria justamente a informação de que não houve ATPVe.
   if (transferido === 'SIM') {
-    atpveEmitido = 'SIM';
-    atpveEnviado = 'SIM';
+    if (atpveEmitido !== 'DUT') atpveEmitido = 'SIM';
+    if (atpveEnviado !== 'DUT') atpveEnviado = 'SIM';
   }
   var ano = parseInt(dados.Ano, 10);
   var cep = normalizarTexto_(dados.CEP).replace(/\D/g, '');

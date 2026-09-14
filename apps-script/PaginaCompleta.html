@@ -294,6 +294,10 @@
   .selo { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
   .selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
   .selo-nao { background: var(--amarelo-bg); color: var(--amarelo-fg); }
+  /* DUT: transferência pelo documento antigo em papel, sem ATPVe. Azul
+     (e não verde) porque não é um ATPVe emitido; e não amarelo, porque
+     também não é pendência — é um caso resolvido de outra forma. */
+  .selo-dut { background: var(--azul-bg); color: var(--azul-fg); }
 
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 20px; }
   .kpi { border-radius: 14px; padding: 18px 20px; }
@@ -429,6 +433,7 @@
   .selo-toggle { border: none; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
   .selo-toggle.selo-sim { background: var(--verde-bg); color: var(--verde-fg); }
   .selo-toggle.selo-nao { background: var(--amarelo-bg); color: var(--amarelo-fg); }
+  .selo-toggle.selo-dut { background: var(--azul-bg); color: var(--azul-fg); }
 
 
   .modal-fundo {
@@ -4550,8 +4555,17 @@
   // campo marcado como SIM — usada pra decidir se o botão de um campo vira
   // "Desmarcar todos". Só é chamada com o card já expandido (p.veiculos
   // carregado): os botões que a usam ficam dentro da área expandida.
+  // Veículos marcados como DUT ficam de fora dessa conta: eles nunca vão
+  // ter ATPVe, então não são "pendentes" nem devem virar SIM num "Marcar
+  // todos". Com eles fora, um processo só de DUT conta como resolvido e o
+  // botão não fica pedindo pra marcar algo que não se aplica.
+  function veiculosMarcaveis_(p, campo) {
+    return (p.veiculos || []).filter(function (v) { return v[campo] !== 'DUT'; });
+  }
+
   function todosComCampoSim_(p, campo) {
-    return p.veiculos.length > 0 && p.veiculos.every(function (v) { return v[campo] === 'SIM'; });
+    var marcaveis = veiculosMarcaveis_(p, campo);
+    return marcaveis.length > 0 && marcaveis.every(function (v) { return v[campo] === 'SIM'; });
   }
 
   // O selo "Finalizado/Incompleto" aparece no cabeçalho do card mesmo
@@ -4650,7 +4664,10 @@
             destacarBusca_(p.donataria, 'donataria') + ' • ' + escaparHtml(p.uf) + ' • ' + escaparHtml(p.ente) + ' • ' + escaparHtml(p.ano) + '/' + escaparHtml(p.mes) + '</div>' +
         '</div>' +
         '<div class="processo-progresso">' +
-          '<div class="processo-fracao">' + p.totalTransferidos + '/' + p.totalVeiculos + ' transferidos</div>' +
+          '<div class="processo-fracao">' + p.totalTransferidos + '/' + p.totalVeiculos + ' transferidos' +
+            // Só aparece quando o processo tem algum veículo por DUT — em
+            // processo normal a linha continua exatamente como era.
+            (p.totalDut ? ' • ' + p.totalDut + ' por DUT' : '') + '</div>' +
           '<div class="barra-progresso"><div class="barra-progresso-fill" style="width:' + pct + '%"></div></div>' +
           '<div class="processo-fracao">' + formatarMoeda_(p.totalValor) + '</div>' +
         '</div>' +
@@ -4682,8 +4699,9 @@
   }
 
   function montarBotaoToggle_(v, campo, rotulo) {
-    var valor = v[campo] === 'SIM' ? 'SIM' : 'NÃO';
-    var classe = valor === 'SIM' ? 'selo-sim' : 'selo-nao';
+    var ehAtpve = campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado';
+    var valor = v[campo] === 'SIM' ? 'SIM' : ((ehAtpve && v[campo] === 'DUT') ? 'DUT' : 'NÃO');
+    var classe = valor === 'SIM' ? 'selo-sim' : (valor === 'DUT' ? 'selo-dut' : 'selo-nao');
     // Sem rótulo (string vazia), mostra só o valor — usado quando o
     // cabeçalho da coluna já diz o nome do campo, pra não repetir a
     // palavra duas vezes (cabeçalho "Transferido" + célula "SIM"/"NÃO").
@@ -4743,8 +4761,22 @@
     } : null);
   }
 
+  // Os dois campos de ATPVe giram entre três estados: NÃO -> SIM -> DUT ->
+  // NÃO. "DUT" é pra veículo doado antes do ATPVe existir, transferido pelo
+  // DUT em papel: não houve nem vai haver emissão de ATPVe. O uso do dia a
+  // dia não muda (um clique continua indo de NÃO pra SIM); o DUT fica a um
+  // clique a mais. Transferido continua com dois estados só.
+  function proximoStatusAtpve_(campo, valorAtual) {
+    if (campo !== 'ATPVeEmitido' && campo !== 'ATPVeEnviado') {
+      return valorAtual === 'SIM' ? 'NÃO' : 'SIM';
+    }
+    if (valorAtual === 'NÃO') return 'SIM';
+    if (valorAtual === 'SIM') return 'DUT';
+    return 'NÃO';
+  }
+
   async function alternarStatusAtpve_(id, campo, valorAtual) {
-    var novoValor = valorAtual === 'SIM' ? 'NÃO' : 'SIM';
+    var novoValor = proximoStatusAtpve_(campo, valorAtual);
     var datas = {};
     if (novoValor === 'SIM' && (campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado')) {
       var escolhidas = await pedirDatasAtpve_(campo);
@@ -4761,6 +4793,13 @@
           carregarListagem();
           return;
         }
+        // Marcar "Emitido" como DUT também marca o "Enviado" como DUT no
+        // servidor — são dois campos mudando, então recarrega em vez de
+        // corrigir só o que foi clicado (mesmo motivo da cascata acima).
+        if (campo === 'ATPVeEmitido' && novoValor === 'DUT') {
+          carregarListagem();
+          return;
+        }
         var totalCampo = campo === 'ATPVeEmitido' ? 'totalEmitidos' : (campo === 'ATPVeEnviado' ? 'totalEnviados' : (campo === 'Transferido' ? 'totalTransferidos' : null));
         DADOS_PROCESSOS.forEach(function (p) {
           // Processo ainda fechado (nunca expandido) não tem p.veiculos
@@ -4770,8 +4809,14 @@
           if (!p.veiculos) return;
           for (var i = 0; i < p.veiculos.length; i++) {
             if (p.veiculos[i].ID === id) {
-              if (totalCampo && p.veiculos[i][campo] !== novoValor) {
-                p[totalCampo] += (novoValor === 'SIM' ? 1 : -1);
+              // O contador do processo conta só quem está em SIM. Com três
+              // estados não basta "mudou ou não": o que importa é se
+              // ENTROU ou SAIU do SIM — senão DUT -> NÃO descontaria de
+              // novo um veículo que já tinha saído da conta ao virar DUT.
+              var eraSim = p.veiculos[i][campo] === 'SIM';
+              var viraSim = novoValor === 'SIM';
+              if (totalCampo && eraSim !== viraSim) {
+                p[totalCampo] += (viraSim ? 1 : -1);
               }
               p.veiculos[i][campo] = novoValor;
               break;
@@ -4796,7 +4841,10 @@
     // em vez de marcar; senão, marca os pendentes como SIM (comportamento
     // original).
     var alvo = todosComCampoSim_(p, campo) ? 'NÃO' : 'SIM';
-    var pendentes = p.veiculos.filter(function (v) { return v[campo] !== alvo; });
+    // Só entram os que ainda não estão no alvo E que não são DUT — marcar
+    // "todos" nunca deve transformar um DUT em SIM/NÃO, porque esses
+    // veículos não têm ATPVe nenhum pra emitir ou enviar.
+    var pendentes = veiculosMarcaveis_(p, campo).filter(function (v) { return v[campo] !== alvo; });
     if (!pendentes.length) {
       mostrarMensagem('mensagemListagem', 'sucesso', 'Todos os veículos deste processo já estão marcados como "' + rotulo + ': ' + alvo + '".');
       return;
