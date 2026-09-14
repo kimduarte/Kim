@@ -3493,40 +3493,46 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
   var idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxPlaca = -1, idxValor = -1, idxAnoModelo = -1;
   var achouCabecalho = false;
 
-  for (var t = 0; t < tabelas.length; t++) {
-    if (!tabelas[t].getNumRows()) continue;
-    var linhaCabecalho = tabelas[t].getRow(0);
-    var cabecalho = [];
-    for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
-      cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
-    }
-    if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
+  // Procura o cabeçalho em qualquer linha de qualquer tabela, não só na
+  // linha 0 — em documentos curtos a conversão do PDF às vezes junta o
+  // bloco de assinatura do SEI com a tabela do Anexo, e aí o cabeçalho
+  // deixa de ser a primeira linha (ver comentário equivalente no extrator
+  // do Ofício de Transferência).
+  for (var t = 0; t < tabelas.length && !achouCabecalho; t++) {
+    for (var lc = 0; lc < tabelas[t].getNumRows() && !achouCabecalho; lc++) {
+      var linhaCabecalho = tabelas[t].getRow(lc);
+      var cabecalho = [];
+      for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
+        cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+      }
+      if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
 
-    var acharColuna = function (pedaco) {
-      for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
-      return -1;
-    };
-    idxDescricao = acharColuna('DESCRI');
-    idxMarca = acharColuna('MARCA');
-    idxChassi = acharColuna('CHASSI');
-    idxPlaca = acharColuna('PLACA');
-    idxValor = acharColuna('VALOR');
-    idxAnoModelo = acharColuna('ANO');
-    // Alguns Anexos não têm "Descrição"/"Marca" separadas, só "Modelo"
-    // (ex.: "TRITON GL TP 2.4 D 4X4 AT") — nesse caso, Marca e Descrição
-    // usam a mesma coluna "Modelo" (mesmo texto nos dois campos), em vez
-    // de deixar Marca em branco.
-    if (idxDescricao === -1 && idxMarca === -1) {
-      var idxModelo = acharColuna('MODELO');
-      idxDescricao = idxModelo;
-      idxMarca = idxModelo;
+      var acharColuna = function (pedaco) {
+        for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
+        return -1;
+      };
+      idxDescricao = acharColuna('DESCRI');
+      idxMarca = acharColuna('MARCA');
+      idxChassi = acharColuna('CHASSI');
+      idxPlaca = acharColuna('PLACA');
+      idxValor = acharColuna('VALOR');
+      idxAnoModelo = acharColuna('ANO');
+      // Alguns Anexos não têm "Descrição"/"Marca" separadas, só "Modelo"
+      // (ex.: "TRITON GL TP 2.4 D 4X4 AT") — nesse caso, Marca e Descrição
+      // usam a mesma coluna "Modelo" (mesmo texto nos dois campos), em vez
+      // de deixar Marca em branco.
+      if (idxDescricao === -1 && idxMarca === -1) {
+        var idxModelo = acharColuna('MODELO');
+        idxDescricao = idxModelo;
+        idxMarca = idxModelo;
+      }
+      achouCabecalho = true;
     }
-    achouCabecalho = true;
-    break;
   }
 
   if (!achouCabecalho) {
     avisos.push('Encontrei tabela(s) no PDF, mas nenhuma com coluna "Chassi" — preencha os veículos manualmente.');
+    avisos.push(diagnosticoTabelas_(tabelas));
     return [];
   }
   if (idxMarca === -1) {
@@ -3563,14 +3569,26 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
       var linha = tabelaAtual.getRow(l);
       var lerCelula = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : null; };
 
-      var chassiBruto = lerCelula(idxChassi);
-      var chassiTexto = chassiBruto === null ? '' : chassiBruto.replace(/\s+/g, '').toUpperCase();
+      // Duas formas de achar o chassi na célula, nesta ordem: a célula
+      // inteira sem espaço nenhum (junta o chassi que quebrou em duas
+      // linhas na coluna estreita) e, se isso não der um chassi válido,
+      // cada pedaço separado por espaço (caso de duas informações coladas
+      // na mesma célula).
+      var acharChassi_ = function (textoCelula) {
+        var inteiro = juntarCelulaQuebrada_(textoCelula).replace(/\s+/g, '').toUpperCase();
+        if (validarChassi_(inteiro)) return inteiro;
+        var pedacos = juntarCelulaQuebrada_(textoCelula).toUpperCase().split(' ');
+        for (var i = 0; i < pedacos.length; i++) if (validarChassi_(pedacos[i])) return pedacos[i];
+        return '';
+      };
+
+      var chassiTexto = acharChassi_(lerCelula(idxChassi));
       var idxChassiLinha = idxChassi;
-      if (!validarChassi_(chassiTexto)) {
+      if (!chassiTexto) {
         idxChassiLinha = -1;
         for (var cc = 0; cc < linha.getNumCells(); cc++) {
-          var candidato = juntarCelulaQuebrada_(linha.getCell(cc).getText()).replace(/\s+/g, '').toUpperCase();
-          if (validarChassi_(candidato)) { idxChassiLinha = cc; chassiTexto = candidato; break; }
+          var candidato = acharChassi_(linha.getCell(cc).getText());
+          if (candidato) { idxChassiLinha = cc; chassiTexto = candidato; break; }
         }
         if (idxChassiLinha === -1) continue;
       }
@@ -3669,11 +3687,26 @@ function extrairComunsOficioTransferencia_(texto, avisos) {
   // "3. Informo os dados da instituição recebedora dos veículos: I - CNPJ:
   // ...; II - Razão Social: ...; III - Endereço: ...; IV - E-mail: ...;" —
   // bem mais regular que o texto corrido do Termo, dá pra extrair direto.
+  // Primeiro tenta o CNPJ bem formatado ("12.442.570/0001-10"). Se não
+  // casar, tenta de novo aceitando QUALQUER pontuação entre os grupos —
+  // já apareceu Ofício com ponto no lugar da barra ("12.442.570.0001-10",
+  // Ofício 619/2026), erro de digitação no próprio documento que fazia o
+  // CNPJ ser descartado e a donatária chegar sem CNPJ na tela. Como o
+  // campo é gravado só com os dígitos, a pontuação errada não atrapalha:
+  // basta conferir que sobraram exatamente 14 dígitos.
   var mCnpj = texto.match(/CNPJ:\s*(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/i);
   if (mCnpj) {
     comuns.CNPJDonataria = mCnpj[1];
   } else {
-    avisos.push('Não encontrei o CNPJ da instituição recebedora — confira manualmente.');
+    var mCnpjSolto = texto.match(/CNPJ[:\s]*(\d[\d.\/\-\s]{12,24}\d)/i);
+    var digitosCnpj = mCnpjSolto ? mCnpjSolto[1].replace(/\D/g, '') : '';
+    if (digitosCnpj.length === 14) {
+      comuns.CNPJDonataria = digitosCnpj;
+      avisos.push('O CNPJ está escrito com pontuação fora do padrão no Ofício ("' + mCnpjSolto[1].trim() +
+        '") — aproveitei assim mesmo, mas confira se é mesmo o CNPJ da donatária.');
+    } else {
+      avisos.push('Não encontrei o CNPJ da instituição recebedora — confira manualmente.');
+    }
   }
 
   var mRazao = texto.match(/Raz[ãa]o\s+Social:\s*([^;]+);/i);
@@ -3774,45 +3807,163 @@ function extrairComunsOficioTransferencia_(texto, avisos) {
   return comuns;
 }
 
+// Texto bruto das primeiras linhas das tabelas do documento. Serve pra
+// quando a leitura do Anexo I falha: em vez de só dizer "não consegui",
+// devolve o que a conversão do PDF realmente produziu, pra dar pra
+// descobrir a causa sem precisar adivinhar. O ⏎ marca uma quebra de linha
+// DENTRO da própria célula (sinal de coluna estreita/conversão ruim).
+function diagnosticoTabelas_(tabelas) {
+  var diagLinhas = [];
+  for (var td = 0; td < tabelas.length && diagLinhas.length < 4; td++) {
+    var tabelaD = tabelas[td];
+    for (var ld = 0; ld < tabelaD.getNumRows() && diagLinhas.length < 4; ld++) {
+      var linhaD = tabelaD.getRow(ld);
+      var celulasD = [];
+      for (var cd = 0; cd < linhaD.getNumCells(); cd++) {
+        celulasD.push('[' + cd + ']"' + linhaD.getCell(cd).getText().replace(/\n/g, '⏎') + '"');
+      }
+      diagLinhas.push('Tabela ' + td + ', linha ' + ld + ': ' + celulasD.join(' '));
+    }
+  }
+  return diagLinhas.length
+    ? 'DIAGNÓSTICO (copie e envie esse texto pra investigação): ' + diagLinhas.join('  ||  ')
+    : 'DIAGNÓSTICO: o documento convertido não tem nenhuma tabela com conteúdo.';
+}
+
+// Última tentativa de ler o Anexo I quando NÃO se achou a linha de
+// cabeçalho: percorre cada linha de cada tabela e reconhece cada
+// informação pelo FORMATO dela, não pela posição da coluna. Os formatos
+// não se confundem entre si — Renavam é o único campo com 9 a 11 dígitos
+// seguidos, Placa tem formato próprio, Ano/Modelo é AAAA/AAAA e o Valor
+// carrega "R$". Sobram as células de texto: a mais curta é a Marca
+// (CHEVROLET, FORD) e a mais longa é a Descrição (o modelo do veículo).
+function lerVeiculosAnexoPorConteudo_(tabelas) {
+  var veiculos = [];
+  for (var t = 0; t < tabelas.length; t++) {
+    for (var l = 0; l < tabelas[t].getNumRows(); l++) {
+      var linha = tabelas[t].getRow(l);
+      var celulas = [];
+      for (var c = 0; c < linha.getNumCells(); c++) {
+        celulas.push(juntarCelulaQuebrada_(linha.getCell(c).getText()));
+      }
+
+      var chassi = '';
+      var idxUsado = {};
+      for (var i = 0; i < celulas.length && !chassi; i++) {
+        var inteiro = celulas[i].replace(/\s+/g, '').toUpperCase();
+        if (validarChassi_(inteiro)) { chassi = inteiro; idxUsado[i] = true; }
+      }
+      if (!chassi) continue;
+
+      var renavam = '', placa = '', anoModelo = '', valor = '';
+      var textos = [];
+      for (var j = 0; j < celulas.length; j++) {
+        if (idxUsado[j]) continue;
+        var bruto = celulas[j];
+        var semEspaco = bruto.replace(/\s+/g, '').toUpperCase();
+        if (!semEspaco) continue;
+        if (!anoModelo && /^\d{4}\/\d{4}$/.test(semEspaco)) { anoModelo = semEspaco; continue; }
+        if (!valor && /R\$|\d{1,3}(\.\d{3})*,\d{2}/.test(semEspaco)) { valor = bruto; continue; }
+        if (!renavam && /^\d{9,11}$/.test(semEspaco)) { renavam = semEspaco; continue; }
+        if (!placa && validarPlaca_(semEspaco)) { placa = semEspaco; continue; }
+        // Ignora ITEM/QTD (1 ou 2 dígitos) e qualquer célula só numérica
+        // que não seja Renavam — não é Marca nem Descrição.
+        if (/^\d+$/.test(semEspaco)) continue;
+        textos.push(bruto);
+      }
+
+      // Entre as células de texto que sobraram, a Marca é a mais curta e a
+      // Descrição a mais longa (ex.: "FORD" x "RANGER XLTCD4A32C").
+      var marca = '', descricao = '';
+      if (textos.length === 1) {
+        descricao = textos[0];
+      } else if (textos.length >= 2) {
+        var ordenados = textos.slice().sort(function (a, b) { return a.length - b.length; });
+        marca = ordenados[0];
+        descricao = ordenados[ordenados.length - 1];
+      }
+
+      veiculos.push({
+        Descricao: descricao,
+        Marca: marca,
+        Chassi: chassi,
+        Renavam: renavam,
+        Placa: placa,
+        ValorVeiculo: normalizarValorMonetario_(valor),
+        AnoModelo: normalizarAnoModelo_(anoModelo)
+      });
+    }
+  }
+  return veiculos;
+}
+
 function extrairVeiculosOficioTransferencia_(corpo, avisos) {
   var tabelas = corpo.getTables();
   if (!tabelas.length) {
-    avisos.push('Não encontrei nenhuma tabela no PDF (Anexo I) — preencha os veículos manualmente.');
+    avisos.push('Não encontrei nenhuma tabela no PDF (Anexo I) — preencha os veículos manualmente. ' +
+      'Isso costuma acontecer quando o PDF foi digitalizado/fotografado em vez de salvo direto do SEI: ' +
+      'baixe o Ofício de novo pelo próprio SEI ("Imprimir Web" / salvar como PDF) e tente outra vez.');
     return [];
   }
 
   var idxItem = -1, idxDescricao = -1, idxMarca = -1, idxChassi = -1, idxRenavam = -1, idxPlaca = -1, idxValor = -1, idxAnoModelo = -1;
   var achouCabecalho = false;
 
-  for (var t = 0; t < tabelas.length; t++) {
-    if (!tabelas[t].getNumRows()) continue;
-    var linhaCabecalho = tabelas[t].getRow(0);
-    var cabecalho = [];
-    for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
-      cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
-    }
-    if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
+  // Procura a linha de cabeçalho em TODAS as linhas de TODAS as tabelas —
+  // não só na primeira linha de cada uma. Quando o Anexo I cabe no fim da
+  // mesma página do corpo do Ofício (Ofícios curtos, de poucos veículos),
+  // a conversão do PDF às vezes junta o bloco de assinatura/autenticação
+  // do SEI e a tabela do Anexo numa tabela só — aí a linha
+  // "ITEM QTD DESCRIÇÃO ... CHASSI ..." não é a linha 0, e o Anexo inteiro
+  // era descartado como se não existisse.
+  // Exige "CHASSI" MAIS outro rótulo conhecido pra não confundir uma linha
+  // de veículo (que nunca contém a palavra "CHASSI") com o cabeçalho.
+  var ROTULOS_ANEXO_ = ['DESCRI', 'MARCA', 'PLACA', 'RENAV', 'VALOR', 'ANO', 'ITEM', 'ORD', 'QTD'];
+  for (var t = 0; t < tabelas.length && !achouCabecalho; t++) {
+    for (var lc = 0; lc < tabelas[t].getNumRows() && !achouCabecalho; lc++) {
+      var linhaCabecalho = tabelas[t].getRow(lc);
+      var cabecalho = [];
+      for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
+        cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+      }
+      var textoCabecalho = cabecalho.join(' ');
+      if (textoCabecalho.indexOf('CHASSI') === -1) continue;
+      var outrosRotulos = ROTULOS_ANEXO_.filter(function (r) { return textoCabecalho.indexOf(r) !== -1; });
+      if (!outrosRotulos.length) continue;
 
-    var acharColuna = function (pedaco) {
-      for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
-      return -1;
-    };
-    // Alguns Ofícios chamam a coluna de numeração "ITEM", outros "ORDEM"/"ORD".
-    idxItem = acharColuna('ITEM');
-    if (idxItem === -1) idxItem = acharColuna('ORD');
-    idxDescricao = acharColuna('DESCRI');
-    idxMarca = acharColuna('MARCA');
-    idxChassi = acharColuna('CHASSI');
-    idxRenavam = acharColuna('RENAV');
-    idxPlaca = acharColuna('PLACA');
-    idxValor = acharColuna('VALOR');
-    idxAnoModelo = acharColuna('ANO');
-    achouCabecalho = true;
-    break;
+      var acharColuna = function (pedaco) {
+        for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
+        return -1;
+      };
+      // Alguns Ofícios chamam a coluna de numeração "ITEM", outros "ORDEM"/"ORD".
+      idxItem = acharColuna('ITEM');
+      if (idxItem === -1) idxItem = acharColuna('ORD');
+      idxDescricao = acharColuna('DESCRI');
+      idxMarca = acharColuna('MARCA');
+      idxChassi = acharColuna('CHASSI');
+      idxRenavam = acharColuna('RENAV');
+      idxPlaca = acharColuna('PLACA');
+      idxValor = acharColuna('VALOR');
+      idxAnoModelo = acharColuna('ANO');
+      achouCabecalho = true;
+    }
   }
 
   if (!achouCabecalho) {
+    // Sem cabeçalho: em vez de desistir, tenta ler as linhas pelo CONTEÚDO
+    // de cada célula (Renavam é o único campo com 9 a 11 dígitos, Placa tem
+    // formato próprio, Ano/Modelo é AAAA/AAAA, Valor tem "R$"). Só entra
+    // aqui quando o caminho normal já falhou, então não muda em nada os
+    // Ofícios que hoje funcionam.
+    var porConteudo = lerVeiculosAnexoPorConteudo_(tabelas);
+    if (porConteudo.length) {
+      avisos.push('Não encontrei a linha de cabeçalho ("ITEM / DESCRIÇÃO / CHASSI / ...") no Anexo I, então li os ' +
+        porConteudo.length + ' veículo(s) reconhecendo cada informação pelo formato dela. ' +
+        'Confira Marca e Descrição antes de salvar — são os campos com mais chance de virem trocados.');
+      return porConteudo;
+    }
     avisos.push('Encontrei tabela(s) no PDF, mas nenhuma com coluna "Chassi" — preencha os veículos manualmente.');
+    avisos.push(diagnosticoTabelas_(tabelas));
     return [];
   }
   if (idxRenavam === -1) {
@@ -3868,32 +4019,42 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
         return normalizado ? normalizado.split(' ') : [];
       };
 
-      var tokensChassi = extrairTokens_(lerCelula(idxChassi));
-      var chassiTexto = '';
-      var sobrasCelulaChassi = [];
-      for (var tk = 0; tk < tokensChassi.length; tk++) {
-        if (!chassiTexto && validarChassi_(tokensChassi[tk])) {
-          chassiTexto = tokensChassi[tk];
-        } else {
-          sobrasCelulaChassi.push(tokensChassi[tk]);
+      // A coluna do Chassi é estreita, então o chassi quase sempre quebra
+      // em mais de uma linha dentro da célula. Quando essa quebra vira um
+      // ESPAÇO na conversão (e não uma quebra de parágrafo), procurar um
+      // "token" de 17 caracteres nunca acha nada — "9BG148FK0NC409 053"
+      // são dois pedaços de 14 e 3. Por isso tenta PRIMEIRO a célula
+      // inteira sem espaço nenhum, que é o que junta o chassi de volta, e
+      // só depois cai no caminho por tokens (que existe pro caso oposto:
+      // Chassi/Renavam/Placa colados numa célula só, em que juntar tudo
+      // daria um texto inválido). Era exatamente isso que fazia o Ofício
+      // 619/2026 não ter NENHUM veículo lido.
+      var acharChassiNaCelula_ = function (textoCelula) {
+        var inteiro = juntarCelulaQuebrada_(textoCelula).replace(/\s+/g, '').toUpperCase();
+        if (validarChassi_(inteiro)) return { chassi: inteiro, sobras: [] };
+        var tokens = extrairTokens_(juntarCelulaQuebrada_(textoCelula));
+        for (var i = 0; i < tokens.length; i++) {
+          if (validarChassi_(tokens[i])) {
+            return { chassi: tokens[i], sobras: tokens.slice(0, i).concat(tokens.slice(i + 1)) };
+          }
         }
-      }
+        return null;
+      };
+
+      var achado = acharChassiNaCelula_(lerCelula(idxChassi));
+      var chassiTexto = achado ? achado.chassi : '';
+      var sobrasCelulaChassi = achado ? achado.sobras : [];
       var idxChassiLinha = idxChassi;
       if (!chassiTexto) {
         // Célula esperada não tem um chassi válido — procura em toda a
         // linha antes de descartá-la (ver comentário acima da função).
         idxChassiLinha = -1;
         for (var cc = 0; cc < linha.getNumCells() && !chassiTexto; cc++) {
-          var tokensCelula = extrairTokens_(linha.getCell(cc).getText());
-          for (var tc = 0; tc < tokensCelula.length; tc++) {
-            if (validarChassi_(tokensCelula[tc])) {
-              chassiTexto = tokensCelula[tc];
-              idxChassiLinha = cc;
-              if (cc === idxChassi) {
-                sobrasCelulaChassi = tokensCelula.filter(function (t) { return t !== chassiTexto; });
-              }
-              break;
-            }
+          var achadoCelula = acharChassiNaCelula_(linha.getCell(cc).getText());
+          if (achadoCelula) {
+            chassiTexto = achadoCelula.chassi;
+            idxChassiLinha = cc;
+            if (cc === idxChassi) sobrasCelulaChassi = achadoCelula.sobras;
           }
         }
         if (!chassiTexto) continue;
@@ -3934,26 +4095,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
   }
   if (!veiculos.length) {
     avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
-    // Diagnóstico: nenhuma célula da tabela bateu como chassi válido (17
-    // caracteres alfanuméricos, sem I/O/Q) mesmo varrendo a linha inteira —
-    // em vez de continuar chutando a causa, mostra o texto bruto de cada
-    // célula das primeiras linhas pra investigação (⏎ marca quebra de
-    // linha dentro da própria célula, sinal de tabela estreita/OCR ruim).
-    var diagLinhas = [];
-    for (var td = 0; td < tabelas.length && diagLinhas.length < 4; td++) {
-      var tabelaD = tabelas[td];
-      for (var ld = 0; ld < tabelaD.getNumRows() && diagLinhas.length < 4; ld++) {
-        var linhaD = tabelaD.getRow(ld);
-        var celulasD = [];
-        for (var cd = 0; cd < linhaD.getNumCells(); cd++) {
-          celulasD.push('[' + cd + ']"' + linhaD.getCell(cd).getText().replace(/\n/g, '⏎') + '"');
-        }
-        diagLinhas.push('Tabela ' + td + ', linha ' + ld + ': ' + celulasD.join(' '));
-      }
-    }
-    if (diagLinhas.length) {
-      avisos.push('DIAGNÓSTICO (copie e envie esse texto pra investigação): ' + diagLinhas.join('  ||  '));
-    }
+    avisos.push(diagnosticoTabelas_(tabelas));
   } else if (maiorItem > veiculos.length) {
     var itensFaltando = [];
     for (var it = 1; it <= maiorItem; it++) {
@@ -4065,27 +4207,31 @@ function extrairChassiEAnoModeloDeTabelas_(corpo, avisos) {
     return [];
   }
 
+  // Procura o cabeçalho em qualquer linha de qualquer tabela — em Ofícios
+  // curtos a conversão do PDF às vezes junta o bloco de assinatura do SEI
+  // com a tabela do Anexo, e aí o cabeçalho não é a linha 0.
   var idxChassi = -1, idxAnoModelo = -1;
   var achouCabecalho = false;
-  for (var t = 0; t < tabelas.length; t++) {
-    if (!tabelas[t].getNumRows()) continue;
-    var linhaCabecalho = tabelas[t].getRow(0);
-    var cabecalho = [];
-    for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
-      cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+  for (var t = 0; t < tabelas.length && !achouCabecalho; t++) {
+    for (var lc = 0; lc < tabelas[t].getNumRows() && !achouCabecalho; lc++) {
+      var linhaCabecalho = tabelas[t].getRow(lc);
+      var cabecalho = [];
+      for (var c = 0; c < linhaCabecalho.getNumCells(); c++) {
+        cabecalho.push(juntarCelulaQuebrada_(linhaCabecalho.getCell(c).getText()).toUpperCase());
+      }
+      if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
+      var acharColuna = function (pedaco) {
+        for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
+        return -1;
+      };
+      idxChassi = acharColuna('CHASSI');
+      idxAnoModelo = acharColuna('ANO');
+      achouCabecalho = true;
     }
-    if (cabecalho.join(' ').indexOf('CHASSI') === -1) continue;
-    var acharColuna = function (pedaco) {
-      for (var i = 0; i < cabecalho.length; i++) if (cabecalho[i].indexOf(pedaco) !== -1) return i;
-      return -1;
-    };
-    idxChassi = acharColuna('CHASSI');
-    idxAnoModelo = acharColuna('ANO');
-    achouCabecalho = true;
-    break;
   }
   if (!achouCabecalho) {
     avisos.push('Encontrei tabela(s) nesse PDF, mas nenhuma com coluna "Chassi".');
+    avisos.push(diagnosticoTabelas_(tabelas));
     return [];
   }
   if (idxAnoModelo === -1) {
@@ -4101,14 +4247,26 @@ function extrairChassiEAnoModeloDeTabelas_(corpo, avisos) {
       var linha = tabelaAtual.getRow(l);
       var lerCelula = function (idx) { return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : null; };
 
-      var chassiBruto = lerCelula(idxChassi);
-      var chassiTexto = chassiBruto === null ? '' : chassiBruto.replace(/\s+/g, '').toUpperCase();
+      // Duas formas de achar o chassi na célula, nesta ordem: a célula
+      // inteira sem espaço nenhum (junta o chassi que quebrou em duas
+      // linhas na coluna estreita) e, se isso não der um chassi válido,
+      // cada pedaço separado por espaço (caso de duas informações coladas
+      // na mesma célula).
+      var acharChassi_ = function (textoCelula) {
+        var inteiro = juntarCelulaQuebrada_(textoCelula).replace(/\s+/g, '').toUpperCase();
+        if (validarChassi_(inteiro)) return inteiro;
+        var pedacos = juntarCelulaQuebrada_(textoCelula).toUpperCase().split(' ');
+        for (var i = 0; i < pedacos.length; i++) if (validarChassi_(pedacos[i])) return pedacos[i];
+        return '';
+      };
+
+      var chassiTexto = acharChassi_(lerCelula(idxChassi));
       var idxChassiLinha = idxChassi;
-      if (!validarChassi_(chassiTexto)) {
+      if (!chassiTexto) {
         idxChassiLinha = -1;
         for (var cc = 0; cc < linha.getNumCells(); cc++) {
-          var candidato = juntarCelulaQuebrada_(linha.getCell(cc).getText()).replace(/\s+/g, '').toUpperCase();
-          if (validarChassi_(candidato)) { idxChassiLinha = cc; chassiTexto = candidato; break; }
+          var candidato = acharChassi_(linha.getCell(cc).getText());
+          if (candidato) { idxChassiLinha = cc; chassiTexto = candidato; break; }
         }
         if (idxChassiLinha === -1) continue;
       }
