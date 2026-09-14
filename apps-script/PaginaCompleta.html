@@ -1877,6 +1877,14 @@
           <input type="date" id="dataAtpveEnvio">
         </div>
       </div>
+      <div id="campoDutAtpve" style="border-top:1px solid var(--borda); margin-top:14px; padding-top:12px;">
+        <p style="font-size:13px; color:var(--texto-suave); margin:0 0 8px;">
+          Veículo antigo, transferido pelo DUT em papel, sem ATPVe nenhum?
+        </p>
+        <button type="button" class="secundario" style="width:100%;" onclick="fecharModalDataAtpve_('DUT')">
+          Não houve ATPVe — marcar como DUT
+        </button>
+      </div>
       <div class="botoes">
         <button class="secundario" onclick="fecharModalDataAtpve_(false)" data-fecha-modal>Cancelar</button>
         <button class="primario" style="margin-left:auto;" onclick="fecharModalDataAtpve_(true)">Confirmar</button>
@@ -4761,23 +4769,29 @@
   // mostra só a de envio — cada uma pode ter uma data diferente, e pedir as
   // duas junto quando só uma foi clicada confundia (e fazia parecer que
   // estavam vinculadas).
-  function pedirDatasAtpve_(campo) {
+  // mostrarDut: só faz sentido oferecer "foi DUT" ao marcar o ATPVe
+  // EMITIDO — o "Enviado" acompanha o Emitido automaticamente, e no
+  // Transferido a ideia não se aplica.
+  function pedirDatasAtpve_(campo, mostrarDut) {
     var hoje = formatarDataISO_(new Date());
     var mostraEmissao = campo === 'ATPVeEmitido';
     var mostraEnvio = campo === 'ATPVeEnviado';
     document.getElementById('campoDataAtpveEmissao').style.display = mostraEmissao ? '' : 'none';
     document.getElementById('campoDataAtpveEnvio').style.display = mostraEnvio ? '' : 'none';
+    document.getElementById('campoDutAtpve').style.display = mostrarDut ? '' : 'none';
     document.getElementById('dataAtpveEmissao').value = hoje;
     document.getElementById('dataAtpveEnvio').value = hoje;
     document.getElementById('modalDataAtpveFundo').classList.add('ativo');
     return new Promise(function (resolve) { RESOLVER_DATA_ATPVE = resolve; });
   }
 
+  // Devolve null (cancelou), {dut:true} ou as datas escolhidas.
   function fecharModalDataAtpve_(confirmado) {
     document.getElementById('modalDataAtpveFundo').classList.remove('ativo');
     if (!RESOLVER_DATA_ATPVE) return;
     var resolver = RESOLVER_DATA_ATPVE;
     RESOLVER_DATA_ATPVE = null;
+    if (confirmado === 'DUT') { resolver({ dut: true }); return; }
     resolver(confirmado ? {
       dataEmissao: document.getElementById('dataAtpveEmissao').value,
       dataEnvio: document.getElementById('dataAtpveEnvio').value
@@ -4802,9 +4816,15 @@
     var novoValor = proximoStatusAtpve_(campo, valorAtual);
     var datas = {};
     if (novoValor === 'SIM' && (campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado')) {
-      var escolhidas = await pedirDatasAtpve_(campo);
+      // O botão do ATPVe Emitido vai de NÃO direto pra SIM, e a caixa de
+      // data abre nesse caminho. Como o DUT é justamente o caso em que NÃO
+      // houve emissão, ele precisa estar alcançável a partir do "NÃO" —
+      // senão marcar DUT exigiria passar por SIM antes, gravando uma data
+      // de emissão que nunca existiu. Por isso a opção fica aqui dentro.
+      var escolhidas = await pedirDatasAtpve_(campo, campo === 'ATPVeEmitido' && valorAtual === 'NÃO');
       if (!escolhidas) return; // cancelou a caixa de datas — não faz nada
-      datas = escolhidas;
+      if (escolhidas.dut) { novoValor = 'DUT'; datas = {}; }
+      else datas = escolhidas;
     }
     google.script.run
       .withSuccessHandler(function (resp) {
@@ -4872,17 +4892,24 @@
       mostrarMensagem('mensagemListagem', 'sucesso', 'Todos os veículos deste processo já estão marcados como "' + rotulo + ': ' + alvo + '".');
       return;
     }
-    var acao = alvo === 'SIM' ? 'Marcar' : 'Desmarcar';
-    if (!confirm(acao + ' os ' + pendentes.length + ' veículo(s) deste processo como "' + rotulo + ': ' + alvo + '"?')) return;
-
+    // A caixa de datas vem ANTES da confirmação porque é nela que se escolhe
+    // "foi DUT" — e isso muda o alvo do lote. Confirmar antes faria a
+    // pergunta falar em "SIM" e o sistema gravar "DUT".
     var datas = {};
     if (alvo === 'SIM' && (campo === 'ATPVeEmitido' || campo === 'ATPVeEnviado')) {
-      var escolhidas = await pedirDatasAtpve_(campo);
+      var escolhidas = await pedirDatasAtpve_(campo, campo === 'ATPVeEmitido');
       if (!escolhidas) return; // cancelou a caixa de datas — não marca nenhum
-      datas = escolhidas;
+      if (escolhidas.dut) alvo = 'DUT';
+      else datas = escolhidas;
     }
+    // Com alvo DUT, os pendentes já são os certos: veiculosMarcaveis_ tira
+    // da lista quem já está como DUT.
 
-    var acaoGerundio = alvo === 'SIM' ? 'Marcando' : 'Desmarcando';
+    var rotuloAlvo = alvo === 'DUT' ? 'DUT — transferido sem ATPVe' : alvo;
+    var acao = alvo === 'NÃO' ? 'Desmarcar' : 'Marcar';
+    if (!confirm(acao + ' os ' + pendentes.length + ' veículo(s) deste processo como "' + rotulo + ': ' + rotuloAlvo + '"?')) return;
+
+    var acaoGerundio = alvo === 'NÃO' ? 'Desmarcando' : 'Marcando';
     mostrarLoader_(acaoGerundio + ' ' + pendentes.length + ' veículo(s), aguarde...');
     // Uma única ida ao servidor pro processo inteiro. Antes era uma por
     // veículo, e cada uma relia a planilha inteira pra achar a linha — num
@@ -4900,7 +4927,9 @@
     if (erros.length) {
       mostrarErroCadastro_('Alguns veículos não puderam ser atualizados:\n' + erros.join('\n'));
     } else {
-      mostrarMensagem('mensagemListagem', 'sucesso', rotulo + ' ' + (alvo === 'SIM' ? 'marcado' : 'desmarcado') + ' para todos os veículos deste processo.');
+      mostrarMensagem('mensagemListagem', 'sucesso', alvo === 'DUT'
+        ? pendentes.length + ' veículo(s) marcado(s) como DUT — transferidos sem ATPVe.'
+        : rotulo + ' ' + (alvo === 'SIM' ? 'marcado' : 'desmarcado') + ' para todos os veículos deste processo.');
     }
   }
 
