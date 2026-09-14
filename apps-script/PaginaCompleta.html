@@ -3623,7 +3623,7 @@
       ['Número SEI do Termo', document.getElementById('c_NumeroSei').value],
       ['Contrato', document.getElementById('c_Contrato').value],
       ['UF / Ente', document.getElementById('c_UF').value + ' / ' + document.getElementById('c_Ente').value],
-      ['Donatária', document.getElementById('c_Donataria').value],
+      ['Donatária', lerDonatariaAtual_()],
       ['CNPJ da Donatária', document.getElementById('c_CNPJDonataria').value || '(não informado)'],
       ['Endereço', document.getElementById('c_Logradouro').value + ', ' + document.getElementById('c_Numero').value +
         (document.getElementById('c_Complemento').value ? ' — ' + document.getElementById('c_Complemento').value : '')],
@@ -3655,11 +3655,33 @@
     document.getElementById('c_Ente').addEventListener('change', atualizarModoDonataria_);
     document.getElementById('c_DonatariaSelect').addEventListener('change', function () {
       var opt = this.options[this.selectedIndex];
-      var cnpj = opt ? (opt.dataset.cnpj || '') : '';
-      document.getElementById('c_Donataria').value = this.value;
-      document.getElementById('c_CNPJDonataria').value = cnpj;
-      document.getElementById('c_CNPJExibicao').textContent = cnpj || '–';
+      sincronizarDonatariaDoSelect_(this.value, opt ? (opt.dataset.cnpj || '') : '');
     });
+  }
+
+  // Quem é salvo de verdade é o campo c_Donataria — o menu de órgãos é só
+  // a forma de escolher. Então TODA vez que o menu muda, os dois têm que
+  // andar juntos.
+  //
+  // Isso não podia ficar só dentro do "change" do menu: escolher uma opção
+  // por código (como faz o preenchimento automático do Ofício) NÃO dispara
+  // o evento "change" do navegador. O resultado era o menu aparecer
+  // preenchido na tela, mas o campo que vai pro servidor continuar vazio, e
+  // o cadastro morrer em "Donatária é obrigatória" sem explicação visível.
+  function sincronizarDonatariaDoSelect_(valor, cnpj) {
+    document.getElementById('c_Donataria').value = valor || '';
+    document.getElementById('c_CNPJDonataria').value = cnpj || '';
+    document.getElementById('c_CNPJExibicao').textContent = cnpj || '–';
+  }
+
+  // Rede de segurança na hora de salvar: se o menu de órgãos está visível e
+  // tem um órgão escolhido, ele é a fonte da verdade — mesmo que a sincronia
+  // acima não tenha rodado por algum caminho novo. Evita repetir o erro de
+  // mandar Donatária vazia com a tela mostrando um órgão selecionado.
+  function lerDonatariaAtual_() {
+    var select = document.getElementById('c_DonatariaSelect');
+    if (select && select.style.display !== 'none' && select.value) return select.value;
+    return document.getElementById('c_Donataria').value;
   }
 
   function atualizarModoDonataria_() {
@@ -3851,8 +3873,9 @@
         var opcaoAchada = Array.prototype.slice.call(select.options).some(function (opt) {
           if (opt.value && normalizarTextoBusca_(opt.value) === normalizarTextoBusca_(c.Donataria)) {
             select.value = opt.value;
-            document.getElementById('c_CNPJDonataria').value = opt.dataset.cnpj || '';
-            document.getElementById('c_CNPJExibicao').textContent = opt.dataset.cnpj || '–';
+            // Escolher por código não dispara o "change" do menu, então a
+            // sincronia com o campo que é realmente salvo vai aqui.
+            sincronizarDonatariaDoSelect_(opt.value, opt.dataset.cnpj || '');
             return true;
           }
           return false;
@@ -3967,7 +3990,7 @@
         Mes: document.getElementById('c_Mes').value,
         UF: document.getElementById('c_UF').value,
         Ente: document.getElementById('c_Ente').value,
-        Donataria: document.getElementById('c_Donataria').value,
+        Donataria: lerDonatariaAtual_(),
         TermoDoacao: document.getElementById('c_TermoDoacao').value,
         NumeroSei: document.getElementById('c_NumeroSei').value,
         Observacoes: document.getElementById('c_Observacoes').value,
@@ -4053,7 +4076,7 @@
         Mes: document.getElementById('c_Mes').value,
         UF: document.getElementById('c_UF').value,
         Ente: document.getElementById('c_Ente').value,
-        Donataria: document.getElementById('c_Donataria').value,
+        Donataria: lerDonatariaAtual_(),
         TermoDoacao: document.getElementById('c_TermoDoacao').value,
         NumeroSei: document.getElementById('c_NumeroSei').value,
         Observacoes: document.getElementById('c_Observacoes').value,
