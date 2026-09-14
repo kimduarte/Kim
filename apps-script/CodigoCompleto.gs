@@ -466,6 +466,34 @@ function validarChassi_(chassi) {
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(chassi);
 }
 
+// As letras I, O e Q NÃO existem em chassi: a norma internacional de VIN
+// (ISO 3779) proíbe as três justamente pra não serem confundidas com os
+// algarismos 1, 0 e 0. Então um texto de 17 caracteres que só não passa na
+// validação por causa delas não é um chassi "inválido" — é um chassi
+// legítimo escrito errado, e a leitura como algarismo é a única possível.
+//
+// Acontece de verdade: o Ofício 08020.000054/2026-96 traz
+// "93YF62SO9TJ399605" (letra O) onde os mesmos veículos Renault já
+// cadastrados têm "93YF62S09TJ399605" (zero) — conferido nos 6 veículos
+// dessa família que existem na base. Nenhum dos 3.849 chassis cadastrados
+// contém I, O ou Q, o que confirma que a correção é segura.
+//
+// Só essas três letras são trocadas. Confusões parecidas (S/5, B/8, Z/2,
+// G/6) NÃO entram aqui de propósito: esses caracteres são todos válidos em
+// chassi, e trocá-los estragaria chassis corretos.
+var TROCAS_CHASSI_ = { 'I': '1', 'O': '0', 'Q': '0' };
+
+function interpretarChassiDeDocumento_(texto) {
+  var limpo = String(texto || '').replace(/\s+/g, '').toUpperCase();
+  if (validarChassi_(limpo)) return { chassi: limpo, corrigido: false };
+  // Precisa ter exatamente 17 caracteres alfanuméricos — só então faz
+  // sentido cogitar que as letras proibidas sejam algarismos mal escritos.
+  if (!/^[A-Z0-9]{17}$/.test(limpo)) return null;
+  var corrigido = limpo.replace(/[IOQ]/g, function (c) { return TROCAS_CHASSI_[c]; });
+  if (!validarChassi_(corrigido)) return null;
+  return { chassi: corrigido, corrigido: true, original: limpo };
+}
+
 function validarPlaca_(placa) {
   var antiga = /^[A-Z]{3}[0-9]{4}$/;
   var mercosul = /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/;
@@ -3770,10 +3798,13 @@ function extrairVeiculosTermoDoacao_(corpo, avisos) {
       // cada pedaço separado por espaço (caso de duas informações coladas
       // na mesma célula).
       var acharChassi_ = function (textoCelula) {
-        var inteiro = juntarCelulaQuebrada_(textoCelula).replace(/\s+/g, '').toUpperCase();
-        if (validarChassi_(inteiro)) return inteiro;
+        var inteiro = interpretarChassiDeDocumento_(juntarCelulaQuebrada_(textoCelula));
+        if (inteiro) return inteiro.chassi;
         var pedacos = juntarCelulaQuebrada_(textoCelula).toUpperCase().split(' ');
-        for (var i = 0; i < pedacos.length; i++) if (validarChassi_(pedacos[i])) return pedacos[i];
+        for (var i = 0; i < pedacos.length; i++) {
+          var pedaco = interpretarChassiDeDocumento_(pedacos[i]);
+          if (pedaco) return pedaco.chassi;
+        }
         return '';
       };
 
@@ -3927,7 +3958,12 @@ function extrairComunsOficioTransferencia_(texto, avisos) {
     // Cidade/UF ficam sempre logo antes do CEP (ex.: "..., Belo
     // Horizonte/MG, CEP: 31.630-900") — às vezes com espaço antes da
     // barra ("Belo Horizonte / MG"), por isso o \s* dos dois lados.
-    var mCidadeUf = enderecoTexto.match(/,\s*([^,\/]+?)\s*\/\s*([A-Z]{2})\s*,?\s*CEP/i);
+    // O separador pode ser barra OU hífen: o Ofício 638/2026 escreve
+    // "Rio de Janeiro - RJ", e exigir barra deixava Município e UF vazios.
+    // A cidade aceita hífen dentro do nome (Mogi-Mirim) porque o que
+    // delimita a captura é o "- UF" logo antes do CEP, não o primeiro
+    // hífen que aparecer.
+    var mCidadeUf = enderecoTexto.match(/,\s*([^,]+?)\s*[\/\-]\s*([A-Z]{2})\s*,?\s*CEP/i);
     if (mCidadeUf) {
       comuns.Municipio = mCidadeUf[1].trim();
       comuns.UF = mCidadeUf[2].toUpperCase();
@@ -3968,8 +4004,12 @@ function extrairComunsOficioTransferencia_(texto, avisos) {
     // Segurança são sempre órgãos estaduais — mesmo quando a Razão Social
     // não usa literalmente as palavras "Estado de" (ex.: "Corpo de
     // Bombeiros Militar do Ceará").
-    var PALAVRAS_ENTE_ESTADUAL_ = ['CORPO DE BOMBEIROS', 'POLICIA MILITAR', 'POLICIA CIVIL', 'POLICIA CIENTIFICA', 'SECRETARIA DE SEGURANCA'];
-    if (/\bESTADO\s+DE\b/i.test(comuns.Donataria)) {
+    // "SECRETARIA DE ESTADO ..." é sempre órgão estadual, qualquer que
+    // seja a pasta — sem isso, "Secretaria de Estado da Justiça e
+    // Segurança Pública do Amapá" (Ofício 08000.043924/2025-79) ficava sem
+    // Ente, porque o texto diz "Estado DA", não "Estado DE".
+    var PALAVRAS_ENTE_ESTADUAL_ = ['CORPO DE BOMBEIROS', 'POLICIA MILITAR', 'POLICIA CIVIL', 'POLICIA CIENTIFICA', 'SECRETARIA DE SEGURANCA', 'SECRETARIA DE ESTADO'];
+    if (/\bESTADO\s+D[EAO]\b/i.test(comuns.Donataria)) {
       comuns.Ente = 'Estado';
     } else if (/\bMUNIC[ÍI]PIO\s+DE\b/i.test(comuns.Donataria)) {
       comuns.Ente = 'Município';
@@ -3991,6 +4031,26 @@ function extrairComunsOficioTransferencia_(texto, avisos) {
           if (new RegExp('\\b' + nomesEstados[ne] + '\\b').test(donatariaSemAcento)) {
             comuns.UF = NOME_ESTADO_PARA_UF_[nomesEstados[ne]];
             break;
+          }
+        }
+        // Fallback 3: a linha "Assunto" nomeia por extenso quem vai receber
+        // os veículos, mesmo quando a Razão Social não diz o estado (ex.:
+        // Razão Social "Secretaria de Estado de Defesa Civil", Assunto
+        // "... à Secretaria de Estado de Defesa Civil do Estado do Rio de
+        // janeiro"). Usa SÓ a frase do Assunto, e não o documento inteiro,
+        // porque o texto todo cita também o DETRAN de destino — quase
+        // sempre o do Distrito Federal — e isso daria a UF errada.
+        if (!comuns.UF) {
+          var mAssunto = texto.match(/Assunto:\s*([^.]+)\./i);
+          if (mAssunto) {
+            var assuntoSemAcento = removerAcentos_(mAssunto[1]).toUpperCase();
+            for (var na = 0; na < nomesEstados.length; na++) {
+              if (new RegExp('\\b' + nomesEstados[na] + '\\b').test(assuntoSemAcento)) {
+                comuns.UF = NOME_ESTADO_PARA_UF_[nomesEstados[na]];
+                avisos.push('A UF (' + comuns.UF + ') foi deduzida do Assunto do Ofício, não do endereço — confira.');
+                break;
+              }
+            }
           }
         }
       }
@@ -4045,8 +4105,8 @@ function lerVeiculosAnexoPorConteudo_(tabelas) {
       var chassi = '';
       var idxUsado = {};
       for (var i = 0; i < celulas.length && !chassi; i++) {
-        var inteiro = celulas[i].replace(/\s+/g, '').toUpperCase();
-        if (validarChassi_(inteiro)) { chassi = inteiro; idxUsado[i] = true; }
+        var inteiro = interpretarChassiDeDocumento_(celulas[i]);
+        if (inteiro) { chassi = inteiro.chassi; idxUsado[i] = true; }
       }
       if (!chassi) continue;
 
@@ -4090,6 +4150,70 @@ function lerVeiculosAnexoPorConteudo_(tabelas) {
     }
   }
   return veiculos;
+}
+
+/**
+ * Recupera veículos que a leitura por TABELA perdeu, lendo o texto corrido
+ * do documento.
+ *
+ * Uma linha do Anexo I que cai exatamente na quebra de página às vezes não
+ * sai como linha de tabela na conversão do PDF — aconteceu com o item 31
+ * do Ofício 08020.011859/2025-84, que sumia da tabela mas continuava
+ * inteiro no texto ("31 1 TRITON MITSUBISHI 93XDLLC2TVCT16979 1497375352
+ * UJA9J64 2026/2027 R$ 283.968,84"). Antes, esse veículo só virava um
+ * aviso pedindo cadastro manual.
+ *
+ * Para não inventar veículo, uma linha só é aceita se tiver um chassi que
+ * ainda não foi lido E também Renavam ou Placa — o que garante que é uma
+ * linha da tabela, não uma menção solta no corpo do Ofício.
+ */
+function recuperarVeiculosDoTexto_(corpo, chassisJaLidos) {
+  var linhas = String(corpo.getText() || '').split('\n');
+  var achados = [];
+
+  linhas.forEach(function (linhaBruta) {
+    var tokens = String(linhaBruta).replace(/\s+/g, ' ').trim().toUpperCase().split(' ');
+    if (tokens.length < 5) return;
+
+    var idxChassi = -1, chassi = '';
+    for (var i = 0; i < tokens.length && !chassi; i++) {
+      var candidato = interpretarChassiDeDocumento_(tokens[i]);
+      if (candidato) { chassi = candidato.chassi; idxChassi = i; }
+    }
+    if (!chassi || chassisJaLidos[chassi]) return;
+
+    var renavam = '', placa = '', anoModelo = '', pedacosValor = [];
+    for (var j = idxChassi + 1; j < tokens.length; j++) {
+      var tk = tokens[j];
+      if (!anoModelo && /^\d{4}\/\d{4}$/.test(tk)) { anoModelo = tk; continue; }
+      if (!renavam && /^\d{9,11}$/.test(tk)) { renavam = tk; continue; }
+      if (!placa && validarPlaca_(tk)) { placa = tk; continue; }
+      if (/^R\$$/.test(tk) || /\d{1,3}(\.\d{3})*,\d{2}/.test(tk)) pedacosValor.push(tk);
+    }
+    if (!renavam && !placa) return;
+
+    // A ordem das colunas do Anexo I é fixa (ITEM, QTD, DESCRIÇÃO, MARCA,
+    // CHASSI...), então a Marca é sempre o pedaço imediatamente antes do
+    // chassi, e a Descrição é o que vem entre a quantidade e a marca.
+    var marca = idxChassi >= 1 ? tokens[idxChassi - 1] : '';
+    var inicioDescricao = (/^\d+$/.test(tokens[0]) && /^\d+$/.test(tokens[1])) ? 2 : 0;
+    var descricao = idxChassi - 1 > inicioDescricao
+      ? tokens.slice(inicioDescricao, idxChassi - 1).join(' ')
+      : '';
+
+    chassisJaLidos[chassi] = true;
+    achados.push({
+      Descricao: descricao,
+      Marca: marca,
+      Chassi: chassi,
+      Renavam: renavam.replace(/\D/g, ''),
+      Placa: placa,
+      ValorVeiculo: normalizarValorMonetario_(pedacosValor.join('')),
+      AnoModelo: normalizarAnoModelo_(anoModelo)
+    });
+  });
+
+  return achados;
 }
 
 function extrairVeiculosOficioTransferencia_(corpo, avisos) {
@@ -4194,6 +4318,11 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
   var veiculos = [];
   var itensComChassi = {};
   var maiorItem = 0;
+  // Chassis que vieram com I/O/Q no lugar de 1/0/0 e foram corrigidos, e
+  // linhas que são veículo mas não tiveram chassi legível — as duas coisas
+  // viram aviso na tela, pra nada ser corrigido ou importado em silêncio.
+  var chassisCorrigidos = [];
+  var linhasSemChassi = [];
   for (var t2 = 0; t2 < tabelas.length; t2++) {
     var tabelaAtual = tabelas[t2];
     for (var l = 0; l < tabelaAtual.getNumRows(); l++) {
@@ -4225,12 +4354,17 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
       // daria um texto inválido). Era exatamente isso que fazia o Ofício
       // 619/2026 não ter NENHUM veículo lido.
       var acharChassiNaCelula_ = function (textoCelula) {
-        var inteiro = juntarCelulaQuebrada_(textoCelula).replace(/\s+/g, '').toUpperCase();
-        if (validarChassi_(inteiro)) return { chassi: inteiro, sobras: [] };
+        var inteiro = interpretarChassiDeDocumento_(juntarCelulaQuebrada_(textoCelula));
+        if (inteiro) return { chassi: inteiro.chassi, sobras: [], corrigidoDe: inteiro.corrigido ? inteiro.original : null };
         var tokens = extrairTokens_(juntarCelulaQuebrada_(textoCelula));
         for (var i = 0; i < tokens.length; i++) {
-          if (validarChassi_(tokens[i])) {
-            return { chassi: tokens[i], sobras: tokens.slice(0, i).concat(tokens.slice(i + 1)) };
+          var token = interpretarChassiDeDocumento_(tokens[i]);
+          if (token) {
+            return {
+              chassi: token.chassi,
+              sobras: tokens.slice(0, i).concat(tokens.slice(i + 1)),
+              corrigidoDe: token.corrigido ? token.original : null
+            };
           }
         }
         return null;
@@ -4239,6 +4373,7 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
       var achado = acharChassiNaCelula_(lerCelula(idxChassi));
       var chassiTexto = achado ? achado.chassi : '';
       var sobrasCelulaChassi = achado ? achado.sobras : [];
+      var chassiCorrigidoDe = achado ? achado.corrigidoDe : null;
       var idxChassiLinha = idxChassi;
       if (!chassiTexto) {
         // Célula esperada não tem um chassi válido — procura em toda a
@@ -4248,12 +4383,40 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
           var achadoCelula = acharChassiNaCelula_(linha.getCell(cc).getText());
           if (achadoCelula) {
             chassiTexto = achadoCelula.chassi;
+            chassiCorrigidoDe = achadoCelula.corrigidoDe;
             idxChassiLinha = cc;
             if (cc === idxChassi) sobrasCelulaChassi = achadoCelula.sobras;
           }
         }
-        if (!chassiTexto) continue;
+        if (!chassiTexto) {
+          // Não achei chassi legível nesta linha. Antes de descartá-la, vê
+          // se ela é mesmo uma linha de veículo (tem Renavam ou Placa no
+          // lugar esperado) — se for, importa assim mesmo com o chassi em
+          // branco e avisa qual item precisa ser preenchido à mão. Descartar
+          // calado era o que fazia um Ofício inteiro voltar vazio por causa
+          // de um caractere.
+          var lerRelativo_ = function (idx) {
+            return idx >= 0 && idx < linha.getNumCells() ? juntarCelulaQuebrada_(linha.getCell(idx).getText()) : '';
+          };
+          var renavamSolto = lerRelativo_(idxRenavam).replace(/\s+/g, '');
+          var placaSolta = lerRelativo_(idxPlaca).replace(/\s+/g, '').toUpperCase();
+          if (!validarRenavam_(renavamSolto) && !validarPlaca_(placaSolta)) continue;
+          var itemSolto = lerRelativo_(idxItem).replace(/\D/g, '');
+          linhasSemChassi.push(itemSolto || placaSolta || renavamSolto || '(sem identificação)');
+          veiculos.push({
+            Descricao: lerRelativo_(idxDescricao),
+            Marca: lerRelativo_(idxMarca),
+            Chassi: '',
+            Renavam: validarRenavam_(renavamSolto) ? renavamSolto.replace(/\D/g, '') : '',
+            Placa: validarPlaca_(placaSolta) ? placaSolta : '',
+            ValorVeiculo: normalizarValorMonetario_(lerRelativo_(idxValor)),
+            AnoModelo: normalizarAnoModelo_(lerRelativo_(idxAnoModelo))
+          });
+          if (itemSolto) { var nSolto = parseInt(itemSolto, 10); if (nSolto) { itensComChassi[nSolto] = true; if (nSolto > maiorItem) maiorItem = nSolto; } }
+          continue;
+        }
       }
+      if (chassiCorrigidoDe) chassisCorrigidos.push(chassiCorrigidoDe + ' → ' + chassiTexto);
 
       var pegar = function (deslocamento) {
         if (deslocamento === null) return '';
@@ -4287,6 +4450,27 @@ function extrairVeiculosOficioTransferencia_(corpo, avisos) {
         AnoModelo: normalizarAnoModelo_(pegar(deslocAnoModelo))
       });
     }
+  }
+  // Passada final: procura no texto do documento algum veículo que a
+  // leitura por tabela não pegou (linha perdida na quebra de página).
+  var chassisJaLidos = {};
+  veiculos.forEach(function (v) { if (v.Chassi) chassisJaLidos[v.Chassi] = true; });
+  var recuperados = recuperarVeiculosDoTexto_(corpo, chassisJaLidos);
+  if (recuperados.length) {
+    veiculos = veiculos.concat(recuperados);
+    avisos.push('O(s) veículo(s) de chassi ' + recuperados.map(function (v) { return v.Chassi; }).join(', ') +
+      ' não saiu(íram) como linha da tabela na conversão do PDF (normalmente por cair bem na quebra de página) — ' +
+      'li do texto do próprio Ofício e incluí. Confira Marca e Descrição desse(s), que podem vir cortadas.');
+  }
+
+  if (chassisCorrigidos.length) {
+    avisos.push('O Ofício traz ' + chassisCorrigidos.length + ' chassi(s) com a letra "O", "I" ou "Q", que não existem em chassi ' +
+      '(a norma internacional proíbe as três pra não confundir com 0, 1 e 0). Li como algarismo: ' +
+      chassisCorrigidos.join('; ') + '. Confira antes de salvar e, se puder, peça a correção do documento.');
+  }
+  if (linhasSemChassi.length) {
+    avisos.push('Não consegui ler o chassi do(s) item(ns) ' + linhasSemChassi.join(', ') +
+      ' — trouxe o restante dos dados desse(s) veículo(s) e deixei o chassi em branco pra você preencher à mão.');
   }
   if (!veiculos.length) {
     avisos.push('A tabela do Anexo I foi encontrada, mas não consegui ler nenhuma linha de veículo dela.');
@@ -4448,10 +4632,13 @@ function extrairChassiEAnoModeloDeTabelas_(corpo, avisos) {
       // cada pedaço separado por espaço (caso de duas informações coladas
       // na mesma célula).
       var acharChassi_ = function (textoCelula) {
-        var inteiro = juntarCelulaQuebrada_(textoCelula).replace(/\s+/g, '').toUpperCase();
-        if (validarChassi_(inteiro)) return inteiro;
+        var inteiro = interpretarChassiDeDocumento_(juntarCelulaQuebrada_(textoCelula));
+        if (inteiro) return inteiro.chassi;
         var pedacos = juntarCelulaQuebrada_(textoCelula).toUpperCase().split(' ');
-        for (var i = 0; i < pedacos.length; i++) if (validarChassi_(pedacos[i])) return pedacos[i];
+        for (var i = 0; i < pedacos.length; i++) {
+          var pedaco = interpretarChassiDeDocumento_(pedacos[i]);
+          if (pedaco) return pedaco.chassi;
+        }
         return '';
       };
 
