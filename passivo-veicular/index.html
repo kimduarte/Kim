@@ -1,0 +1,2151 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Produtividade do Passivo Veicular</title>
+<style>
+:root {
+  color-scheme: light;
+  --fundo: #f2f4f8;
+  --superficie: #ffffff;
+  --superficie-2: #f5f7fa;
+  --campo: #ffffff;
+  --tinta: #152032;
+  --tinta-2: #4b5870;
+  --tinta-3: #6f7b91;
+  --linha: #e1e6ee;
+  --linha-forte: #c6cfdc;
+  --acento: #1451b4;
+  --acento-forte: #0c326f;
+  --acento-suave: #e8effc;
+  --acento-tinta: #ffffff;
+  --topo: #0c326f;
+  --topo-tinta: #ffffff;
+  --topo-tinta-2: #c3d2ee;
+  --topo-linha: rgba(255, 255, 255, 0.14);
+  --topo-destaque: #ffcd07;
+  --total: #5a6a84;
+  --total-hover: #1451b4;
+
+  /* categorias (ordem fixa, validada para daltonismo) */
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4;
+
+  /* servidores no mapa de responsabilidade (cor + iniciais) */
+  --s1: #2a78d6; --s1-t: #ffffff;
+  --s2: #eb6834; --s2-t: #111827;
+  --s3: #1baf7a; --s3-t: #111827;
+  --s4: #eda100; --s4-t: #111827;
+  --s5: #e87ba4; --s5-t: #111827;
+  --s6: #008300; --s6-t: #ffffff;
+  --s7: #4a3aa7; --s7-t: #ffffff;
+  --s8: #e34948; --s8-t: #111827;
+
+  /* escala sequencial do mapa (menos -> mais) */
+  --q0: #edf0f5; --q0-t: #6f7b91;
+  --q1: #cde2fb; --q1-t: #0d2a52;
+  --q2: #9ec5f4; --q2-t: #0d2a52;
+  --q3: #5598e7; --q3-t: #0b1a33;
+  --q4: #2a78d6; --q4-t: #ffffff;
+  --q5: #184f95; --q5-t: #ffffff;
+
+  --bom: #11703a; --bom-fundo: #e5f4ea;
+  --ruim: #b3261e; --ruim-fundo: #fdecea;
+  --alerta-fundo: #fff6dc; --alerta-borda: #ecd38c; --alerta-tinta: #5f4600;
+  --sombra: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 28px -18px rgba(16, 24, 40, 0.35);
+  --fonte: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --fundo: #0c1017; --superficie: #151b26; --superficie-2: #1b2331; --campo: #111722;
+    --tinta: #e8edf5; --tinta-2: #aeb8c9; --tinta-3: #8792a6;
+    --linha: #263043; --linha-forte: #36425a;
+    --acento: #7aa5f7; --acento-forte: #a9c5fb; --acento-suave: #1a2a48; --acento-tinta: #0c1017;
+    --topo: #0f1a2e; --topo-tinta: #eef2f8; --topo-tinta-2: #9fb0cc; --topo-linha: rgba(255, 255, 255, 0.08);
+    --total: #8f9db5; --total-hover: #7aa5f7;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181;
+    --s1: #3987e5; --s1-t: #0b1220; --s2: #d95926; --s2-t: #0b1220; --s3: #199e70; --s3-t: #0b1220;
+    --s4: #c98500; --s4-t: #0b1220; --s5: #d55181; --s5-t: #0b1220; --s6: #008300; --s6-t: #ffffff;
+    --s7: #9085e9; --s7-t: #0b1220; --s8: #e66767; --s8-t: #0b1220;
+    --q0: #1c2433; --q0-t: #8792a6;
+    --q1: #1b3358; --q1-t: #e8edf5; --q2: #1f4f8f; --q2-t: #ffffff; --q3: #2f72c9; --q3-t: #ffffff;
+    --q4: #5f9cea; --q4-t: #0b1220; --q5: #a9cbf5; --q5-t: #0b1220;
+    --bom: #5ccf7e; --bom-fundo: #12291b; --ruim: #ff8f85; --ruim-fundo: #33191a;
+    --alerta-fundo: #2b2311; --alerta-borda: #5b4917; --alerta-tinta: #f1d58c;
+    --sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -18px rgba(0, 0, 0, 0.7);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fundo: #0c1017; --superficie: #151b26; --superficie-2: #1b2331; --campo: #111722;
+  --tinta: #e8edf5; --tinta-2: #aeb8c9; --tinta-3: #8792a6;
+  --linha: #263043; --linha-forte: #36425a;
+  --acento: #7aa5f7; --acento-forte: #a9c5fb; --acento-suave: #1a2a48; --acento-tinta: #0c1017;
+  --topo: #0f1a2e; --topo-tinta: #eef2f8; --topo-tinta-2: #9fb0cc; --topo-linha: rgba(255, 255, 255, 0.08);
+  --total: #8f9db5; --total-hover: #7aa5f7;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181;
+  --s1: #3987e5; --s1-t: #0b1220; --s2: #d95926; --s2-t: #0b1220; --s3: #199e70; --s3-t: #0b1220;
+  --s4: #c98500; --s4-t: #0b1220; --s5: #d55181; --s5-t: #0b1220; --s6: #008300; --s6-t: #ffffff;
+  --s7: #9085e9; --s7-t: #0b1220; --s8: #e66767; --s8-t: #0b1220;
+  --q0: #1c2433; --q0-t: #8792a6;
+  --q1: #1b3358; --q1-t: #e8edf5; --q2: #1f4f8f; --q2-t: #ffffff; --q3: #2f72c9; --q3-t: #ffffff;
+  --q4: #5f9cea; --q4-t: #0b1220; --q5: #a9cbf5; --q5-t: #0b1220;
+  --bom: #5ccf7e; --bom-fundo: #12291b; --ruim: #ff8f85; --ruim-fundo: #33191a;
+  --alerta-fundo: #2b2311; --alerta-borda: #5b4917; --alerta-tinta: #f1d58c;
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -18px rgba(0, 0, 0, 0.7);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--tinta);
+  font: 14px/1.5 var(--fonte);
+}
+h1, h2, h3 { text-wrap: balance; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- Topo e abas ---------- */
+.topo { background: var(--topo); color: var(--topo-tinta); }
+.topo-in { max-width: 1240px; margin: 0 auto; padding: 18px 16px 12px; display: flex; align-items: center; gap: 14px; }
+.topo-placa { flex: none; width: 58px; height: 22px; border-radius: 4px; background: #ffffff; border: 1.5px solid #0b1220; overflow: hidden; display: flex; flex-direction: column; }
+.topo-placa::before { content: ""; display: block; height: 5px; background: #1a4ea2; }
+.topo-placa span { flex: 1; display: flex; align-items: center; justify-content: center; font: 700 10.5px/1 var(--mono); letter-spacing: 0.12em; color: #0b1220; }
+.topo h1 { margin: 0; font-size: 19px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 700; }
+.topo p { margin: 2px 0 0; font-size: 13px; color: var(--topo-tinta-2); }
+.abas { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--topo); border-bottom: 1px solid var(--topo-linha); }
+.abas-in { max-width: 1240px; margin: 0 auto; padding: 0 16px; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.abas-in::-webkit-scrollbar { display: none; }
+.aba { appearance: none; border: 0; background: none; color: var(--topo-tinta-2); font-weight: 600; font-size: 14px; padding: 11px 12px 10px; border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; }
+.aba:hover { color: var(--topo-tinta); }
+.aba .curto { display: none; }
+.aba[aria-selected="true"] { color: var(--topo-tinta); border-bottom-color: var(--topo-destaque); }
+.aba:focus-visible { outline-color: var(--topo-destaque); outline-offset: -3px; }
+
+main { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 72px; }
+.painel-aba { display: flex; flex-direction: column; gap: 16px; }
+
+/* ---------- Peças comuns ---------- */
+.cartao { background: var(--superficie); border: 1px solid var(--linha); border-radius: 10px; padding: 16px 18px 18px; min-width: 0; }
+.cartao-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.cartao h2 { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: -0.005em; }
+.cartao .sub { margin: 2px 0 0; font-size: 13px; color: var(--tinta-2); }
+.cartao p { max-width: 68ch; }
+.vazio { color: var(--tinta-3); font-size: 13.5px; margin: 8px 0; }
+.nota { font-size: 12.5px; color: var(--tinta-3); margin: 10px 0 0; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600; font-size: 14px; line-height: 1.2; padding: 8px 14px; min-height: 36px; border-radius: 6px; border: 1px solid var(--linha-forte); background: var(--superficie); color: var(--tinta); cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--superficie-2); }
+.btn-primario { background: var(--acento); border-color: var(--acento); color: var(--acento-tinta); }
+.btn-primario:hover { background: var(--acento-forte); border-color: var(--acento-forte); }
+.btn-perigo { color: var(--ruim); border-color: var(--ruim); }
+.btn-perigo:hover { background: var(--ruim-fundo); }
+.btn-peq { padding: 4px 10px; min-height: 30px; font-size: 13px; }
+.btn-link { border: 0; background: none; padding: 4px 6px; min-height: 0; color: var(--acento); font-weight: 600; cursor: pointer; font-size: 13px; }
+.btn-link:hover { text-decoration: underline; background: none; }
+.btn-link.perigo { color: var(--ruim); }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.campo > span { font-size: 12.5px; font-weight: 600; color: var(--tinta-2); }
+.campo small { font-size: 12px; color: var(--tinta-3); }
+input[type="text"], input[type="date"], input[type="number"], input[type="search"], select, textarea {
+  width: 100%; min-height: 36px; padding: 7px 10px; border: 1px solid var(--linha-forte); border-radius: 6px;
+  background: var(--campo); color: var(--tinta); font-size: 14px;
+}
+textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
+input:focus, select:focus, textarea:focus { border-color: var(--acento); }
+input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--ruim); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.pill-bom { background: var(--bom-fundo); color: var(--bom); }
+.pill-alerta { background: var(--alerta-fundo); color: var(--alerta-tinta); border: 1px solid var(--alerta-borda); }
+.chip-uf { display: inline-block; font: 600 11.5px/1.5 var(--mono); padding: 0 6px; border-radius: 4px; background: var(--superficie-2); border: 1px solid var(--linha); color: var(--tinta-2); }
+.lista-ufs { display: flex; flex-wrap: wrap; gap: 4px; }
+.amostra { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: none; }
+
+.faixa { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 10px 14px; border-radius: 8px; background: var(--alerta-fundo); border: 1px solid var(--alerta-borda); color: var(--alerta-tinta); font-size: 13.5px; }
+.faixa p { margin: 0; flex: 1 1 320px; }
+.faixa strong { font-weight: 700; }
+
+.rolagem { overflow-x: auto; }
+.tabela { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tabela th { text-align: left; font-size: 12px; font-weight: 600; color: var(--tinta-2); background: var(--superficie-2); padding: 8px 10px; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+.tabela td { padding: 8px 10px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+.tabela tfoot td { font-weight: 700; border-bottom: 0; border-top: 1px solid var(--linha-forte); }
+.tabela .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabela tr.editando td { background: var(--acento-suave); }
+.tabela .th-cat { display: inline-flex; align-items: center; gap: 6px; }
+.tabela td.nome { white-space: nowrap; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+
+/* placa Mercosul para referências que são placas */
+.placa { display: inline-flex; flex-direction: column; border: 1.5px solid #1b2230; border-radius: 4px; overflow: hidden; background: #ffffff; vertical-align: middle; }
+.placa::before { content: ""; height: 4px; background: #1a4ea2; }
+.placa span { padding: 1px 6px 2px; font: 700 12px/1.2 var(--mono); letter-spacing: 0.08em; color: #0b1220; }
+
+/* ---------- Painel ---------- */
+.filtros { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; }
+.filtros .campo { width: auto; }
+.filtros .campo select, .filtros .campo input { width: auto; min-width: 150px; }
+.filtros-acoes { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.periodo-rotulo { margin: -4px 0 0; font-size: 13px; color: var(--tinta-2); }
+.periodo-rotulo strong { color: var(--tinta); }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--superficie); border: 1px solid var(--linha); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kpi-rot { font-size: 13px; color: var(--tinta-2); }
+.kpi-val { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.15; }
+.kpi-val small { font-size: 15px; font-weight: 600; color: var(--tinta-3); letter-spacing: 0; margin-left: 4px; }
+.kpi.hero .kpi-val { font-size: 48px; }
+.kpi-delta { font-size: 12.5px; color: var(--tinta-3); }
+.kpi-delta b { font-weight: 700; }
+.kpi-delta .d-bom { color: var(--bom); }
+.kpi-delta .d-ruim { color: var(--ruim); }
+
+.colunas { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 16px; align-items: start; }
+.pilha { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--tinta-2); margin-bottom: 14px; }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* barras horizontais */
+.hb { display: flex; flex-direction: column; gap: 10px; }
+.hb-linha { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr); gap: 12px; align-items: center; }
+.hb-nome { font-size: 13.5px; line-height: 1.3; overflow-wrap: anywhere; }
+.hb-nome small { display: block; color: var(--tinta-3); font-size: 11.5px; }
+.hb-trilho { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 22px; }
+.hb-barra { display: flex; flex: none; height: 18px; border-radius: 0 4px 4px 0; overflow: hidden; }
+.hb-seg { flex-basis: 0; min-width: 0; border-right: 2px solid var(--superficie); }
+.hb-seg:last-child { border-right: 0; }
+.hb-seg:hover { filter: brightness(1.12) saturate(1.05); }
+.hb-valor { font-size: 12.5px; color: var(--tinta-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hb-valor.zero { color: var(--tinta-3); }
+.hb.atividades { gap: 6px; }
+.hb.atividades .hb-linha { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); }
+.hb.atividades .hb-barra { height: 14px; }
+.hb-cat { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-bottom: 2px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-2); }
+.hb-cat:first-child { margin-top: 0; }
+.hb-cat .total { margin-left: auto; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+/* mapa em mosaico */
+.mapa { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; max-width: 380px; margin: 0 auto; }
+.tile { aspect-ratio: 1; border: 0; border-radius: 6px; padding: 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; cursor: pointer; line-height: 1.15; }
+.tile b { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+.tile span { font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 600; opacity: 0.92; }
+.tile:hover { box-shadow: 0 0 0 2px var(--superficie), 0 0 0 4px var(--tinta); }
+.tile[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--superficie), 0 0 0 4px var(--tinta); }
+.q0 { background: var(--q0); color: var(--q0-t); box-shadow: inset 0 0 0 1px var(--linha-forte); } .q1 { background: var(--q1); color: var(--q1-t); }
+.q2 { background: var(--q2); color: var(--q2-t); } .q3 { background: var(--q3); color: var(--q3-t); }
+.q4 { background: var(--q4); color: var(--q4-t); } .q5 { background: var(--q5); color: var(--q5-t); }
+.s1 { background: var(--s1); color: var(--s1-t); } .s2 { background: var(--s2); color: var(--s2-t); }
+.s3 { background: var(--s3); color: var(--s3-t); } .s4 { background: var(--s4); color: var(--s4-t); }
+.s5 { background: var(--s5); color: var(--s5-t); } .s6 { background: var(--s6); color: var(--s6-t); }
+.s7 { background: var(--s7); color: var(--s7-t); } .s8 { background: var(--s8); color: var(--s8-t); }
+.tile.livre { background: transparent; color: var(--tinta-3); box-shadow: inset 0 0 0 1.5px var(--linha-forte); }
+.tile.livre:hover { box-shadow: inset 0 0 0 1.5px var(--linha-forte), 0 0 0 2px var(--superficie), 0 0 0 4px var(--tinta); }
+.mapa-legenda { align-self: end; justify-self: end; font-size: 11.5px; color: var(--tinta-2); display: flex; flex-direction: column; gap: 3px; padding: 0 0 2px 8px; }
+.mapa-legenda strong { font-size: 11.5px; color: var(--tinta); font-weight: 650; margin-bottom: 1px; }
+.mapa-legenda span { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.mapa-legenda .amostra { width: 12px; height: 12px; border-radius: 3px; }
+
+/* colunas por período */
+.evol { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr); grid-template-rows: 190px auto; padding-top: 8px; }
+.evol-y { position: relative; }
+.evol-y span { position: absolute; right: 8px; transform: translateY(50%); font-size: 11px; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+.evol-plot { position: relative; border-bottom: 1px solid var(--linha-forte); }
+.evol-grade { position: absolute; left: 0; right: 0; border-top: 1px solid var(--linha); }
+.evol-cols { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 2px; }
+.evol-col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; justify-content: center; cursor: default; }
+.evol-barra { width: 100%; max-width: 24px; background: var(--total); border-radius: 4px 4px 0 0; }
+.evol-col:hover .evol-barra, .evol-col:focus .evol-barra { background: var(--total-hover); }
+.evol-x { grid-column: 2; display: flex; gap: 2px; height: 22px; }
+.evol-x > span { flex: 1 1 0; min-width: 0; position: relative; }
+.evol-x b { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 400; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+
+/* dica flutuante */
+#dica { position: fixed; z-index: 60; pointer-events: none; background: var(--superficie); color: var(--tinta); border: 1px solid var(--linha-forte); border-radius: 8px; padding: 8px 10px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.35); font-size: 12.5px; max-width: 300px; }
+#dica .d-tit { font-weight: 650; margin-bottom: 4px; }
+#dica .d-lin { display: flex; align-items: center; gap: 8px; }
+#dica .d-lin b { font-variant-numeric: tabular-nums; font-weight: 700; }
+#dica .d-lin span { color: var(--tinta-2); }
+#dica .d-chave { width: 12px; height: 3px; border-radius: 2px; flex: none; }
+#dica .d-rod { color: var(--tinta-3); margin-top: 4px; font-size: 12px; }
+
+/* ---------- Registrar ---------- */
+.form-grade { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px 14px; }
+.c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c5 { grid-column: span 5; }
+.c2 { grid-column: span 2; } .c6 { grid-column: span 6; } .c12 { grid-column: 1 / -1; }
+.descricao-atividade { font-size: 12.5px; color: var(--tinta-2); margin: 2px 0 0; min-height: 1.4em; }
+.hoje-resumo { font-size: 13px; color: var(--tinta-2); }
+.hoje-resumo b { color: var(--tinta); }
+.lista-cab { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin: 14px 0 10px; font-size: 13px; color: var(--tinta-2); }
+.tabela .obs { max-width: 26ch; color: var(--tinta-2); overflow-wrap: anywhere; }
+.tabela .atv { max-width: 30ch; }
+.tabela .atv small { display: block; color: var(--tinta-3); font-size: 11.5px; }
+.tabela .ref { max-width: 22ch; overflow-wrap: anywhere; }
+.tabela .acoes-lin { white-space: nowrap; text-align: right; }
+.mais { display: flex; justify-content: center; margin-top: 12px; }
+
+/* ---------- Equipe ---------- */
+.equipe { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; align-items: start; }
+.srv { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--linha); }
+.srv:first-child { padding-top: 0; }
+.srv-cor { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; }
+.srv-cor.inativo { background: var(--superficie-2); color: var(--tinta-3); border: 1px dashed var(--linha-forte); }
+.srv-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.srv-info strong { font-size: 14px; overflow-wrap: anywhere; }
+.srv-info small { color: var(--tinta-3); font-size: 12px; }
+.srv-acoes { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+.sub-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); margin: 16px 0 0; font-weight: 700; }
+.novo-srv { display: flex; gap: 8px; margin-top: 14px; }
+.novo-srv input { flex: 1; }
+.pinceis { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.pincel { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px 5px 6px; border-radius: 999px; border: 1px solid var(--linha-forte); background: var(--superficie); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--tinta); }
+.pincel .bola { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 700; }
+.pincel .bola.borracha { background: transparent; box-shadow: inset 0 0 0 1.5px var(--linha-forte); color: var(--tinta-3); }
+.pincel[aria-pressed="true"] { border-color: var(--tinta); box-shadow: inset 0 0 0 1px var(--tinta); background: var(--superficie-2); }
+.pincel small { font-weight: 500; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+.pendencias { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* ---------- Dados ---------- */
+.grade-dados { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.grade-dados .largo { grid-column: 1 / -1; }
+.passos { margin: 12px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; max-width: 70ch; }
+.atv-ed { display: grid; grid-template-columns: minmax(0, 13rem) minmax(0, 14rem) minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--linha); }
+.atv-ed-cab { font-size: 12px; font-weight: 600; color: var(--tinta-2); padding-top: 0; }
+.atv-ed label.ativa { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.atv-ed.inativa input[type="text"] { color: var(--tinta-3); }
+.cartao.perigo { border-color: var(--ruim); }
+.estado-backup { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 14px; }
+
+/* ---------- Avisos, diálogo ---------- */
+#toasts { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 70; display: flex; flex-direction: column; gap: 8px; align-items: center; width: min(560px, calc(100vw - 32px)); pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 12px; background: var(--tinta); color: var(--superficie); border-radius: 8px; padding: 10px 14px; font-size: 13.5px; box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5); }
+.toast span { flex: 1; }
+.toast button { border: 0; background: none; color: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 2px 4px; }
+dialog { border: 0; border-radius: 12px; padding: 0; background: var(--superficie); color: var(--tinta); width: min(640px, calc(100vw - 32px)); box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5); }
+dialog::backdrop { background: rgba(8, 14, 26, 0.5); }
+.dlg { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.dlg h2 { margin: 0; font-size: 17px; }
+.dlg p { margin: 0; color: var(--tinta-2); font-size: 14px; }
+.dlg textarea { font-family: var(--mono); font-size: 12.5px; min-height: 280px; }
+.dlg-acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+/* ---------- Telas estreitas ---------- */
+@media (max-width: 980px) {
+  .colunas, .equipe, .grade-dados { grid-template-columns: minmax(0, 1fr); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .form-grade > * { grid-column: 1 / -1; }
+  .form-grade > .c2, .form-grade > .c3 { grid-column: span 6; }
+  .atv-ed { grid-template-columns: minmax(0, 1fr) auto; }
+  .atv-ed > :nth-child(3) { grid-column: 1 / -1; }
+  .atv-ed-cab { display: none; }
+  .filtros-acoes { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .hb-linha, .hb.atividades .hb-linha { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .kpi-val { font-size: 26px; }
+  .kpi.hero .kpi-val { font-size: 36px; }
+  .filtros .campo { flex: 1 1 140px; }
+  .filtros .campo select, .filtros .campo input { min-width: 0; width: 100%; }
+  .topo h1 { font-size: 17px; }
+  .aba .longo { display: none; }
+  .aba .curto { display: inline; }
+  .aba { padding-inline: 10px; }
+}
+
+/* ---------- Impressão ---------- */
+@media print {
+  body { background: #ffffff; }
+  .abas, .faixa, .filtros, #toasts, #dica, .nao-imprimir { display: none !important; }
+  .topo { background: #ffffff; color: #000000; border-bottom: 2px solid #000000; }
+  .topo p { color: #333333; }
+  main { padding-block: 12px; }
+  .cartao, .kpi { break-inside: avoid; border-color: #bbbbbb; }
+  .colunas { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="topo-in">
+    <div class="topo-placa" aria-hidden="true"><span>PV</span></div>
+    <div>
+      <h1 id="topoNome">Passivo Veicular</h1>
+      <p id="topoUnidade">Controle de produtividade</p>
+    </div>
+  </div>
+</header>
+<nav class="abas" aria-label="Seções">
+  <div class="abas-in" role="tablist">
+    <button class="aba" role="tab" id="tab-painel" data-aba="painel" aria-controls="aba-painel" aria-selected="true">Painel</button>
+    <button class="aba" role="tab" id="tab-registrar" data-aba="registrar" aria-controls="aba-registrar" aria-selected="false" tabindex="-1"><span class="longo">Registrar atividade</span><span class="curto">Registrar</span></button>
+    <button class="aba" role="tab" id="tab-equipe" data-aba="equipe" aria-controls="aba-equipe" aria-selected="false" tabindex="-1"><span class="longo">Equipe e UFs</span><span class="curto">Equipe</span></button>
+    <button class="aba" role="tab" id="tab-dados" data-aba="dados" aria-controls="aba-dados" aria-selected="false" tabindex="-1"><span class="longo">Dados e backup</span><span class="curto">Dados</span></button>
+  </div>
+</nav>
+
+<main>
+  <noscript><p class="faixa">Esta ferramenta precisa de JavaScript ligado no navegador para funcionar.</p></noscript>
+  <div class="painel-aba">
+    <div class="faixa" id="avisoArmazenamento" hidden>
+      <p><strong>Este navegador não está deixando a ferramenta guardar os dados.</strong> O que for registrado agora some quando a página for fechada. Antes de sair, baixe a cópia de segurança em “Dados e backup”.</p>
+    </div>
+    <div class="faixa" id="avisoExemplo" hidden>
+      <p><strong>Você está vendo dados de exemplo.</strong> Os nomes são fictícios e servem só para mostrar como a ferramenta funciona. Quando quiser começar com a sua equipe, apague os exemplos.</p>
+      <button type="button" class="btn btn-peq" id="btnComecar">Apagar exemplos e começar</button>
+    </div>
+
+    <!-- ================= PAINEL ================= -->
+    <section id="aba-painel" class="painel-aba" role="tabpanel" aria-labelledby="tab-painel">
+      <div class="filtros">
+        <label class="campo"><span>Período</span><select id="pPeriodo"></select></label>
+        <label class="campo" id="pDeCampo" hidden><span>De</span><input type="date" id="pDe"></label>
+        <label class="campo" id="pAteCampo" hidden><span>Até</span><input type="date" id="pAte"></label>
+        <label class="campo"><span>Servidor</span><select id="pServidor"></select></label>
+        <label class="campo"><span>UF</span><select id="pUF"></select></label>
+        <div class="filtros-acoes">
+          <button type="button" class="btn" id="btnRelatorio">Relatório em texto</button>
+          <button type="button" class="btn" id="btnImprimir" hidden>Imprimir</button>
+        </div>
+      </div>
+      <p class="periodo-rotulo" id="pRotulo"></p>
+      <div class="kpis" id="kpis"></div>
+      <div class="colunas">
+        <div class="pilha">
+          <article class="cartao">
+            <div class="cartao-cab"><div><h2>Produção por servidor</h2><p class="sub">Quantidade de atividades no período, por categoria</p></div></div>
+            <div class="legenda" id="legCategorias"></div>
+            <div id="grafServidores"></div>
+          </article>
+          <article class="cartao">
+            <div class="cartao-cab"><div><h2>Produção por atividade</h2><p class="sub">As 15 atividades do setor, agrupadas por categoria</p></div></div>
+            <div id="grafAtividades"></div>
+          </article>
+        </div>
+        <div class="pilha">
+          <article class="cartao">
+            <div class="cartao-cab"><div><h2>Atendimento por UF</h2><p class="sub">Clique num estado para filtrar o painel por ele</p></div></div>
+            <div id="mapaPainel"></div>
+            <p class="nota" id="notaNacional"></p>
+          </article>
+          <article class="cartao">
+            <div class="cartao-cab"><div><h2>Evolução no período</h2><p class="sub" id="evolSub"></p></div></div>
+            <div id="grafEvolucao"></div>
+          </article>
+        </div>
+      </div>
+      <article class="cartao">
+        <div class="cartao-cab"><div><h2>Resumo por servidor</h2><p class="sub">Os mesmos números dos gráficos, em tabela</p></div></div>
+        <div class="rolagem"><table class="tabela" id="tabResumo"></table></div>
+      </article>
+    </section>
+
+    <!-- ================= REGISTRAR ================= -->
+    <section id="aba-registrar" class="painel-aba" role="tabpanel" aria-labelledby="tab-registrar" hidden>
+      <article class="cartao" id="cartaoForm">
+        <div class="cartao-cab">
+          <div><h2 id="formTitulo">Registrar atividade</h2><p class="sub hoje-resumo" id="hojeResumo"></p></div>
+        </div>
+        <div id="formSemEquipe" hidden>
+          <p class="vazio">Para registrar atividades, cadastre primeiro as pessoas do setor.</p>
+          <button type="button" class="btn btn-primario" data-ir="equipe">Cadastrar a equipe</button>
+        </div>
+        <form id="form" class="form-grade" novalidate autocomplete="off">
+          <label class="campo c3"><span>Data</span><input type="date" id="fData" required></label>
+          <label class="campo c5"><span>Servidor</span><select id="fServidor" required></select></label>
+          <label class="campo c4"><span>UF atendida</span><select id="fUF"></select></label>
+          <div class="c12">
+            <label class="campo"><span>Atividade</span><select id="fAtividade" required></select></label>
+            <p class="descricao-atividade" id="fDescricao"></p>
+          </div>
+          <label class="campo c2"><span>Quantidade</span><input type="number" id="fQtd" min="1" max="9999" step="1" value="1" inputmode="numeric" required></label>
+          <label class="campo c4"><span>Referência <small>(opcional)</small></span><input type="text" id="fRef" maxlength="120" placeholder="Placa, nº SEI ou nº do ofício"></label>
+          <label class="campo c6"><span>Observação <small>(opcional)</small></span><input type="text" id="fObs" maxlength="300" placeholder="Ex.: aguardando retorno do Detran"></label>
+          <div class="c12 acoes">
+            <button type="submit" class="btn btn-primario" id="fEnviar">Registrar</button>
+            <button type="button" class="btn" id="fCancelar" hidden>Cancelar edição</button>
+            <span class="nota" id="fErro" role="alert" style="margin:0; color: var(--ruim);"></span>
+          </div>
+        </form>
+      </article>
+
+      <article class="cartao">
+        <div class="cartao-cab">
+          <div><h2>Registros</h2><p class="sub">Para corrigir um lançamento, clique em Editar</p></div>
+          <button type="button" class="btn btn-peq" id="lCSV">Baixar esta lista em planilha</button>
+        </div>
+        <div class="filtros">
+          <label class="campo"><span>Período</span><select id="lPeriodo"></select></label>
+          <label class="campo" id="lDeCampo" hidden><span>De</span><input type="date" id="lDe"></label>
+          <label class="campo" id="lAteCampo" hidden><span>Até</span><input type="date" id="lAte"></label>
+          <label class="campo"><span>Servidor</span><select id="lServidor"></select></label>
+          <label class="campo"><span>UF</span><select id="lUF"></select></label>
+          <label class="campo"><span>Atividade</span><select id="lAtividade"></select></label>
+          <label class="campo"><span>Buscar</span><input type="search" id="lBusca" placeholder="Placa, SEI, observação…"></label>
+        </div>
+        <div class="lista-cab"><span id="lContagem"></span></div>
+        <div class="rolagem"><table class="tabela" id="tabRegistros"></table></div>
+        <div class="mais" id="lMais" hidden><button type="button" class="btn">Mostrar mais</button></div>
+      </article>
+    </section>
+
+    <!-- ================= EQUIPE ================= -->
+    <section id="aba-equipe" class="painel-aba" role="tabpanel" aria-labelledby="tab-equipe" hidden>
+      <div class="equipe">
+        <article class="cartao">
+          <div class="cartao-cab"><div><h2>Servidores do setor</h2><p class="sub">Quem registra atividades e responde pelas UFs</p></div></div>
+          <div id="eLista"></div>
+          <form class="novo-srv" id="eNovo" novalidate>
+            <label class="campo" style="flex:1"><span>Novo servidor</span><input type="text" id="eNome" maxlength="60" placeholder="Nome e sobrenome"></label>
+            <button type="submit" class="btn btn-primario" style="align-self:flex-end">Adicionar</button>
+          </form>
+          <p class="nota" id="eErro" role="alert" style="color: var(--ruim);"></p>
+        </article>
+        <article class="cartao">
+          <div class="cartao-cab"><div><h2>Responsabilidade por UF</h2><p class="sub">Escolha um servidor abaixo e clique nos estados que ficam com ele</p></div></div>
+          <div class="pinceis" id="ePinceis" role="group" aria-label="Atribuir estados a"></div>
+          <div id="eMapa"></div>
+          <div class="pendencias" id="ePendencias"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= DADOS ================= -->
+    <section id="aba-dados" class="painel-aba" role="tabpanel" aria-labelledby="tab-dados" hidden>
+      <div class="grade-dados">
+        <article class="cartao">
+          <div class="cartao-cab"><div><h2>Cópia de segurança</h2><p class="sub">Os registros ficam guardados neste navegador, neste computador</p></div></div>
+          <p style="margin:0">Se os dados de navegação forem apagados ou se você trocar de computador, os registros não vão junto. Por isso, baixe a cópia de segurança toda semana e guarde numa pasta da rede ou no seu e-mail.</p>
+          <div class="estado-backup" id="dEstadoBackup"></div>
+          <div class="acoes">
+            <button type="button" class="btn btn-primario" id="dExportar">Baixar cópia de segurança</button>
+            <button type="button" class="btn" id="dImportar">Restaurar ou juntar uma cópia</button>
+            <button type="button" class="btn" id="dCSV">Baixar tudo em planilha</button>
+            <input type="file" id="dArquivo" accept=".json,application/json" hidden>
+          </div>
+          <p class="nota">A cópia é um arquivo <span class="mono">.json</span>. A planilha é um arquivo <span class="mono">.csv</span> que abre no Excel.</p>
+        </article>
+        <article class="cartao">
+          <div class="cartao-cab"><div><h2>Como usar com a equipe</h2><p class="sub">Cada pessoa registra no próprio computador e a coordenação junta tudo</p></div></div>
+          <ol class="passos">
+            <li>A coordenação cadastra a equipe e as UFs de cada um e baixa a cópia de segurança.</li>
+            <li>Cada servidor abre esta ferramenta no próprio computador e usa “Restaurar ou juntar uma cópia” com o arquivo recebido. Assim todos ficam com a mesma lista de nomes.</li>
+            <li>No fim da semana ou do mês, cada servidor baixa a própria cópia e envia para a coordenação.</li>
+            <li>A coordenação junta as cópias recebidas, uma por uma. Um registro que chegar duas vezes não é contado em dobro.</li>
+          </ol>
+        </article>
+        <article class="cartao largo">
+          <div class="cartao-cab">
+            <div><h2>Atividades contadas</h2><p class="sub">Dá para ajustar o nome, mudar a categoria ou desligar uma atividade que o setor não faz mais</p></div>
+            <button type="button" class="btn btn-peq" id="dNovaAtividade">Adicionar atividade</button>
+          </div>
+          <div id="dAtividades"></div>
+        </article>
+        <article class="cartao">
+          <div class="cartao-cab"><div><h2>Identificação</h2><p class="sub">Aparece no topo da página e no relatório em texto</p></div></div>
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <label class="campo"><span>Nome do setor</span><input type="text" id="dSetor" maxlength="80"></label>
+            <label class="campo"><span>Unidade atendida</span><input type="text" id="dUnidade" maxlength="140"></label>
+          </div>
+        </article>
+        <article class="cartao perigo">
+          <div class="cartao-cab"><div><h2>Apagar todos os dados</h2><p class="sub">Remove equipe, UFs e registros deste computador</p></div></div>
+          <p style="margin:0 0 12px">Use só se for recomeçar do zero. Baixe a cópia de segurança antes: depois de apagar, não tem como desfazer.</p>
+          <button type="button" class="btn btn-perigo" id="dApagar">Apagar todos os dados</button>
+        </article>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div id="dica" role="tooltip" hidden></div>
+<div id="toasts" aria-live="polite"></div>
+<dialog id="dialogo"></dialog>
+
+<script>
+(() => {
+  'use strict';
+  document.documentElement.lang = 'pt-BR';
+
+  // ======================================================================
+  // Constantes
+  // ======================================================================
+  const APP = 'passivo-veicular-produtividade';
+  const CHAVE_DADOS = 'passivoVeicular.produtividade.v1';
+  const CHAVE_PREFS = 'passivoVeicular.preferencias.v1';
+  const EMBUTIDO = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  const DATA_PADRAO_ANTIGA = '2026-01-01T00:00:00.000Z';
+
+  const NOMES_MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const DIA_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+  // Mosaico do Brasil: [sigla, nome, linha, coluna]
+  const UFS = [
+    ['RR', 'Roraima', 0, 1], ['AP', 'Amapá', 0, 2],
+    ['AM', 'Amazonas', 1, 1], ['PA', 'Pará', 1, 2], ['MA', 'Maranhão', 1, 3], ['CE', 'Ceará', 1, 4], ['RN', 'Rio Grande do Norte', 1, 5],
+    ['AC', 'Acre', 2, 0], ['RO', 'Rondônia', 2, 1], ['TO', 'Tocantins', 2, 2], ['PI', 'Piauí', 2, 3], ['PE', 'Pernambuco', 2, 4], ['PB', 'Paraíba', 2, 5],
+    ['MT', 'Mato Grosso', 3, 1], ['GO', 'Goiás', 3, 2], ['BA', 'Bahia', 3, 3], ['SE', 'Sergipe', 3, 4], ['AL', 'Alagoas', 3, 5],
+    ['MS', 'Mato Grosso do Sul', 4, 1], ['DF', 'Distrito Federal', 4, 2], ['MG', 'Minas Gerais', 4, 3], ['ES', 'Espírito Santo', 4, 4],
+    ['PR', 'Paraná', 5, 1], ['SP', 'São Paulo', 5, 2], ['RJ', 'Rio de Janeiro', 5, 3],
+    ['SC', 'Santa Catarina', 6, 1],
+    ['RS', 'Rio Grande do Sul', 7, 1],
+  ].map(([sigla, nome, lin, col]) => ({ sigla, nome, lin, col }));
+  const UF_POR_SIGLA = Object.fromEntries(UFS.map((u) => [u.sigla, u]));
+  const UFS_ALFA = [...UFS].sort((a, b) => a.sigla.localeCompare(b.sigla));
+
+  const CATEGORIAS = [
+    { id: 'processos', nome: 'Análise e instrução de processos', curto: 'Processos' },
+    { id: 'consultas', nome: 'Consultas e apoio técnico', curto: 'Consultas' },
+    { id: 'oficios', nome: 'Ofícios e solicitações', curto: 'Ofícios' },
+    { id: 'diligencias', nome: 'Diligências e relatórios', curto: 'Diligências' },
+    { id: 'veiculos', nome: 'Veículos regularizados', curto: 'Veículos' },
+  ];
+  const IDX_CATEGORIA = Object.fromEntries(CATEGORIAS.map((c, i) => [c.id, i]));
+
+  // ufPadrao: ao escolher a atividade, a UF já vem preenchida ('' = nacional)
+  const ATIVIDADES_PADRAO = [
+    { id: 'utm', categoriaId: 'processos', curto: 'Diligências da UTM', nome: 'Processos analisados para cumprimento de diligências da Unidade de Triagem de Multas da Secretaria Executiva' },
+    { id: 'apoio_tecnico', categoriaId: 'consultas', curto: 'Apoio técnico: pendências, boletos e CRLV', nome: 'Apoio técnico: consulta de pendências para regularização de veículos, mediante pesquisa em sistemas oficiais e emissão de boletos e espelhos de CRLV' },
+    { id: 'detran_digital', categoriaId: 'consultas', curto: 'Consulta no Detran Digital', nome: 'Consulta de veículos no sistema Detran Digital, para atualização da situação financeira e administrativa' },
+    { id: 'redelog', categoriaId: 'consultas', curto: 'Demandas da RedeLog', nome: 'Atendimento de demandas da RedeLog' },
+    { id: 'instrucao_baixa', categoriaId: 'processos', curto: 'Instrução para baixa definitiva', nome: 'Instrução processual para baixa definitiva de registro de veículos irrecuperáveis' },
+    { id: 'autorizacao_baixa', categoriaId: 'processos', curto: 'Autorização de baixa definitiva', nome: 'Autorizações para baixa definitiva de registro de veículos irrecuperáveis' },
+    { id: 'oficio_ait', categoriaId: 'oficios', curto: 'Ofício: cancelamento de auto de infração', nome: 'Ofício de solicitação de cancelamento de auto de infração de trânsito' },
+    { id: 'oficio_ipva', categoriaId: 'oficios', curto: 'Ofício: exclusão de débitos de IPVA', nome: 'Ofício de solicitação de exclusão de débitos de IPVA' },
+    { id: 'diligencia_df', categoriaId: 'diligencias', curto: 'Diligência ao Detran-DF', nome: 'Diligência com deslocamento ao Detran-DF', ufPadrao: 'DF' },
+    { id: 'relatorio_anual', categoriaId: 'diligencias', curto: 'Relatório anual do passivo', nome: 'Relatório anual de acompanhamento do passivo', ufPadrao: '' },
+    { id: 'prescricao', categoriaId: 'oficios', curto: 'Prescrição de licenciamento', nome: 'Solicitação de prescrição de licenciamento' },
+    { id: 'notificacao', categoriaId: 'processos', curto: 'Notificação de cobrança', nome: 'Processo de notificação de cobrança' },
+    { id: 'taxas', categoriaId: 'oficios', curto: 'Pagamento de taxas', nome: 'Solicitação de pagamento de taxas (licenciamento, cancelamento de comunicado de venda, 2ª via de ATPV-e)' },
+    { id: 'transferido', categoriaId: 'veiculos', curto: 'Veículo transferido', nome: 'Veículo transferido' },
+    { id: 'baixado', categoriaId: 'veiculos', curto: 'Veículo baixado', nome: 'Veículo baixado' },
+  ].map((a, i) => ({ ...a, ordem: i }));
+
+  // ======================================================================
+  // Utilitários
+  // ======================================================================
+  const $ = (id) => document.getElementById(id);
+  const numFmt = new Intl.NumberFormat('pt-BR');
+  const decFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const fmtNum = (n) => numFmt.format(n);
+  const pct = (n, d) => (d ? Math.round((n / d) * 100) : 0);
+
+  function el(tag, props, ...filhos) {
+    const n = document.createElement(tag);
+    if (props) {
+      for (const [k, v] of Object.entries(props)) {
+        if (v === undefined || v === null || v === false) continue;
+        if (k === 'class') n.className = v;
+        else if (k === 'text') n.textContent = v;
+        else if (k === 'style') n.style.cssText = v;
+        else if (k === 'value') n.value = v;
+        else if (k === 'checked') n.checked = !!v;
+        else if (k === 'selected') n.selected = !!v;
+        else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+        else n.setAttribute(k, v === true ? '' : v);
+      }
+    }
+    for (const f of filhos.flat(Infinity)) {
+      if (f === undefined || f === null || f === false) continue;
+      n.append(f && f.nodeType ? f : String(f));
+    }
+    return n;
+  }
+
+  // replaceChildren escreveria "null" na tela; aqui vazios são ignorados
+  function preencher(no, ...filhos) {
+    no.replaceChildren(...filhos.flat(Infinity).filter((f) => f !== null && f !== undefined && f !== false));
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  const agora = () => new Date().toISOString();
+  const normalizar = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+  // Datas sempre como texto AAAA-MM-DD no fuso do computador (nunca UTC).
+  const pad = (n) => String(n).padStart(2, '0');
+  const isoYMD = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+  const isoDe = (d) => isoYMD(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  const hojeISO = () => isoDe(new Date());
+  const partes = (s) => s.split('-').map(Number);
+  const dataDe = (s) => { const [y, m, d] = partes(s); return new Date(y, m - 1, d); };
+  const somaDias = (s, n) => { const d = dataDe(s); d.setDate(d.getDate() + n); return isoDe(d); };
+  const diffDias = (a, b) => Math.round((dataDe(b) - dataDe(a)) / 864e5);
+  const ultimoDia = (y, m) => new Date(y, m, 0).getDate();
+  const mesAnterior = (y, m) => (m === 1 ? [y - 1, 12] : [y, m - 1]);
+  const fmtData = (s) => { const [y, m, d] = partes(s); return `${pad(d)}/${pad(m)}/${y}`; };
+  const fmtDM = (s) => { const [, m, d] = partes(s); return `${pad(d)}/${pad(m)}`; };
+  const fmtDataHora = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const dataValida = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && isoDe(dataDe(s)) === s;
+  function diasUteis(de, ate) {
+    let n = 0;
+    for (let d = dataDe(de), fim = dataDe(ate); d <= fim; d.setDate(d.getDate() + 1)) {
+      const w = d.getDay();
+      if (w !== 0 && w !== 6) n++;
+    }
+    return n;
+  }
+
+  function iniciais(nome) {
+    const p = String(nome || '').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return '?';
+    const a = p[0][0];
+    const b = p.length > 1 ? p[p.length - 1][0] : (p[0][1] || '');
+    return (a + b).toUpperCase();
+  }
+
+  function debounce(fn, ms) {
+    let t;
+    return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  }
+
+  // ======================================================================
+  // Armazenamento
+  // ======================================================================
+  let armazenamentoOk = true;
+  function lerLS(k) {
+    try { return localStorage.getItem(k); } catch (e) { armazenamentoOk = false; return null; }
+  }
+  function gravarLS(k, v) {
+    try { localStorage.setItem(k, v); return true; } catch (e) { armazenamentoOk = false; return false; }
+  }
+
+  function estadoVazio() {
+    return {
+      app: APP,
+      versao: 1,
+      setor: { nome: 'Setor de Passivo Veicular', unidade: 'Diretoria de Gestão do Fundo Nacional de Segurança Pública' },
+      atividades: ATIVIDADES_PADRAO.map((a) => ({ ...a, ativa: true, atualizadoEm: DATA_PADRAO_ANTIGA })),
+      servidores: [],
+      ufs: {},
+      registros: [],
+      exemplo: false,
+      ultimoBackup: null,
+    };
+  }
+
+  function ajustarEstado(e) {
+    const base = estadoVazio();
+    const s = { ...base, ...e };
+    s.setor = { ...base.setor, ...(e.setor || {}) };
+    s.atividades = Array.isArray(e.atividades) ? e.atividades.filter((a) => a && a.id) : [];
+    for (const padrao of base.atividades) {
+      if (!s.atividades.some((a) => a.id === padrao.id)) s.atividades.push(padrao);
+    }
+    for (const a of s.atividades) {
+      if (!(a.categoriaId in IDX_CATEGORIA)) a.categoriaId = 'processos';
+      if (typeof a.ordem !== 'number') a.ordem = 100;
+      if (a.ativa === undefined) a.ativa = true;
+      a.curto = String(a.curto || a.nome || 'Atividade');
+      a.nome = String(a.nome || a.curto);
+    }
+    s.servidores = Array.isArray(e.servidores) ? e.servidores.filter((x) => x && x.id) : [];
+    s.servidores.forEach((x) => { if (x.ativo === undefined) x.ativo = true; x.nome = String(x.nome || 'Sem nome'); });
+    s.ufs = e.ufs && typeof e.ufs === 'object' ? e.ufs : {};
+    s.registros = Array.isArray(e.registros) ? e.registros.filter(registroValido) : [];
+    s.registros.forEach((r) => { r.qtd = Math.max(1, Math.round(Number(r.qtd) || 1)); r.uf = r.uf || ''; r.ref = r.ref || ''; r.obs = r.obs || ''; });
+    return s;
+  }
+  function registroValido(r) {
+    return r && r.id && dataValida(String(r.data)) && r.servidorId && r.atividadeId;
+  }
+
+  function carregar() {
+    const bruto = lerLS(CHAVE_DADOS);
+    if (bruto) {
+      try {
+        const e = JSON.parse(bruto);
+        if (e && e.app === APP) return ajustarEstado(e);
+      } catch (err) { /* segue abaixo */ }
+      // Guarda o conteúdo ilegível antes de qualquer coisa, para não perder dados.
+      gravarLS(`${CHAVE_DADOS}.ilegivel.${Date.now()}`, bruto);
+    }
+    return gerarExemplo();
+  }
+
+  let estado;
+  let prefs;
+
+  function salvar() {
+    const ok = gravarLS(CHAVE_DADOS, JSON.stringify(estado));
+    if (!ok) $('avisoArmazenamento').hidden = false;
+  }
+  function salvarPrefs() { gravarLS(CHAVE_PREFS, JSON.stringify(prefs)); }
+  function carregarPrefs() {
+    const padrao = {
+      aba: 'painel',
+      painel: { periodo: 'mes', de: '', ate: '', servidor: '', uf: '' },
+      lista: { periodo: 'mes', de: '', ate: '', servidor: '', uf: '', atividade: '', busca: '' },
+      form: { servidor: '', uf: '' },
+    };
+    try {
+      const p = JSON.parse(lerLS(CHAVE_PREFS) || 'null');
+      if (p) return { ...padrao, ...p, painel: { ...padrao.painel, ...p.painel }, lista: { ...padrao.lista, ...p.lista }, form: { ...padrao.form, ...p.form } };
+    } catch (e) { /* usa o padrão */ }
+    return padrao;
+  }
+
+  // ======================================================================
+  // Consultas ao estado
+  // ======================================================================
+  const registrosValidos = () => estado.registros.filter((r) => !r.excluido);
+  const servidoresVisiveis = () => estado.servidores.filter((s) => !s.excluido);
+  const servidoresAtivos = () => estado.servidores.filter((s) => !s.excluido && s.ativo);
+  const servidorPorId = (id) => estado.servidores.find((s) => s.id === id);
+  const nomeServidor = (id) => (servidorPorId(id) || {}).nome || 'Servidor removido';
+  const atividadePorId = (id) => estado.atividades.find((a) => a.id === id);
+  const catIdx = (atividadeId) => { const a = atividadePorId(atividadeId); return a ? IDX_CATEGORIA[a.categoriaId] : 0; };
+  const atividadesOrdenadas = () => [...estado.atividades].sort((a, b) => IDX_CATEGORIA[a.categoriaId] - IDX_CATEGORIA[b.categoriaId] || a.ordem - b.ordem);
+  const responsavel = (sigla) => { const r = estado.ufs[sigla]; return r && r.servidorId ? servidorPorId(r.servidorId) : null; };
+  const ufsDoServidor = (id) => UFS_ALFA.filter((u) => { const r = estado.ufs[u.sigla]; return r && r.servidorId === id; }).map((u) => u.sigla);
+  const classeServidor = (s) => `s${((s.corIdx || 0) % 8) + 1}`;
+
+  function proximaCor() {
+    const usadas = new Set(servidoresAtivos().map((s) => s.corIdx));
+    for (let i = 0; i < 8; i++) if (!usadas.has(i)) return i;
+    return servidoresAtivos().length % 8;
+  }
+
+  // ======================================================================
+  // Dados de exemplo (nomes fictícios; gerados a partir da data de hoje)
+  // ======================================================================
+  function gerarExemplo() {
+    const e = estadoVazio();
+    e.exemplo = true;
+    let semente = 20260924;
+    const rnd = () => { semente |= 0; semente = (semente + 0x6d2b79f5) | 0; let t = Math.imul(semente ^ (semente >>> 15), 1 | semente); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const pega = (arr) => arr[Math.floor(rnd() * arr.length)];
+
+    const equipe = [
+      ['Ana Paula Rezende', ['AC', 'AM', 'AP', 'PA', 'RO', 'RR', 'TO'], 1.15],
+      ['Bruno Lacerda', ['MA', 'PI', 'CE', 'RN', 'PB'], 0.95],
+      ['Carla Menezes', ['PE', 'AL', 'SE', 'BA'], 1.05],
+      ['Diego Sampaio', ['MT', 'MS', 'GO', 'DF'], 0.8],
+      ['Elisa Tavares', ['MG', 'ES', 'RJ', 'SP'], 1.1],
+      ['Fábio Nogueira', ['PR', 'SC', 'RS'], 0.9],
+    ];
+    const criado = agora();
+    const servidores = equipe.map(([nome, ufs, fator], i) => {
+      const s = { id: `ex-srv-${i + 1}`, nome, ativo: true, corIdx: i, exemplo: true, atualizadoEm: criado };
+      ufs.forEach((uf) => { e.ufs[uf] = { servidorId: s.id, em: criado, exemplo: true }; });
+      return { s, ufs, fator };
+    });
+    e.servidores = servidores.map((x) => x.s);
+
+    const pesos = [
+      ['utm', 8], ['apoio_tecnico', 14], ['detran_digital', 16], ['redelog', 7], ['instrucao_baixa', 4],
+      ['autorizacao_baixa', 2], ['oficio_ait', 6], ['oficio_ipva', 6], ['prescricao', 3], ['notificacao', 4],
+      ['taxas', 6], ['transferido', 6], ['baixado', 2],
+    ];
+    const somaPesos = pesos.reduce((a, [, p]) => a + p, 0);
+    const sortear = () => { let x = rnd() * somaPesos; for (const [id, p] of pesos) { x -= p; if (x <= 0) return id; } return 'utm'; };
+    const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const placa = () => `${pega(letras)}${pega(letras)}${pega(letras)}${Math.floor(rnd() * 10)}${pega(letras)}${Math.floor(rnd() * 10)}${Math.floor(rnd() * 10)}`;
+    const observacoes = ['Aguardando retorno do Detran', 'Pendência de licenciamento', 'Enviado por e-mail ao ente', 'Boleto emitido', 'Documentação incompleta', 'Resposta recebida'];
+
+    const hoje = hojeISO();
+    const [Y, M] = partes(hoje);
+    let [y0, m0] = [Y, M];
+    for (let i = 0; i < 3; i++) [y0, m0] = mesAnterior(y0, m0);
+    let seq = 0;
+    let diasDesdeDiligencia = 0;
+    for (let d = isoYMD(y0, m0, 1); d <= hoje; d = somaDias(d, 1)) {
+      const w = dataDe(d).getDay();
+      if (w === 0 || w === 6) continue;
+      servidores.forEach(({ s, ufs, fator }) => {
+        if (rnd() > 0.87) return; // dia de ausência
+        const n = Math.max(1, Math.round((2.5 + rnd() * 4) * fator));
+        for (let k = 0; k < n; k++) {
+          const atividadeId = sortear();
+          let qtd = 1;
+          if (atividadeId === 'detran_digital') qtd = 1 + Math.floor(rnd() * 9);
+          else if (atividadeId === 'apoio_tecnico') qtd = 1 + Math.floor(rnd() * 4);
+          else if (rnd() > 0.85) qtd = 2;
+          const uf = rnd() < 0.92 ? pega(ufs) : pega(UFS).sigla;
+          let ref = '';
+          if (['transferido', 'baixado', 'apoio_tecnico', 'taxas', 'prescricao'].includes(atividadeId) && qtd === 1) ref = placa();
+          else if (atividadeId.startsWith('oficio')) ref = `Ofício nº ${100 + Math.floor(rnd() * 800)}/${Y}`;
+          const obs = rnd() > 0.9 ? pega(observacoes) : '';
+          e.registros.push({ id: `ex-${++seq}`, data: d, servidorId: s.id, uf, atividadeId, qtd, ref, obs, criadoEm: criado, atualizadoEm: criado, exemplo: true });
+        }
+      });
+      if (++diasDesdeDiligencia >= 9) {
+        diasDesdeDiligencia = 0;
+        e.registros.push({ id: `ex-${++seq}`, data: d, servidorId: 'ex-srv-4', uf: 'DF', atividadeId: 'diligencia_df', qtd: 1, ref: '', obs: '', criadoEm: criado, atualizadoEm: criado, exemplo: true });
+      }
+    }
+    return e;
+  }
+
+  function apagarExemplos() {
+    const ficticios = new Set(estado.servidores.filter((s) => s.exemplo).map((s) => s.id));
+    estado.registros = estado.registros.filter((r) => !r.exemplo && !ficticios.has(r.servidorId));
+    estado.servidores = estado.servidores.filter((s) => !s.exemplo);
+    for (const sigla of Object.keys(estado.ufs)) if (estado.ufs[sigla].exemplo) delete estado.ufs[sigla];
+    estado.exemplo = false;
+  }
+
+  // ======================================================================
+  // Períodos
+  // ======================================================================
+  function preencherPeriodos(select, valor) {
+    const [Y, M] = partes(hojeISO());
+    const meses = [];
+    let [y, m] = mesAnterior(...mesAnterior(Y, M));
+    for (let i = 0; i < 12; i++) { meses.push([y, m]); [y, m] = mesAnterior(y, m); }
+    select.replaceChildren(
+      el('option', { value: 'mes', text: 'Este mês' }),
+      el('option', { value: 'mes_passado', text: 'Mês passado' }),
+      el('option', { value: 'tres_meses', text: 'Últimos 3 meses' }),
+      el('option', { value: 'ano', text: 'Este ano' }),
+      el('option', { value: 'tudo', text: 'Todo o histórico' }),
+      el('optgroup', { label: 'Meses anteriores' }, meses.map(([yy, mm]) => el('option', { value: `m:${yy}-${pad(mm)}`, text: `${NOMES_MES[mm - 1]} de ${yy}` }))),
+      el('option', { value: 'custom', text: 'Escolher datas…' }),
+    );
+    select.value = valor;
+    if (select.value !== valor) select.value = 'mes';
+  }
+
+  function resolverPeriodo(f) {
+    const hoje = hojeISO();
+    const [Y, M, D] = partes(hoje);
+    const p = f.periodo || 'mes';
+    let de; let ate; let rotulo; let ant = null;
+    if (p === 'mes') {
+      de = isoYMD(Y, M, 1); ate = hoje;
+      const [py, pm] = mesAnterior(Y, M);
+      ant = { de: isoYMD(py, pm, 1), ate: isoYMD(py, pm, Math.min(D, ultimoDia(py, pm))) };
+      rotulo = `${NOMES_MES[M - 1]} de ${Y}, até ${fmtDM(hoje)}`;
+    } else if (p === 'mes_passado') {
+      const [py, pm] = mesAnterior(Y, M);
+      de = isoYMD(py, pm, 1); ate = isoYMD(py, pm, ultimoDia(py, pm));
+      const [qy, qm] = mesAnterior(py, pm);
+      ant = { de: isoYMD(qy, qm, 1), ate: isoYMD(qy, qm, ultimoDia(qy, qm)), nome: NOMES_MES[qm - 1] };
+      rotulo = `${NOMES_MES[pm - 1]} de ${py}`;
+    } else if (p === 'tres_meses') {
+      let [y, m] = [Y, M];
+      for (let i = 0; i < 2; i++) [y, m] = mesAnterior(y, m);
+      de = isoYMD(y, m, 1); ate = hoje;
+      const n = diffDias(de, ate) + 1;
+      ant = { de: somaDias(de, -n), ate: somaDias(de, -1) };
+      rotulo = `${fmtData(de)} a ${fmtData(ate)}`;
+    } else if (p === 'ano') {
+      de = isoYMD(Y, 1, 1); ate = hoje;
+      ant = { de: isoYMD(Y - 1, 1, 1), ate: isoYMD(Y - 1, M, Math.min(D, ultimoDia(Y - 1, M))) };
+      rotulo = `${Y}, até ${fmtDM(hoje)}`;
+    } else if (p === 'tudo') {
+      const datas = registrosValidos().map((r) => r.data);
+      de = datas.length ? datas.reduce((a, b) => (a < b ? a : b)) : hoje;
+      const maior = datas.length ? datas.reduce((a, b) => (a > b ? a : b)) : hoje;
+      ate = maior > hoje ? maior : hoje;
+      rotulo = `todo o histórico, de ${fmtData(de)} a ${fmtData(ate)}`;
+    } else if (p.startsWith('m:')) {
+      const [y, m] = p.slice(2).split('-').map(Number);
+      de = isoYMD(y, m, 1); ate = isoYMD(y, m, ultimoDia(y, m));
+      if (ate > hoje) ate = hoje;
+      const [py, pm] = mesAnterior(y, m);
+      ant = { de: isoYMD(py, pm, 1), ate: isoYMD(py, pm, ultimoDia(py, pm)), nome: NOMES_MES[pm - 1] };
+      rotulo = `${NOMES_MES[m - 1]} de ${y}`;
+    } else {
+      de = dataValida(f.de) ? f.de : isoYMD(Y, M, 1);
+      ate = dataValida(f.ate) ? f.ate : hoje;
+      if (de > ate) [de, ate] = [ate, de];
+      const n = diffDias(de, ate) + 1;
+      ant = { de: somaDias(de, -n), ate: somaDias(de, -1) };
+      rotulo = `${fmtData(de)} a ${fmtData(ate)}`;
+    }
+    if (ant && !ant.nome) {
+      ant.nome = partes(ant.de)[0] === Y && partes(ant.ate)[0] === Y ? `${fmtDM(ant.de)} a ${fmtDM(ant.ate)}` : `${fmtData(ant.de)} a ${fmtData(ant.ate)}`;
+    }
+    return { de, ate, rotulo, ant };
+  }
+
+  function filtrar(regs, f, per) {
+    return regs.filter((r) => r.data >= per.de && r.data <= per.ate
+      && (!f.servidor || r.servidorId === f.servidor)
+      && (!f.uf || (f.uf === '_' ? !r.uf : r.uf === f.uf)));
+  }
+
+  function preencherServidores(select, valor, rotuloTodos) {
+    const lista = servidoresVisiveis().sort((a, b) => a.nome.localeCompare(b.nome));
+    select.replaceChildren(el('option', { value: '', text: rotuloTodos }), ...lista.map((s) => el('option', { value: s.id, text: s.ativo ? s.nome : `${s.nome} (inativo)` })));
+    select.value = valor || '';
+    if (select.value !== (valor || '')) select.value = '';
+  }
+  function preencherUFsFiltro(select, valor) {
+    select.replaceChildren(
+      el('option', { value: '', text: 'Todas' }),
+      el('option', { value: '_', text: 'Nacional (sem UF)' }),
+      ...UFS_ALFA.map((u) => el('option', { value: u.sigla, text: `${u.sigla} – ${u.nome}` })),
+    );
+    select.value = valor || '';
+    if (select.value !== (valor || '')) select.value = '';
+  }
+
+  // ======================================================================
+  // Dica flutuante (tooltip)
+  // ======================================================================
+  const dica = $('dica');
+  let dicaTimer;
+  function mostrarDica(conteudo, x, y) {
+    const filhos = [];
+    if (conteudo.titulo) filhos.push(el('div', { class: 'd-tit', text: conteudo.titulo }));
+    for (const l of conteudo.linhas || []) {
+      filhos.push(el('div', { class: 'd-lin' },
+        l.cor ? el('i', { class: 'd-chave', style: `background:${l.cor}` }) : null,
+        el('b', { text: l.valor }), el('span', { text: l.rotulo })));
+    }
+    if (conteudo.rodape) filhos.push(el('div', { class: 'd-rod', text: conteudo.rodape }));
+    dica.replaceChildren(...filhos);
+    dica.hidden = false;
+    posicionarDica(x, y);
+  }
+  function posicionarDica(x, y) {
+    const r = dica.getBoundingClientRect();
+    let left = x + 14; let top = y + 14;
+    if (left + r.width > window.innerWidth - 8) left = x - r.width - 14;
+    if (top + r.height > window.innerHeight - 8) top = y - r.height - 14;
+    dica.style.left = `${Math.max(8, left)}px`;
+    dica.style.top = `${Math.max(8, top)}px`;
+  }
+  function esconderDica() { dica.hidden = true; clearTimeout(dicaTimer); }
+  function ligarDica(no, construir) {
+    no.addEventListener('pointerenter', (ev) => {
+      mostrarDica(construir(), ev.clientX, ev.clientY);
+      if (ev.pointerType === 'touch') { clearTimeout(dicaTimer); dicaTimer = setTimeout(esconderDica, 2600); }
+    });
+    no.addEventListener('pointermove', (ev) => { if (ev.pointerType !== 'touch' && !dica.hidden) posicionarDica(ev.clientX, ev.clientY); });
+    no.addEventListener('pointerleave', (ev) => { if (ev.pointerType !== 'touch') esconderDica(); });
+    no.addEventListener('focus', () => { const r = no.getBoundingClientRect(); mostrarDica(construir(), r.right, r.top); });
+    no.addEventListener('blur', esconderDica);
+  }
+  window.addEventListener('scroll', esconderDica, { passive: true });
+
+  // ======================================================================
+  // Avisos rápidos e diálogo
+  // ======================================================================
+  function aviso(msg, acao) {
+    const t = el('div', { class: 'toast', role: 'status' }, el('span', { text: msg }));
+    let timer;
+    const fechar = () => { clearTimeout(timer); t.remove(); };
+    if (acao) t.append(el('button', { type: 'button', text: acao.rotulo, onclick: () => { acao.fn(); fechar(); } }));
+    $('toasts').replaceChildren(t);
+    timer = setTimeout(fechar, acao ? 8000 : 3800);
+  }
+
+  function dialogo({ titulo, corpo, botoes }) {
+    return new Promise((resolve) => {
+      const d = $('dialogo');
+      const form = el('form', { method: 'dialog', class: 'dlg' },
+        el('h2', { text: titulo }),
+        corpo,
+        el('div', { class: 'dlg-acoes' }, botoes.map((b) => el('button', { type: b.tipo || 'submit', value: b.valor || '', class: `btn ${b.classe || ''}`, text: b.rotulo, onclick: b.onclick }))));
+      d.replaceChildren(form);
+      d.returnValue = '';
+      d.onclose = () => resolve(d.returnValue);
+      if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+      const foco = d.querySelector('input, textarea') || d.querySelector('.btn-primario, .btn-perigo');
+      if (foco) foco.focus();
+    });
+  }
+
+  async function copiar(texto, area) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      aviso('Texto copiado.');
+    } catch (e) {
+      if (area) { area.focus(); area.select(); }
+      aviso('O texto está selecionado. Use Ctrl+C para copiar.');
+    }
+  }
+
+  function baixar(nome, conteudo, tipo) {
+    if (EMBUTIDO) {
+      const area = el('textarea', { readonly: true, rows: 14 });
+      area.value = conteudo.replace(/^﻿/, '');
+      dialogo({
+        titulo: 'Copie o conteúdo do arquivo',
+        corpo: [el('p', { text: `Esta pré-visualização não permite baixar arquivos. Copie o conteúdo abaixo e salve num arquivo chamado ${nome}. No arquivo da ferramenta aberto no seu computador, o botão baixa direto.` }), area],
+        botoes: [
+          { rotulo: 'Copiar', tipo: 'button', classe: 'btn-primario', onclick: () => copiar(area.value, area) },
+          { rotulo: 'Fechar', valor: 'fechar' },
+        ],
+      });
+      return;
+    }
+    const blob = new Blob([conteudo], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const a = el('a', { href: url, download: nome });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  // ======================================================================
+  // Abas
+  // ======================================================================
+  const ABAS = ['painel', 'registrar', 'equipe', 'dados'];
+  let abaAtual = 'painel';
+  function mostrarAba(nome, focar) {
+    if (!ABAS.includes(nome)) nome = 'painel';
+    abaAtual = nome;
+    for (const a of ABAS) {
+      const tab = $(`tab-${a}`);
+      const sel = a === nome;
+      tab.setAttribute('aria-selected', String(sel));
+      tab.tabIndex = sel ? 0 : -1;
+      $(`aba-${a}`).hidden = !sel;
+    }
+    if (focar) $(`tab-${nome}`).focus();
+    prefs.aba = nome;
+    salvarPrefs();
+    try { history.replaceState(null, '', `#${nome}`); } catch (e) { /* sem histórico no quadro */ }
+    esconderDica();
+    renderAba();
+  }
+  function renderAba() {
+    if (abaAtual === 'painel') renderPainel();
+    else if (abaAtual === 'registrar') renderRegistrar();
+    else if (abaAtual === 'equipe') renderEquipe();
+    else renderDados();
+  }
+  function renderTudo() {
+    renderCabecalho();
+    renderAba();
+  }
+  function renderCabecalho() {
+    $('topoNome').textContent = estado.setor.nome || 'Passivo Veicular';
+    $('topoUnidade').textContent = `Controle de produtividade${estado.setor.unidade ? ` · ${estado.setor.unidade}` : ''}`;
+    $('avisoExemplo').hidden = !estado.exemplo;
+    $('avisoArmazenamento').hidden = armazenamentoOk;
+  }
+
+  // ======================================================================
+  // PAINEL
+  // ======================================================================
+  function renderPainel() {
+    const f = prefs.painel;
+    preencherPeriodos($('pPeriodo'), f.periodo);
+    f.periodo = $('pPeriodo').value;
+    const custom = f.periodo === 'custom';
+    $('pDeCampo').hidden = !custom;
+    $('pAteCampo').hidden = !custom;
+    preencherServidores($('pServidor'), f.servidor, 'Todos');
+    f.servidor = $('pServidor').value;
+    preencherUFsFiltro($('pUF'), f.uf);
+    f.uf = $('pUF').value;
+
+    const per = resolverPeriodo(f);
+    if (custom) { f.de = per.de; f.ate = per.ate; $('pDe').value = per.de; $('pAte').value = per.ate; }
+    const todos = registrosValidos();
+    const regs = filtrar(todos, f, per);
+    const regsAnt = per.ant ? filtrar(todos, f, per.ant) : null;
+    const uteis = diasUteis(per.de, per.ate);
+
+    const escopo = [];
+    if (f.servidor) escopo.push(nomeServidor(f.servidor));
+    if (f.uf) escopo.push(f.uf === '_' ? 'sem UF específica' : UF_POR_SIGLA[f.uf].nome);
+    const rot = $('pRotulo');
+    rot.replaceChildren(el('strong', { text: per.rotulo.charAt(0).toUpperCase() + per.rotulo.slice(1) }), ` · ${fmtNum(uteis)} ${uteis === 1 ? 'dia útil' : 'dias úteis'}`, escopo.length ? ` · ${escopo.join(' · ')}` : '');
+
+    renderKPIs(regs, regsAnt, per, uteis);
+    renderLegendaCategorias();
+    renderGrafServidores(regs, f);
+    renderGrafAtividades(regs);
+    renderMapaPainel(regs, f);
+    renderEvolucao(regs, per);
+    renderResumo(regs, f);
+  }
+
+  function soma(regs, filtro) {
+    let t = 0;
+    for (const r of regs) if (!filtro || filtro(r)) t += r.qtd;
+    return t;
+  }
+
+  function renderKPIs(regs, regsAnt, per, uteis) {
+    const tiles = [];
+    const delta = (atual, anterior) => {
+      if (anterior === null) return el('div', { class: 'kpi-delta', text: 'sem período anterior para comparar' });
+      if (anterior === 0 && atual === 0) return el('div', { class: 'kpi-delta', text: `nenhum também em ${per.ant.nome}` });
+      if (anterior === 0) return el('div', { class: 'kpi-delta', text: `nenhum em ${per.ant.nome}` });
+      const v = Math.round(((atual - anterior) / anterior) * 100);
+      if (v === 0) return el('div', { class: 'kpi-delta' }, el('b', { text: '= ' }), `igual a ${per.ant.nome} (${fmtNum(anterior)})`);
+      return el('div', { class: 'kpi-delta' },
+        el('b', { class: v > 0 ? 'd-bom' : 'd-ruim', text: `${v > 0 ? '▲' : '▼'} ${Math.abs(v)}%` }),
+        ` vs ${per.ant.nome} (${fmtNum(anterior)})`);
+    };
+    const total = soma(regs);
+    const totalAnt = regsAnt ? soma(regsAnt) : null;
+    tiles.push(el('div', { class: 'kpi hero' },
+      el('div', { class: 'kpi-rot', text: 'Atividades registradas' }),
+      el('div', { class: 'kpi-val', text: fmtNum(total) }),
+      delta(total, totalAnt),
+      el('div', { class: 'kpi-delta', text: uteis ? `média de ${decFmt.format(total / uteis)} por dia útil` : '' })));
+
+    const transf = soma(regs, (r) => r.atividadeId === 'transferido');
+    tiles.push(el('div', { class: 'kpi' },
+      el('div', { class: 'kpi-rot', text: 'Veículos transferidos' }),
+      el('div', { class: 'kpi-val', text: fmtNum(transf) }),
+      delta(transf, regsAnt ? soma(regsAnt, (r) => r.atividadeId === 'transferido') : null)));
+
+    const baix = soma(regs, (r) => r.atividadeId === 'baixado');
+    tiles.push(el('div', { class: 'kpi' },
+      el('div', { class: 'kpi-rot', text: 'Veículos baixados' }),
+      el('div', { class: 'kpi-val', text: fmtNum(baix) }),
+      delta(baix, regsAnt ? soma(regsAnt, (r) => r.atividadeId === 'baixado') : null)));
+
+    const ufsAtendidas = new Set(regs.filter((r) => r.uf).map((r) => r.uf));
+    const faltam = UFS_ALFA.filter((u) => !ufsAtendidas.has(u.sigla)).map((u) => u.sigla);
+    tiles.push(el('div', { class: 'kpi' },
+      el('div', { class: 'kpi-rot', text: 'Entes federados atendidos' }),
+      el('div', { class: 'kpi-val' }, fmtNum(ufsAtendidas.size), el('small', { text: 'de 27' })),
+      el('div', { class: 'kpi-delta', text: faltam.length === 0 ? 'todos os entes tiveram atendimento' : faltam.length <= 6 ? `sem atendimento: ${faltam.join(', ')}` : `${faltam.length} sem atendimento no período` })));
+    $('kpis').replaceChildren(...tiles);
+  }
+
+  function renderLegendaCategorias() {
+    $('legCategorias').replaceChildren(...CATEGORIAS.map((c, i) => el('span', {}, el('i', { class: 'amostra', style: `background:var(--c${i + 1})` }), c.nome)));
+  }
+
+  function renderGrafServidores(regs, f) {
+    const cont = $('grafServidores');
+    const mapa = new Map();
+    for (const r of regs) {
+      let m = mapa.get(r.servidorId);
+      if (!m) { m = { total: 0, cats: CATEGORIAS.map(() => 0) }; mapa.set(r.servidorId, m); }
+      m.cats[catIdx(r.atividadeId)] += r.qtd;
+      m.total += r.qtd;
+    }
+    const ids = new Set(mapa.keys());
+    if (!f.servidor && !f.uf) servidoresAtivos().forEach((s) => ids.add(s.id));
+    if (f.servidor) ids.add(f.servidor);
+    const linhas = [...ids].map((id) => ({ id, nome: nomeServidor(id), ...(mapa.get(id) || { total: 0, cats: CATEGORIAS.map(() => 0) }) }))
+      .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+    if (!linhas.length) {
+      cont.replaceChildren(el('p', { class: 'vazio', text: 'Nenhum servidor cadastrado. Cadastre a equipe na aba “Equipe e UFs”.' }));
+      return;
+    }
+    const max = Math.max(1, ...linhas.map((l) => l.total));
+    const totalGeral = linhas.reduce((a, l) => a + l.total, 0);
+    cont.replaceChildren(el('div', { class: 'hb' }, linhas.map((l) => {
+      const ufs = ufsDoServidor(l.id);
+      const barra = el('div', { class: 'hb-barra', style: `width:calc((100% - 3.5rem) * ${l.total / max})` });
+      l.cats.forEach((v, i) => {
+        if (!v) return;
+        const seg = el('div', { class: 'hb-seg', style: `flex-grow:${v}; background:var(--c${i + 1})` });
+        ligarDica(seg, () => ({
+          titulo: l.nome,
+          linhas: [{ cor: `var(--c${i + 1})`, valor: fmtNum(v), rotulo: `${CATEGORIAS[i].nome} (${pct(v, l.total)}%)` }],
+          rodape: `Total do servidor: ${fmtNum(l.total)} · ${pct(l.total, totalGeral)}% do período`,
+        }));
+        barra.append(seg);
+      });
+      return el('div', { class: 'hb-linha' },
+        el('div', { class: 'hb-nome' }, l.nome, el('small', { text: ufs.length ? ufs.join(' · ') : 'sem UF atribuída' })),
+        el('div', { class: 'hb-trilho' }, l.total ? barra : null, el('span', { class: `hb-valor${l.total ? '' : ' zero'}`, text: fmtNum(l.total) })));
+    })));
+  }
+
+  function renderGrafAtividades(regs) {
+    const cont = $('grafAtividades');
+    const porAtv = new Map();
+    for (const r of regs) porAtv.set(r.atividadeId, (porAtv.get(r.atividadeId) || 0) + r.qtd);
+    const lista = atividadesOrdenadas().filter((a) => a.ativa || porAtv.get(a.id));
+    const max = Math.max(1, ...lista.map((a) => porAtv.get(a.id) || 0));
+    const total = soma(regs);
+    const filhos = [];
+    CATEGORIAS.forEach((c, i) => {
+      const doGrupo = lista.filter((a) => a.categoriaId === c.id);
+      if (!doGrupo.length) return;
+      const sub = doGrupo.reduce((s, a) => s + (porAtv.get(a.id) || 0), 0);
+      filhos.push(el('div', { class: 'hb-cat' }, el('i', { class: 'amostra', style: `background:var(--c${i + 1})` }), c.nome, el('span', { class: 'total', text: fmtNum(sub) })));
+      for (const a of doGrupo) {
+        const v = porAtv.get(a.id) || 0;
+        const trilho = el('div', { class: 'hb-trilho' });
+        if (v) {
+          const barra = el('div', { class: 'hb-barra', style: `width:calc((100% - 3.5rem) * ${v / max})` }, el('div', { class: 'hb-seg', style: `flex-grow:1; background:var(--c${i + 1})` }));
+          ligarDica(barra, () => ({ titulo: a.nome, linhas: [{ cor: `var(--c${i + 1})`, valor: fmtNum(v), rotulo: `${pct(v, total)}% das atividades do período` }] }));
+          trilho.append(barra);
+        }
+        trilho.append(el('span', { class: `hb-valor${v ? '' : ' zero'}`, text: fmtNum(v) }));
+        filhos.push(el('div', { class: 'hb-linha' }, el('div', { class: 'hb-nome', title: a.nome, text: a.curto }), trilho));
+      }
+    });
+    cont.replaceChildren(el('div', { class: 'hb atividades' }, filhos));
+  }
+
+  function criarMapa({ rotulo, tile, clique, dicaDe, legenda }) {
+    const g = el('div', { class: 'mapa', role: 'group', 'aria-label': rotulo });
+    for (const u of UFS) {
+      const c = tile(u);
+      const b = el('button', {
+        type: 'button', class: `tile ${c.classe || ''}`, style: `grid-row:${u.lin + 1}; grid-column:${u.col + 1}`,
+        'aria-label': c.aria, 'aria-pressed': c.pressionado === undefined ? undefined : String(c.pressionado),
+      }, el('b', { text: u.sigla }), el('span', { text: c.linha2 || '' }));
+      if (clique) b.addEventListener('click', () => clique(u));
+      if (dicaDe) ligarDica(b, () => dicaDe(u));
+      g.append(b);
+    }
+    if (legenda) {
+      legenda.classList.add('mapa-legenda');
+      legenda.style.gridRow = '6 / span 3';
+      legenda.style.gridColumn = '3 / span 4';
+      g.append(legenda);
+    }
+    return g;
+  }
+
+  function renderMapaPainel(regs, f) {
+    const porUF = new Map();
+    const porUFAtv = new Map();
+    let nacional = 0;
+    for (const r of regs) {
+      if (!r.uf) { nacional += r.qtd; continue; }
+      porUF.set(r.uf, (porUF.get(r.uf) || 0) + r.qtd);
+      let m = porUFAtv.get(r.uf);
+      if (!m) { m = new Map(); porUFAtv.set(r.uf, m); }
+      m.set(r.atividadeId, (m.get(r.atividadeId) || 0) + r.qtd);
+    }
+    const max = Math.max(0, ...porUF.values());
+    const nFaixas = Math.min(5, max);
+    const limites = [];
+    for (let i = 1; i <= nFaixas; i++) limites.push(Math.ceil((max * i) / nFaixas));
+    const faixaDe = (v) => {
+      if (!v) return 0;
+      const i = limites.findIndex((l) => v <= l);
+      // espalha as faixas pela escala de 5 cores
+      return nFaixas === 5 ? i + 1 : Math.round(((i + 1) / nFaixas) * 5);
+    };
+    const legenda = el('div', {}, el('strong', { text: 'Atividades' }));
+    for (let i = nFaixas - 1; i >= 0; i--) {
+      const de = i === 0 ? 1 : limites[i - 1] + 1;
+      const q = nFaixas === 5 ? i + 1 : Math.round(((i + 1) / nFaixas) * 5);
+      legenda.append(el('span', {}, el('i', { class: `amostra q${q}` }), de === limites[i] ? fmtNum(de) : `${fmtNum(de)} a ${fmtNum(limites[i])}`));
+    }
+    legenda.append(el('span', {}, el('i', { class: 'amostra q0' }), 'nenhuma'));
+
+    const mapa = criarMapa({
+      rotulo: 'Atividades por unidade da federação',
+      tile: (u) => {
+        const v = porUF.get(u.sigla) || 0;
+        return { classe: `q${faixaDe(v)}`, linha2: fmtNum(v), aria: `${u.nome}: ${fmtNum(v)} atividades${f.uf === u.sigla ? ' (filtro ativo)' : ''}`, pressionado: f.uf === u.sigla };
+      },
+      clique: (u) => {
+        prefs.painel.uf = prefs.painel.uf === u.sigla ? '' : u.sigla;
+        salvarPrefs();
+        renderPainel();
+      },
+      dicaDe: (u) => {
+        const v = porUF.get(u.sigla) || 0;
+        const resp = responsavel(u.sigla);
+        const top = [...(porUFAtv.get(u.sigla) || new Map()).entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+        return {
+          titulo: `${u.nome} (${u.sigla})`,
+          linhas: [{ valor: fmtNum(v), rotulo: v === 1 ? 'atividade' : 'atividades' },
+            ...top.map(([id, q]) => ({ cor: `var(--c${catIdx(id) + 1})`, valor: fmtNum(q), rotulo: (atividadePorId(id) || {}).curto || id }))],
+          rodape: `Responsável: ${resp ? resp.nome : 'ninguém atribuído'}`,
+        };
+      },
+      legenda,
+    });
+    $('mapaPainel').replaceChildren(mapa);
+    $('notaNacional').textContent = nacional ? `Mais ${fmtNum(nacional)} ${nacional === 1 ? 'atividade' : 'atividades'} sem UF específica (nacional), fora do mapa.` : '';
+  }
+
+  function baldes(de, ate) {
+    const dias = diffDias(de, ate) + 1;
+    const itens = [];
+    let tipo;
+    if (dias <= 45) {
+      tipo = 'dia';
+      for (let d = de; d <= ate; d = somaDias(d, 1)) {
+        const w = dataDe(d).getDay();
+        itens.push({ de: d, ate: d, curto: fmtDM(d), longo: `${DIA_SEMANA[w]}, ${fmtData(d)}` });
+      }
+    } else if (dias <= 210) {
+      tipo = 'semana';
+      let inicio = somaDias(de, -((dataDe(de).getDay() + 6) % 7));
+      while (inicio <= ate) {
+        const fim = somaDias(inicio, 6);
+        const a = inicio < de ? de : inicio;
+        const b = fim > ate ? ate : fim;
+        itens.push({ de: a, ate: b, curto: fmtDM(a), longo: `Semana de ${fmtDM(a)} a ${fmtDM(b)}` });
+        inicio = somaDias(inicio, 7);
+      }
+    } else {
+      tipo = 'mes';
+      let [y, m] = partes(de);
+      const [y2, m2] = partes(ate);
+      while (y < y2 || (y === y2 && m <= m2)) {
+        itens.push({ de: isoYMD(y, m, 1), ate: isoYMD(y, m, ultimoDia(y, m)), curto: `${MES_CURTO[m - 1]}/${String(y).slice(2)}`, longo: `${NOMES_MES[m - 1]} de ${y}` });
+        [y, m] = m === 12 ? [y + 1, 1] : [y, m + 1];
+      }
+    }
+    return { tipo, itens };
+  }
+
+  function marcas(max) {
+    if (max <= 0) return [0, 1];
+    const bruto = max / 4;
+    const p = 10 ** Math.floor(Math.log10(bruto));
+    let passo = [1, 2, 5, 10].map((m) => m * p).find((s) => s >= bruto);
+    passo = Math.max(1, passo);
+    const topo = Math.ceil(max / passo) * passo;
+    const r = [];
+    for (let v = 0; v <= topo + 1e-9; v += passo) r.push(Math.round(v));
+    return r;
+  }
+
+  function renderEvolucao(regs, per) {
+    const cont = $('grafEvolucao');
+    const bs = baldes(per.de, per.ate);
+    const vals = bs.itens.map(() => 0);
+    for (const r of regs) {
+      const i = bs.itens.findIndex((b) => r.data >= b.de && r.data <= b.ate);
+      if (i >= 0) vals[i] += r.qtd;
+    }
+    $('evolSub').textContent = `Soma das quantidades por ${bs.tipo === 'dia' ? 'dia' : bs.tipo === 'semana' ? 'semana' : 'mês'}`;
+    const tk = marcas(Math.max(0, ...vals));
+    const topo = tk[tk.length - 1];
+    const plot = el('div', { class: 'evol-plot' });
+    const eixoY = el('div', { class: 'evol-y', 'aria-hidden': 'true' });
+    for (const t of tk) {
+      const pos = (t / topo) * 100;
+      if (t > 0) plot.append(el('div', { class: 'evol-grade', style: `bottom:${pos}%` }));
+      eixoY.append(el('span', { style: `bottom:${pos}%`, text: fmtNum(t) }));
+    }
+    const cols = el('div', { class: 'evol-cols' });
+    const eixoX = el('div', { class: 'evol-x', 'aria-hidden': 'true' });
+    const largura = Math.max(200, (cont.clientWidth || 520) - 40);
+    const passo = Math.max(1, Math.ceil(bs.itens.length / Math.max(2, Math.floor(largura / 58))));
+    bs.itens.forEach((b, i) => {
+      const col = el('div', { class: 'evol-col', tabindex: '0', 'aria-label': `${b.longo}: ${fmtNum(vals[i])} atividades` },
+        el('div', { class: 'evol-barra', style: `height:${(vals[i] / topo) * 100}%` }));
+      ligarDica(col, () => ({ titulo: b.longo, linhas: [{ valor: fmtNum(vals[i]), rotulo: vals[i] === 1 ? 'atividade' : 'atividades' }] }));
+      cols.append(col);
+      eixoX.append(el('span', {}, i % passo === 0 ? el('b', { text: b.curto }) : null));
+    });
+    plot.append(cols);
+    cont.replaceChildren(el('div', { class: 'evol' }, eixoY, plot, eixoX));
+  }
+
+  function renderResumo(regs, f) {
+    const t = $('tabResumo');
+    const mapa = new Map();
+    for (const r of regs) {
+      let m = mapa.get(r.servidorId);
+      if (!m) { m = { total: 0, cats: CATEGORIAS.map(() => 0) }; mapa.set(r.servidorId, m); }
+      m.cats[catIdx(r.atividadeId)] += r.qtd;
+      m.total += r.qtd;
+    }
+    const ids = new Set(mapa.keys());
+    if (!f.servidor && !f.uf) servidoresAtivos().forEach((s) => ids.add(s.id));
+    const linhas = [...ids].map((id) => ({ id, nome: nomeServidor(id), ...(mapa.get(id) || { total: 0, cats: CATEGORIAS.map(() => 0) }) }))
+      .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+    const total = linhas.reduce((a, l) => a + l.total, 0);
+    const somaCats = CATEGORIAS.map((c, i) => linhas.reduce((a, l) => a + l.cats[i], 0));
+    t.replaceChildren(
+      el('thead', {}, el('tr', {},
+        el('th', { text: 'Servidor' }), el('th', { text: 'UFs sob responsabilidade' }),
+        CATEGORIAS.map((c, i) => el('th', { class: 'num', title: c.nome }, el('span', { class: 'th-cat' }, el('i', { class: 'amostra', style: `background:var(--c${i + 1})` }), c.curto))),
+        el('th', { class: 'num', text: 'Total' }), el('th', { class: 'num', text: '% do período' }))),
+      el('tbody', {}, linhas.length ? linhas.map((l) => el('tr', {},
+        el('td', { class: 'nome', text: l.nome }),
+        el('td', {}, el('div', { class: 'lista-ufs' }, ufsDoServidor(l.id).map((s) => el('span', { class: 'chip-uf', text: s })))),
+        l.cats.map((v) => el('td', { class: 'num', text: fmtNum(v) })),
+        el('td', { class: 'num' }, el('strong', { text: fmtNum(l.total) })),
+        el('td', { class: 'num', text: `${pct(l.total, total)}%` }))) : el('tr', {}, el('td', { colspan: 9, class: 'vazio', text: 'Nenhum registro no período.' }))),
+      el('tfoot', {}, el('tr', {},
+        el('td', { class: 'nome', text: 'Total do setor' }), el('td', {}),
+        somaCats.map((v) => el('td', { class: 'num', text: fmtNum(v) })),
+        el('td', { class: 'num', text: fmtNum(total) }), el('td', { class: 'num', text: total ? '100%' : '0%' }))),
+    );
+  }
+
+  function textoRelatorio() {
+    const f = prefs.painel;
+    const per = resolverPeriodo(f);
+    const regs = filtrar(registrosValidos(), f, per);
+    const total = soma(regs);
+    const linhas = [];
+    linhas.push('RELATÓRIO DE PRODUTIVIDADE');
+    linhas.push([estado.setor.nome, estado.setor.unidade].filter(Boolean).join(' — '));
+    linhas.push(`Período: ${fmtData(per.de)} a ${fmtData(per.ate)} (${diasUteis(per.de, per.ate)} dias úteis)`);
+    if (f.servidor) linhas.push(`Servidor: ${nomeServidor(f.servidor)}`);
+    if (f.uf) linhas.push(`UF: ${f.uf === '_' ? 'sem UF específica (nacional)' : `${UF_POR_SIGLA[f.uf].nome} (${f.uf})`}`);
+    linhas.push('');
+    linhas.push('1. RESUMO');
+    linhas.push(`Total de atividades registradas: ${fmtNum(total)}`);
+    linhas.push(`Veículos transferidos: ${fmtNum(soma(regs, (r) => r.atividadeId === 'transferido'))}`);
+    linhas.push(`Veículos baixados: ${fmtNum(soma(regs, (r) => r.atividadeId === 'baixado'))}`);
+    const ufs = new Set(regs.filter((r) => r.uf).map((r) => r.uf));
+    linhas.push(`Entes federados atendidos: ${ufs.size} de 27`);
+    linhas.push('');
+    linhas.push('2. ATIVIDADES POR CATEGORIA');
+    const porAtv = new Map();
+    for (const r of regs) porAtv.set(r.atividadeId, (porAtv.get(r.atividadeId) || 0) + r.qtd);
+    CATEGORIAS.forEach((c) => {
+      const doGrupo = atividadesOrdenadas().filter((a) => a.categoriaId === c.id && porAtv.get(a.id));
+      const sub = doGrupo.reduce((s, a) => s + porAtv.get(a.id), 0);
+      if (!sub) return;
+      linhas.push(`${c.nome}: ${fmtNum(sub)}`);
+      doGrupo.forEach((a) => linhas.push(`  - ${a.nome}: ${fmtNum(porAtv.get(a.id))}`));
+    });
+    if (!total) linhas.push('Nenhuma atividade registrada no período.');
+    linhas.push('');
+    linhas.push('3. ATIVIDADES POR SERVIDOR');
+    const porSrv = new Map();
+    for (const r of regs) porSrv.set(r.servidorId, (porSrv.get(r.servidorId) || 0) + r.qtd);
+    [...porSrv.entries()].sort((a, b) => b[1] - a[1]).forEach(([id, v]) => {
+      const u = ufsDoServidor(id);
+      linhas.push(`  - ${nomeServidor(id)}${u.length ? ` (${u.join(', ')})` : ''}: ${fmtNum(v)} (${pct(v, total)}%)`);
+    });
+    if (!porSrv.size) linhas.push('Nenhuma atividade registrada no período.');
+    linhas.push('');
+    const d = new Date();
+    linhas.push(`Gerado em ${fmtData(isoDe(d))} às ${pad(d.getHours())}:${pad(d.getMinutes())}.`);
+    return linhas.join('\n');
+  }
+
+  // ======================================================================
+  // REGISTRAR
+  // ======================================================================
+  let editandoId = null;
+  let limiteLista = 100;
+
+  function preencherFormulario() {
+    const ativos = servidoresAtivos().sort((a, b) => a.nome.localeCompare(b.nome));
+    const semEquipe = ativos.length === 0 && !editandoId;
+    $('formSemEquipe').hidden = !semEquipe;
+    $('form').hidden = semEquipe;
+
+    const fSrv = $('fServidor');
+    const srvAtual = fSrv.value || prefs.form.servidor;
+    const editado = editandoId ? estado.registros.find((r) => r.id === editandoId) : null;
+    const opcoes = [...ativos];
+    if (editado && !opcoes.some((s) => s.id === editado.servidorId) && servidorPorId(editado.servidorId)) opcoes.push(servidorPorId(editado.servidorId));
+    fSrv.replaceChildren(el('option', { value: '', text: 'Escolha o servidor' }), ...opcoes.map((s) => el('option', { value: s.id, text: s.nome })));
+    fSrv.value = srvAtual;
+    if (fSrv.value !== srvAtual) fSrv.value = ativos.length === 1 ? ativos[0].id : '';
+
+    const fAtv = $('fAtividade');
+    const atvAtual = fAtv.value;
+    const atividades = atividadesOrdenadas().filter((a) => a.ativa || (editado && editado.atividadeId === a.id));
+    preencher(fAtv, el('option', { value: '', text: 'Escolha a atividade' }),
+      ...CATEGORIAS.map((c) => {
+        const doGrupo = atividades.filter((a) => a.categoriaId === c.id);
+        return doGrupo.length ? el('optgroup', { label: c.nome }, doGrupo.map((a) => el('option', { value: a.id, text: a.curto }))) : null;
+      }));
+    fAtv.value = atvAtual;
+    preencherUFsForm();
+    mostrarDescricao();
+    if (!$('fData').value) $('fData').value = hojeISO();
+    $('fData').max = hojeISO();
+  }
+
+  function preencherUFsForm() {
+    const fUF = $('fUF');
+    const atual = fUF.dataset.tocado ? fUF.value : (fUF.value || prefs.form.uf);
+    const srv = $('fServidor').value;
+    const minhas = srv ? ufsDoServidor(srv) : [];
+    const outras = UFS_ALFA.filter((u) => !minhas.includes(u.sigla));
+    const s = servidorPorId(srv);
+    preencher(fUF,
+      minhas.length ? el('optgroup', { label: `UFs de ${s ? s.nome : ''}` }, minhas.map((sg) => el('option', { value: sg, text: `${sg} – ${UF_POR_SIGLA[sg].nome}` }))) : null,
+      el('optgroup', { label: minhas.length ? 'Outras UFs' : 'UFs' }, outras.map((u) => el('option', { value: u.sigla, text: `${u.sigla} – ${u.nome}` }))),
+      el('optgroup', { label: 'Sem UF' }, el('option', { value: '', text: 'Nacional / sem UF específica' })),
+    );
+    fUF.value = atual;
+    if (fUF.value !== atual) fUF.value = minhas[0] || '';
+  }
+
+  function mostrarDescricao() {
+    const a = atividadePorId($('fAtividade').value);
+    $('fDescricao').textContent = a && normalizar(a.nome) !== normalizar(a.curto) ? a.nome : '';
+  }
+
+  function renderHojeResumo() {
+    const srv = $('fServidor').value;
+    const data = $('fData').value || hojeISO();
+    const alvo = $('hojeResumo');
+    if (editandoId) {
+      const r = estado.registros.find((x) => x.id === editandoId);
+      alvo.textContent = r ? `Alterando o registro de ${fmtData(r.data)}. Salve ou cancele para voltar a registrar.` : '';
+      return;
+    }
+    if (!srv) { alvo.textContent = 'Escolha o servidor para ver o que já foi registrado no dia.'; return; }
+    const doDia = registrosValidos().filter((r) => r.servidorId === srv && r.data === data);
+    const q = soma(doDia);
+    alvo.replaceChildren(data === hojeISO() ? 'Hoje, ' : `Em ${fmtData(data)}, `, el('b', { text: nomeServidor(srv) }), ' registrou ', el('b', { text: `${fmtNum(q)} ${q === 1 ? 'atividade' : 'atividades'}` }), doDia.length ? ` em ${doDia.length} ${doDia.length === 1 ? 'lançamento' : 'lançamentos'}.` : '.');
+  }
+
+  function renderRegistrar() {
+    preencherFormulario();
+    renderHojeResumo();
+    renderLista();
+  }
+
+  function marcarInvalido(id, invalido) { $(id).setAttribute('aria-invalid', invalido ? 'true' : 'false'); }
+
+  function enviarFormulario(ev) {
+    ev.preventDefault();
+    const data = $('fData').value;
+    const servidorId = $('fServidor').value;
+    const atividadeId = $('fAtividade').value;
+    const qtd = Number($('fQtd').value);
+    const erros = [];
+    marcarInvalido('fData', false); marcarInvalido('fServidor', false); marcarInvalido('fAtividade', false); marcarInvalido('fQtd', false);
+    if (!dataValida(data)) { erros.push('informe a data'); marcarInvalido('fData', true); } else if (data > hojeISO()) { erros.push('a data não pode ser no futuro'); marcarInvalido('fData', true); }
+    if (!servidorId) { erros.push('escolha o servidor'); marcarInvalido('fServidor', true); }
+    if (!atividadeId) { erros.push('escolha a atividade'); marcarInvalido('fAtividade', true); }
+    if (!Number.isInteger(qtd) || qtd < 1 || qtd > 9999) { erros.push('a quantidade deve ser um número inteiro de 1 a 9999'); marcarInvalido('fQtd', true); }
+    if (erros.length) {
+      $('fErro').textContent = `Falta pouco: ${erros.join(', ')}.`;
+      return;
+    }
+    $('fErro').textContent = '';
+    const dados = { data, servidorId, atividadeId, qtd, uf: $('fUF').value, ref: $('fRef').value.trim(), obs: $('fObs').value.trim() };
+    const atv = atividadePorId(atividadeId);
+    const resumo = `${atv.curto}${qtd > 1 ? ` × ${qtd}` : ''} · ${nomeServidor(servidorId)}${dados.uf ? ` · ${dados.uf}` : ''}`;
+
+    if (editandoId) {
+      const r = estado.registros.find((x) => x.id === editandoId);
+      const antes = { ...r };
+      Object.assign(r, dados, { atualizadoEm: agora() });
+      salvar();
+      sairEdicao();
+      aviso(`Alteração salva: ${resumo}`, { rotulo: 'Desfazer', fn: () => { Object.assign(r, antes, { atualizadoEm: agora() }); salvar(); renderRegistrar(); } });
+    } else {
+      const r = { id: uid(), ...dados, criadoEm: agora(), atualizadoEm: agora() };
+      estado.registros.push(r);
+      salvar();
+      prefs.form.servidor = servidorId;
+      prefs.form.uf = dados.uf;
+      salvarPrefs();
+      $('fQtd').value = '1';
+      $('fRef').value = '';
+      $('fObs').value = '';
+      aviso(`Registrado: ${resumo}`, { rotulo: 'Desfazer', fn: () => { r.excluido = true; r.atualizadoEm = agora(); salvar(); renderRegistrar(); } });
+      renderRegistrar();
+      $('fAtividade').focus();
+    }
+  }
+
+  function entrarEdicao(id) {
+    const r = estado.registros.find((x) => x.id === id);
+    if (!r) return;
+    editandoId = id;
+    preencherFormulario();
+    $('fData').value = r.data;
+    $('fServidor').value = r.servidorId;
+    preencherUFsForm();
+    $('fUF').value = r.uf || '';
+    $('fAtividade').value = r.atividadeId;
+    $('fQtd').value = String(r.qtd);
+    $('fRef').value = r.ref || '';
+    $('fObs').value = r.obs || '';
+    mostrarDescricao();
+    $('formTitulo').textContent = 'Editar registro';
+    $('fEnviar').textContent = 'Salvar alteração';
+    $('fCancelar').hidden = false;
+    $('fErro').textContent = '';
+    renderHojeResumo();
+    renderLista();
+    $('cartaoForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('fAtividade').focus({ preventScroll: true });
+  }
+
+  function sairEdicao() {
+    editandoId = null;
+    $('formTitulo').textContent = 'Registrar atividade';
+    $('fEnviar').textContent = 'Registrar';
+    $('fCancelar').hidden = true;
+    $('fQtd').value = '1';
+    $('fRef').value = '';
+    $('fObs').value = '';
+    $('fData').value = hojeISO();
+    $('fErro').textContent = '';
+    renderRegistrar();
+  }
+
+  function excluirRegistro(id) {
+    const r = estado.registros.find((x) => x.id === id);
+    if (!r) return;
+    if (editandoId === id) sairEdicao();
+    r.excluido = true;
+    r.atualizadoEm = agora();
+    salvar();
+    renderRegistrar();
+    aviso(`Registro excluído: ${(atividadePorId(r.atividadeId) || {}).curto || ''} de ${fmtData(r.data)}`, { rotulo: 'Desfazer', fn: () => { r.excluido = false; r.atualizadoEm = agora(); salvar(); renderRegistrar(); } });
+  }
+
+  function refVisual(ref) {
+    const t = String(ref || '').trim();
+    const limpo = t.toUpperCase().replace(/[\s-]/g, '');
+    if (/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(limpo)) {
+      const txt = /^[A-Z]{3}\d{4}$/.test(limpo) ? `${limpo.slice(0, 3)}-${limpo.slice(3)}` : limpo;
+      return el('span', { class: 'placa', title: 'Placa' }, el('span', { text: txt }));
+    }
+    return t ? el('span', { class: 'mono', text: t }) : null;
+  }
+
+  function registrosDaLista() {
+    const f = prefs.lista;
+    const per = resolverPeriodo(f);
+    const busca = normalizar(f.busca);
+    let regs = filtrar(registrosValidos(), f, per).filter((r) => !f.atividade || r.atividadeId === f.atividade);
+    if (busca) {
+      regs = regs.filter((r) => {
+        const a = atividadePorId(r.atividadeId) || {};
+        return normalizar(`${r.ref} ${r.obs} ${a.curto} ${a.nome} ${nomeServidor(r.servidorId)} ${r.uf}`).includes(busca)
+          || normalizar(r.ref).replace(/[\s-]/g, '').includes(busca.replace(/[\s-]/g, ''));
+      });
+    }
+    regs.sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : (b.criadoEm || '').localeCompare(a.criadoEm || '')));
+    return { regs, per };
+  }
+
+  function renderLista() {
+    const f = prefs.lista;
+    preencherPeriodos($('lPeriodo'), f.periodo);
+    f.periodo = $('lPeriodo').value;
+    const custom = f.periodo === 'custom';
+    $('lDeCampo').hidden = !custom;
+    $('lAteCampo').hidden = !custom;
+    preencherServidores($('lServidor'), f.servidor, 'Todos');
+    f.servidor = $('lServidor').value;
+    preencherUFsFiltro($('lUF'), f.uf);
+    f.uf = $('lUF').value;
+    const selAtv = $('lAtividade');
+    selAtv.replaceChildren(el('option', { value: '', text: 'Todas' }),
+      ...CATEGORIAS.map((c) => el('optgroup', { label: c.nome }, atividadesOrdenadas().filter((a) => a.categoriaId === c.id).map((a) => el('option', { value: a.id, text: a.curto })))));
+    selAtv.value = f.atividade;
+    if (selAtv.value !== f.atividade) { selAtv.value = ''; f.atividade = ''; }
+    if ($('lBusca').value !== f.busca) $('lBusca').value = f.busca;
+
+    const { regs, per } = registrosDaLista();
+    if (custom) { f.de = per.de; f.ate = per.ate; $('lDe').value = per.de; $('lAte').value = per.ate; }
+    const q = soma(regs);
+    $('lContagem').textContent = `${fmtNum(regs.length)} ${regs.length === 1 ? 'lançamento' : 'lançamentos'} · ${fmtNum(q)} ${q === 1 ? 'atividade' : 'atividades'} (soma das quantidades) · ${per.rotulo}`;
+    const visiveis = regs.slice(0, limiteLista);
+    const t = $('tabRegistros');
+    t.replaceChildren(
+      el('thead', {}, el('tr', {}, ['Data', 'Servidor', 'UF', 'Atividade'].map((h) => el('th', { text: h })), el('th', { class: 'num', text: 'Qtd.' }), el('th', { text: 'Referência' }), el('th', { text: 'Observação' }), el('th', {}, el('span', { class: 'nao-imprimir', text: '' })))),
+      el('tbody', {}, visiveis.length ? visiveis.map((r) => {
+        const a = atividadePorId(r.atividadeId) || { curto: r.atividadeId, categoriaId: 'processos' };
+        return el('tr', { class: editandoId === r.id ? 'editando' : '' },
+          el('td', { class: 'num', text: fmtData(r.data) }),
+          el('td', { text: nomeServidor(r.servidorId) }),
+          el('td', {}, r.uf ? el('span', { class: 'chip-uf', text: r.uf }) : el('span', { class: 'vazio', text: 'nacional' })),
+          el('td', { class: 'atv' }, a.curto, el('small', { text: CATEGORIAS[IDX_CATEGORIA[a.categoriaId]].nome })),
+          el('td', { class: 'num', text: fmtNum(r.qtd) }),
+          el('td', { class: 'ref' }, refVisual(r.ref)),
+          el('td', { class: 'obs', text: r.obs || '' }),
+          el('td', { class: 'acoes-lin' },
+            el('button', { type: 'button', class: 'btn-link', text: 'Editar', 'aria-label': `Editar registro de ${fmtData(r.data)}`, onclick: () => entrarEdicao(r.id) }),
+            el('button', { type: 'button', class: 'btn-link perigo', text: 'Excluir', 'aria-label': `Excluir registro de ${fmtData(r.data)}`, onclick: () => excluirRegistro(r.id) })));
+      }) : el('tr', {}, el('td', { colspan: 8, class: 'vazio', text: 'Nenhum registro encontrado com esses filtros.' }))),
+    );
+    const btnMais = $('lMais');
+    btnMais.hidden = regs.length <= limiteLista;
+    btnMais.firstElementChild.textContent = `Mostrar mais (${fmtNum(regs.length - limiteLista)} restantes)`;
+  }
+
+  function csvDe(regs) {
+    const cab = ['Data', 'Servidor', 'UF', 'Categoria', 'Atividade', 'Descrição da atividade', 'Quantidade', 'Referência', 'Observação', 'Registrado em'];
+    const cel = (v) => { const s = String(v ?? ''); return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const linhas = regs.map((r) => {
+      const a = atividadePorId(r.atividadeId) || { curto: r.atividadeId, nome: r.atividadeId, categoriaId: 'processos' };
+      return [fmtData(r.data), nomeServidor(r.servidorId), r.uf || 'Nacional', CATEGORIAS[IDX_CATEGORIA[a.categoriaId]].nome, a.curto, a.nome, r.qtd, r.ref, r.obs, fmtDataHora(r.criadoEm)];
+    });
+    return `﻿${[cab, ...linhas].map((l) => l.map(cel).join(';')).join('\r\n')}`;
+  }
+
+  // ======================================================================
+  // EQUIPE
+  // ======================================================================
+  let pincel = null; // id do servidor, '' = borracha
+
+  function atribuirUF(sigla, servidorId) {
+    estado.ufs[sigla] = { servidorId: servidorId || null, em: agora() };
+  }
+
+  function renderEquipe() {
+    const ativos = servidoresAtivos().sort((a, b) => a.nome.localeCompare(b.nome));
+    const inativos = servidoresVisiveis().filter((s) => !s.ativo).sort((a, b) => a.nome.localeCompare(b.nome));
+    const contagem = new Map();
+    for (const r of registrosValidos()) contagem.set(r.servidorId, (contagem.get(r.servidorId) || 0) + 1);
+
+    const lista = $('eLista');
+    const linha = (s) => {
+      const ufs = ufsDoServidor(s.id);
+      const n = contagem.get(s.id) || 0;
+      return el('div', { class: 'srv' },
+        el('span', { class: `srv-cor ${s.ativo ? classeServidor(s) : 'inativo'}`, text: iniciais(s.nome), 'aria-hidden': 'true' }),
+        el('div', { class: 'srv-info' },
+          el('strong', { text: s.nome }),
+          s.ativo ? (ufs.length ? el('div', { class: 'lista-ufs' }, ufs.map((sg) => el('span', { class: 'chip-uf', text: sg }))) : el('small', { text: 'Nenhuma UF atribuída ainda' })) : el('small', { text: 'Inativo: não aparece no registro, mas o histórico continua no painel' }),
+          el('small', { text: `${fmtNum(n)} ${n === 1 ? 'lançamento' : 'lançamentos'}` })),
+        el('div', { class: 'srv-acoes' },
+          el('button', { type: 'button', class: 'btn-link', text: 'Renomear', onclick: () => renomearServidor(s) }),
+          s.ativo
+            ? el('button', { type: 'button', class: 'btn-link perigo', text: 'Remover', onclick: () => removerServidor(s, n) })
+            : el('button', { type: 'button', class: 'btn-link', text: 'Reativar', onclick: () => { s.ativo = true; s.corIdx = proximaCor(); s.atualizadoEm = agora(); salvar(); renderEquipe(); } })));
+    };
+    preencher(lista,
+      ativos.length ? null : el('p', { class: 'vazio', text: 'Nenhum servidor cadastrado ainda. Comece pelo nome de cada pessoa do setor.' }),
+      ...ativos.map(linha),
+      inativos.length ? el('h3', { class: 'sub-h', text: 'Inativos' }) : null,
+      ...inativos.map(linha),
+    );
+
+    if (pincel === null || (pincel !== '' && !ativos.some((s) => s.id === pincel))) pincel = ativos.length ? ativos[0].id : '';
+    const botaoPincel = (id, rotulo, bola, extra) => el('button', {
+      type: 'button', class: 'pincel', 'aria-pressed': String(pincel === id),
+      onclick: () => { pincel = id; renderEquipe(); },
+    }, bola, rotulo, extra);
+    $('ePinceis').replaceChildren(
+      ...ativos.map((s) => botaoPincel(s.id, s.nome, el('span', { class: `bola ${classeServidor(s)}`, text: iniciais(s.nome) }), el('small', { text: String(ufsDoServidor(s.id).length) }))),
+      botaoPincel('', 'Sem responsável', el('span', { class: 'bola borracha', text: '×' })),
+    );
+
+    const mapa = criarMapa({
+      rotulo: 'Responsável por unidade da federação',
+      tile: (u) => {
+        const s = responsavel(u.sigla);
+        const valido = s && s.ativo && !s.excluido;
+        return { classe: valido ? classeServidor(s) : 'livre', linha2: valido ? iniciais(s.nome) : '—', aria: `${u.nome}: ${valido ? s.nome : 'sem responsável'}` };
+      },
+      clique: (u) => {
+        const atual = responsavel(u.sigla);
+        const novo = pincel && atual && atual.id === pincel ? '' : pincel;
+        atribuirUF(u.sigla, novo);
+        salvar();
+        renderEquipe();
+      },
+      dicaDe: (u) => {
+        const s = responsavel(u.sigla);
+        return { titulo: `${u.nome} (${u.sigla})`, linhas: [{ valor: s && s.ativo ? s.nome : 'ninguém', rotulo: 'responsável' }], rodape: pincel ? `Clique para passar para ${nomeServidor(pincel)}` : 'Clique para deixar sem responsável' };
+      },
+    });
+    $('eMapa').replaceChildren(mapa);
+
+    const semResp = UFS_ALFA.filter((u) => { const s = responsavel(u.sigla); return !(s && s.ativo && !s.excluido); }).map((u) => u.sigla);
+    $('ePendencias').replaceChildren(semResp.length
+      ? el('span', { class: 'pill pill-alerta' }, `⚠ ${semResp.length} ${semResp.length === 1 ? 'UF sem responsável' : 'UFs sem responsável'}: ${semResp.join(', ')}`)
+      : el('span', { class: 'pill pill-bom', text: '✓ Os 27 entes federados têm responsável' }));
+  }
+
+  async function renomearServidor(s) {
+    const input = el('input', { type: 'text', value: s.nome, maxlength: 60, 'aria-label': 'Novo nome' });
+    const r = await dialogo({ titulo: 'Renomear servidor', corpo: [input], botoes: [{ rotulo: 'Cancelar', valor: '' }, { rotulo: 'Salvar', valor: 'ok', classe: 'btn-primario' }] });
+    if (r !== 'ok') return;
+    const nome = input.value.trim().replace(/\s+/g, ' ');
+    if (!nome) return;
+    if (servidoresVisiveis().some((x) => x.id !== s.id && normalizar(x.nome) === normalizar(nome))) { aviso(`Já existe um servidor chamado ${nome}.`); return; }
+    s.nome = nome;
+    s.atualizadoEm = agora();
+    salvar();
+    renderEquipe();
+  }
+
+  async function removerServidor(s, n) {
+    const ufs = ufsDoServidor(s.id);
+    const texto = n
+      ? `${s.nome} tem ${fmtNum(n)} ${n === 1 ? 'lançamento' : 'lançamentos'}. Para não perder o histórico, ${s.nome} passa a ser inativo: some das listas de registro e do mapa, mas os números continuam no painel.`
+      : `${s.nome} ainda não tem lançamentos e será removido da equipe.`;
+    const r = await dialogo({
+      titulo: `Remover ${s.nome}?`,
+      corpo: [el('p', { text: texto }), ufs.length ? el('p', { text: `As UFs dele(a) (${ufs.join(', ')}) ficarão sem responsável.` }) : null],
+      botoes: [{ rotulo: 'Cancelar', valor: '' }, { rotulo: n ? 'Tornar inativo' : 'Remover', valor: 'ok', classe: 'btn-perigo' }],
+    });
+    if (r !== 'ok') return;
+    ufs.forEach((sg) => atribuirUF(sg, null));
+    if (n) s.ativo = false; else s.excluido = true;
+    s.atualizadoEm = agora();
+    salvar();
+    renderEquipe();
+    aviso(n ? `${s.nome} agora está inativo.` : `${s.nome} foi removido.`);
+  }
+
+  function adicionarServidor(ev) {
+    ev.preventDefault();
+    const input = $('eNome');
+    const nome = input.value.trim().replace(/\s+/g, ' ');
+    $('eErro').textContent = '';
+    if (!nome) { $('eErro').textContent = 'Escreva o nome do servidor antes de adicionar.'; input.focus(); return; }
+    const existente = servidoresVisiveis().find((x) => normalizar(x.nome) === normalizar(nome));
+    if (existente) { $('eErro').textContent = existente.ativo ? `${existente.nome} já está na equipe.` : `${existente.nome} já existe como inativo. Use “Reativar” na lista.`; return; }
+    const s = { id: uid(), nome, ativo: true, corIdx: proximaCor(), atualizadoEm: agora() };
+    estado.servidores.push(s);
+    salvar();
+    input.value = '';
+    pincel = s.id;
+    renderEquipe();
+    aviso(`${nome} entrou na equipe. Agora clique no mapa nas UFs que ficam com ele(a).`);
+  }
+
+  // ======================================================================
+  // DADOS
+  // ======================================================================
+  function renderDados() {
+    $('dSetor').value = estado.setor.nome || '';
+    $('dUnidade').value = estado.setor.unidade || '';
+    const est = $('dEstadoBackup');
+    const reais = estado.registros.some((r) => !r.exemplo && !r.excluido);
+    if (!estado.ultimoBackup) {
+      est.replaceChildren(reais ? el('span', { class: 'pill pill-alerta', text: '⚠ Nenhuma cópia de segurança baixada neste computador ainda' }) : el('span', { class: 'nota', style: 'margin:0', text: 'Nenhuma cópia de segurança baixada ainda.' }));
+    } else {
+      const dias = diffDias(isoDe(new Date(estado.ultimoBackup)), hojeISO());
+      const txt = `Última cópia baixada em ${fmtDataHora(estado.ultimoBackup)}${dias > 0 ? ` (há ${dias} ${dias === 1 ? 'dia' : 'dias'})` : ' (hoje)'}`;
+      est.replaceChildren(el('span', { class: `pill ${dias > 7 && reais ? 'pill-alerta' : 'pill-bom'}`, text: `${dias > 7 && reais ? '⚠' : '✓'} ${txt}` }));
+    }
+
+    const cont = $('dAtividades');
+    const usados = new Set(registrosValidos().map((r) => r.atividadeId));
+    const linhas = [el('div', { class: 'atv-ed atv-ed-cab' }, el('span', { text: 'Categoria' }), el('span', { text: 'Nome curto (gráficos e listas)' }), el('span', { text: 'Descrição completa (relatório em texto)' }), el('span', { text: 'Em uso' }))];
+    for (const a of atividadesOrdenadas()) {
+      const selCat = el('select', { 'aria-label': `Categoria de ${a.curto}` }, CATEGORIAS.map((c) => el('option', { value: c.id, text: c.nome })));
+      selCat.value = a.categoriaId;
+      selCat.addEventListener('change', () => { a.categoriaId = selCat.value; a.atualizadoEm = agora(); salvar(); renderDados(); });
+      const inCurto = el('input', { type: 'text', value: a.curto, maxlength: 60, 'aria-label': 'Nome curto' });
+      inCurto.addEventListener('change', () => { const v = inCurto.value.trim(); if (!v) { inCurto.value = a.curto; return; } a.curto = v; a.atualizadoEm = agora(); salvar(); });
+      const inNome = el('input', { type: 'text', value: a.nome, maxlength: 240, 'aria-label': `Descrição completa de ${a.curto}` });
+      inNome.addEventListener('change', () => { const v = inNome.value.trim(); if (!v) { inNome.value = a.nome; return; } a.nome = v; a.atualizadoEm = agora(); salvar(); });
+      const chk = el('input', { type: 'checkbox', checked: a.ativa });
+      chk.addEventListener('change', () => { a.ativa = chk.checked; a.atualizadoEm = agora(); salvar(); renderDados(); });
+      linhas.push(el('div', { class: `atv-ed${a.ativa ? '' : ' inativa'}` }, selCat, inCurto, inNome,
+        el('label', { class: 'ativa', title: usados.has(a.id) ? 'Tem registros: desligar só tira das opções de registro' : '' }, chk, a.ativa ? 'Sim' : 'Não')));
+    }
+    cont.replaceChildren(...linhas);
+  }
+
+  function exportarBackup() {
+    estado.ultimoBackup = agora();
+    salvar();
+    const pacote = { app: APP, versao: 1, exportadoEm: agora(), dados: estado };
+    baixar(`passivo-veicular-backup-${hojeISO()}.json`, JSON.stringify(pacote, null, 1), 'application/json');
+    renderDados();
+  }
+
+  function juntar(novo) {
+    const cont = { registrosNovos: 0, registrosAtualizados: 0, servidoresNovos: 0 };
+    // mesmo nome em computadores diferentes = mesma pessoa
+    const troca = new Map();
+    const porNome = new Map(estado.servidores.filter((s) => !s.excluido).map((s) => [normalizar(s.nome), s.id]));
+    for (const s of novo.servidores) {
+      if (estado.servidores.some((x) => x.id === s.id)) continue;
+      const mesmo = porNome.get(normalizar(s.nome));
+      if (mesmo && !s.excluido) troca.set(s.id, mesmo);
+    }
+    const mesclar = (chave, itens, contar) => {
+      const mapa = new Map(estado[chave].map((x) => [x.id, x]));
+      for (const item of itens) {
+        const atual = mapa.get(item.id);
+        if (!atual) { mapa.set(item.id, item); if (contar) contar('novo', item); } else if ((item.atualizadoEm || '') > (atual.atualizadoEm || '')) { mapa.set(item.id, item); if (contar) contar('atualizado', item); }
+      }
+      estado[chave] = [...mapa.values()];
+    };
+    mesclar('servidores', novo.servidores.filter((s) => !troca.has(s.id)), (t, s) => { if (t === 'novo' && !s.excluido) cont.servidoresNovos++; });
+    mesclar('atividades', novo.atividades);
+    mesclar('registros', novo.registros.map((r) => (troca.has(r.servidorId) ? { ...r, servidorId: troca.get(r.servidorId) } : r)), (t, r) => {
+      if (r.excluido) return;
+      if (t === 'novo') cont.registrosNovos++; else cont.registrosAtualizados++;
+    });
+    for (const [sigla, info] of Object.entries(novo.ufs || {})) {
+      if (!UF_POR_SIGLA[sigla] || !info) continue;
+      const atual = estado.ufs[sigla];
+      if (!atual || (info.em || '') > (atual.em || '')) {
+        estado.ufs[sigla] = { ...info, servidorId: info.servidorId && troca.has(info.servidorId) ? troca.get(info.servidorId) : info.servidorId };
+      }
+    }
+    return cont;
+  }
+
+  async function importarArquivo(arquivo) {
+    let pacote;
+    try {
+      pacote = JSON.parse(await arquivo.text());
+    } catch (e) { pacote = null; }
+    const dados = pacote && pacote.app === APP ? (pacote.dados || pacote) : null;
+    if (!dados || !Array.isArray(dados.registros)) {
+      await dialogo({ titulo: 'Este arquivo não é uma cópia desta ferramenta', corpo: [el('p', { text: `O arquivo “${arquivo.name}” não pôde ser lido como cópia de segurança. Escolha o arquivo .json baixado pelo botão “Baixar cópia de segurança”.` })], botoes: [{ rotulo: 'Entendi', valor: 'ok', classe: 'btn-primario' }] });
+      return;
+    }
+    const novo = ajustarEstado(dados);
+    const tinhaExemplo = estado.exemplo;
+    if (tinhaExemplo) apagarExemplos();
+    const vaziaAntes = !estado.registros.length && !estado.servidores.length;
+    if (vaziaAntes) estado.setor = novo.setor;
+    const c = juntar(novo);
+    salvar();
+    renderTudo();
+    const partesMsg = [];
+    partesMsg.push(`${fmtNum(c.registrosNovos)} ${c.registrosNovos === 1 ? 'registro novo' : 'registros novos'}`);
+    if (c.registrosAtualizados) partesMsg.push(`${fmtNum(c.registrosAtualizados)} ${c.registrosAtualizados === 1 ? 'registro atualizado' : 'registros atualizados'}`);
+    if (c.servidoresNovos) partesMsg.push(`${fmtNum(c.servidoresNovos)} ${c.servidoresNovos === 1 ? 'servidor novo' : 'servidores novos'}`);
+    await dialogo({
+      titulo: 'Cópia juntada',
+      corpo: [el('p', { text: `Do arquivo “${arquivo.name}”: ${partesMsg.join(', ')}.` }), tinhaExemplo ? el('p', { text: 'Os dados de exemplo foram apagados antes de juntar.' }) : null, el('p', { text: 'Registros que já existiam aqui não foram duplicados.' })],
+      botoes: [{ rotulo: 'Ver o painel', valor: 'ok', classe: 'btn-primario' }],
+    });
+    mostrarAba('painel');
+  }
+
+  async function apagarTudo() {
+    const r = await dialogo({
+      titulo: 'Apagar todos os dados deste computador?',
+      corpo: [el('p', { text: 'Equipe, UFs e todos os registros serão apagados. Não tem como desfazer. Se ainda não baixou a cópia de segurança, cancele e baixe antes.' })],
+      botoes: [{ rotulo: 'Cancelar', valor: '' }, { rotulo: 'Apagar tudo', valor: 'ok', classe: 'btn-perigo' }],
+    });
+    if (r !== 'ok') return;
+    const setor = estado.setor;
+    estado = estadoVazio();
+    estado.setor = setor;
+    salvar();
+    editandoId = null;
+    pincel = null;
+    renderCabecalho();
+    mostrarAba('equipe');
+    aviso('Todos os dados foram apagados. Comece cadastrando a equipe.');
+  }
+
+  // ======================================================================
+  // Ligações de eventos (uma vez)
+  // ======================================================================
+  function ligarEventos() {
+    document.querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => mostrarAba(b.dataset.aba)));
+    $('tab-painel').parentElement.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft') return;
+      const i = ABAS.indexOf(abaAtual);
+      const prox = ABAS[(i + (ev.key === 'ArrowRight' ? 1 : ABAS.length - 1)) % ABAS.length];
+      mostrarAba(prox, true);
+    });
+    document.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => mostrarAba(b.dataset.ir)));
+
+    $('btnComecar').addEventListener('click', async () => {
+      const r = await dialogo({
+        titulo: 'Apagar os dados de exemplo?',
+        corpo: [el('p', { text: 'Os servidores fictícios e os registros de exemplo serão apagados. As 15 atividades continuam cadastradas. Em seguida você cadastra a sua equipe.' })],
+        botoes: [{ rotulo: 'Cancelar', valor: '' }, { rotulo: 'Apagar exemplos', valor: 'ok', classe: 'btn-primario' }],
+      });
+      if (r !== 'ok') return;
+      apagarExemplos();
+      salvar();
+      pincel = null;
+      prefs.painel.servidor = ''; prefs.lista.servidor = ''; prefs.form.servidor = '';
+      salvarPrefs();
+      renderCabecalho();
+      mostrarAba('equipe');
+      $('eNome').focus();
+      aviso('Exemplos apagados. Cadastre as pessoas do setor.');
+    });
+
+    // Painel
+    $('pPeriodo').addEventListener('change', () => { prefs.painel.periodo = $('pPeriodo').value; salvarPrefs(); renderPainel(); });
+    $('pDe').addEventListener('change', () => { prefs.painel.de = $('pDe').value; salvarPrefs(); renderPainel(); });
+    $('pAte').addEventListener('change', () => { prefs.painel.ate = $('pAte').value; salvarPrefs(); renderPainel(); });
+    $('pServidor').addEventListener('change', () => { prefs.painel.servidor = $('pServidor').value; salvarPrefs(); renderPainel(); });
+    $('pUF').addEventListener('change', () => { prefs.painel.uf = $('pUF').value; salvarPrefs(); renderPainel(); });
+    $('btnRelatorio').addEventListener('click', () => {
+      const area = el('textarea', { readonly: true, rows: 18 });
+      area.value = textoRelatorio();
+      dialogo({
+        titulo: 'Relatório em texto',
+        corpo: [el('p', { text: 'Mesmo período e filtros do painel. Copie e cole no documento (SEI, e-mail, Word).' }), area],
+        botoes: [
+          { rotulo: 'Copiar texto', tipo: 'button', classe: 'btn-primario', onclick: () => copiar(area.value, area) },
+          { rotulo: 'Fechar', valor: 'fechar' },
+        ],
+      });
+    });
+    $('btnImprimir').hidden = EMBUTIDO;
+    $('btnImprimir').addEventListener('click', () => window.print());
+
+    // Registrar
+    $('form').addEventListener('submit', enviarFormulario);
+    $('fServidor').addEventListener('change', () => { delete $('fUF').dataset.tocado; $('fUF').value = ''; preencherUFsForm(); renderHojeResumo(); });
+    $('fUF').addEventListener('change', () => { $('fUF').dataset.tocado = '1'; });
+    $('fData').addEventListener('change', renderHojeResumo);
+    $('fAtividade').addEventListener('change', () => {
+      mostrarDescricao();
+      const a = atividadePorId($('fAtividade').value);
+      if (a && a.ufPadrao !== undefined) $('fUF').value = a.ufPadrao;
+    });
+    $('fCancelar').addEventListener('click', sairEdicao);
+    const mudouLista = (campo, id) => () => { prefs.lista[campo] = $(id).value; limiteLista = 100; salvarPrefs(); renderLista(); };
+    $('lPeriodo').addEventListener('change', mudouLista('periodo', 'lPeriodo'));
+    $('lDe').addEventListener('change', mudouLista('de', 'lDe'));
+    $('lAte').addEventListener('change', mudouLista('ate', 'lAte'));
+    $('lServidor').addEventListener('change', mudouLista('servidor', 'lServidor'));
+    $('lUF').addEventListener('change', mudouLista('uf', 'lUF'));
+    $('lAtividade').addEventListener('change', mudouLista('atividade', 'lAtividade'));
+    $('lBusca').addEventListener('input', debounce(mudouLista('busca', 'lBusca'), 200));
+    $('lMais').firstElementChild.addEventListener('click', () => { limiteLista += 100; renderLista(); });
+    $('lCSV').addEventListener('click', () => { const { regs } = registrosDaLista(); baixar(`passivo-veicular-registros-${hojeISO()}.csv`, csvDe(regs), 'text/csv;charset=utf-8'); });
+
+    // Equipe
+    $('eNovo').addEventListener('submit', adicionarServidor);
+
+    // Dados
+    $('dExportar').addEventListener('click', exportarBackup);
+    $('dImportar').addEventListener('click', () => $('dArquivo').click());
+    $('dArquivo').addEventListener('change', () => { const a = $('dArquivo').files[0]; $('dArquivo').value = ''; if (a) importarArquivo(a); });
+    $('dCSV').addEventListener('click', () => {
+      const regs = registrosValidos().sort((a, b) => a.data.localeCompare(b.data));
+      baixar(`passivo-veicular-todos-os-registros-${hojeISO()}.csv`, csvDe(regs), 'text/csv;charset=utf-8');
+    });
+    $('dNovaAtividade').addEventListener('click', () => {
+      const a = { id: uid(), categoriaId: 'processos', curto: 'Nova atividade', nome: 'Nova atividade', ordem: estado.atividades.length + 100, ativa: true, atualizadoEm: agora() };
+      estado.atividades.push(a);
+      salvar();
+      renderDados();
+      const campos = $('dAtividades').querySelectorAll('input[type="text"]');
+      const alvo = [...campos].find((c) => c.value === 'Nova atividade');
+      if (alvo) { alvo.focus(); alvo.select(); }
+    });
+    const salvarSetor = () => { estado.setor.nome = $('dSetor').value.trim() || 'Setor de Passivo Veicular'; estado.setor.unidade = $('dUnidade').value.trim(); salvar(); renderCabecalho(); };
+    $('dSetor').addEventListener('change', salvarSetor);
+    $('dUnidade').addEventListener('change', salvarSetor);
+    $('dApagar').addEventListener('click', apagarTudo);
+
+    window.addEventListener('resize', debounce(() => { if (abaAtual === 'painel') renderEvolucao(filtrar(registrosValidos(), prefs.painel, resolverPeriodo(prefs.painel)), resolverPeriodo(prefs.painel)); }, 150));
+    // Outra aba do navegador com a ferramenta aberta gravou dados: recarrega.
+    window.addEventListener('storage', (ev) => {
+      if (ev.key !== CHAVE_DADOS || !ev.newValue) return;
+      try { const e = JSON.parse(ev.newValue); if (e && e.app === APP) { estado = ajustarEstado(e); renderTudo(); } } catch (err) { /* ignora */ }
+    });
+  }
+
+  // ======================================================================
+  // Início
+  // ======================================================================
+  estado = carregar();
+  prefs = carregarPrefs();
+  salvar();
+  ligarEventos();
+  renderCabecalho();
+  const hash = (location.hash || '').replace('#', '');
+  mostrarAba(ABAS.includes(hash) ? hash : prefs.aba);
+})();
+</script>
+</body>
+</html>
