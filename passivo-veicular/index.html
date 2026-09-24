@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
 <title>Produtividade do Passivo Veicular</title>
 <style>
 :root {
-  color-scheme: light;
+  color-scheme: light only;
   --fundo: #f2f4f8;
   --superficie: #ffffff;
   --superficie-2: #f5f7fa;
@@ -56,47 +57,6 @@
   --fonte: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --fundo: #0c1017; --superficie: #151b26; --superficie-2: #1b2331; --campo: #111722;
-    --tinta: #e8edf5; --tinta-2: #aeb8c9; --tinta-3: #8792a6;
-    --linha: #263043; --linha-forte: #36425a;
-    --acento: #7aa5f7; --acento-forte: #a9c5fb; --acento-suave: #1a2a48; --acento-tinta: #0c1017;
-    --topo: #0f1a2e; --topo-tinta: #eef2f8; --topo-tinta-2: #9fb0cc; --topo-linha: rgba(255, 255, 255, 0.08);
-    --total: #8f9db5; --total-hover: #7aa5f7;
-    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181;
-    --s1: #3987e5; --s1-t: #0b1220; --s2: #d95926; --s2-t: #0b1220; --s3: #199e70; --s3-t: #0b1220;
-    --s4: #c98500; --s4-t: #0b1220; --s5: #d55181; --s5-t: #0b1220; --s6: #008300; --s6-t: #ffffff;
-    --s7: #9085e9; --s7-t: #0b1220; --s8: #e66767; --s8-t: #0b1220;
-    --q0: #1c2433; --q0-t: #8792a6;
-    --q1: #1b3358; --q1-t: #e8edf5; --q2: #1f4f8f; --q2-t: #ffffff; --q3: #2f72c9; --q3-t: #ffffff;
-    --q4: #5f9cea; --q4-t: #0b1220; --q5: #a9cbf5; --q5-t: #0b1220;
-    --bom: #5ccf7e; --bom-fundo: #12291b; --ruim: #ff8f85; --ruim-fundo: #33191a;
-    --alerta-fundo: #2b2311; --alerta-borda: #5b4917; --alerta-tinta: #f1d58c;
-    --sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -18px rgba(0, 0, 0, 0.7);
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --fundo: #0c1017; --superficie: #151b26; --superficie-2: #1b2331; --campo: #111722;
-  --tinta: #e8edf5; --tinta-2: #aeb8c9; --tinta-3: #8792a6;
-  --linha: #263043; --linha-forte: #36425a;
-  --acento: #7aa5f7; --acento-forte: #a9c5fb; --acento-suave: #1a2a48; --acento-tinta: #0c1017;
-  --topo: #0f1a2e; --topo-tinta: #eef2f8; --topo-tinta-2: #9fb0cc; --topo-linha: rgba(255, 255, 255, 0.08);
-  --total: #8f9db5; --total-hover: #7aa5f7;
-  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181;
-  --s1: #3987e5; --s1-t: #0b1220; --s2: #d95926; --s2-t: #0b1220; --s3: #199e70; --s3-t: #0b1220;
-  --s4: #c98500; --s4-t: #0b1220; --s5: #d55181; --s5-t: #0b1220; --s6: #008300; --s6-t: #ffffff;
-  --s7: #9085e9; --s7-t: #0b1220; --s8: #e66767; --s8-t: #0b1220;
-  --q0: #1c2433; --q0-t: #8792a6;
-  --q1: #1b3358; --q1-t: #e8edf5; --q2: #1f4f8f; --q2-t: #ffffff; --q3: #2f72c9; --q3-t: #ffffff;
-  --q4: #5f9cea; --q4-t: #0b1220; --q5: #a9cbf5; --q5-t: #0b1220;
-  --bom: #5ccf7e; --bom-fundo: #12291b; --ruim: #ff8f85; --ruim-fundo: #33191a;
-  --alerta-fundo: #2b2311; --alerta-borda: #5b4917; --alerta-tinta: #f1d58c;
-  --sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -18px rgba(0, 0, 0, 0.7);
-}
-
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
