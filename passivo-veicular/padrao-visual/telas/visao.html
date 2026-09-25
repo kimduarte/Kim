@@ -1,0 +1,576 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Visão geral</title><link rel="stylesheet" href="../inter.css"><link rel="stylesheet" href="../base.css"></head><body><div style="width: 1440px; height: 1220px; box-sizing: border-box; background: #f2f2f7; font-family: 'Inter', system-ui, sans-serif; color: #1d1d1f; display: flex">
+
+  <aside class="lateral"><div class="app"><span class="icone-app"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16.5h14v-3.2l-1.6-4A2 2 0 0 0 15.5 8h-7a2 2 0 0 0-1.9 1.3L5 13.3z"/><path d="M5 13.3h14M7.5 16.5v1.8M16.5 16.5v1.8"/></svg></span><div><b>Passivo</b><small>Passivo Veicular</small></div></div><span class="busca"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>Buscar placa, SEI, servidor</span><nav class="menu"><span class="secao">Produtividade</span><span class="item ativo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0071e3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>Visão geral</span><span class="item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0071e3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg>Registrar</span><div class="espaco"></div><span class="secao">Setor</span><span class="item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0071e3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.7-3 2.9-4.8 5.5-4.8s4.8 1.8 5.5 4.8"/><circle cx="16.8" cy="9.5" r="2.4"/><path d="M16.8 14.3c2 0 3.5 1.3 4 3.6"/></svg>Equipe e UFs</span><span class="item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0071e3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.9 6 6 0 0 0-11.6-1A4.5 4.5 0 0 0 7 18.5z"/><path d="M12 11v5M9.8 13.2 12 11l2.2 2.2"/></svg>Dados e backup</span></nav><span class="rodape-lateral"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#34c759"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Cópia feita ontem, 17:30</span></aside>
+
+  <main style="flex-grow: 1; min-width: 0; padding: 30px 40px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px">
+    <div style="display: flex; align-items: flex-end; gap: 16px">
+      <div style="flex-grow: 1">
+        <h1 style="margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.022em; line-height: 1.1">Visão geral</h1>
+        <p style="margin: 4px 0 0; font-size: 15px; color: #6e6e73">Setembro de 2026, até dia 24 · 18 dias úteis</p>
+      </div>
+      <div role="group" aria-label="Período" style="display: flex; padding: 2px; background: #e3e3e8; border-radius: 9px">
+        <button type="button" aria-pressed="true" style="height: 28px; padding: 0 16px; border: 0; border-radius: 7px; background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); font-family: inherit; font-size: 13px; font-weight: 600; color: #1d1d1f; cursor: pointer">Mês</button>
+        <button type="button" aria-pressed="false" style="height: 28px; padding: 0 16px; border: 0; border-radius: 7px; background: transparent; font-family: inherit; font-size: 13px; font-weight: 500; color: #1d1d1f; cursor: pointer">Trimestre</button>
+        <button type="button" aria-pressed="false" style="height: 28px; padding: 0 16px; border: 0; border-radius: 7px; background: transparent; font-family: inherit; font-size: 13px; font-weight: 500; color: #1d1d1f; cursor: pointer">Ano</button>
+        <button type="button" aria-pressed="false" style="height: 28px; padding: 0 16px; border: 0; border-radius: 7px; background: transparent; font-family: inherit; font-size: 13px; font-weight: 500; color: #1d1d1f; cursor: pointer">Personalizado</button>
+      </div>
+      <button type="button" style="height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: #e3e3e8; font-family: inherit; font-size: 13.5px; font-weight: 500; color: #1d1d1f; cursor: pointer">Relatório</button>
+      <a href="#" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 8px; background: #0071e3; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 600">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Registrar</a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+      
+        <div style="background: #ffffff; border-radius: 16px; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: #6e6e73"><i style="width: 8px; height: 8px; border-radius: 50%; background: #007aff"></i>Atividades</span>
+          <span style="font-size: 38px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.05">786<span style="font-size: 17px; font-weight: 500; color: #86868b; letter-spacing: -0.01em"></span></span>
+          <span style="font-size: 13px; color: #248a3d; font-weight: 500">↑ 13% em relação a agosto</span>
+        </div>
+      
+        <div style="background: #ffffff; border-radius: 16px; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: #6e6e73"><i style="width: 8px; height: 8px; border-radius: 50%; background: #34c759"></i>Veículos transferidos</span>
+          <span style="font-size: 38px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.05">31<span style="font-size: 17px; font-weight: 500; color: #86868b; letter-spacing: -0.01em"></span></span>
+          <span style="font-size: 13px; color: #6e6e73; font-weight: 500">Igual a agosto</span>
+        </div>
+      
+        <div style="background: #ffffff; border-radius: 16px; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: #6e6e73"><i style="width: 8px; height: 8px; border-radius: 50%; background: #ff9500"></i>Veículos baixados</span>
+          <span style="font-size: 38px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.05">7<span style="font-size: 17px; font-weight: 500; color: #86868b; letter-spacing: -0.01em"></span></span>
+          <span style="font-size: 13px; color: #d70015; font-weight: 500">↓ 50% em relação a agosto</span>
+        </div>
+      
+        <div style="background: #ffffff; border-radius: 16px; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: #6e6e73"><i style="width: 8px; height: 8px; border-radius: 50%; background: #30b0c7"></i>Entes atendidos</span>
+          <span style="font-size: 38px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.05">27<span style="font-size: 17px; font-weight: 500; color: #86868b; letter-spacing: -0.01em"> de 27</span></span>
+          <span style="font-size: 13px; color: #6e6e73; font-weight: 500">Todos com atendimento</span>
+        </div>
+      
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start">
+      <section style="background: #ffffff; border-radius: 16px; padding: 20px 22px 22px">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Produção por servidor</h2>
+          <span style="font-size: 13px; color: #6e6e73">Atividades no mês</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 0 18px; font-size: 12.5px; color: #6e6e73">
+          
+            <span style="display: inline-flex; align-items: center; gap: 6px"><i style="width: 8px; height: 8px; border-radius: 50%; background: #007aff"></i>Processos</span>
+          
+            <span style="display: inline-flex; align-items: center; gap: 6px"><i style="width: 8px; height: 8px; border-radius: 50%; background: #ff9500"></i>Consultas</span>
+          
+            <span style="display: inline-flex; align-items: center; gap: 6px"><i style="width: 8px; height: 8px; border-radius: 50%; background: #30b0c7"></i>Ofícios</span>
+          
+            <span style="display: inline-flex; align-items: center; gap: 6px"><i style="width: 8px; height: 8px; border-radius: 50%; background: #af52de"></i>Diligências</span>
+          
+            <span style="display: inline-flex; align-items: center; gap: 6px"><i style="width: 8px; height: 8px; border-radius: 50%; background: #ff2d55"></i>Veículos</span>
+          
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px">
+          
+            <div style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: center">
+              <div style="display: flex; flex-direction: column; line-height: 1.3">
+                <span style="font-size: 14px; font-weight: 500">Bruno Lacerda</span>
+                <span style="font-size: 12px; color: #86868b">CE, MA, PB, PI, RN</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div style="display: flex; height: 12px; width: 88.0%; border-radius: 6px; overflow: hidden">
+                  
+                    <i style="flex-grow: 10; flex-basis: 0; background: #007aff; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 106; flex-basis: 0; background: #ff9500; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 22; flex-basis: 0; background: #30b0c7; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 11; flex-basis: 0; background: #ff2d55; border-right: 2px solid #ffffff"></i>
+                  
+                </div>
+                <span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">149</span>
+              </div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: center">
+              <div style="display: flex; flex-direction: column; line-height: 1.3">
+                <span style="font-size: 14px; font-weight: 500">Carla Menezes</span>
+                <span style="font-size: 12px; color: #86868b">AL, BA, PE, SE</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div style="display: flex; height: 12px; width: 88.0%; border-radius: 6px; overflow: hidden">
+                  
+                    <i style="flex-grow: 16; flex-basis: 0; background: #007aff; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 106; flex-basis: 0; background: #ff9500; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 17; flex-basis: 0; background: #30b0c7; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 10; flex-basis: 0; background: #ff2d55; border-right: 2px solid #ffffff"></i>
+                  
+                </div>
+                <span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">149</span>
+              </div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: center">
+              <div style="display: flex; flex-direction: column; line-height: 1.3">
+                <span style="font-size: 14px; font-weight: 500">Ana Paula Rezende</span>
+                <span style="font-size: 12px; color: #86868b">AC, AM, AP, PA, RO, RR, TO</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div style="display: flex; height: 12px; width: 80.9%; border-radius: 6px; overflow: hidden">
+                  
+                    <i style="flex-grow: 15; flex-basis: 0; background: #007aff; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 97; flex-basis: 0; background: #ff9500; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 20; flex-basis: 0; background: #30b0c7; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 5; flex-basis: 0; background: #ff2d55; border-right: 2px solid #ffffff"></i>
+                  
+                </div>
+                <span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">137</span>
+              </div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: center">
+              <div style="display: flex; flex-direction: column; line-height: 1.3">
+                <span style="font-size: 14px; font-weight: 500">Diego Sampaio</span>
+                <span style="font-size: 12px; color: #86868b">DF, GO, MS, MT</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div style="display: flex; height: 12px; width: 70.9%; border-radius: 6px; overflow: hidden">
+                  
+                    <i style="flex-grow: 9; flex-basis: 0; background: #007aff; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 82; flex-basis: 0; background: #ff9500; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 19; flex-basis: 0; background: #30b0c7; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 2; flex-basis: 0; background: #af52de; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 8; flex-basis: 0; background: #ff2d55; border-right: 2px solid #ffffff"></i>
+                  
+                </div>
+                <span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">120</span>
+              </div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: center">
+              <div style="display: flex; flex-direction: column; line-height: 1.3">
+                <span style="font-size: 14px; font-weight: 500">Fábio Nogueira</span>
+                <span style="font-size: 12px; color: #86868b">PR, RS, SC</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div style="display: flex; height: 12px; width: 69.7%; border-radius: 6px; overflow: hidden">
+                  
+                    <i style="flex-grow: 10; flex-basis: 0; background: #007aff; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 83; flex-basis: 0; background: #ff9500; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 22; flex-basis: 0; background: #30b0c7; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 3; flex-basis: 0; background: #ff2d55; border-right: 2px solid #ffffff"></i>
+                  
+                </div>
+                <span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">118</span>
+              </div>
+            </div>
+          
+            <div style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: center">
+              <div style="display: flex; flex-direction: column; line-height: 1.3">
+                <span style="font-size: 14px; font-weight: 500">Elisa Tavares</span>
+                <span style="font-size: 12px; color: #86868b">ES, MG, RJ, SP</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div style="display: flex; height: 12px; width: 66.7%; border-radius: 6px; overflow: hidden">
+                  
+                    <i style="flex-grow: 16; flex-basis: 0; background: #007aff; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 81; flex-basis: 0; background: #ff9500; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 15; flex-basis: 0; background: #30b0c7; border-right: 2px solid #ffffff"></i>
+                  
+                    <i style="flex-grow: 1; flex-basis: 0; background: #ff2d55; border-right: 2px solid #ffffff"></i>
+                  
+                </div>
+                <span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">113</span>
+              </div>
+            </div>
+          
+        </div>
+      </section>
+
+      <section style="background: #ffffff; border-radius: 16px; padding: 20px 22px 18px">
+        <div style="display: flex; align-items: baseline; justify-content: space-between">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Por dia</h2>
+          <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #6e6e73"><i style="width: 14px; height: 0; border-top: 1.5px solid #1d1d1f"></i>Média diária <strong style="color: #1d1d1f; font-weight: 600">43,7</strong></span>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 26px; grid-template-rows: 196px 22px; margin-top: 18px">
+          <div style="position: relative; display: flex; align-items: flex-end; gap: 3px; border-bottom: 1px solid #d2d2d7">
+            <i style="position: absolute; left: 0; right: 0; bottom: 25%; border-top: 1px solid #efeff4"></i>
+            <i style="position: absolute; left: 0; right: 0; bottom: 50%; border-top: 1px solid #efeff4"></i>
+            <i style="position: absolute; left: 0; right: 0; bottom: 75%; border-top: 1px solid #efeff4"></i>
+            <i style="position: absolute; left: 0; right: 0; bottom: 100%; border-top: 1px solid #efeff4"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 66px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 47px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 108px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 120px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 0px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 0px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 152px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 140px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 140px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 108px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 140px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 0px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 0px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 54px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 93px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 96px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 118px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 130px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 0px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 0px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 172px; background: #0071e3; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 91px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 76px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+              <i style="position: relative; flex: 1 1 0; height: 78px; background: #8ec2ff; border-radius: 3px 3px 0 0"></i>
+            
+            <i style="position: absolute; left: 0; right: 0; bottom: 54.6%; border-top: 1.5px solid #1d1d1f"></i>
+          </div>
+          <div style="position: relative; font-size: 11px; color: #86868b; font-variant-numeric: tabular-nums">
+            <span style="position: absolute; left: 6px; bottom: calc(100% - 7px)">80</span>
+            <span style="position: absolute; left: 6px; bottom: calc(75% - 7px)">60</span>
+            <span style="position: absolute; left: 6px; bottom: calc(50% - 7px)">40</span>
+            <span style="position: absolute; left: 6px; bottom: calc(25% - 7px)">20</span>
+            <span style="position: absolute; left: 6px; bottom: -7px">0</span>
+          </div>
+          <div style="display: flex; gap: 3px; font-size: 11px; color: #86868b">
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px">1 set</span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px">8</span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px">15</span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px">22</span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+              <span style="flex: 1 1 0; white-space: nowrap; padding-top: 6px"></span>
+            
+          </div>
+        </div>
+        <p style="margin: 14px 0 0; font-size: 13px; color: #6e6e73; line-height: 1.45">O melhor dia foi <strong style="color: #1d1d1f; font-weight: 600">21 de setembro</strong>, com 70 atividades.</p>
+      </section>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <section style="background: #ffffff; border-radius: 16px; padding: 6px 0">
+          <h2 style="margin: 0; padding: 14px 20px 8px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Categorias</h2>
+          
+            <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 0 16px 0 20px; min-height: 48px; color: #1d1d1f; text-decoration: none">
+              <i style="width: 10px; height: 10px; border-radius: 50%; background: #007aff; flex-shrink: 0"></i>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 1px solid #e5e5ea; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Análise e instrução de processos</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">76</span>
+                <span style="width: 40px; text-align: right; font-size: 13px; color: #86868b; font-variant-numeric: tabular-nums">10%</span>
+                <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="#c7c7cc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5-5 5"></path></svg>
+              </span>
+            </a>
+          
+            <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 0 16px 0 20px; min-height: 48px; color: #1d1d1f; text-decoration: none">
+              <i style="width: 10px; height: 10px; border-radius: 50%; background: #ff9500; flex-shrink: 0"></i>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 1px solid #e5e5ea; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Consultas e apoio técnico</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">555</span>
+                <span style="width: 40px; text-align: right; font-size: 13px; color: #86868b; font-variant-numeric: tabular-nums">71%</span>
+                <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="#c7c7cc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5-5 5"></path></svg>
+              </span>
+            </a>
+          
+            <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 0 16px 0 20px; min-height: 48px; color: #1d1d1f; text-decoration: none">
+              <i style="width: 10px; height: 10px; border-radius: 50%; background: #30b0c7; flex-shrink: 0"></i>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 1px solid #e5e5ea; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Ofícios e solicitações</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">115</span>
+                <span style="width: 40px; text-align: right; font-size: 13px; color: #86868b; font-variant-numeric: tabular-nums">15%</span>
+                <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="#c7c7cc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5-5 5"></path></svg>
+              </span>
+            </a>
+          
+            <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 0 16px 0 20px; min-height: 48px; color: #1d1d1f; text-decoration: none">
+              <i style="width: 10px; height: 10px; border-radius: 50%; background: #af52de; flex-shrink: 0"></i>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 1px solid #e5e5ea; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Diligências e relatórios</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">2</span>
+                <span style="width: 40px; text-align: right; font-size: 13px; color: #86868b; font-variant-numeric: tabular-nums">&lt;1%</span>
+                <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="#c7c7cc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5-5 5"></path></svg>
+              </span>
+            </a>
+          
+            <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 0 16px 0 20px; min-height: 48px; color: #1d1d1f; text-decoration: none">
+              <i style="width: 10px; height: 10px; border-radius: 50%; background: #ff2d55; flex-shrink: 0"></i>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 0; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Veículos regularizados</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">38</span>
+                <span style="width: 40px; text-align: right; font-size: 13px; color: #86868b; font-variant-numeric: tabular-nums">5%</span>
+                <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="#c7c7cc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5-5 5"></path></svg>
+              </span>
+            </a>
+          
+        </section>
+        <section style="background: #ffffff; border-radius: 16px; padding: 6px 0">
+          <h2 style="margin: 0; padding: 14px 20px 8px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Mais registradas</h2>
+          
+            <div style="display: flex; align-items: center; gap: 12px; padding: 0 20px; min-height: 48px">
+              <span style="width: 22px; font-size: 13px; font-weight: 600; color: #86868b; font-variant-numeric: tabular-nums">1</span>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 1px solid #e5e5ea; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Consulta no Detran Digital</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">372</span>
+              </span>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 12px; padding: 0 20px; min-height: 48px">
+              <span style="width: 22px; font-size: 13px; font-weight: 600; color: #86868b; font-variant-numeric: tabular-nums">2</span>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 1px solid #e5e5ea; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Apoio técnico: pendências, boletos e CRLV</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">139</span>
+              </span>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 12px; padding: 0 20px; min-height: 48px">
+              <span style="width: 22px; font-size: 13px; font-weight: 600; color: #86868b; font-variant-numeric: tabular-nums">3</span>
+              <span style="flex-grow: 1; display: flex; align-items: center; min-height: 48px; border-bottom: 0; gap: 10px">
+                <span style="flex-grow: 1; font-size: 14.5px">Demandas da RedeLog</span>
+                <span style="font-size: 14.5px; font-weight: 600; font-variant-numeric: tabular-nums">44</span>
+              </span>
+            </div>
+          
+        </section>
+      </div>
+
+      <section style="background: #ffffff; border-radius: 16px; padding: 20px 22px 22px">
+        <div style="display: flex; align-items: baseline; justify-content: space-between">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Entes federados</h2>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; color: #248a3d">
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#34c759"></circle><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            27 de 27 atendidos</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(6, 50px); grid-template-rows: repeat(8, 50px); gap: 4px; justify-content: center; margin-top: 20px">
+          
+            <button type="button" aria-label="RR: 19 atividades" style="grid-row: 1; grid-column: 2; background: #b9d5ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">RR</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">19</span>
+            </button>
+          
+            <button type="button" aria-label="AP: 8 atividades" style="grid-row: 1; grid-column: 3; background: #e3eeff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">AP</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">8</span>
+            </button>
+          
+            <button type="button" aria-label="AM: 26 atividades" style="grid-row: 2; grid-column: 2; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">AM</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">26</span>
+            </button>
+          
+            <button type="button" aria-label="PA: 23 atividades" style="grid-row: 2; grid-column: 3; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">PA</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">23</span>
+            </button>
+          
+            <button type="button" aria-label="MA: 25 atividades" style="grid-row: 2; grid-column: 4; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">MA</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">25</span>
+            </button>
+          
+            <button type="button" aria-label="CE: 35 atividades" style="grid-row: 2; grid-column: 5; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">CE</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">35</span>
+            </button>
+          
+            <button type="button" aria-label="RN: 23 atividades" style="grid-row: 2; grid-column: 6; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">RN</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">23</span>
+            </button>
+          
+            <button type="button" aria-label="AC: 23 atividades" style="grid-row: 3; grid-column: 1; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">AC</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">23</span>
+            </button>
+          
+            <button type="button" aria-label="RO: 29 atividades" style="grid-row: 3; grid-column: 2; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">RO</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">29</span>
+            </button>
+          
+            <button type="button" aria-label="TO: 12 atividades" style="grid-row: 3; grid-column: 3; background: #b9d5ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">TO</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">12</span>
+            </button>
+          
+            <button type="button" aria-label="PI: 19 atividades" style="grid-row: 3; grid-column: 4; background: #b9d5ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">PI</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">19</span>
+            </button>
+          
+            <button type="button" aria-label="PE: 49 atividades" style="grid-row: 3; grid-column: 5; background: #0a5bc4; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">PE</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">49</span>
+            </button>
+          
+            <button type="button" aria-label="PB: 43 atividades" style="grid-row: 3; grid-column: 6; background: #0a5bc4; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">PB</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">43</span>
+            </button>
+          
+            <button type="button" aria-label="MT: 41 atividades" style="grid-row: 4; grid-column: 2; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">MT</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">41</span>
+            </button>
+          
+            <button type="button" aria-label="GO: 19 atividades" style="grid-row: 4; grid-column: 3; background: #b9d5ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">GO</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">19</span>
+            </button>
+          
+            <button type="button" aria-label="BA: 34 atividades" style="grid-row: 4; grid-column: 4; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">BA</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">34</span>
+            </button>
+          
+            <button type="button" aria-label="SE: 35 atividades" style="grid-row: 4; grid-column: 5; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">SE</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">35</span>
+            </button>
+          
+            <button type="button" aria-label="AL: 38 atividades" style="grid-row: 4; grid-column: 6; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">AL</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">38</span>
+            </button>
+          
+            <button type="button" aria-label="MS: 16 atividades" style="grid-row: 5; grid-column: 2; background: #b9d5ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">MS</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">16</span>
+            </button>
+          
+            <button type="button" aria-label="DF: 37 atividades" style="grid-row: 5; grid-column: 3; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">DF</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">37</span>
+            </button>
+          
+            <button type="button" aria-label="MG: 35 atividades" style="grid-row: 5; grid-column: 4; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">MG</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">35</span>
+            </button>
+          
+            <button type="button" aria-label="ES: 22 atividades" style="grid-row: 5; grid-column: 5; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">ES</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">22</span>
+            </button>
+          
+            <button type="button" aria-label="PR: 51 atividades" style="grid-row: 6; grid-column: 2; background: #0a5bc4; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">PR</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">51</span>
+            </button>
+          
+            <button type="button" aria-label="SP: 27 atividades" style="grid-row: 6; grid-column: 3; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">SP</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">27</span>
+            </button>
+          
+            <button type="button" aria-label="RJ: 32 atividades" style="grid-row: 6; grid-column: 4; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">RJ</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">32</span>
+            </button>
+          
+            <button type="button" aria-label="SC: 29 atividades" style="grid-row: 7; grid-column: 2; background: #7fb2ff; color: #1d1d1f; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">SC</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">29</span>
+            </button>
+          
+            <button type="button" aria-label="RS: 36 atividades" style="grid-row: 8; grid-column: 2; background: #2f80f5; color: #ffffff; border: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-family: inherit; cursor: pointer">
+              <b style="font-size: 13px; font-weight: 600">RS</b>
+              <span style="font-size: 11px; font-weight: 500; opacity: 0.85; font-variant-numeric: tabular-nums">36</span>
+            </button>
+          
+          <div style="grid-row: 7 / span 2; grid-column: 3 / span 4; align-self: end; justify-self: end; display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #86868b">
+            Menos
+            
+              <i style="width: 14px; height: 14px; border-radius: 4px; background: #e3eeff"></i>
+            
+              <i style="width: 14px; height: 14px; border-radius: 4px; background: #b9d5ff"></i>
+            
+              <i style="width: 14px; height: 14px; border-radius: 4px; background: #7fb2ff"></i>
+            
+              <i style="width: 14px; height: 14px; border-radius: 4px; background: #2f80f5"></i>
+            
+              <i style="width: 14px; height: 14px; border-radius: 4px; background: #0a5bc4"></i>
+            
+            Mais
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div></body></html>

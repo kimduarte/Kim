@@ -57,6 +57,14 @@ Consequências:
 
 Nomes e categorias podem ser ajustados na aba “Dados e backup”.
 
+## Padrão visual "Passivo"
+
+A pasta `padrao-visual/` guarda as telas de referência do novo visual: Visão
+geral, Registrar, Equipe e UFs, Dados e backup, as versões de celular e a folha
+de componentes. Abra qualquer arquivo de `padrao-visual/telas/` no navegador.
+`base.css` tem as cores, os tamanhos e os componentes; `inter.css` embute a
+letra Inter para funcionar sem internet. Os dados das telas são fictícios.
+
 ## Notas técnicas (para quem for mexer no código)
 
 - HTML, CSS e JavaScript puros, sem bibliotecas nem nada carregado de fora.
