@@ -76,3 +76,92 @@ h1 {
   font-size: 13px;
   margin-top: 28px;
 }
+
+/* Página inicial: um painel de acesso por sistema */
+main.largo {
+  max-width: 900px;
+}
+
+.paineis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-top: 4px solid var(--borda);
+}
+
+.painel.passivo {
+  border-top-color: #0071e3;
+}
+
+.painel h2 {
+  font-size: 20px;
+  margin: 0 0 2px;
+  letter-spacing: -0.01em;
+}
+
+.painel p {
+  font-size: 14.5px;
+  margin: 0 0 14px;
+}
+
+.painel .painel-sub {
+  color: var(--texto-suave);
+  font-size: 13.5px;
+  margin-bottom: 14px;
+}
+
+.painel .painel-nota {
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.painel .etiqueta {
+  align-self: flex-start;
+  margin-bottom: 14px;
+}
+
+.etiqueta.disponivel {
+  background: #e6f4ea;
+  color: #1e6b34;
+}
+
+.painel-botao {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border-radius: 10px;
+  background: #0071e3;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.painel-botao:hover {
+  background: #0062c4;
+}
+
+.painel-botao:focus-visible {
+  outline: 3px solid rgba(0, 113, 227, 0.45);
+  outline-offset: 2px;
+}
+
+.painel-botao.inativo {
+  background: #eef0f3;
+  color: var(--texto-suave);
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .paineis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

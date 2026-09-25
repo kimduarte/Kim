@@ -396,3 +396,8 @@ mesmo site e neste mesmo banco, **em área separada**. Não mexe em veículos.
 
 Ao mexer em `app/layout.tsx`, `globals.css` ou num futuro `next.config`, confira
 que `/produtividade` continua abrindo: a página dela não usa o layout do site.
+
+A página inicial (`app/page.tsx`) virou uma escolha entre os dois sistemas, com
+um painel para cada um: "Veículos doados" (em construção) e "Passivo Veicular"
+(link para `/produtividade`). Quando a página inicial dos veículos for feita,
+mantenha um caminho visível para `/produtividade`.
