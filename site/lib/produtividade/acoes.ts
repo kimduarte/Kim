@@ -219,8 +219,15 @@ export async function entrar(corpo: Corpo): Promise<Resultado> {
     throw new ErroApp(401, "E-mail ou senha incorretos.");
   }
   await pool.execute(`UPDATE prod_usuarios SET falhas = 0, bloqueado_ate = NULL WHERE id = ?`, [u.id]);
+  // A tela de entrada tem dois painéis. O da coordenação só aceita contas da
+  // coordenação (a conferência vem depois da senha, para não revelar a
+  // ninguém que não saiba a senha qual é o papel da conta).
+  if (corpo.acesso === "coordenacao" && u.papel !== "coordenacao") {
+    throw new ErroApp(403, "Esta conta é de servidor. Entre pelo painel Acesso do servidor.");
+  }
   const token = await criarSessao(u.id);
-  return { dados: { ok: true, trocarSenha: !!u.trocar_senha }, cookie: cookieDaSessao(token) };
+  const papel = u.papel === "coordenacao" ? "coordenacao" : "servidor";
+  return { dados: { ok: true, trocarSenha: !!u.trocar_senha, papel }, cookie: cookieDaSessao(token) };
 }
 
 export async function sair(_corpo: Corpo, ctx: Contexto): Promise<Resultado> {

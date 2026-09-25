@@ -14,6 +14,7 @@
   // Constantes
   // ======================================================================
   const CHAVE_PREFS = 'passivoSistema.preferencias.v1';
+  const CHAVE_AMBIENTE = 'passivoSistema.ambiente';
 
   const NOMES_MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -177,21 +178,35 @@
   let prefs;
   let carregadoEm = 0;
 
+  // Dois ambientes: "servidor" (a própria produção) e "coordenacao" (o setor
+  // inteiro). Conta de servidor fica sempre no primeiro; conta da coordenação
+  // escolhe no painel de entrada e pode alternar depois, sem sair.
+  let ambiente = 'servidor';
+  function lerAmbiente() { try { return localStorage.getItem(CHAVE_AMBIENTE); } catch (e) { return null; } }
+  function gravarAmbiente(a) { try { localStorage.setItem(CHAVE_AMBIENTE, a); } catch (e) { /* só não lembra */ } }
+  function definirAmbiente(papel, pedido) {
+    ambiente = papel === 'coordenacao' && pedido !== 'servidor' ? 'coordenacao' : 'servidor';
+    document.body.classList.toggle('amb-coord', ambiente === 'coordenacao');
+  }
+
   function aplicarEstado(d) {
     const { campos, linhas } = d.registros;
-    estado = {
-      usuario: d.usuario,
-      setor: d.setor,
-      atividades: d.atividades,
-      servidores: d.servidores,
-      ufs: d.ufs,
-      registros: linhas.map((l) => {
-        const r = {};
-        campos.forEach((c, i) => { r[c] = l[i]; });
-        r.foraDoLeque = !!r.foraDoLeque;
-        return r;
-      }),
-    };
+    let registros = linhas.map((l) => {
+      const r = {};
+      campos.forEach((c, i) => { r[c] = l[i]; });
+      r.foraDoLeque = !!r.foraDoLeque;
+      return r;
+    });
+    let { servidores, ufs } = d;
+    // Coordenação no ambiente do servidor: a tela mostra só o que é dela, como
+    // para qualquer servidor (os dados do setor continuam no ambiente da coordenação).
+    if (ambiente === 'servidor' && d.usuario.papel === 'coordenacao') {
+      const eu = d.usuario.id;
+      registros = registros.filter((r) => r.servidorId === eu);
+      servidores = servidores.filter((s) => s.id === eu);
+      ufs = Object.fromEntries(Object.entries(ufs).filter(([, v]) => v && v.servidorId === eu));
+    }
+    estado = { usuario: d.usuario, setor: d.setor, atividades: d.atividades, servidores, ufs, registros };
     carregadoEm = Date.now();
   }
 
@@ -213,7 +228,8 @@
   // ---------------------------------------------------------------------
   // Consultas ao estado
   // ---------------------------------------------------------------------
-  const souCoord = () => !!estado && estado.usuario.papel === 'coordenacao';
+  const contaDaCoordenacao = () => !!estado && estado.usuario.papel === 'coordenacao';
+  const souCoord = () => contaDaCoordenacao() && ambiente === 'coordenacao';
   const euId = () => estado.usuario.id;
   const registrosValidos = () => estado.registros.filter((r) => !r.excluido);
   const servidoresVisiveis = () => estado.servidores;
@@ -469,7 +485,10 @@
     if (qual !== 'app') esconderDica();
     if (qual === 'entrar') {
       document.title = 'Entrar · Passivo';
-      setTimeout(() => ($('xEmail').value ? $('xSenha') : $('xEmail')).focus(), 0);
+      // Foca o painel usado da última vez (no celular, o do servidor vem primeiro).
+      const painel = document.querySelector(`.painel-acesso[data-acesso="${lerAmbiente() === 'coordenacao' ? 'coordenacao' : 'servidor'}"]`);
+      const alvo = painel.elements.email.value ? painel.elements.senha : painel.elements.email;
+      if (window.innerWidth > 820) setTimeout(() => alvo.focus(), 0);
     } else if (qual === 'senha') {
       document.title = 'Criar senha · Passivo';
       const u = estado ? estado.usuario : null;
@@ -478,7 +497,7 @@
       $('sAtualLinha').hidden = !!senhaDigitada;
       setTimeout(() => (senhaDigitada ? $('sNova') : $('sAtual')).focus(), 0);
     } else if (qual === 'app') {
-      document.title = 'Passivo';
+      document.title = souCoord() ? 'Coordenação · Passivo' : 'Passivo';
     }
   }
 
@@ -500,13 +519,15 @@
     }
     const primeira = !estado || !estado.registros;
     const trocouDeConta = estado && estado.registros && estado.usuario.id !== d.usuario.id;
+    const ambienteAntes = ambiente;
+    definirAmbiente(d.usuario.papel, lerAmbiente());
     aplicarEstado(d);
     senhaDigitada = '';
     if (trocouDeConta) { editandoId = null; pincel = null; prefs = lerPrefs(); }
     mostrarTela('app');
-    if (primeira || trocouDeConta) {
+    if (primeira || trocouDeConta || ambienteAntes !== ambiente) {
       const hash = (location.hash || '').replace('#', '');
-      mostrarAba(ABAS.includes(hash) ? hash : prefs.aba);
+      mostrarAba(primeira && ABAS.includes(hash) ? hash : prefs.aba);
     } else {
       renderTudo();
     }
@@ -514,23 +535,48 @@
 
   async function entrar(ev) {
     ev.preventDefault();
-    const email = $('xEmail').value.trim();
-    const senha = $('xSenha').value;
-    $('xErro').textContent = '';
-    if (!email || !senha) { $('xErro').textContent = 'Preencha o e-mail e a senha.'; return; }
-    $('xEntrar').disabled = true;
+    const form = ev.currentTarget;
+    const acesso = form.dataset.acesso;
+    const campoSenha = form.elements.senha;
+    const email = form.elements.email.value.trim();
+    const senha = campoSenha.value;
+    const erro = form.querySelector('.erro');
+    const botao = form.querySelector('button[type="submit"]');
+    document.querySelectorAll('.painel-acesso .erro').forEach((p) => { p.textContent = ''; });
+    if (!email || !senha) { erro.textContent = 'Preencha o e-mail e a senha.'; return; }
+    botao.disabled = true;
     try {
-      await api('entrar', { email, senha });
+      await api('entrar', { email, senha, acesso });
+      gravarAmbiente(acesso);
       senhaDigitada = senha;
-      $('xSenha').value = '';
+      campoSenha.value = '';
       $('xAviso').hidden = true;
       await carregarEEntrar();
     } catch (e) {
-      $('xErro').textContent = e.message;
-      $('xSenha').select();
+      erro.textContent = e.message;
+      campoSenha.select();
     } finally {
-      $('xEntrar').disabled = false;
+      botao.disabled = false;
     }
+  }
+
+  // Coordenação alterna entre o setor inteiro e a própria produção.
+  async function trocarAmbiente(novo) {
+    if (!contaDaCoordenacao() || novo === ambiente) return;
+    await tentar(async () => {
+      const d = await api('estado');
+      gravarAmbiente(novo);
+      definirAmbiente(d.usuario.papel, novo);
+      aplicarEstado(d);
+      editandoId = null;
+      pincel = null;
+      $('fServidor').value = '';
+      delete $('fUF').dataset.tocado;
+      $('fUF').dataset.padrao = '1';
+      mostrarAba(abaAtual === 'equipe' ? 'painel' : abaAtual);
+      mostrarTela('app');
+      aviso(novo === 'coordenacao' ? 'Ambiente da coordenação: números do setor inteiro.' : 'Ambiente do servidor: só a sua produção.');
+    });
   }
 
   async function salvarSenhaNova(ev) {
@@ -563,7 +609,8 @@
     editandoId = null;
     pincel = null;
     $('xAviso').hidden = true;
-    $('xSenha').value = '';
+    document.querySelectorAll('.painel-acesso input[name="senha"]').forEach((i) => { i.value = ''; });
+    document.body.classList.remove('amb-coord');
     mostrarTela('entrar');
   }
 
@@ -605,6 +652,17 @@
     $('topoUnidade').textContent = estado.setor.nome || 'Setor de Passivo Veicular';
     const eu = servidorPorId(euId()) || estado.usuario;
     $('usuarioChip').replaceChildren(avatar(eu), el('span', { class: 'duas-l' }, el('b', { text: eu.nome }), el('small', { text: nomePapel(estado.usuario.papel) })));
+    ['ambiente', 'ambienteCel'].forEach((id) => $(id).replaceChildren(...seletorAmbiente()));
+    document.title = coord ? 'Coordenação · Passivo' : 'Passivo';
+  }
+
+  function seletorAmbiente() {
+    if (!contaDaCoordenacao()) return [el('span', { class: 'amb-etiqueta', text: 'Ambiente do servidor' })];
+    const botao = (valor, rotulo) => el('button', { type: 'button', 'aria-pressed': String(ambiente === valor), onclick: () => trocarAmbiente(valor) }, rotulo);
+    return [
+      el('span', { class: 'amb-rotulo', text: 'Ambiente' }),
+      el('div', { class: 'seg cheio', role: 'group', 'aria-label': 'Ambiente' }, botao('coordenacao', 'Coordenação'), botao('servidor', 'Minha produção')),
+    ];
   }
 
   // Volta ao servidor para pegar o que outras pessoas registraram.
@@ -1586,6 +1644,8 @@
     const eu = servidorPorId(euId()) || estado.usuario;
     const leque = meuLeque();
     $('aSub').textContent = coord ? 'Sua conta, planilha, atividades e nomes do setor' : 'Sua conta e a planilha dos seus registros';
+    $('aAmbiente').hidden = !contaDaCoordenacao();
+    $('aAmbiente').textContent = coord ? 'Ver só a minha produção' : 'Voltar para a coordenação';
     $('aConta').replaceChildren(avatar(eu),
       el('div', {},
         el('b', { text: eu.nome }),
@@ -1681,7 +1741,8 @@
   // Ligações de eventos (uma vez)
   // ======================================================================
   function ligarEventos() {
-    $('formEntrar').addEventListener('submit', entrar);
+    document.querySelectorAll('.painel-acesso').forEach((f) => f.addEventListener('submit', entrar));
+    $('aAmbiente').addEventListener('click', () => trocarAmbiente(ambiente === 'coordenacao' ? 'servidor' : 'coordenacao'));
     $('formSenha').addEventListener('submit', salvarSenhaNova);
     $('sSair').addEventListener('click', sair);
     $('aSair').addEventListener('click', sair);
@@ -1787,7 +1848,7 @@
   carregarEEntrar().catch((e) => {
     if (e instanceof ErroApi && (e.codigo === 'sessao' || e.codigo === 'trocar_senha')) return;
     mostrarTela('entrar');
-    $('xErro').textContent = e instanceof ErroApi ? e.message : 'Não foi possível abrir o sistema. Recarregue a página.';
+    $('xErroS').textContent = e instanceof ErroApi ? e.message : 'Não foi possível abrir o sistema. Recarregue a página.';
     if (!(e instanceof ErroApi)) console.error(e);
   });
 })();

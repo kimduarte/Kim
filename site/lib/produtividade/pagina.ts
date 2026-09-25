@@ -9,6 +9,23 @@ const I_PAINEL = `<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y=
 const I_REGISTRAR = `<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/>`;
 const I_EQUIPE = `<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.7-3 2.9-4.8 5.5-4.8s4.8 1.8 5.5 4.8"/><circle cx="16.8" cy="9.5" r="2.4"/><path d="M16.8 14.3c2 0 3.5 1.3 4 3.6"/>`;
 const I_AJUSTES = `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>`;
+const ICONE_PESSOA = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.9-3.9 3.7-6 7-6s6.1 2.1 7 6"/></svg>`;
+const ICONE_COORD = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16.5V11M12 16.5V6M17 16.5v-8"/></svg>`;
+
+/** Um painel de entrada. Os dois usam o mesmo login; o painel diz em qual ambiente abrir. */
+function painelAcesso(acesso: string, icone: string, titulo: string, texto: string, botao: string): string {
+  const sufixo = acesso === "coordenacao" ? "C" : "S";
+  return `<form class="cartao painel-acesso${acesso === "coordenacao" ? " coord" : ""}" data-acesso="${acesso}" novalidate>
+        <div class="pa-cab"><span class="pa-icone">${icone}</span><div><h2>${titulo}</h2><p>${texto}</p></div></div>
+        <div class="grupo">
+          <label class="linha"><span class="rot">E-mail</span><input type="email" name="email" id="xEmail${sufixo}" class="plano" autocomplete="username" maxlength="120" placeholder="nome@orgao.gov.br"></label>
+          <label class="linha"><span class="rot">Senha</span><input type="password" name="senha" id="xSenha${sufixo}" class="plano" autocomplete="current-password" maxlength="200" placeholder="Sua senha"></label>
+        </div>
+        <button type="submit" class="btn primario grande largo" id="xEntrar${sufixo}">${botao}</button>
+        <p class="erro" id="xErro${sufixo}" role="alert"></p>
+      </form>`;
+}
+
 const ico = (miolo: string, tam = 17) =>
   `<svg width="${tam}" height="${tam}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${miolo}</svg>`;
 const LUPA = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>`;
@@ -33,21 +50,21 @@ export function paginaProdutividade(versao: string): string {
 
 <div class="carregando" id="telaCarregando"><span class="icone-app">${ICONE_CARRO}</span><span>Carregando…</span></div>
 
-<!-- ================= ENTRAR ================= -->
+<!-- ================= ENTRAR: dois painéis de acesso ================= -->
 <div class="tela-entrar" id="telaEntrar" hidden>
-  <form class="cartao entrar" id="formEntrar" novalidate>
-    <span class="icone-app">${ICONE_CARRO}</span>
-    <h1>Passivo</h1>
-    <p class="sub">Produtividade do Setor de Passivo Veicular</p>
-    <div class="faixa" id="xAviso" hidden><p></p></div>
-    <div class="grupo">
-      <label class="linha"><span class="rot">E-mail</span><input type="email" id="xEmail" class="plano" autocomplete="username" maxlength="120" placeholder="nome@orgao.gov.br" required></label>
-      <label class="linha"><span class="rot">Senha</span><input type="password" id="xSenha" class="plano" autocomplete="current-password" maxlength="200" placeholder="Sua senha" required></label>
+  <div class="entrada">
+    <div class="entrada-cab">
+      <span class="icone-app">${ICONE_CARRO}</span>
+      <h1>Passivo</h1>
+      <p class="sub">Produtividade do Setor de Passivo Veicular</p>
     </div>
-    <button type="submit" class="btn primario grande largo" id="xEntrar">Entrar</button>
-    <p class="erro" id="xErro" role="alert"></p>
-    <p class="nota">Esqueceu a senha? Peça uma nova à coordenação do setor.</p>
-  </form>
+    <div class="faixa" id="xAviso" hidden><p></p></div>
+    <div class="paineis-acesso">
+      ${painelAcesso("servidor", ICONE_PESSOA, "Acesso do servidor", "Registre a sua produção e acompanhe os números das UFs do seu leque.", "Entrar como servidor")}
+      ${painelAcesso("coordenacao", ICONE_COORD, "Acesso da coordenação", "Consolide os números do setor, distribua as UFs e cuide das contas da equipe.", "Entrar na coordenação")}
+    </div>
+    <p class="nota centro">Esqueceu a senha? Peça uma nova à coordenação do setor.</p>
+  </div>
 </div>
 
 <!-- ================= CRIAR SENHA (primeiro acesso) ================= -->
@@ -76,6 +93,7 @@ export function paginaProdutividade(versao: string): string {
       <span class="icone-app">${ICONE_CARRO}</span>
       <div><b>Passivo</b><small id="topoUnidade">Setor de Passivo Veicular</small></div>
     </div>
+    <div class="ambiente" id="ambiente"></div>
     <label class="busca">${LUPA}<input type="search" id="buscaGlobal" placeholder="Buscar placa, SEI, servidor" aria-label="Buscar nos registros"></label>
     <nav class="menu" aria-label="Seções">
       <span class="secao">Produtividade</span>
@@ -89,6 +107,7 @@ export function paginaProdutividade(versao: string): string {
   </aside>
 
   <main class="conteudo">
+    <div class="ambiente amb-cel" id="ambienteCel"></div>
     <!-- ================= VISÃO GERAL ================= -->
     <section id="aba-painel" class="aba-conteudo" aria-labelledby="tit-painel">
       <div class="cab">
@@ -233,6 +252,7 @@ export function paginaProdutividade(versao: string): string {
         <section class="cartao flex">
           <div class="conta" id="aConta"></div>
           <div class="filtros" style="margin-top: auto; gap: 8px">
+            <button type="button" class="btn" id="aAmbiente" hidden></button>
             <button type="button" class="btn" id="aTrocarSenha">Trocar senha</button>
             <button type="button" class="btn perigo" id="aSair">Sair</button>
           </div>
