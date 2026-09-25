@@ -372,3 +372,27 @@ O que funcionou até aqui e vale manter:
 - **Entregar uma tarefa por vez** e esperar o retorno. Ela executa na
   interface e volta com o resultado ou uma captura de tela.
 - **Ser honesto sobre limitações** em vez de tentar contornar por fora.
+
+## 11. Outra frente no mesmo site: produtividade do Passivo Veicular
+
+Por decisão da Kim, o sistema de produtividade do Setor de Passivo Veicular
+(feito em outra sessão, a partir da pasta `passivo-veicular/`) mora neste
+mesmo site e neste mesmo banco, **em área separada**. Não mexe em veículos.
+
+- Endereço: `/produtividade` (tela) e `/api/produtividade/<acao>` (API).
+- Preparação: `/api/produtividade/setup?token=SETUP_TOKEN` cria as tabelas e a
+  primeira conta da coordenação; também recupera a senha da coordenação.
+- Código: `app/produtividade/route.ts`, `app/api/produtividade/`,
+  `lib/produtividade/`, `public/produtividade/` (JavaScript puro, sem React).
+- Tabelas: todas com prefixo `prod_` (usuarios, sessoes, ufs, atividades,
+  registros, config). Nenhuma consulta lê ou escreve em `veiculos`.
+- Usa as mesmas variáveis de ambiente (`TIDB_*`, `SETUP_TOKEN`); não criou
+  nenhuma nova.
+- Tem login próprio: cookie `__Host-passivo`, senhas com scrypt, sessão com
+  prazo de 12 h. Se o sistema de veículos ganhar login, use outro nome de
+  cookie e outras tabelas, ou combine com a Kim antes de unificar.
+- Testado localmente com MariaDB + TLS (o `lib/db.ts` não foi alterado) e
+  Playwright; ainda não rodou contra o TiDB de verdade.
+
+Ao mexer em `app/layout.tsx`, `globals.css` ou num futuro `next.config`, confira
+que `/produtividade` continua abrindo: a página dela não usa o layout do site.

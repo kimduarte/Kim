@@ -70,6 +70,26 @@ o que o `index.html` faz e usa **os mesmos dados**: o que for registrado num
 aparece no outro, no mesmo navegador. Enquanto o visual estiver em avaliação, os
 dois arquivos convivem; o `index.html` continua como está.
 
+## Versão com login (no site)
+
+Além do arquivo, a produtividade existe como sistema com login, em
+`/produtividade` no site novo (pasta `site/`). Lá os dados ficam num banco só,
+e cada pessoa entra com a própria conta:
+
+- **Servidor**: vê e registra só a própria produção. Pode registrar em UF de
+  fora do seu leque (cobrindo férias, por exemplo), e o registro fica marcado
+  como "fora do leque".
+- **Coordenação**: vê o setor inteiro, cadastra as contas, distribui as UFs,
+  ajusta as atividades e gera senha nova para quem esquecer.
+
+Primeira vez: abrir `/api/produtividade/setup?token=…` (com o SETUP_TOKEN da
+Vercel) cria as tabelas e a conta da coordenação, com uma senha provisória.
+Essa mesma página recupera o acesso se a coordenação esquecer a senha.
+
+O código fica em `site/app/produtividade/`, `site/app/api/produtividade/`,
+`site/lib/produtividade/` e `site/public/produtividade/`. As tabelas começam
+com `prod_` e não se ligam à tabela de veículos.
+
 ## Notas técnicas (para quem for mexer no código)
 
 - HTML, CSS e JavaScript puros, sem bibliotecas nem nada carregado de fora.
