@@ -65,6 +65,11 @@ de componentes. Abra qualquer arquivo de `padrao-visual/telas/` no navegador.
 `base.css` tem as cores, os tamanhos e os componentes; `inter.css` embute a
 letra Inter para funcionar sem internet. Os dados das telas são fictícios.
 
+`passivo.html` é a ferramenta completa, já funcionando no visual novo. Faz tudo
+o que o `index.html` faz e usa **os mesmos dados**: o que for registrado num
+aparece no outro, no mesmo navegador. Enquanto o visual estiver em avaliação, os
+dois arquivos convivem; o `index.html` continua como está.
+
 ## Notas técnicas (para quem for mexer no código)
 
 - HTML, CSS e JavaScript puros, sem bibliotecas nem nada carregado de fora.
