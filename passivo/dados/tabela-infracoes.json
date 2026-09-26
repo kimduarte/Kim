@@ -1,0 +1,2768 @@
+[
+ {
+  "codigo": "500-20",
+  "artigo": "257, § 8º",
+  "descricao": "MULTA, POR NAO IDENTIFICACAO DO CONDUTOR INFRATOR, IMPOSTA A PESSOA JURIDICA",
+  "valor": null
+ },
+ {
+  "codigo": "501-00",
+  "artigo": "162*I",
+  "descricao": "DIRIGIR VEICULO SEM POSSUIR CNH OU PERMISSAO PARA DIRIGIR",
+  "valor": 880.41
+ },
+ {
+  "codigo": "502-91",
+  "artigo": "162*II",
+  "descricao": "DIRIGIR VEICULO COM CNH CASSADA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "502-92",
+  "artigo": "162*II",
+  "descricao": "DIRIGIR VEICULO COM PERMISSAO PARA DIRIGIR CASSADA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "502-93",
+  "artigo": "162*II",
+  "descricao": "DIRIGIR VEICULO COM CNH OU PPD COM SUSPENSAO DO DIREITO DE DIRIGIR",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "503-71",
+  "artigo": "162*III",
+  "descricao": "DIRIGIR VEICULO COM CNH DE CATEGORIA DIFERENTE DA DO VEICULO",
+  "valor": 880.41
+ },
+ {
+  "codigo": "503-72",
+  "artigo": "162*III",
+  "descricao": "DIRIGIR VEICULO COM PPD DE CATEGORIA DIFERENTE DA DO VEICULO",
+  "valor": 880.41
+ },
+ {
+  "codigo": "504-50",
+  "artigo": "162*V",
+  "descricao": "DIRIGIR VEICULO COM VALIDADE DA CNH OU PPD VENCIDA HA MAIS DE 30 DIAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "505-31",
+  "artigo": "162*VI",
+  "descricao": "DIRIGIR VEICULO SEM USAR LENTES CORRETORAS DE VISAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "505-32",
+  "artigo": "162*VI",
+  "descricao": "DIRIGIR VEICULO SEM USAR APARELHO AUXILIAR DE AUDICAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "505-33",
+  "artigo": "162*VI",
+  "descricao": "DIRIGIR VEICULO SEM USAR APARELHO AUXILIAR DE PROTESE FISICA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "505-34",
+  "artigo": "162*VI",
+  "descricao": "DIRIGIR VEICULO S/ ADAPTACOES IMPOSTAS NA CONCESSAO/RENOVACAO LICENCA CONDUZIR",
+  "valor": 293.47
+ },
+ {
+  "codigo": "506-10",
+  "artigo": "163 c/c 162*I",
+  "descricao": "ENTREGAR VEICULO A PESSOA SEM CNH OU PERMISSAO PARA DIRIGIR",
+  "valor": 880.41
+ },
+ {
+  "codigo": "507-01",
+  "artigo": "163 c/c 162*II",
+  "descricao": "ENTREGAR VEICULO A PESSOA COM CNH CASSADA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "507-02",
+  "artigo": "163 c/c 162*II",
+  "descricao": "ENTREGAR VEICULO A PESSOA COM PERMISSAO PARA DIRIGIR CASSADA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "507-03",
+  "artigo": "163 c/c 162*II",
+  "descricao": "ENTREGAR VEICULO A PESSOA COM CNH OU PPD COM SUSPENSAO DO DIREITO DE DIRIGIR",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "508-81",
+  "artigo": "163 c/c 162*III",
+  "descricao": "ENTREGAR VEICULO A PESSOA COM CNH DE CATEGORIA DIFERENTE DA DO VEICULO",
+  "valor": 880.41
+ },
+ {
+  "codigo": "508-82",
+  "artigo": "163 c/c 162*III",
+  "descricao": "ENTREGAR VEICULO A PESSOA COM PPD DE CATEGORIA DIFERENTE DA DO VEICULO",
+  "valor": 880.41
+ },
+ {
+  "codigo": "509-60",
+  "artigo": "163 c/c 162*V",
+  "descricao": "ENTREGAR VEICULO A PESSOA COM CNH VENCIDA HA MAIS DE 30 DIAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "510-01",
+  "artigo": "163 c/c 162*VI",
+  "descricao": "ENTREGAR O VEICULO A PESSOA SEM USAR LENTES CORRETORAS DE VISAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "510-02",
+  "artigo": "163 c/c 162*VI",
+  "descricao": "ENTREGAR O VEICULO A PESSOA SEM USAR APARELHO AUXILIAR DE AUDICAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "510-03",
+  "artigo": "163 c/c 162*VI",
+  "descricao": "ENTREGAR O VEICULO A PESSOA SEM APARELHO DE PROTESE FISICA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "510-04",
+  "artigo": "163 c/c 162*VI",
+  "descricao": "ENTREGAR VEIC PESSOA S/ ADAPTACOES IMPOSTAS CONCESSAO/RENOVACAO LICENCA CONDUZIR",
+  "valor": 293.47
+ },
+ {
+  "codigo": "511-80",
+  "artigo": "164 c/c 162*I",
+  "descricao": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM CNH OU PPD",
+  "valor": 880.41
+ },
+ {
+  "codigo": "512-61",
+  "artigo": "164 c/c 162*II",
+  "descricao": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA COM CNH CASSADA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "512-62",
+  "artigo": "164 c/c 162*II",
+  "descricao": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA COM PPD CASSADA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "512-63",
+  "artigo": "164 c/c 162*II",
+  "descricao": "PERMITIR POSSE/CONDUCAO VEIC PESSOA COM CNH/PPD C/ SUSPENSAO DIREITO DE DIRIGIR",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "513-41",
+  "artigo": "164 c/c 162*III",
+  "descricao": "PERMITIR POSSE/CONDUCAO VEIC A PESSOA COM CNH CATEGORIA DIFERENTE DA DO VEICULO",
+  "valor": 880.41
+ },
+ {
+  "codigo": "513-42",
+  "artigo": "164 c/c 162*III",
+  "descricao": "PERMITIR POSSE/CONDUCAO VEIC A PESSOA COM PPD CATEGORIA DIFERENTE DA DO VEICULO",
+  "valor": 880.41
+ },
+ {
+  "codigo": "514-20",
+  "artigo": "164 c/c 162*V",
+  "descricao": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA COM CNH VENCIDA HA MAIS DE 30 DIAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "515-01",
+  "artigo": "164 c/c 162*VI",
+  "descricao": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM USAR LENTES CORRETORAS DE VISAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "515-02",
+  "artigo": "164 c/c 162*VI",
+  "descricao": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA S/ USAR APARELHO AUXILIAR DE AUDICAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "515-03",
+  "artigo": "164 c/c 162*VI",
+  "descricao": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM USAR APARELHO DE PROTESE FISICA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "515-04",
+  "artigo": "164 c/c 162*VI",
+  "descricao": "PERMITIR POSSE/COND VEIC S/ ADAPTACOES IMPOSTAS CONCESSAO/RENOVACAO LICENCA COND",
+  "valor": 293.47
+ },
+ {
+  "codigo": "516-91",
+  "artigo": "165",
+  "descricao": "DIRIGIR SOB A INFLUENCIA DE ÁLCOOL",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "516-92",
+  "artigo": "165",
+  "descricao": "DIRIGIR SOB INFLUENCIA SUBST ENTORPECENTE OU Q DETERMINE DEPEND FISICA/PSIQUICA",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "517-70",
+  "artigo": "166",
+  "descricao": "CONFIAR/ENTREGAR VEIC PESS C/ ESTADO FISICO/PSIQUICO S/ CONDICOES DIRIGIR SEGUR",
+  "valor": 293.47
+ },
+ {
+  "codigo": "518-51",
+  "artigo": "167",
+  "descricao": "DEIXAR O CONDUTOR DE USAR O CINTO SEGURANCA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "518-52",
+  "artigo": "167",
+  "descricao": "DEIXAR O PASSAGEIRO DE USAR O CINTO SEGURANCA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "519-30",
+  "artigo": "168",
+  "descricao": "TRANSPORTAR CRIANCA SEM OBSERVANCIA DAS NORMAS DE SEGURANCA ESTABELECIDAS P/ CTB",
+  "valor": 293.47
+ },
+ {
+  "codigo": "520-70",
+  "artigo": "169",
+  "descricao": "DIRIGIR SEM ATENCAO OU SEM OS CUIDADOS INDISPENSAVEIS A SEGURANCA",
+  "valor": 88.38
+ },
+ {
+  "codigo": "521-51",
+  "artigo": "170",
+  "descricao": "DIRIGIR AMEACANDO OS PEDESTRES QUE ESTEJAM ATRAVESSANDO A VIA PUBLICA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "521-52",
+  "artigo": "170",
+  "descricao": "DIRIGIR AMEACANDO OS DEMAIS VEICULOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "522-31",
+  "artigo": "171",
+  "descricao": "USAR VEICULO PARA ARREMESSAR SOBRE OS PEDESTRES AGUA OU DETRITOS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "522-32",
+  "artigo": "171",
+  "descricao": "USAR VEICULO PARA ARREMESSAR SOBRE OS VEICULOS AGUA OU DETRITOS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "523-11",
+  "artigo": "172",
+  "descricao": "ATIRAR DO VEICULO OBJETOS OU SUBSTANCIAS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "523-12",
+  "artigo": "172",
+  "descricao": "ABANDONAR NA VIA OBJETOS OU SUBSTANCIAS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "524-00",
+  "artigo": "173",
+  "descricao": "DISPUTAR CORRIDA",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "525-81",
+  "artigo": "174",
+  "descricao": "PROMOVER NA VIA COMPETICAO ESPORTIVA SEM PERMISSAO",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "525-82",
+  "artigo": "174",
+  "descricao": "PROMOVER NA VIA EVENTOS ORGANIZADOS SEM PERMISSAO",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "525-83",
+  "artigo": "174",
+  "descricao": "PROMOVER NA VIA EXIBICAO E DEMONSTRACAO DE PERICIA EM MANOBRA DE VEICULO",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "526-61",
+  "artigo": "174",
+  "descricao": "PARTICIPAR NA VIA COMO CONDUTOR EM COMPETICAO ESPORTIVA, SEM PERMISSAO",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "526-62",
+  "artigo": "174",
+  "descricao": "PARTICIPAR NA VIA COMO CONDUTOR EM EVENTO ORGANIZADO, SEM PERMISSAO",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "526-63",
+  "artigo": "174",
+  "descricao": "PARTICIPAR COMO CONDUTOR EXIB/DEMONST PERICIA EM MANOBRA DE VEIC, S/ PERMISSAO",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "527-41",
+  "artigo": "175",
+  "descricao": "UTILIZAR-SE DE VEICULO PARA DEMONSTRAR OU EXIBIR MANOBRA PERIGOSA",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "527-42",
+  "artigo": "175",
+  "descricao": "UTILIZAR-SE DE VEICULO PARA DEMONSTRAR OU EXIBIR ARRANCADA BRUSCA",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "527-43",
+  "artigo": "175",
+  "descricao": "UTILIZAR-SE DE VEICULO PARA DEMONSTRAR OU EXIBIR DERRAPAGEM OU FRENAGEM",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "528-20",
+  "artigo": "176*I",
+  "descricao": "DEIXAR O COND ENVOLVIDO EM ACIDENTE, DE PRESTAR OU PROVIDENCIAR SOCORRO A VITIMA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "529-00",
+  "artigo": "176*II",
+  "descricao": "DEIXAR O COND ENVOLVIDO EM ACID, DE ADOTAR PROVID P/ EVITAR PERIGO P/O TRANSITO",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "530-40",
+  "artigo": "176*III",
+  "descricao": "DEIXAR O COND ENVOLVIDO EM ACIDENTE, DE PRESERVAR LOCAL P/ TRAB POLICIA/PERICIA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "531-20",
+  "artigo": "176*IV",
+  "descricao": "DEIXAR O COND ENVOLVIDO EM ACID, DE REMOVER O VEIC LOCAL QDO DETERM POLIC/AGENTE",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "532-00",
+  "artigo": "176*V",
+  "descricao": "DEIXAR O COND ENVOLVIDO EM ACID, DE IDENTIFICAR-SE POLICIAL E PRESTAR INF P/O BO",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "533-90",
+  "artigo": "177",
+  "descricao": "DEIXAR O COND DE PRESTAR SOCORRO VITIMA ACID DE TRANSITO, QDO SOLICIT P/ AGENTE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "534-70",
+  "artigo": "178",
+  "descricao": "DEIXAR O CONDUTOR ENVOLVIDO EM ACIDENTE S/ VITIMA, DE REMOVER O VEICULO DO LOCAL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "535-50",
+  "artigo": "179*I",
+  "descricao": "FAZER OU DEIXAR QUE SE FACA REPARO EM VEIC, EM RODOVIA E VIA DE TRANSITO RAPIDO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "536-30",
+  "artigo": "179*II",
+  "descricao": "FAZER/DEIXAR QUE SE FACA REPARO EM VEIC NAS VIAS (Q NAO RODOVIA/TRANSITO RAPIDO)",
+  "valor": 88.38
+ },
+ {
+  "codigo": "537-10",
+  "artigo": "180",
+  "descricao": "TER SEU VEICULO IMOBILIZADO NA VIA POR FALTA DE COMBUSTIVEL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "538-00",
+  "artigo": "181*I",
+  "descricao": "ESTACIONAR NAS ESQUINAS E A MENOS DE 5M DO ALINHAMENTO DA VIA TRANSVERSAL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "539-80",
+  "artigo": "181*II",
+  "descricao": "ESTACIONAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) DE 50CM A 1M",
+  "valor": 88.38
+ },
+ {
+  "codigo": "540-10",
+  "artigo": "181*III",
+  "descricao": "ESTACIONAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) A MAIS DE 1M",
+  "valor": 195.23
+ },
+ {
+  "codigo": "541-00",
+  "artigo": "181*IV",
+  "descricao": "ESTACIONAR EM DESACORDO COM AS POSICOES ESTABELECIDAS NO CTB",
+  "valor": 130.16
+ },
+ {
+  "codigo": "542-81",
+  "artigo": "181*V",
+  "descricao": "ESTACIONAR NA PISTA DE ROLAMENTO DAS ESTRADAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "542-82",
+  "artigo": "181*V",
+  "descricao": "ESTACIONAR NA PISTA DE ROLAMENTO DAS RODOVIAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "542-83",
+  "artigo": "181*V",
+  "descricao": "ESTACIONAR NA PISTA DE ROLAMENTO DAS VIAS DE TRANSITO RAPIDO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "542-84",
+  "artigo": "181*V",
+  "descricao": "ESTACIONAR NA PISTA DE ROLAMENTO DAS VIAS DOTADAS DE ACOSTAMENTO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "543-60",
+  "artigo": "181*VI",
+  "descricao": "ESTACIONAR JUNTO/SOBRE HIDR DE INCENDIO, REG DE AGUA/TAMPA DE POCO VISIT GAL SUB",
+  "valor": 130.16
+ },
+ {
+  "codigo": "544-40",
+  "artigo": "181*VII",
+  "descricao": "ESTACIONAR O VEICULO NOS ACOSTAMENTOS",
+  "valor": 88.38
+ },
+ {
+  "codigo": "545-21",
+  "artigo": "181*VIII",
+  "descricao": "ESTACIONAR NO PASSEIO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "545-22",
+  "artigo": "181*VIII",
+  "descricao": "ESTACIONAR SOBRE FAIXA DESTINADA A PEDESTRE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "545-23",
+  "artigo": "181*VIII",
+  "descricao": "ESTACIONAR SOBRE CICLOVIA OU CICLOFAIXA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "545-24",
+  "artigo": "181*VIII",
+  "descricao": "ESTACIONAR NAS ILHAS OU REFUGIOS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "545-25",
+  "artigo": "181*VIII",
+  "descricao": "ESTACIONAR AO LADO OU SOBRE CANTEIRO CENTRAL",
+  "valor": 195.23
+ },
+ {
+  "codigo": "545-26",
+  "artigo": "181*VIII",
+  "descricao": "STACIONAR AO LADO/SOBRE DIVISORES DE PISTA DE ROLAMENTO/MARCAS DE CANALIZACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "545-27",
+  "artigo": "181*VIII",
+  "descricao": "ESTACIONAR AO LADO OU SOBRE GRAMADO OU JARDIM PUBLICO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "546-00",
+  "artigo": "181*IX",
+  "descricao": "ESTACIONAR EM GUIA DE CALCADA REBAIXADA DESTINADA A ENTRADA/SAIDA DE VEICULOS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "547-90",
+  "artigo": "181*X",
+  "descricao": "ESTACIONAR IMPEDINDO A MOVIMENTACAO DE OUTRO VEICULO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "548-70",
+  "artigo": "181*XI",
+  "descricao": "ESTACIONAR AO LADO DE OUTRO VEICULO EM FILA DUPLA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "549-50",
+  "artigo": "181*XII",
+  "descricao": "ESTACIONAR NA AREA DE CRUZAMENTO DE VIAS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "550-90",
+  "artigo": "181*XIII",
+  "descricao": "ESTACIONAR NO PONTO DE EMBARQUE/DESEMBARQUE DE PASSAGEIROS TRANSPORTE COLETIVO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "551-71",
+  "artigo": "181*XIV",
+  "descricao": "ESTACIONAR NOS VIADUTOS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "551-72",
+  "artigo": "181*XIV",
+  "descricao": "ESTACIONAR NAS PONTES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "551-73",
+  "artigo": "181*XIV",
+  "descricao": "ESTACIONAR NOS TUNEIS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "552-50",
+  "artigo": "181*XV",
+  "descricao": "ESTACIONAR VEICULO NA CONTRAMAO DE DIRECAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "553-30",
+  "artigo": "181*XVI",
+  "descricao": "ESTACIONAR ACLIVE/DECLIVE N FREADO E SEM CALCO SEGURANCA, PBT SUPERIOR A 3500KG",
+  "valor": 195.23
+ },
+ {
+  "codigo": "554-11",
+  "artigo": "181*XVII",
+  "descricao": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO ESPECIFICADA PELA SINALIZACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "554-12",
+  "artigo": "181*XVII",
+  "descricao": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "554-13",
+  "artigo": "181*XVII",
+  "descricao": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - PONTO OU VAGA DE TAXI",
+  "valor": 195.23
+ },
+ {
+  "codigo": "554-14",
+  "artigo": "181*XVII",
+  "descricao": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - VAGA DE CARGA/DESCARGA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "554-15",
+  "artigo": "181*XVII",
+  "descricao": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - VAGA PORTADOR NECESSID ESPECIAIS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "554-16",
+  "artigo": "181*XVII",
+  "descricao": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - VAGA IDOSO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "555-00",
+  "artigo": "181*XVIII",
+  "descricao": "ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMENTE PELA SINALIZACAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "556-80",
+  "artigo": "181*XX",
+  "descricao": "ESTACIONAR LOCAL/HORARIO DE ESTACIONAMENTO E PARADA PROIBIDOS PELA SINALIZACAO 181*XIX CON 5 195,23 554- ESTACIONAR NAS VAGAS RESERVADAS ÀS PESSOAS COM DEFICIÊNCIA OU IDOSOS, SEM CREDENCIAL QUE COMPROVE TAL CONDIÇÃO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "557-60",
+  "artigo": "182*I",
+  "descricao": "PARAR NAS ESQUINAS E A MENOS 5M DO BORDO DO ALINHAMENTO DA VIA TRANSVERSAL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "558-40",
+  "artigo": "182*II",
+  "descricao": "PARAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) DE 50CM A 1M",
+  "valor": 88.38
+ },
+ {
+  "codigo": "559-20",
+  "artigo": "182*III",
+  "descricao": "PARAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) A MAIS DE 1M",
+  "valor": 130.16
+ },
+ {
+  "codigo": "560-60",
+  "artigo": "182*IV",
+  "descricao": "PARAR EM DESACORDO COM AS POSICOES ESTABELECIDAS NO CTB",
+  "valor": 88.38
+ },
+ {
+  "codigo": "561-41",
+  "artigo": "182*V",
+  "descricao": "PARAR NA PISTA DE ROLAMENTO DAS ESTRADAS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "561-42",
+  "artigo": "182*V",
+  "descricao": "PARAR NA PISTA DE ROLAMENTO DAS RODOVIAS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "561-43",
+  "artigo": "182*V",
+  "descricao": "PARAR NA PISTA DE ROLAMENTO DAS VIAS DE TRANSITO RAPIDO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "561-44",
+  "artigo": "182*V",
+  "descricao": "PARAR NA PISTA DE ROLAMENTO DAS DEMAIS VIAS DOTADAS ACOSTAMENTO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "562-21",
+  "artigo": "182*VI",
+  "descricao": "PARAR NO PASSEIO/CALCADA",
+  "valor": 88.38
+ },
+ {
+  "codigo": "562-22",
+  "artigo": "182*VI",
+  "descricao": "PARAR SOBRE FAIXA DESTINADA A PEDESTRES",
+  "valor": 88.38
+ },
+ {
+  "codigo": "562-23",
+  "artigo": "182*VI",
+  "descricao": "PARAR NAS ILHAS OU REFUGIOS",
+  "valor": 88.38
+ },
+ {
+  "codigo": "562-24",
+  "artigo": "182*VI",
+  "descricao": "PARAR NOS CANTEIROS CENTRAIS",
+  "valor": 88.38
+ },
+ {
+  "codigo": "562-25",
+  "artigo": "182*VI",
+  "descricao": "PARAR NOS DIVISORES DE PISTA DE ROLAMENTO E MARCAS DE CANALIZACAO",
+  "valor": 88.38
+ },
+ {
+  "codigo": "563-00",
+  "artigo": "182*VII",
+  "descricao": "PARAR NA AREA DE CRUZAMENTO DE VIAS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "564-91",
+  "artigo": "182*VIII",
+  "descricao": "PARAR NOS VIADUTOS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "564-92",
+  "artigo": "182*VIII",
+  "descricao": "PARAR NAS PONTES",
+  "valor": 130.16
+ },
+ {
+  "codigo": "564-93",
+  "artigo": "182*VIII",
+  "descricao": "PARAR NOS TUNEIS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "565-70",
+  "artigo": "182*IX",
+  "descricao": "PARAR NA CONTRA MAO DE DIRECAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "566-50",
+  "artigo": "182*X",
+  "descricao": "PARAR EM LOCAL/HORARIO PROIBIDOS ESPECIFICAMENTE PELA SINALIZACAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "567-31",
+  "artigo": "183",
+  "descricao": "PARAR SOBRE FAIXA DE PEDESTRES NA MUDANCA DE SINAL LUMINOSO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "567-32",
+  "artigo": "183",
+  "descricao": "PARAR SOBRE FAIXA DE PEDESTRES NA MUDANCA DE SINAL LUMINOSO (FISC ELETRÈNICA)",
+  "valor": 130.16
+ },
+ {
+  "codigo": "568-10",
+  "artigo": "184*I",
+  "descricao": "TRANSITAR NA FAIXA/PISTA DA DIREITA REGUL CIRCULACAO EXCLUSIVA DETERM VEICULO",
+  "valor": 88.38
+ },
+ {
+  "codigo": "569-00",
+  "artigo": "184*II",
+  "descricao": "TRANSITAR NA FAIXA/PISTA DA ESQUERDA REGUL CIRCULACAO EXCLUSIVA DETERM VEICULO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "570-30",
+  "artigo": "185*I",
+  "descricao": "DEIXAR DE CONSERVAR O VEICULO NA FAIXA A ELE DESTINADA PELA SINALIZACAO DE REGULAMENTACAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "571-10",
+  "artigo": "185*II",
+  "descricao": "DEIXAR DE CONSERVAR NAS FAIXAS DA DIREITA O VEICULO LENTO E DE MAIOR PORTE",
+  "valor": 130.16
+ },
+ {
+  "codigo": "572-00",
+  "artigo": "186*I",
+  "descricao": "TRANSITAR PELA CONTRAMAO DE DIRECAO EM VIA COM DUPLO SENTIDO DE CIRCULACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "573-80",
+  "artigo": "186*II",
+  "descricao": "TRANSITAR PELA CONTRAMAO DE DIRECAO EM VIA C/ SINALIZACAO DE REGUL SENTIDO UNICO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "574-61",
+  "artigo": "187*I",
+  "descricao": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE",
+  "valor": 130.16
+ },
+ {
+  "codigo": "574-62",
+  "artigo": "187*I",
+  "descricao": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGULAMENTACAO - RODIZIO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "574-63",
+  "artigo": "187*I",
+  "descricao": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGULAMENTACAO - VEICULO DE CARGA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "576-20",
+  "artigo": "188",
+  "descricao": "TRANSITAR AO LADO DE OUTRO VEICULO, INTERROMPENDO OU PERTURBANDO O TRANSITO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "577-01",
+  "artigo": "189",
+  "descricao": "DEIXAR DE DAR PASSAGEM A VEIC PRECEDIDO DE BATEDORES DEVIDAMENTE IDENTIFICADOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "577-02",
+  "artigo": "189",
+  "descricao": "DEIXAR DE DAR PASSAGEM A VEIC SOCORRO DE INCENDIO EM SERV URGENCIA DEVID IDENTIF",
+  "valor": 293.47
+ },
+ {
+  "codigo": "577-03",
+  "artigo": "189",
+  "descricao": "DEIXAR DE DAR PASSAGEM A VEIC DE POLICIA EM SERVICO DE URGENCIA DEVID IDENTIF",
+  "valor": 293.47
+ },
+ {
+  "codigo": "577-04",
+  "artigo": "189",
+  "descricao": "DEIXAR DE DAR PASSAGEM A VEIC DE OPERACAO E FISCALIZACAO DE TRANSITO DEVID IDENT",
+  "valor": 293.47
+ },
+ {
+  "codigo": "577-05",
+  "artigo": "189",
+  "descricao": "DEIXAR DE DAR PASSAGEM A AMBULANCIA EM SERVICO DE URGENCIA DEVID IDENTIFICADA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "578-90",
+  "artigo": "190",
+  "descricao": "SEGUIR VEICULO EM SERV URGENCIA DEVID IDENTIFIC P/ ALARME SONORO/ILUM VERMELHA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "579-70",
+  "artigo": "191",
+  "descricao": "FORCAR PASSAGEM ENTRE VEICS TRANS SENT OPOSTOS NA IMINENCIA REALIZ ULTRAPASSAGEM",
+  "valor": 2934.7
+ },
+ {
+  "codigo": "580-00",
+  "artigo": "192",
+  "descricao": "DEIXAR GUARDAR DIST SEGURANCA LAT/FRONT ENTRE SEU VEIC E DEMAIS E AO BORDO PISTA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "581-91",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM CALCADAS, PASSEIOS",
+  "valor": 880.41
+ },
+ {
+  "codigo": "581-92",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM CICLOVIAS, CICLOFAIXAS",
+  "valor": 880.41
+ },
+ {
+  "codigo": "581-93",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM AJARDINAMENTOS, GRAMADOS, JARDINS PUBLICOS",
+  "valor": 880.41
+ },
+ {
+  "codigo": "581-94",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM CANTEIROS CENTRAIS",
+  "valor": 880.41
+ },
+ {
+  "codigo": "581-95",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM ILHAS, REFUGIOS",
+  "valor": 880.41
+ },
+ {
+  "codigo": "581-96",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM DIVISORES DE PISTA DE ROLAMENTO, MARCA DE CALIZACAO",
+  "valor": 880.41
+ },
+ {
+  "codigo": "581-97",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM ACOSTAMENTOS",
+  "valor": 880.41
+ },
+ {
+  "codigo": "581-98",
+  "artigo": "193",
+  "descricao": "TRANSITAR COM O VEICULO EM PASSARELAS",
+  "valor": 880.41
+ },
+ {
+  "codigo": "582-70",
+  "artigo": "194",
+  "descricao": "TRANSITAR EM MARCHA RE, SALVO NA DISTANCIA NECESSARIA A PEQUENAS MANOBRAS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "583-50",
+  "artigo": "195",
+  "descricao": "DESOBEDECER AS ORDENS EMANADAS DA AUTORID COMPET DE TRANSITO OU DE SEUS AGENTES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "584-31",
+  "artigo": "196",
+  "descricao": "DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, INICIO DA MARCHA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "584-32",
+  "artigo": "196",
+  "descricao": "DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, MANOBRA DE PARAR",
+  "valor": 195.23
+ },
+ {
+  "codigo": "584-33",
+  "artigo": "196",
+  "descricao": "DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, MUDANCA DIRECAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "584-34",
+  "artigo": "196",
+  "descricao": "DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, MUDANCA DE FAIXA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "585-11",
+  "artigo": "197",
+  "descricao": "DEIXAR DE DESLOCAR C/ANTECEDENCIA VEIC P/ FAIXA MAIS A ESQUERDA QDO FOR MANOBRAR",
+  "valor": 130.16
+ },
+ {
+  "codigo": "585-12",
+  "artigo": "197",
+  "descricao": "DEIXAR DE DESLOCAR C/ANTECEDENCIA VEIC P/ FAIXA MAIS A DIREITA QDO FOR MANOBRAR",
+  "valor": 130.16
+ },
+ {
+  "codigo": "586-00",
+  "artigo": "198",
+  "descricao": "DEIXAR DE DAR PASSAGEM PELA ESQUERDA, QUANDO SOLICITADO.",
+  "valor": 130.16
+ },
+ {
+  "codigo": "587-80",
+  "artigo": "199",
+  "descricao": "ULTRAPASSAR PELA DIREITA, SALVO QUANDO O VEICULO DA FRENTE DER SINAL P/ ENTRAR ESQUERDA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "588-60",
+  "artigo": "200",
+  "descricao": "ULTRAP PELA DIREITA VEIC DE TRANSP COLETIVO PARADO PARA EMB/DESEMB PASSAGEIROS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "589-40",
+  "artigo": "201",
+  "descricao": "DEIXAR DE GUARDAR A DISTANCIA LATERAL DE 1,50M AO PASSAR/ULTRAPASSAR BICICLETA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "590-80",
+  "artigo": "202*I",
+  "descricao": "ULTRAPASSAR PELO ACOSTAMENTO.",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "591-61",
+  "artigo": "202*II",
+  "descricao": "ULTRAPASSAR EM INTERSECOES",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "591-62",
+  "artigo": "202*II",
+  "descricao": "ULTRAPASSAR EM PASSAGEM DE NIVEL",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "592-41",
+  "artigo": "203*I",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO NAS CURVAS SEM VISIBILIDADE SUFICIENTE",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "592-42",
+  "artigo": "203*I",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO NOS ACLIVES OU DECLIVES, SEM VISIBILIDADE SUFICIENTE",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "593-20",
+  "artigo": "203*II",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO NAS FAIXAS DE PEDESTRE.",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "594-01",
+  "artigo": "203*III",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO NAS PONTES",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "594-02",
+  "artigo": "203*III",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO NOS VIADUTOS",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "594-03",
+  "artigo": "203*III",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO NOS TUNEIS",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "595-91",
+  "artigo": "203*IV",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO VEICULO PARADO EM FILA JUNTO SINAL LUMINOSO",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "595-92",
+  "artigo": "203*IV",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO VEICULO PARADO EM FILA JUNTO A CANCELA/PORTEIRA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "595-93",
+  "artigo": "203*IV",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO VEICULO PARADO EM FILA JUNTO A CRUZAMENTO",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "595-94",
+  "artigo": "203*IV",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO VEIC PARADO EM FILA JUNTO QQ IMPEDIMENTO A CIRCULACAO",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "596-70",
+  "artigo": "203*V",
+  "descricao": "ULTRAPASSAR PELA CONTRAMAO LINHA DE DIVISAO DE FLUXOS OPOSTOS, CONTINUA AMARELA",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "597-50",
+  "artigo": "204",
+  "descricao": "DEIXAR DE PARAR NO ACOSTAMENTO A DIREITA, P/ CRUZAR PISTA OU ENTRAR A ESQUERDA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "598-30",
+  "artigo": "205",
+  "descricao": "ULTRAPASSAR VEICULO EM MOVIMENTO QUE INTEGRE CORTEJO/DESFILE/FORMACAO MILITAR",
+  "valor": 88.38
+ },
+ {
+  "codigo": "599-10",
+  "artigo": "206*I",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO EM LOCAIS PROIBIDOS PELA SINALIZACAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "600-91",
+  "artigo": "206*II",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO NAS CURVAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "600-92",
+  "artigo": "206*II",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO NOS ACLIVES OU DECLIVES",
+  "valor": 293.47
+ },
+ {
+  "codigo": "600-93",
+  "artigo": "206*II",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO NAS PONTES",
+  "valor": 293.47
+ },
+ {
+  "codigo": "600-94",
+  "artigo": "206*II",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO NOS VIADUTOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "600-95",
+  "artigo": "206*II",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO NOS TUNEIS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "601-71",
+  "artigo": "206*III",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE CALCADA, PASSEIO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "601-72",
+  "artigo": "206*III",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE ILHA, REFUGIO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "601-73",
+  "artigo": "206*III",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE AJARDINAMENTO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "601-74",
+  "artigo": "206*III",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE CANTEIRO DE DIVISOR DE PISTA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "601-75",
+  "artigo": "206*III",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE FAIXA DE PEDESTRES",
+  "valor": 293.47
+ },
+ {
+  "codigo": "601-76",
+  "artigo": "206*III",
+  "descricao": "EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE FAIXA DE VEIC NAO MOTORIZADOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "602-50",
+  "artigo": "206*IV",
+  "descricao": "EXECUTAR RETORNO NAS INTERSECOES, ENTRANDO NA CONTRAMAO DA VIA TRANSVERSAL",
+  "valor": 293.47
+ },
+ {
+  "codigo": "603-30",
+  "artigo": "206*V",
+  "descricao": "EXECUTAR RETORNO C/PREJUIZO DA CIRCULACAO/SEGURANCA AINDA QUE EM LOCAL PERMITIDO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "604-11",
+  "artigo": "207",
+  "descricao": "EXECUTAR OPERACAO DE CONVERSAO A DIREITA EM LOCAL PROIBIDO PELA SINALIZACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "604-12",
+  "artigo": "207",
+  "descricao": "EXECUTAR OPERACAO DE CONVERSAO A ESQUERDA EM LOCAL PROIBIDO PELA SINALIZACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "605-01",
+  "artigo": "208",
+  "descricao": "AVANCAR O SINAL VERMELHO DO SEMAFORO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "605-02",
+  "artigo": "208",
+  "descricao": "AVANCAR O SINAL DE PARADA OBRIGATORIA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "605-03",
+  "artigo": "208",
+  "descricao": "AVANCAR O SINAL VERMELHO DO SEMAFORO - FISCALIZACAO ELETRONICA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "606-81",
+  "artigo": "209",
+  "descricao": "TRANSPOR BLOQUEIO VIARIO COM OU SEM SINALIZACAO OU DISPOSITIVOS AUXILIARES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "606-82",
+  "artigo": "209",
+  "descricao": "DEIXAR DE ADENTRAR AS AREAS DESTINADAS A PESAGEM DE VEICULOS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "606-83",
+  "artigo": "209",
+  "descricao": "EVADIR-SE PARA NAO EFETUAR O PAGAMENTO DO PEDAGIO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "607-60",
+  "artigo": "210",
+  "descricao": "TRANSPOR BLOQUEIO VIARIO POLICIAL",
+  "valor": 293.47
+ },
+ {
+  "codigo": "608-41",
+  "artigo": "211",
+  "descricao": "ULTRAPASSAR VEICULOS MOTORIZADOS EM FILA, PARADOS EM RAZAO DE SINAL LUMINOSO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "608-42",
+  "artigo": "211",
+  "descricao": "ULTRAPASSAR VEICULOS MOTORIZADOS EM FILA, PARADOS EM RAZAO DE CANCELA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "608-43",
+  "artigo": "211",
+  "descricao": "ULTRAPASSAR VEIC MOTORIZADOS EM FILA PARADOS EM RAZAO DE BLOQUEIO VIARIO PARCIAL",
+  "valor": 195.23
+ },
+ {
+  "codigo": "608-44",
+  "artigo": "211",
+  "descricao": "ULTRAPASSAR VEICULOS MOTORIZADOS EM FILA, PARADOS EM RAZAO DE QUALQUER OBSTACULO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "609-20",
+  "artigo": "212",
+  "descricao": "DEIXAR DE PARAR O VEICULO ANTES DE TRANSPOR LINHA FERREA.",
+  "valor": 293.47
+ },
+ {
+  "codigo": "610-60",
+  "artigo": "213*I",
+  "descricao": "DEIXAR DE PARAR SEMPRE QUE A MARCHA FOR INTERCEPTADA POR AGRUPAMENTO DE PESSOAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "611-40",
+  "artigo": "213*II",
+  "descricao": "DEIXAR DE PARAR SEMPRE QUE A MARCHA FOR INTERCEPTADA POR AGRUPAMENTO DE VEICULOS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "612-20",
+  "artigo": "214*I",
+  "descricao": "DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC N MOTORIZADO NA FAIXA A ELE DESTINADA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "613-00",
+  "artigo": "214*II",
+  "descricao": "DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC N MOT QUE N HAJA CONCLUIDO A TRAVESSIA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "614-90",
+  "artigo": "214*III",
+  "descricao": "DEIXAR DE DAR PREFERENCIA A PEDESTRE PORT DEFICIENCIA FIS/CRIANCA/IDOSO/GESTANTE",
+  "valor": 293.47
+ },
+ {
+  "codigo": "615-70",
+  "artigo": "214*IV",
+  "descricao": "DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC N MOT QDO INICIADA TRAVESSIA S/SINALIZ",
+  "valor": 195.23
+ },
+ {
+  "codigo": "616-50",
+  "artigo": "214*V",
+  "descricao": "DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC NAO MOT ATRAVESSANDO A VIA TRANSVERSAL",
+  "valor": 195.23
+ },
+ {
+  "codigo": "617-31",
+  "artigo": "215*I*A",
+  "descricao": "DEIXAR DE DAR PREFERENCIA EM INTERSECAO N SINALIZ, A VEIC CIRCULANDO POR RODOVIA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "617-32",
+  "artigo": "215*I*A",
+  "descricao": "DEIXAR DE DAR PREFERENCIA EM INTERSECAO N SINALIZ, VEIC CIRCULANDO POR ROTATORIA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "617-33",
+  "artigo": "215*I*B",
+  "descricao": "DEIXAR DE DAR PREFER EM INTERSECAO NAO SINALIZADA, A VEICULO QUE VIER DA DIREITA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "618-10",
+  "artigo": "215*II",
+  "descricao": "DEIXAR DE DAR PREFERENCIA EM INTERSECOES COM SINALIZACAO DE \"DE A PREFERENCIA\"",
+  "valor": 195.23
+ },
+ {
+  "codigo": "619-00",
+  "artigo": "216",
+  "descricao": "ENTRAR/SAIR AREA LINDEIRA SEM PRECAUCAO COM A SEGURANCA DE PEDESTRES E VEICULOS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "625-40",
+  "artigo": "219",
+  "descricao": "TRANSITAR EM VELOCIDADE INFERIOR A METADE DA MAXIMA DA VIA, SALVO FAIXA DIREITA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "626-20",
+  "artigo": "220*I",
+  "descricao": "DEIXAR DE REDUZIR A VELOC QDO SE APROXIMAR DE PASSEATA/AGLOMERACAO/DESFILE/ETC",
+  "valor": 293.47
+ },
+ {
+  "codigo": "627-00",
+  "artigo": "220*II",
+  "descricao": "DEIXAR DE REDUZIR A VELOC ONDE O TRANSITO ESTEJA SENDO CONTROLADO PELO AGENTE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "628-91",
+  "artigo": "220*III",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO AO APROXIMAR-SE DA GUIA DA CALCADA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "628-92",
+  "artigo": "220*III",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO AO APROXIMAR-SE DO ACOSTAMENTO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "629-70",
+  "artigo": "220*IV",
+  "descricao": "DEIXAR DE REDUZIR VELOCIDADE DO VEICULO AO APROXIMAR-SE INTERSECAO N SINALIZADA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "630-00",
+  "artigo": "220*V",
+  "descricao": "DEIXAR REDUZIR VELOCIDADE NAS VIAS RURAIS CUJA FAIXA DOMINIO NAO ESTEJA CERCADA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "631-90",
+  "artigo": "220*VI",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE NOS TRECHOS EM CURVA DE PEQUENO RAIO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "632-70",
+  "artigo": "220*VII",
+  "descricao": "DEIXAR DE REDUZIR VELOC AO APROXIMAR LOCAL SINALIZ ADVERT DE OBRAS/TRABALHADORES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "633-50",
+  "artigo": "220*VIII",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE SOB CHUVA/NEBLINA/CERRACAO/VENTOS FORTES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "634-30",
+  "artigo": "220*IX",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE QUANDO HOUVER MA VISIBILIDADE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "635-10",
+  "artigo": "220*X",
+  "descricao": "DEIXAR DE REDUZIR VELOC QDO PAVIMENTO SE APRESENTAR ESCORREG/DEFEITUOSO/AVARIADO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "636-00",
+  "artigo": "220*XI",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE + APROXIMACAO DE ANIMAIS NA PISTA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "637-80",
+  "artigo": "220*XII",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO DE FORMA COMPATIVEL COM A SEGURANCA, EM DECLIVE.",
+  "valor": 195.23
+ },
+ {
+  "codigo": "638-60",
+  "artigo": "220*XIII",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO DE FORMA COMPATIVEL C/ SEGURANCA AO ULTRAPASSAR CICLISTA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "639-41",
+  "artigo": "220*XIV",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE NAS PROXIMIDADES DE ESCOLAS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "639-42",
+  "artigo": "220*XIV",
+  "descricao": "DEIXAR DE REDUZIR A VELOCIDADE NAS PROXIMIDADES DE HOSPITAIS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "639-43",
+  "artigo": "220*XIV",
+  "descricao": "DEIXAR DE REDUZIR VELOC.NA PROXIM.ESTACAO EMBARQUE/DESEMBARQUE PASSAGEIROS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "639-44",
+  "artigo": "220*XIV",
+  "descricao": "DEIXAR DE REDUZIR VELOC.ONDE HAJA INTENSA MOVIMENTACAO DE PEDESTRES",
+  "valor": 293.47
+ },
+ {
+  "codigo": "640-80",
+  "artigo": "221",
+  "descricao": "PORTAR NO VEICULO PLACAS DE IDENTIFICACAO EM DESACORDO COM AS ESPECIF/MODELO CONTRAN",
+  "valor": 130.16
+ },
+ {
+  "codigo": "641-60",
+  "artigo": "221 pr UNICO",
+  "descricao": "CONFEC/DISTRIBUIR/COLOCAR VEIC PROPRIO/TERCEIRO PLACA IDENTIF DESACORDO CONTRAN",
+  "valor": 130.16
+ },
+ {
+  "codigo": "642-40",
+  "artigo": "222",
+  "descricao": "DEIXAR DE MANTER LIGADO EM EMERG SIST ILUM VERMELHA INTERMITENTE AINDA Q PARADO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "643-21",
+  "artigo": "223",
+  "descricao": "TRANSITAR COM FAROL DESREGULADO PERTURBANDO A VISAO DE OUTRO CONDUTOR",
+  "valor": 195.23
+ },
+ {
+  "codigo": "643-22",
+  "artigo": "223",
+  "descricao": "TRANSITAR COM O FACHO DE LUZ ALTA PERTURBANDO A VISAO DE OUTRO CONDUTOR",
+  "valor": 195.23
+ },
+ {
+  "codigo": "644-00",
+  "artigo": "224",
+  "descricao": "FAZER USO DO FACHO DE LUZ ALTA DOS FAROIS EM VIAS PROVIDAS DE ILUMINACAO PUBLICA",
+  "valor": 88.38
+ },
+ {
+  "codigo": "645-91",
+  "artigo": "225*I",
+  "descricao": "DEIXAR DE SINALIZAR VIA P/ TORNAR VISIVEL LOCAL QDO TIVER REMOVER VEIC DA PISTA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "645-92",
+  "artigo": "225*I",
+  "descricao": "DEIXAR DE SINALIZAR A VIA P/ TORNAR VISIVEL O LOCAL QDO PERMANECER ACOSTAMENTO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "646-70",
+  "artigo": "225*II",
+  "descricao": "DEIXAR DE SINALIZAR A VIA P/ TORNAR VISIVEL O LOCAL QDO A CARGA FOR DERRAMADA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "647-50",
+  "artigo": "226",
+  "descricao": "DEIXAR DE RETIRAR QUALQUER OBJETO UTILIZADO PARA SINALIZACAO TEMPORARIA DA VIA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "648-30",
+  "artigo": "227*I",
+  "descricao": "USAR BUZINA QUE NAO A DE TOQUE BREVE COMO ADVERTENCIA A PEDESTRE OU CONDUTORES",
+  "valor": 88.38
+ },
+ {
+  "codigo": "649-10",
+  "artigo": "227*II",
+  "descricao": "USAR BUZINA PROLONGADA E SUCESSIVAMENTE A QUALQUER PRETEXTO.",
+  "valor": 88.38
+ },
+ {
+  "codigo": "650-50",
+  "artigo": "227*III",
+  "descricao": "USAR BUZINA ENTRE AS VINTE E DUAS E AS SEIS HORAS",
+  "valor": 88.38
+ },
+ {
+  "codigo": "651-30",
+  "artigo": "227*IV",
+  "descricao": "USAR BUZINA EM LOCAIS E HORARIOS PROIBIDOS PELA SINALIZACAO",
+  "valor": 88.38
+ },
+ {
+  "codigo": "652-10",
+  "artigo": "227*V",
+  "descricao": "USAR BUZINA EM DESACORDO COM OS PADROES E FREQUENCIAS ESTABELECIDAS PELO CONTRAN",
+  "valor": 88.38
+ },
+ {
+  "codigo": "653-00",
+  "artigo": "228",
+  "descricao": "USAR NO VEICULO EQUIPAMENTO C/ SOM EM VOLUME/FREQUENCIA NAO AUTORIZADOS PELO CONTRAN",
+  "valor": 195.23
+ },
+ {
+  "codigo": "654-81",
+  "artigo": "229",
+  "descricao": "USAR NO VEIC ALARME Q PERTURBE O SOSSEGO PUBLICO, EM DESACORDO NORMAS DO CONTRAN",
+  "valor": 130.16
+ },
+ {
+  "codigo": "654-82",
+  "artigo": "229",
+  "descricao": "USAR NO VEIC APARELHO PRODUZA SOM/RUIDO PERTURBE SOSSEGO PUBLIC DESAC C/ CONTRAN",
+  "valor": 130.16
+ },
+ {
+  "codigo": "655-61",
+  "artigo": "230*I",
+  "descricao": "CONDUZIR O VEICULO COM O LACRE DE IDENTIFICACAO VIOLADO/FALSIFICADO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "655-62",
+  "artigo": "230*I",
+  "descricao": "CONDUZIR O VEICULO COM A INSCRICAO DO CHASSI VIOLADA/FALSIFICADA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "655-63",
+  "artigo": "230*I",
+  "descricao": "CONDUZIR O VEICULO COM O SELO VIOLADO/FALSIFICADO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "655-64",
+  "artigo": "230*I",
+  "descricao": "CONDUZIR O VEICULO COM A PLACA VIOLADA/FALSIFICADA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "655-65",
+  "artigo": "230*I",
+  "descricao": "CONDUZIR O VEICULO COM QUALQUER OUTRO ELEM DE IDENTIFICACAO VIOLADO/FALSIFICADO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "656-40",
+  "artigo": "230*II",
+  "descricao": "CONDUZIR O VEICULO TRANSPORTANDO PASSAGEIROS EM COMPARTIMENTO DE CARGA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "657-20",
+  "artigo": "230*III",
+  "descricao": "CONDUZIR O VEICULO COM DISPOSITIVO ANTI-RADAR",
+  "valor": 293.47
+ },
+ {
+  "codigo": "658-00",
+  "artigo": "230*IV",
+  "descricao": "CONDUZIR O VEICULO SEM QUALQUER UMA DAS PLACAS DE IDENTIFICACAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "659-91",
+  "artigo": "230*V",
+  "descricao": "CONDUZIR O VEICULO QUE NAO ESTEJA REGISTRADO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "659-92",
+  "artigo": "230*V",
+  "descricao": "CONDUZIR O VEICULO REGISTRADO QUE NAO ESTEJA DEVIDAMENTE LICENCIADO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "660-20",
+  "artigo": "230*VI",
+  "descricao": "CONDUZIR O VEICULO COM QUALQUER UMA DAS PLACAS SEM LEGIBILIDADE E VISIBILIDADE",
+  "valor": 293.47
+ },
+ {
+  "codigo": "661-01",
+  "artigo": "230*VII",
+  "descricao": "CONDUZIR O VEICULO COM A COR ALTERADA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "661-02",
+  "artigo": "230*VII",
+  "descricao": "CONDUZIR O VEICULO COM CARACTERISTICA ALTERADA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "662-90",
+  "artigo": "230*VIII",
+  "descricao": "CONDUZIR VEICULO SEM TER SIDO SUBMETIDO A INSPECAO DE SEG VEICULAR, QDO OBRIGATORIA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "663-71",
+  "artigo": "230*IX",
+  "descricao": "CONDUZIR O VEICULO SEM EQUIPAMENTO OBRIGATORIO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "663-72",
+  "artigo": "230*IX",
+  "descricao": "CONDUZIR O VEICULO COM EQUIPAMENTO OBRIGATORIO INEFICIENTE/INOPERANTE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "664-50",
+  "artigo": "230*X",
+  "descricao": "CONDUZIR VEICULO COM EQUIPAMENTO OBRIGATORIO EM DESACORDO COM O ESTABELECIDO PELO CONTRAN",
+  "valor": 195.23
+ },
+ {
+  "codigo": "665-31",
+  "artigo": "230*XI",
+  "descricao": "CONDUZIR O VEICULO COM DESCARGA LIVRE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "665-32",
+  "artigo": "230*XI",
+  "descricao": "CONDUZIR O VEICULO COM SILENCIADOR DE MOTOR DEFEITUOSO/DEFICIENTE/INOPERANTE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "666-10",
+  "artigo": "230*XII",
+  "descricao": "CONDUZIR O VEICULO COM EQUIPAMENTO OU ACESSORIO PROIBIDO.",
+  "valor": 195.23
+ },
+ {
+  "codigo": "667-00",
+  "artigo": "230*XIII",
+  "descricao": "CONDUZIR O VEICULO COM O EQUIPAMENTO DO SISTEMA DE ILUMINACAO E DE SINALIZACAO ALTERADOS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "668-80",
+  "artigo": "230*XIV",
+  "descricao": "CONDUZIR VEIC C/ REGISTRADOR INSTAN INALT DE VELOCIDADE/TEMPO VICIADO/DEFEITUOSO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "669-61",
+  "artigo": "230*XV",
+  "descricao": "CONDUZIR C/ INSCR/ADESIVO/LEGENDA/SIMBOLO AFIXADO PARA-BRISA E EXTENSAO TRASEIRA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "669-62",
+  "artigo": "230*XV",
+  "descricao": "CONDUZIR C/ INSCR/ADESIVO/LEGENDA/SIMBOLO PINTADO PARA-BRISA E EXTENSAO TRASEIRA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "670-01",
+  "artigo": "230*XVI",
+  "descricao": "CONDUZIR O VEICULO COM VIDROS TOTALMENTE COBERTOS POR PELICULA, PAINEIS/PINTURA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "670-02",
+  "artigo": "230*XVI",
+  "descricao": "CONDUZIR O VEICULO C/ VIDROS PARCIALMENTE COBERTOS POR PELICULA, PAINEIS/PINTURA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "671-80",
+  "artigo": "230*XVII",
+  "descricao": "CONDUZIR O VEICULO COM CORTINAS OU PERSIANAS FECHADAS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "672-61",
+  "artigo": "230*XVIII",
+  "descricao": "CONDUZIR O VEICULO EM MAU ESTADO DE CONSERVACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "672-62",
+  "artigo": "230*XVIII",
+  "descricao": "CONDUZIR O VEICULO REPROVADO NA AVALIACAO DE INSPECAO DE SEGURANCA",
+  "valor": 195.23
+ },
+ {
+  "codigo": "672-63",
+  "artigo": "230*XVIII",
+  "descricao": "CONDUZIR O VEICULO REPROVADO NA AVALIACAO DE EMISSAO DE POLUENTES E RUIDO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "673-40",
+  "artigo": "230*XIX",
+  "descricao": "CONDUZIR O VEICULO SEM ACIONAR O LIMPADOR DE PARA-BRISAS SOB CHUVA.",
+  "valor": 195.23
+ },
+ {
+  "codigo": "674-20",
+  "artigo": "230*XX",
+  "descricao": "CONDUZIR O VEICULO SEM PORTAR A AUTORIZACAO PARA CONDUCAO DE ESCOLARES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "675-00",
+  "artigo": "230*XXI",
+  "descricao": "CONDUZIR O VEIC DE CARGA C/ FALTA INSCRICAO DA TARA E DEMAIS PREVISTAS NO CTB",
+  "valor": 130.16
+ },
+ {
+  "codigo": "676-91",
+  "artigo": "230*XXII",
+  "descricao": "CONDUZIR O VEICULO COM DEFEITO NO SISTEMA DE ILUMINACAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "676-92",
+  "artigo": "230*XXII",
+  "descricao": "CONDUZIR O VEICULO COM DEFEITO NO SISTEMA DE SINALIZACAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "676-93",
+  "artigo": "230*XXII",
+  "descricao": "CONDUZIR O VEICULO COM LAMPADAS QUEIMADAS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "677-70",
+  "artigo": "231*I",
+  "descricao": "TRANSITAR COM O VEICULO DANIFICANDO A VIA, SUAS INSTALACOES E EQUIPAMENTOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "678-51",
+  "artigo": "231*II*A",
+  "descricao": "TRANSITAR COM VEICULO DERRAMANDO A CARGA QUE ESTEJA TRANSPORTANDO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "678-52",
+  "artigo": "231*II*A",
+  "descricao": "TRANSITAR COM VEICULO LANCANDO A CARGA QUE ESTEJA TRANSPORTANDO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "678-53",
+  "artigo": "231*II*A",
+  "descricao": "TRANSITAR COM VEICULO ARRASTANDO A CARGA QUE ESTEJA TRANSPORTANDO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "679-30",
+  "artigo": "231*II*B",
+  "descricao": "TRANSITAR COM O VEICULO DERRAMANDO/LANCANDO COMBUSTIVEL/LUBRIF QUE ESTEJA UTILIZANDO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "680-70",
+  "artigo": "231*II*C",
+  "descricao": "TRANSITAR C/ VEIC DERRAMANDO/LANCANDO/ARRASTANDO QQ OBJETO COM RISCO DE ACIDENTE",
+  "valor": 293.47
+ },
+ {
+  "codigo": "681-50",
+  "artigo": "231*III",
+  "descricao": "TRANSITAR COM VEICULO PRODUZINDO FUMACA, GASES OU PARTICULASEM DESAC C/ CONTRAN",
+  "valor": 195.23
+ },
+ {
+  "codigo": "682-31",
+  "artigo": "231*IV",
+  "descricao": "TRANSITAR C/ VEIC E/OU CARGA C/ DIMENSOES SUPERIORES LIMITE LEGAL S/ AUTORIZACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "682-32",
+  "artigo": "231*IV",
+  "descricao": "TRANSITAR C/ VEIC E/OU CARGA C/ DIMENSOES SUPERIORES EST P/SINALIZACAO S/AUTORIZ",
+  "valor": 195.23
+ },
+ {
+  "codigo": "683-10",
+  "artigo": "231*V",
+  "descricao": "TRANSITAR COM O VEICULO COM EXCESSO DE PESO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "684-01",
+  "artigo": "231*VI",
+  "descricao": "TRANSITAR EM DESACORDO C/ AUTORIZACAO EXPEDIDA P/VEICULO C/ DIMENSOES EXCEDENTES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "684-02",
+  "artigo": "231*VI",
+  "descricao": "TRANSITAR COM AUTORIZACAO VENCIDA, EXPEDIDA P/ VEICULO C/ DIMENSOES EXCEDENTES",
+  "valor": 195.23
+ },
+ {
+  "codigo": "685-80",
+  "artigo": "231*VII",
+  "descricao": "TRANSITAR COM O VEICULO COM LOTACAO EXCEDENTE",
+  "valor": 130.16
+ },
+ {
+  "codigo": "686-61",
+  "artigo": "231*VIII",
+  "descricao": "TRANSITAR EFETUANDO TRANSPORTE REMUNERADO DE PESSOAS QDO N LICENCIADO P/ESSE FIM",
+  "valor": 130.16
+ },
+ {
+  "codigo": "686-62",
+  "artigo": "231*VIII",
+  "descricao": "TRANSITAR EFETUANDO TRANSPORTE REMUNERADO DE BENS QDO NAO LICENCIADO P/ ESSE FIM",
+  "valor": 130.16
+ },
+ {
+  "codigo": "687-41",
+  "artigo": "231*IX",
+  "descricao": "TRANSITAR COM O VEICULO DESLIGADO EM DECLIVE",
+  "valor": 130.16
+ },
+ {
+  "codigo": "687-42",
+  "artigo": "231*IX",
+  "descricao": "TRANSITAR COM O VEICULO DESENGRENADO EM DECLIVE",
+  "valor": 130.16
+ },
+ {
+  "codigo": "688-20",
+  "artigo": "231*X",
+  "descricao": "TRANSITAR COM O VEICULO EXCEDENDO A CAPACIDADE MAXIMA DE TRACAO - MEDIA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "689-00",
+  "artigo": "231*X",
+  "descricao": "TRANSITAR COM O VEICULO EXCEDENDO A CAPACIDADE MAXIMA DE TRACAO - GRAVE",
+  "valor": 195.23
+ },
+ {
+  "codigo": "690-40",
+  "artigo": "231*X",
+  "descricao": "TRANSITAR COM O VEICULO EXCEDENDO A CAPACIDADE MAXIMA DE TRACAO - GRAVISSIMA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "691-20",
+  "artigo": "232",
+  "descricao": "CONDUZIR VEICULO SEM OS DOCUMENTOS DE PORTE OBRIGATORIO REFERIDOS NO CTB",
+  "valor": 88.38
+ },
+ {
+  "codigo": "692-00",
+  "artigo": "233",
+  "descricao": "DEIXAR DE EFETUAR REGISTRO DE VEICULO NO PRAZO DE TRINTA DIAS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "693-91",
+  "artigo": "234",
+  "descricao": "FALSIFICAR DOCUMENTO DE HABILITACAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "693-92",
+  "artigo": "234",
+  "descricao": "ADULTERAR DOCUMENTO DE HABILITACAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "693-93",
+  "artigo": "234",
+  "descricao": "FALSIFICAR DOCUMENTO DE IDENTIFICACAO DO VEICULO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "693-94",
+  "artigo": "234",
+  "descricao": "ADULTERAR DOCUMENTO DE IDENTIFICACAO DO VEICULO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "694-71",
+  "artigo": "235",
+  "descricao": "CONDUZIR PESSOAS NAS PARTES EXTERNAS DO VEICULO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "694-72",
+  "artigo": "235",
+  "descricao": "CONDUZIR ANIMAIS NAS PARTES EXTERNAS DO VEICULO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "694-73",
+  "artigo": "235",
+  "descricao": "CONDUZIR CARGA NAS PARTES EXTERNAS DO VEICULO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "695-50",
+  "artigo": "236",
+  "descricao": "REBOCAR OUTRO VEICULO COM CABO FLEXIVEL OU CORDA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "696-31",
+  "artigo": "237",
+  "descricao": "TRANSITAR C/ VEIC EM DESACORDO C/ ESPECIFICACOES NECESSARIAS A SUA IDENTIFICACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "696-32",
+  "artigo": "237",
+  "descricao": "TRANSITAR COM VEICULO COM FALTA DE INSCRICAO NECESSARIA A SUA IDENTIFICACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "696-33",
+  "artigo": "237",
+  "descricao": "TRANSITAR COM VEICULO COM FALTA DE SIMBOLOGIA NECESSARIA A SUA IDENTIFICACAO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "697-10",
+  "artigo": "238",
+  "descricao": "RECUSAR-SE A ENTREGAR CNH/CRV/CRLV/ OUTROS DOCUMENTOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "698-00",
+  "artigo": "239",
+  "descricao": "RETIRAR DO LOCAL VEICULO LEGALMENTE RETIDO PARA REGULARIZACAO, SEM PERMISSAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "699-80",
+  "artigo": "240",
+  "descricao": "DEIXAR RESPONSAVEL DE PROMOVER BAIXA REGISTRO DE VEIC IRRECUPERAVEL/DESMONTADO",
+  "valor": 195.23
+ },
+ {
+  "codigo": "700-51",
+  "artigo": "241",
+  "descricao": "DEIXAR DE ATUALIZAR O CADASTRO DE REGISTRO DO VEICULO",
+  "valor": 88.38
+ },
+ {
+  "codigo": "700-52",
+  "artigo": "241",
+  "descricao": "DEIXAR DE ATUALIZAR O CADASTRO DE HABILITACAO DO CONDUTOR",
+  "valor": 88.38
+ },
+ {
+  "codigo": "701-31",
+  "artigo": "242",
+  "descricao": "FAZER FALSA DECLARACAO DE DOMICILIO PARA FINS DE REGISTRO/LICENCIAMENTO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "701-32",
+  "artigo": "242",
+  "descricao": "FAZER FALSA DECLARACAO DE DOMICILIO PARA FINS DE HABILITACAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "702-10",
+  "artigo": "243",
+  "descricao": "DEIXAR SEGURADORA DE COMUNICAR OCORRENCIA PERDA TOTAL VEIC E DEVOLVER PLACAS/DOC",
+  "valor": 195.23
+ },
+ {
+  "codigo": "703-01",
+  "artigo": "244*I",
+  "descricao": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR SEM CAPACETE DE SEGURANCA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "703-02",
+  "artigo": "244*I",
+  "descricao": "CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR C/ CAPACETE S/ VISEIRA/OCULOS PROTECAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "703-03",
+  "artigo": "244*I",
+  "descricao": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR SEM VESTUARIO APROVADO PELO CONTRAN",
+  "valor": 293.47
+ },
+ {
+  "codigo": "704-81",
+  "artigo": "244*II",
+  "descricao": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE",
+  "valor": 293.47
+ },
+ {
+  "codigo": "704-82",
+  "artigo": "244*II",
+  "descricao": "CONDUZIR MOTOCICLETA/ MOTONETA/CICLOMOTOR TRANSP.PASSAG S/VISEIRA/OCULOS PROTECAO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "704-83",
+  "artigo": "244 *II",
+  "descricao": "CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR TRANSPORTANDO PAS. FORA DO ASSENTO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "705-61",
+  "artigo": "244*III",
+  "descricao": "CONDUZIR MOTOC/MOTON/CICLOMOTOR FAZENDO MALABARISMO/EQUILIBRANDOSE EM UMA RODA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "705-62",
+  "artigo": "244*III c/c pr1",
+  "descricao": "CONDUZIR CICLO FAZENDO MALABARISMO OU EQUILIBRANDO-SE EM UMA RODA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "706-40",
+  "artigo": "244*IV",
+  "descricao": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR COM OS FAROIS APAGADOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "707-21",
+  "artigo": "244*V",
+  "descricao": "CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR TRANSPORTANDO CRIANCA MENOR DE 7 ANOS",
+  "valor": 293.47
+ },
+ {
+  "codigo": "707-22",
+  "artigo": "244*V",
+  "descricao": "CONDUZIR MOTOC/MOTON/CICLOM TRANSP CRIANCA S/ CONDICAO CUIDAR PROPRIA SEGURANCA",
+  "valor": 293.47
+ },
+ {
+  "codigo": "708-00",
+  "artigo": "244 VI",
+  "descricao": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR REBOCANDO OUTRO VEICULO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "709-91",
+  "artigo": "244*VII",
+  "descricao": "CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR SEM SEGURAR O GUIDOM COM AMBAS AS MAOS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "709-92",
+  "artigo": "244*VII c/c pr1",
+  "descricao": "CONDUZIR CICLO SEM SEGURAR O GUIDOM COM AMBAS AS MAOS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "710-21",
+  "artigo": "244*VIII",
+  "descricao": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO CARGA INCOMPATIVEL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "710-22",
+  "artigo": "244*VIII c/c pr1",
+  "descricao": "CONDUZIR CICLO TRANSPORTANDO CARGA INCOMPATIVEL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "711-00",
+  "artigo": "244*1 pr 1 A",
+  "descricao": "CONDUZIR CICLO TRANSPORTANDO PASSAGEIRO FORA DA GARUPA/ASSENTO A ELE DESTINADO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "712-91",
+  "artigo": "244 pr1*B",
+  "descricao": "CONDUZIR CICLO EM VIA DE TRANSITO RAPIDO/RODOVIA SEM ACOSTAMENTO/FAIXA PROPRIA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "712-92",
+  "artigo": "244 pr1 *B c/c pr2",
+  "descricao": "CONDUZIR CICLOMOTOR VIA DE TRANSITO RAPIDO/RODOVIA S/ ACOSTAMENTO/FAIXA PROPRIA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "713-70",
+  "artigo": "244 pr1*C",
+  "descricao": "CONDUZIR CICLO TRANSPORTANDO CRIANCA S/ CONDICAO DE CUIDAR PROPRIA SEGURANCA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "714-50",
+  "artigo": "245",
+  "descricao": "UTILIZAR A VIA PARA DEPOSITO DE MERCADORIAS, MATERIAIS OU EQUIPAMENTOS",
+  "valor": 195.23
+ },
+ {
+  "codigo": "715-31",
+  "artigo": "246",
+  "descricao": "DEIXAR DE SINALIZAR OBSTACULO A CIRCULACAO/SEGURANCA CALCADA/PISTAS/ AGRAVAMENTO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "715-32",
+  "artigo": "246",
+  "descricao": "OBSTACULIZAR A VIA INDEVIDAMENTE-S/AGRAVAMENTO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "716-11",
+  "artigo": "246",
+  "descricao": "DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 2X",
+  "valor": 586.94
+ },
+ {
+  "codigo": "716-12",
+  "artigo": "246",
+  "descricao": "OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 2X",
+  "valor": 586.94
+ },
+ {
+  "codigo": "717-01",
+  "artigo": "246",
+  "descricao": "DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 3X",
+  "valor": 880.41
+ },
+ {
+  "codigo": "717-02",
+  "artigo": "246",
+  "descricao": "OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 3X",
+  "valor": 880.41
+ },
+ {
+  "codigo": "718-81",
+  "artigo": "246",
+  "descricao": "DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 4X",
+  "valor": 1173.88
+ },
+ {
+  "codigo": "718-82",
+  "artigo": "246",
+  "descricao": "OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 4X",
+  "valor": 1173.88
+ },
+ {
+  "codigo": "719-61",
+  "artigo": "246",
+  "descricao": "DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 5X",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "719-62",
+  "artigo": "246",
+  "descricao": "OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 5X",
+  "valor": 1467.35
+ },
+ {
+  "codigo": "720-01",
+  "artigo": "247",
+  "descricao": "DEIXAR DE CONDUZIR PELO BORDO PISTA EM FILA UNICA VEIC TRACAO/PROPULSAO HUMANA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "720-02",
+  "artigo": "247",
+  "descricao": "DEIXAR DE CONDUZIR PELO BORDO DA PISTA EM FILA UNICA VEICULO DE TRACAO ANIMAL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "721-80",
+  "artigo": "248",
+  "descricao": "TRANSPORTAR EM VEIC DESTINADO TRANSP PASSAGEIROS CARGA EXCEDENTE DESAC ART.109",
+  "valor": 195.23
+ },
+ {
+  "codigo": "722-61",
+  "artigo": "249",
+  "descricao": "DEIXAR DE MANTER ACESAS A NOITE AS LUZES POSICAO QDO O VEICULO ESTIVER PARADO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "722-62",
+  "artigo": "249",
+  "descricao": "DEIXAR DE MANTER ACESAS A NOITE AS LUZES DE POSICAO VEIC FAZENDO CARGA/DESCARGA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "723-40",
+  "artigo": "250*I*A",
+  "descricao": "EM MOVIMENTO, DEIXAR DE MANTER ACESA A LUZ BAIXA DURANTE A NOITE",
+  "valor": 130.16
+ },
+ {
+  "codigo": "724-20",
+  "artigo": "250*I*B",
+  "descricao": "EM MOVIMENTO DE DIA, DEIXAR DE MANTER ACESA LUZ BAIXA TUNEL COM ILUMINACAO PUBL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "725-00",
+  "artigo": "250*I*C",
+  "descricao": "EM MOV, DEIXAR DE MANTER ACESA LUZ BAIXA VEIC TRANSP COLETIVO FAIXA/PISTA EXCL",
+  "valor": 130.16
+ },
+ {
+  "codigo": "726-90",
+  "artigo": "250*I*D",
+  "descricao": "EM MOVIMENTO, DEIXAR DE MANTER ACESA LUZ BAIXA DO CICLOMOTOR",
+  "valor": 130.16
+ },
+ {
+  "codigo": "727-70",
+  "artigo": "250*II",
+  "descricao": "EM MOV DEIXAR DE MANTER ACESAS LUZES DE POSICAO SOB CHUVA FORTE/NEBLINA/CERRACAO",
+  "valor": 130.16
+ },
+ {
+  "codigo": "728-50",
+  "artigo": "250*III",
+  "descricao": "EM MOVIMENTO, DEIXAR DE MANTER A PLACA TRASEIRA ILUMINADA A NOITE",
+  "valor": 130.16
+ },
+ {
+  "codigo": "729-30",
+  "artigo": "251*I",
+  "descricao": "UTILIZAR O PISCA-ALERTA, EXCETO EM IMOBILIZACOES OU SITUACOES DE EMERGENCIA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "730-70",
+  "artigo": "251*II",
+  "descricao": "UTILIZAR LUZ ALTA E BAIXA INTERMITENTE, EXCETO QUANDO PERMITIDO PELO CTB",
+  "valor": 130.16
+ },
+ {
+  "codigo": "731-50",
+  "artigo": "252*I",
+  "descricao": "DIRIGIR O VEICULO COM O BRACO DO LADO DE FORA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "732-31",
+  "artigo": "252*II",
+  "descricao": "DIRIGIR O VEICULO TRANSPORT PESSOAS A SUA ESQUERDA OU ENTRE OS BRACOS E PERNAS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "732-32",
+  "artigo": "252*II",
+  "descricao": "DIRIGIR O VEICULO TRANSPORT ANIMAIS A SUA ESQUERDA OU ENTRE OS BRACOS E PERNAS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "732-33",
+  "artigo": "252*II",
+  "descricao": "DIRIGIR O VEICULO TRANSPORT VOLUME A SUA ESQUERDA OU ENTRE OS BRACOS E PERNAS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "733-10",
+  "artigo": "252*III",
+  "descricao": "DIRIGIR O VEICULO COM INCAPACIDADE FISICA OU MENTAL TEMPORARIA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "734-00",
+  "artigo": "252*IV",
+  "descricao": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS",
+  "valor": 130.16
+ },
+ {
+  "codigo": "735-80",
+  "artigo": "252*V",
+  "descricao": "DIRIGIR O VEICULO COM APENAS UMA DAS MAOS, EXCETO QUANDO PERMITIDO PELO CTB",
+  "valor": 130.16
+ },
+ {
+  "codigo": "736-61",
+  "artigo": "252*VI",
+  "descricao": "DIRIGIR O VEICULO UTILIZANDO-SE DE FONES NOS OUVIDOS CONEC A APARELHAGEM SONORA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "736-62",
+  "artigo": "252*VI",
+  "descricao": "DIRIGIR VEICULO UTILIZANDO-SE DE TELEFONE CELULAR",
+  "valor": 130.16
+ },
+ {
+  "codigo": "737-40",
+  "artigo": "253",
+  "descricao": "BLOQUEAR A VIA COM VEICULO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "738-20",
+  "artigo": "254*I",
+  "descricao": "E PROIB AO PEDESTRE PERMANECER/ANDAR PISTA, EXCETO P/ CRUZA-LAS ONDE PERMITIDO",
+  "valor": 44.19
+ },
+ {
+  "codigo": "739-01",
+  "artigo": "254*II",
+  "descricao": "E PROIBIDO AO PEDESTRE CRUZAR PISTA DE ROLAMENTO DE VIADUTO EXC ONDE PERMITIDO",
+  "valor": 44.19
+ },
+ {
+  "codigo": "739-02",
+  "artigo": "254*II",
+  "descricao": "E PROIBIDO AO PEDESTRE CRUZAR PISTA DE ROLAMENTO DE PONTE EXCETO ONDE PERMITIDO",
+  "valor": 44.19
+ },
+ {
+  "codigo": "739-03",
+  "artigo": "254*II",
+  "descricao": "E PROIBIDO AO PEDESTRE CRUZAR PISTA DE ROLAMENTO DE TUNEIS EXCETO ONDE PERMITIDO",
+  "valor": 44.19
+ },
+ {
+  "codigo": "740-40",
+  "artigo": "254*III",
+  "descricao": "E PROIB AO PEDESTRE ATRAVESSAR VIA AREA CRUZAMENTO EXC ONDE PERMITIDO P/ SINALIZ",
+  "valor": 44.19
+ },
+ {
+  "codigo": "741-20",
+  "artigo": "254*IV",
+  "descricao": "E PROIB PEDESTRE UTILIZAR VIA EM AGRUPAM QUE PERTURBE TRANS/PRAT ESPORTE/DESFILE",
+  "valor": 44.19
+ },
+ {
+  "codigo": "742-01",
+  "artigo": "254*V",
+  "descricao": "E PROIBIDO AO PEDESTRE ANDAR FORA DA FAIXA PROPRIA",
+  "valor": 44.19
+ },
+ {
+  "codigo": "742-02",
+  "artigo": "254*V",
+  "descricao": "E PROIBIDO AO PEDESTRE ANDAR FORA DA PASSARELA",
+  "valor": 44.19
+ },
+ {
+  "codigo": "742-03",
+  "artigo": "254*V",
+  "descricao": "E PROIBIDO AO PEDESTRE ANDAR FORA DA PASSAGEM AEREA",
+  "valor": 44.19
+ },
+ {
+  "codigo": "742-04",
+  "artigo": "254*V",
+  "descricao": "E PROIBIDO AO PEDESTRE ANDAR FORA DA PASSAGEM SUBTERRANEA",
+  "valor": 44.19
+ },
+ {
+  "codigo": "743-90",
+  "artigo": "254*VI",
+  "descricao": "E PROIBIDO AO PEDESTRE DESOBEDECER A SINALIZACAO DE TRANSITO ESPECIFICA",
+  "valor": 44.19
+ },
+ {
+  "codigo": "744-71",
+  "artigo": "255",
+  "descricao": "CONDUZIR BICICLETA EM PASSEIOS ONDE NAO SEJA PERMITIDA A CIRCULACAO DESTA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "744-72",
+  "artigo": "255",
+  "descricao": "CONDUZIR BICICLETA DE FORMA AGRESSIVA",
+  "valor": 130.16
+ },
+ {
+  "codigo": "745-50",
+  "artigo": "218*I",
+  "descricao": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%",
+  "valor": 130.16
+ },
+ {
+  "codigo": "746-30",
+  "artigo": "218*II",
+  "descricao": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%",
+  "valor": 195.23
+ },
+ {
+  "codigo": "747-10",
+  "artigo": "218*III",
+  "descricao": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 50%",
+  "valor": 880.41
+ },
+ {
+  "codigo": "748-01",
+  "artigo": "93 c/c 95 pr4",
+  "descricao": "APROVAR PROJ EDIFICACAO POLO ATRATIVO TRANSITO S/ ANUENCIA ORGAO/ENTID TRANSITO",
+  "valor": null
+ },
+ {
+  "codigo": "748-02",
+  "artigo": "93 c/c 95 pr4",
+  "descricao": "APROVAR PROJ EDIFICACAO POLO ATRATIVO TRANS S/ ESTACION/INDICACAO VIAS DE ACESSO",
+  "valor": null
+ },
+ {
+  "codigo": "749-80",
+  "artigo": "94",
+  "descricao": "N SINALIZAR DEVIDA/IMED OBSTACULO AA CIRCULACAO/SEGURANCA VEICULO/PEDESTRE PISTA/CALCADA",
+  "valor": null
+ },
+ {
+  "codigo": "750-10",
+  "artigo": "94 pr UNICO",
+  "descricao": "UTILIZAR ONDULACAO TRANSVERSAL/SONORIZADOR FORA PADRAO/CRITERIO ESTAB P/ CONTRAN",
+  "valor": null
+ },
+ {
+  "codigo": "751-01",
+  "artigo": "95",
+  "descricao": "INICIAR OBRA PERTURBE/INTERROMPA CIRCULACAO/SEGURANCA VEIC/PEDESTRES S/PERMISSAO",
+  "valor": null
+ },
+ {
+  "codigo": "751-02",
+  "artigo": "95",
+  "descricao": "INICIAR EVENTO PERTURBE/INTERROMPA CIRCULAC/SEGURANCA VEIC/PEDESTRES S/PERMISSAO",
+  "valor": null
+ },
+ {
+  "codigo": "752-81",
+  "artigo": "95 pr1",
+  "descricao": "NAO SINALIZAR A EXECUCAO OU MANUTENCAO DA OBRA",
+  "valor": null
+ },
+ {
+  "codigo": "752-82",
+  "artigo": "95 pr1",
+  "descricao": "NAO SINALIZAR A EXECUCAO OU MANUTENCAO DO EVENTO",
+  "valor": null
+ },
+ {
+  "codigo": "753-60",
+  "artigo": "95 pr2",
+  "descricao": "NAO AVISAR COMUNIDADE C/ 48H ANTEC INTERDICAO VIA INDICANDO CAMINHO ALTERNATIVO",
+  "valor": null
+ },
+ {
+  "codigo": "754-41",
+  "artigo": "330 pr5",
+  "descricao": "FALTA DE ESCRITURACAO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",
+  "valor": null
+ },
+ {
+  "codigo": "754-42",
+  "artigo": "330 pr5",
+  "descricao": "ATRASO ESCRITURACAO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",
+  "valor": null
+ },
+ {
+  "codigo": "754-43",
+  "artigo": "330 pr5",
+  "descricao": "FRAUDE ESCRITURACAO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",
+  "valor": null
+ },
+ {
+  "codigo": "754-44",
+  "artigo": "330 pr5",
+  "descricao": "RECUSA DA EXIBICAO DO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",
+  "valor": null
+ },
+ {
+  "codigo": "758-70",
+  "artigo": "184*III",
+  "descricao": "TRANSITAR COM O VEÍCULO NA FAIXA OU VIA DE TRÂNSITO EXCLUSIVO",
+  "valor": 293.47
+ },
+ {
+  "codigo": "901-60",
+  "artigo": "45*I*A",
+  "descricao": "TRANSPORTAR PRODUTO CUJO DESLOC. RODOV. SEJA PROIBIDO PELO MINISTERIO DO TRANSP.",
+  "valor": 654.54
+ },
+ {
+  "codigo": "902-40",
+  "artigo": "45*I*B",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO A GRANEL QUE NAO CONSTE DO CERTIFIC. DE CAPACITACAO",
+  "valor": 656.54
+ },
+ {
+  "codigo": "903-20",
+  "artigo": "45*I*C",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO A GRANEL DESPROV. DE CERTIFICADO DE CAPACIT. VALIDO",
+  "valor": 656.54
+ },
+ {
+  "codigo": "904-01",
+  "artigo": "45*I*D",
+  "descricao": "TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, PESSOAS/EMBALAGENS DESTIN. A ESTES BENS",
+  "valor": 656.54
+ },
+ {
+  "codigo": "904-02",
+  "artigo": "45*I*D",
+  "descricao": "TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, ANIMAIS/EMBALAGENS DESTIN. A ESTES BENS",
+  "valor": 656.54
+ },
+ {
+  "codigo": "904-03",
+  "artigo": "45*I*D",
+  "descricao": "TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, ALIMENTOS DEST. AO CONSUMO HUMANO/ANIMAL",
+  "valor": 656.54
+ },
+ {
+  "codigo": "904-04",
+  "artigo": "45*I*D",
+  "descricao": "TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, MEDICAM. DEST. AO CONSUMO HUMANO/ANIMAL",
+  "valor": 656.54
+ },
+ {
+  "codigo": "905-90",
+  "artigo": "45*I*E",
+  "descricao": "TRANSPORTAR PRODUTOS INCOMPATIVEIS ENTRE SI, APESAR DE ADVERTIDO PELO EXPEDIDOR",
+  "valor": 656.54
+ },
+ {
+  "codigo": "906-71",
+  "artigo": "45*II*A",
+  "descricao": "NAO DAR MANUTENCAO AO VEICULO",
+  "valor": 328.27
+ },
+ {
+  "codigo": "906-72",
+  "artigo": "45*II*A",
+  "descricao": "NAO DAR MANUTENCAO AO EQUIPAMENTO",
+  "valor": 328.27
+ },
+ {
+  "codigo": "907-51",
+  "artigo": "45*II*B",
+  "descricao": "ESTACIONAR COM INOBSERVANCIA AO ARTIGO 14",
+  "valor": 328.27
+ },
+ {
+  "codigo": "907-52",
+  "artigo": "45*II*B",
+  "descricao": "PARAR COM INOBSERVANCIA AO ARTIGO 14",
+  "valor": 328.27
+ },
+ {
+  "codigo": "908-30",
+  "artigo": "45*II*C",
+  "descricao": "TRANSPORTAR PRODUTOS CUJAS AS EMBALAGENS SE ENCONTREM EM MAS CONDICOES",
+  "valor": 328.27
+ },
+ {
+  "codigo": "909-11",
+  "artigo": "45*II*D",
+  "descricao": "NAO ADOTAR EM ACIDENTE PROVIDENCIAS CONSTANTES DA FICHA DE EMERGENCIA/ENVELOPE",
+  "valor": 328.27
+ },
+ {
+  "codigo": "909-12",
+  "artigo": "45*II*D",
+  "descricao": "NAO ADOTAR EM AVARIA AS PROVIDENCIAS CONSTANTES DA FICHA DE EMERGENCIA/ENVELOPE",
+  "valor": 328.27
+ },
+ {
+  "codigo": "910-51",
+  "artigo": "45*II*E",
+  "descricao": "TRANSPORTAR PRODUTO A GRANEL SEM UTILIZAR O TACOGRAFO",
+  "valor": 328.27
+ },
+ {
+  "codigo": "910-52",
+  "artigo": "45*II*E",
+  "descricao": "TRANSPORTAR PRODUTO A GRANEL E NAO APRESENTAR DISCO A AUTORIDADE COMPETENTE",
+  "valor": 328.27
+ },
+ {
+  "codigo": "911-30",
+  "artigo": "45*III*A",
+  "descricao": "TRANSPORTAR CARGA MAL ESTIVADA",
+  "valor": 131.3
+ },
+ {
+  "codigo": "912-11",
+  "artigo": "45*III*B",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO EM VEICULO DESPROVIDO DE EQUIPAMENTO P/ EMERGENCIA",
+  "valor": 131.3
+ },
+ {
+  "codigo": "912-12",
+  "artigo": "45*III*B",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO EM VEICULO DESPROVIDO DE EQUIP. DE PROTECAO INDIV.",
+  "valor": 131.3
+ },
+ {
+  "codigo": "913-00",
+  "artigo": "45*III*C",
+  "descricao": "TRANSPORTAR PROD. PERIG. DESACOMP. DE CERTIFIC. DE CAPAC. P/ TRANSPORTE A GRANEL",
+  "valor": 131.3
+ },
+ {
+  "codigo": "914-80",
+  "artigo": "45*III*D",
+  "descricao": "TRANSPORTAR PROD. PERIG. DESACOMP. DE DECLARACAO DE RESPONSABILIDADE DO EXPEDID.",
+  "valor": 131.3
+ },
+ {
+  "codigo": "915-61",
+  "artigo": "45*III*E",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO DESACOMPANHADO DE FICHA DE EMERGENCIA",
+  "valor": 131.3
+ },
+ {
+  "codigo": "915-62",
+  "artigo": "45*III*E",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO DESACOMPANHADO DE ENVELOPE PARA O TRANSPORTE",
+  "valor": 131.3
+ },
+ {
+  "codigo": "916-41",
+  "artigo": "45*III*F",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO S/ UTILIZAR NAS EMBALAGENS ROTULOS E PAINEIS",
+  "valor": 130.88
+ },
+ {
+  "codigo": "916-42",
+  "artigo": "45*III*F",
+  "descricao": "TRANSPORTAR PRODUTO PERIGOSO S/ UTILIZAR NO VEICULO ROTULOS E PAINEIS DE SEGUR.",
+  "valor": 130.88
+ },
+ {
+  "codigo": "917-20",
+  "artigo": "450*III*G",
+  "descricao": "CIRCULAR S/ PERMISSAO EM VIAS PUBLICAS TRANSPORTANDO PRODUTO PERIGOSO",
+  "valor": 131.3
+ },
+ {
+  "codigo": "918-01",
+  "artigo": "45*III*H",
+  "descricao": "NAO DAR IMEDIATA CIENCIA DA IMOBILIZACAO DO VEICULO EM CASO DE EMERGENCIA",
+  "valor": null
+ },
+ {
+  "codigo": "918-02",
+  "artigo": "45*III*H",
+  "descricao": "NAO DAR IMEDIATA CIENCIA DA IMOBILIZACAO DO VEICULO EM CASO DE ACIDENTE",
+  "valor": null
+ },
+ {
+  "codigo": "918-03",
+  "artigo": "45*III*H",
+  "descricao": "NAO DAR IMEDIATA CIENCIA DA IMOBILIZACAO DO VEICULO EM CASO DE AVARIA",
+  "valor": null
+ },
+ {
+  "codigo": "919-90",
+  "artigo": "46*I*A",
+  "descricao": "EMBARCAR NO VEICULO PRODUTOS INCOMPATIVEIS ENTRE SI",
+  "valor": 656.54
+ },
+ {
+  "codigo": "920-21",
+  "artigo": "46*I*B",
+  "descricao": "EMBARCAR PRODUTO PERIGOSO NAO CTE. DO CERTIFICADO DE CAPACITACAO DO VEICULO",
+  "valor": 656.54
+ },
+ {
+  "codigo": "920-22",
+  "artigo": "46*I*B",
+  "descricao": "EMBARCAR PRODUTO PERIGOSO NAO CTE. DO CERTIFICADO DE CAPACITACAO DO EQUIPAMENTO",
+  "valor": 656.54
+ },
+ {
+  "codigo": "921-00",
+  "artigo": "46*I*C",
+  "descricao": "NAO LANCAR NO DOCUMENTO FISCAL, AS INFORMACOES DE QUE TRATA O ITEM II DO ART. 22",
+  "valor": 656.54
+ },
+ {
+  "codigo": "922-91",
+  "artigo": "46*I*D",
+  "descricao": "EXPEDIR PRODUTO PERIGOSO MAL ACONDICIONADO",
+  "valor": 656.54
+ },
+ {
+  "codigo": "922-92",
+  "artigo": "46*I*D",
+  "descricao": "EXPEDIR PRODUTO PERIGOSO COM A EMBALAGEM EM MAS CONDICOES",
+  "valor": 656.54
+ },
+ {
+  "codigo": "923-70",
+  "artigo": "46*I*E",
+  "descricao": "NAO COMPARECER AO LOCAL DO ACIDENTE QUANDO EXPRES. CONVOCADO PELA AUTORID. COMP.",
+  "valor": 656.54
+ },
+ {
+  "codigo": "924-51",
+  "artigo": "46*II*A",
+  "descricao": "EMBARCAR PRODUTO PERIGOSO EM VEICULO QUE NAO DISPONHA DE EQUIPAM. DE EMERGENCIA",
+  "valor": 328.27
+ },
+ {
+  "codigo": "924-52",
+  "artigo": "46*II*A",
+  "descricao": "EMBARCAR PRODUTO PERIGOSO EM VEICULO QUE NAO DISPONHA DE EQUIPAM. DE PROT. IND.",
+  "valor": 328.27
+ },
+ {
+  "codigo": "925-31",
+  "artigo": "46*II*B",
+  "descricao": "NAO FORNECER AO TRANSPORT A FICHA DE EMERGENCIA",
+  "valor": 328.27
+ },
+ {
+  "codigo": "925-32",
+  "artigo": "46*II*B",
+  "descricao": "NAO FORNECER AO TRANSPORT O ENVELOPE PARA O TRANSPORTE",
+  "valor": 328.27
+ },
+ {
+  "codigo": "926-10",
+  "artigo": "46*II*C",
+  "descricao": "EMBARCAR PRODUTO PERIGOSO EM VEIC. QUE NAO ESTEJA UTILIZANDO ROTULOS E PAINEIS",
+  "valor": 328.27
+ },
+ {
+  "codigo": "927-00",
+  "artigo": "46*II*D",
+  "descricao": "EXPEDIR CARGA FRACIONADA C/ EMBALAGEM EXTERNA DESPROVIDA DOS ROTULOS DE RISCO",
+  "valor": 328.27
+ },
+ {
+  "codigo": "928-80",
+  "artigo": "46*II*E",
+  "descricao": "EMBARCAR PRODUTO PERIGOSO EM VEICULO OU EQUIPAMENTO S/ CONDICOES DE MANUTENCAO",
+  "valor": 328.27
+ },
+ {
+  "codigo": "929-61",
+  "artigo": "46*II*F",
+  "descricao": "NAO PRESTAR OS NECESSARIOS ESCLARECIMENTOS TECNICOS EM SITUACAO DE EMERGENCIA",
+  "valor": 328.27
+ },
+ {
+  "codigo": "929-62",
+  "artigo": "46*II*F",
+  "descricao": "NAO PRESTAR OS NECESSARIOS ESCLARECIMENTOS TECNICOS EM SITUACAO DE ACIDENTE",
+  "valor": 328.27
+ }
+]

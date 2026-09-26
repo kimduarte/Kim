@@ -1,0 +1,720 @@
+<title>Passivo Veicular</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --azul:#1451b4;--azul-escuro:#0c326f;--azul-claro:#e8f0fe;--sobre-azul:#ffffff;
+  --texto:#1a1f29;--suave:#5b6474;--borda:#dde2ea;--fundo:#f3f5f9;--sup:#ffffff;--sup2:#f8f9fc;
+  --ok:#1e7b45;--ok-bg:#e3f3e9;--aviso:#9a5b00;--aviso-bg:#fdf1dc;--erro:#b3261e;--erro-bg:#fbe5e3;
+  --roxo:#5b3fa8;--roxo-bg:#eee9fb;
+  --lateral:#0c326f;--lateral-texto:#c9d7f2;--lateral-ativo:#ffffff;
+  --placa-bg:#fff;--placa-borda:#1a1f29;--sombra:0 10px 40px -12px rgba(12,30,70,.35);
+  --sans:"Public Sans",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --azul:#7aa7f5;--azul-escuro:#b9d0fa;--azul-claro:#1b2a45;--sobre-azul:#0b1220;
+  --texto:#e6e9ef;--suave:#9aa3b3;--borda:#2a3342;--fundo:#10151e;--sup:#171e2a;--sup2:#1b2331;
+  --ok:#6fd49a;--ok-bg:#16301f;--aviso:#f0b75a;--aviso-bg:#352813;--erro:#f28b82;--erro-bg:#3a1a19;--roxo:#b9a5f5;--roxo-bg:#2a2244;
+  --lateral:#0b111b;--lateral-texto:#9aa8c2;--lateral-ativo:#ffffff;--placa-bg:#e9ecf1;--placa-borda:#e9ecf1;--sombra:0 10px 40px -12px rgba(0,0,0,.7)}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --azul:#7aa7f5;--azul-escuro:#b9d0fa;--azul-claro:#1b2a45;--sobre-azul:#0b1220;
+  --texto:#e6e9ef;--suave:#9aa3b3;--borda:#2a3342;--fundo:#10151e;--sup:#171e2a;--sup2:#1b2331;
+  --ok:#6fd49a;--ok-bg:#16301f;--aviso:#f0b75a;--aviso-bg:#352813;--erro:#f28b82;--erro-bg:#3a1a19;--roxo:#b9a5f5;--roxo-bg:#2a2244;
+  --lateral:#0b111b;--lateral-texto:#9aa8c2;--lateral-ativo:#ffffff;--placa-bg:#e9ecf1;--placa-borda:#e9ecf1;--sombra:0 10px 40px -12px rgba(0,0,0,.7)}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--fundo);color:var(--texto);font-family:var(--sans);font-size:14px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.01em}
+p{margin:0}
+.mono{font-family:var(--mono)}
+.num{font-variant-numeric:tabular-nums}
+.suave{color:var(--suave)}
+:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+
+.proto{background:var(--aviso-bg);color:var(--aviso);border-bottom:1px solid var(--borda);padding:7px 16px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12.5px}
+.proto b{font-weight:700}
+.proto .ver{margin-left:auto;display:flex;gap:6px;align-items:center}
+.proto select{padding:3px 6px;border-radius:5px;border:1px solid var(--borda);background:var(--sup);color:var(--texto);font-size:12.5px}
+
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:calc(100% - 34px)}
+.lat{background:var(--lateral);color:var(--lateral-texto);padding:20px 12px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:calc(100vh - 34px);height:calc(100dvh - 34px);min-width:0}
+.marca{padding:0 8px;display:grid;gap:2px}
+.marca b{color:var(--lateral-ativo);font-size:17px;font-weight:800;letter-spacing:-.01em}
+.marca span{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+nav.menu{display:grid;gap:2px}
+.item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:7px;border:0;background:none;color:inherit;cursor:pointer;text-align:left;font-weight:500;width:100%}
+.item:hover{background:rgba(255,255,255,.07)}
+.item[aria-current="page"]{background:rgba(255,255,255,.12);color:var(--lateral-ativo);font-weight:700}
+.item svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.item .cont{margin-left:auto;font-size:11.5px;font-variant-numeric:tabular-nums;opacity:.8}
+.item .novo{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.06em;background:#f0b75a;color:#2a1c00;border-radius:4px;padding:1px 5px}
+.quem{margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.12);display:grid;gap:4px;font-size:12.5px;word-break:break-all}
+.quem .perfil{justify-self:start;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.14);color:var(--lateral-ativo)}
+
+main{padding:26px 28px 60px;display:grid;gap:20px;align-content:start;min-width:0}
+.cab{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+.cab h1{font-size:24px;font-weight:800}
+.cab p{color:var(--suave);margin-top:2px}
+.acoes{display:flex;gap:8px;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:7px;border:1px solid var(--borda);background:var(--sup);cursor:pointer;font-weight:600;font-size:13.5px;white-space:nowrap}
+.btn:hover{border-color:var(--azul)}
+.btn.pri{background:var(--azul);border-color:var(--azul);color:var(--sobre-azul)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.perigo{color:var(--erro);border-color:var(--erro)}
+.btn.min{padding:5px 10px;font-size:12.5px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.cartao{background:var(--sup);border:1px solid var(--borda);border-radius:10px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--borda);border:1px solid var(--borda);border-radius:10px;overflow:hidden}
+.kpi{background:var(--sup);padding:16px 18px;display:grid;gap:3px}
+.kpi b{font-size:25px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}
+.kpi span{color:var(--suave);font-size:13px}
+.grade2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.grade3{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
+.painel{padding:16px 18px;display:grid;gap:12px;align-content:start}
+.painel h2{font-size:15px;font-weight:700}
+.barras{display:grid;gap:10px}
+.barra{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;font-size:13px}
+.barra .tr{grid-column:1/-1;height:8px;border-radius:3px;background:var(--sup2);border:1px solid var(--borda);overflow:hidden}
+.barra .tr i{display:block;height:100%;background:var(--azul)}
+.barra small{color:var(--suave)}
+.barra .v{font-weight:600;font-variant-numeric:tabular-nums}
+.atencao{display:grid;gap:0}
+.atencao button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;border:0;border-top:1px solid var(--borda);background:none;padding:10px 0;cursor:pointer}
+.atencao button:first-child{border-top:0}
+.atencao button:hover .t{color:var(--azul)}
+.atencao .t{font-weight:600}
+.atencao .pill{min-width:34px;text-align:center}
+.atencao small{display:block;color:var(--suave);font-weight:400}
+.esforco{border-color:var(--ok)}
+.esf-cab{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.esf-num{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--borda);border:1px solid var(--borda);border-radius:8px;overflow:hidden}
+.esf-num div{background:var(--ok-bg);padding:12px 14px;display:grid;gap:2px}
+.esf-num b{font-size:19px;font-weight:800;color:var(--ok);font-variant-numeric:tabular-nums}
+.esf-num b small{font-size:13px;font-weight:600}
+.esf-num span{font-size:12.5px;color:var(--suave)}
+.pag-cartao{padding:14px 16px;display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;border-color:var(--ok)}
+.pag-cartao>div{display:grid;gap:6px;min-width:0}
+.anexos{display:flex;flex-wrap:wrap;gap:6px}
+.anexo{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;border:1px solid var(--borda);background:var(--sup2);border-radius:6px;padding:3px 8px;max-width:100%;overflow-wrap:anywhere}
+.anexo .fechar{font-size:16px;padding:0 4px}
+.per{display:grid;gap:10px;border-top:1px solid var(--borda);padding-top:14px}
+.per-cab{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.vazio-per{font-size:13px;border:1px dashed var(--borda);border-radius:8px;padding:14px}
+.escolha{display:grid;gap:6px;max-height:220px;overflow-y:auto}
+.escolha .btn{justify-content:flex-start;white-space:normal;text-align:left;font-weight:500}
+.h3p{font-size:13px;font-weight:700;margin-bottom:8px}
+@media (max-width:760px){.esf-num{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.status-grade{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.status-grade div{border:1px solid var(--borda);border-radius:8px;padding:10px 12px;display:grid;gap:4px}
+.status-grade b{font-size:20px;font-variant-numeric:tabular-nums}
+
+.ferr{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.busca{flex:1 1 240px;max-width:340px;padding:8px 12px;border:1px solid var(--borda);border-radius:7px;background:var(--sup)}
+.chip{padding:6px 11px;border-radius:999px;border:1px solid var(--borda);background:var(--sup);cursor:pointer;font-size:12.5px;color:var(--suave);font-weight:500}
+.chip[aria-pressed="true"]{background:var(--azul);border-color:var(--azul);color:var(--sobre-azul);font-weight:600}
+.sel{padding:7px 10px;border:1px solid var(--borda);border-radius:7px;background:var(--sup)}
+
+.tabela{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--borda);vertical-align:middle}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--suave);font-weight:700;background:var(--sup2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.clic{cursor:pointer}
+tbody tr.clic:hover td{background:var(--sup2)}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rodape-tab{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--borda);color:var(--suave);font-size:12.5px}
+.vazio{padding:40px 16px;text-align:center;color:var(--suave)}
+
+.placa{display:inline-grid;grid-template-rows:5px auto;border:1.5px solid var(--placa-borda);border-radius:4px;background:var(--placa-bg);overflow:hidden;min-width:80px;text-align:center;vertical-align:middle}
+.placa::before{content:"";background:#1f4fa8}
+.placa span{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.06em;color:#111;padding:1px 6px 0}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.p-azul{background:var(--azul-claro);color:var(--azul-escuro)}
+.p-ok{background:var(--ok-bg);color:var(--ok)}
+.p-aviso{background:var(--aviso-bg);color:var(--aviso)}
+.p-erro{background:var(--erro-bg);color:var(--erro)}
+.p-roxo{background:var(--roxo-bg);color:var(--roxo)}
+.p-neutro{background:var(--sup2);color:var(--suave);border:1px solid var(--borda)}
+.sub{display:block;color:var(--suave);font-size:12px}
+
+.fundo-modal{position:fixed;inset:0;background:rgba(10,18,35,.45);display:grid;place-items:start center;padding:6vh 16px 16px;overflow-y:auto;z-index:20}
+.modal{background:var(--sup);border:1px solid var(--borda);border-radius:12px;box-shadow:var(--sombra);width:100%;max-width:640px;display:grid}
+.modal.largo{max-width:900px}
+.modal-cab{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;padding:18px 20px 12px;border-bottom:1px solid var(--borda)}
+.modal-cab h2{font-size:18px;font-weight:800}
+.modal-corpo{padding:18px 20px;display:grid;gap:16px}
+.modal-pe{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:12px 20px 16px;border-top:1px solid var(--borda)}
+.fechar{border:0;background:none;cursor:pointer;font-size:22px;line-height:1;color:var(--suave);padding:2px 6px;border-radius:6px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.campo{display:grid;gap:4px;align-content:start}
+.campo.todo{grid-column:1/-1}
+.campo label{font-size:12.5px;font-weight:600}
+.campo label .ob{color:var(--erro)}
+.campo input,.campo select,.campo textarea{padding:8px 10px;border:1px solid var(--borda);border-radius:7px;background:var(--sup);width:100%}
+.campo textarea{font-family:var(--mono);font-size:12.5px;min-height:130px;resize:vertical}
+.campo .dica{font-size:12px;color:var(--suave)}
+.campo .erro{font-size:12px;color:var(--erro)}
+.campo input.inv{border-color:var(--erro)}
+.aviso{border-radius:8px;padding:10px 12px;font-size:13px;display:grid;gap:2px}
+.aviso.a{background:var(--aviso-bg);color:var(--aviso)}
+.aviso.i{background:var(--azul-claro);color:var(--azul-escuro)}
+.aviso.o{background:var(--ok-bg);color:var(--ok)}
+.aviso.e{background:var(--erro-bg);color:var(--erro)}
+.dados{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 16px}
+.dados div{display:grid;gap:1px;min-width:0}
+.dados dt{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--suave);font-weight:700}
+.dados dd{margin:0;overflow-wrap:anywhere}
+dl{margin:0}
+.abas-m{display:flex;gap:4px;border-bottom:1px solid var(--borda)}
+.abas-m button{border:0;background:none;padding:8px 12px;cursor:pointer;font-weight:600;color:var(--suave);border-bottom:2px solid transparent;margin-bottom:-1px}
+.abas-m button[aria-selected="true"]{color:var(--texto);border-bottom-color:var(--azul)}
+
+.oficios{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.oficio{padding:14px 16px;display:grid;gap:8px;text-align:left;cursor:pointer;border:1px solid var(--borda);border-radius:10px;background:var(--sup)}
+.oficio:hover{border-color:var(--azul)}
+.oficio .org{font-weight:800;font-size:15px}
+.oficio .lin{display:flex;justify-content:space-between;gap:8px;color:var(--suave);font-size:12.5px}
+
+.doc{background:#fff;color:#111;border:1px solid var(--borda);border-radius:6px;padding:28px 26px;font-family:Arial,Helvetica,sans-serif;font-size:12px;display:grid;gap:4px;overflow-x:auto}
+.doc .c{text-align:center;font-weight:700}
+.doc .c.n{font-weight:400}
+.doc .tit{margin-top:14px;text-align:center;font-weight:700;background:#dfe6f3;padding:6px;border:1px solid #9aa;font-size:12.5px}
+.doc table{font-size:11px;margin-top:8px;min-width:560px}
+.doc th,.doc td{border:1px solid #9aa;padding:4px 6px;color:#111;background:#fff}
+.doc th{background:#eef1f6;color:#111;letter-spacing:0;text-transform:none;font-size:11px}
+.doc .data{margin-top:14px;text-align:right}
+
+.bloqueio{max-width:480px;margin:10vh auto;padding:28px;display:grid;gap:12px;text-align:center}
+.bloqueio .cad{font-size:40px}
+.bloqueio .email{font-family:var(--mono);background:var(--sup2);border:1px solid var(--borda);border-radius:6px;padding:8px}
+
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--texto);color:var(--fundo);padding:10px 16px;border-radius:8px;font-weight:600;font-size:13.5px;z-index:40;box-shadow:var(--sombra)}
+.sel-lista{display:grid;max-height:320px;overflow-y:auto;border:1px solid var(--borda);border-radius:8px}
+.sel-lista label{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--borda);cursor:pointer}
+.sel-lista label:first-child{border-top:0}
+
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .lat{position:static;height:auto;padding:12px 12px 8px;gap:10px}
+  nav.menu{display:flex;overflow-x:auto;gap:4px}
+  .item{width:auto;white-space:nowrap}
+  .item .cont,.item .novo{margin-left:4px}
+  .quem{display:none}
+  main{padding:18px 16px 60px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grade2,.grade3{grid-template-columns:1fr}
+}
+@media (max-width:560px){.form,.dados{grid-template-columns:1fr}.status-grade{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<div class="proto" role="note">
+  <span><b>Protótipo</b> · sem dados · o que você cadastrar aqui some ao recarregar a página</span>
+  <label class="ver" for="ver-como">Ver como
+    <select id="ver-como">
+      <option value="admin">Admin</option>
+      <option value="usuario">Usuário</option>
+      <option value="visitante">Visitante</option>
+      <option value="sem_acesso">Sem acesso</option>
+    </select>
+  </label>
+</div>
+<div id="raiz"></div>
+<div id="camada"></div>
+<script>
+const DADOS={V:[],D:[],O:[]};
+/* Tabela de infrações (CTB): gerada de passivo/dados/tabela-infracoes.json — [código, artigo, descrição, valor] */
+const TABELA_INF=[["500-20","257, § 8º","MULTA, POR NAO IDENTIFICACAO DO CONDUTOR INFRATOR, IMPOSTA A PESSOA JURIDICA",null],["501-00","162*I","DIRIGIR VEICULO SEM POSSUIR CNH OU PERMISSAO PARA DIRIGIR",880.41],["502-91","162*II","DIRIGIR VEICULO COM CNH CASSADA",1467.35],["502-92","162*II","DIRIGIR VEICULO COM PERMISSAO PARA DIRIGIR CASSADA",1467.35],["502-93","162*II","DIRIGIR VEICULO COM CNH OU PPD COM SUSPENSAO DO DIREITO DE DIRIGIR",1467.35],["503-71","162*III","DIRIGIR VEICULO COM CNH DE CATEGORIA DIFERENTE DA DO VEICULO",880.41],["503-72","162*III","DIRIGIR VEICULO COM PPD DE CATEGORIA DIFERENTE DA DO VEICULO",880.41],["504-50","162*V","DIRIGIR VEICULO COM VALIDADE DA CNH OU PPD VENCIDA HA MAIS DE 30 DIAS",293.47],["505-31","162*VI","DIRIGIR VEICULO SEM USAR LENTES CORRETORAS DE VISAO",293.47],["505-32","162*VI","DIRIGIR VEICULO SEM USAR APARELHO AUXILIAR DE AUDICAO",293.47],["505-33","162*VI","DIRIGIR VEICULO SEM USAR APARELHO AUXILIAR DE PROTESE FISICA",293.47],["505-34","162*VI","DIRIGIR VEICULO S/ ADAPTACOES IMPOSTAS NA CONCESSAO/RENOVACAO LICENCA CONDUZIR",293.47],["506-10","163 c/c 162*I","ENTREGAR VEICULO A PESSOA SEM CNH OU PERMISSAO PARA DIRIGIR",880.41],["507-01","163 c/c 162*II","ENTREGAR VEICULO A PESSOA COM CNH CASSADA",1467.35],["507-02","163 c/c 162*II","ENTREGAR VEICULO A PESSOA COM PERMISSAO PARA DIRIGIR CASSADA",1467.35],["507-03","163 c/c 162*II","ENTREGAR VEICULO A PESSOA COM CNH OU PPD COM SUSPENSAO DO DIREITO DE DIRIGIR",1467.35],["508-81","163 c/c 162*III","ENTREGAR VEICULO A PESSOA COM CNH DE CATEGORIA DIFERENTE DA DO VEICULO",880.41],["508-82","163 c/c 162*III","ENTREGAR VEICULO A PESSOA COM PPD DE CATEGORIA DIFERENTE DA DO VEICULO",880.41],["509-60","163 c/c 162*V","ENTREGAR VEICULO A PESSOA COM CNH VENCIDA HA MAIS DE 30 DIAS",293.47],["510-01","163 c/c 162*VI","ENTREGAR O VEICULO A PESSOA SEM USAR LENTES CORRETORAS DE VISAO",293.47],["510-02","163 c/c 162*VI","ENTREGAR O VEICULO A PESSOA SEM USAR APARELHO AUXILIAR DE AUDICAO",293.47],["510-03","163 c/c 162*VI","ENTREGAR O VEICULO A PESSOA SEM APARELHO DE PROTESE FISICA",293.47],["510-04","163 c/c 162*VI","ENTREGAR VEIC PESSOA S/ ADAPTACOES IMPOSTAS CONCESSAO/RENOVACAO LICENCA CONDUZIR",293.47],["511-80","164 c/c 162*I","PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM CNH OU PPD",880.41],["512-61","164 c/c 162*II","PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA COM CNH CASSADA",1467.35],["512-62","164 c/c 162*II","PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA COM PPD CASSADA",1467.35],["512-63","164 c/c 162*II","PERMITIR POSSE/CONDUCAO VEIC PESSOA COM CNH/PPD C/ SUSPENSAO DIREITO DE DIRIGIR",1467.35],["513-41","164 c/c 162*III","PERMITIR POSSE/CONDUCAO VEIC A PESSOA COM CNH CATEGORIA DIFERENTE DA DO VEICULO",880.41],["513-42","164 c/c 162*III","PERMITIR POSSE/CONDUCAO VEIC A PESSOA COM PPD CATEGORIA DIFERENTE DA DO VEICULO",880.41],["514-20","164 c/c 162*V","PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA COM CNH VENCIDA HA MAIS DE 30 DIAS",293.47],["515-01","164 c/c 162*VI","PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM USAR LENTES CORRETORAS DE VISAO",293.47],["515-02","164 c/c 162*VI","PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA S/ USAR APARELHO AUXILIAR DE AUDICAO",293.47],["515-03","164 c/c 162*VI","PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM USAR APARELHO DE PROTESE FISICA",293.47],["515-04","164 c/c 162*VI","PERMITIR POSSE/COND VEIC S/ ADAPTACOES IMPOSTAS CONCESSAO/RENOVACAO LICENCA COND",293.47],["516-91","165","DIRIGIR SOB A INFLUENCIA DE ÁLCOOL",2934.7],["516-92","165","DIRIGIR SOB INFLUENCIA SUBST ENTORPECENTE OU Q DETERMINE DEPEND FISICA/PSIQUICA",2934.7],["517-70","166","CONFIAR/ENTREGAR VEIC PESS C/ ESTADO FISICO/PSIQUICO S/ CONDICOES DIRIGIR SEGUR",293.47],["518-51","167","DEIXAR O CONDUTOR DE USAR O CINTO SEGURANCA",195.23],["518-52","167","DEIXAR O PASSAGEIRO DE USAR O CINTO SEGURANCA",195.23],["519-30","168","TRANSPORTAR CRIANCA SEM OBSERVANCIA DAS NORMAS DE SEGURANCA ESTABELECIDAS P/ CTB",293.47],["520-70","169","DIRIGIR SEM ATENCAO OU SEM OS CUIDADOS INDISPENSAVEIS A SEGURANCA",88.38],["521-51","170","DIRIGIR AMEACANDO OS PEDESTRES QUE ESTEJAM ATRAVESSANDO A VIA PUBLICA",293.47],["521-52","170","DIRIGIR AMEACANDO OS DEMAIS VEICULOS",293.47],["522-31","171","USAR VEICULO PARA ARREMESSAR SOBRE OS PEDESTRES AGUA OU DETRITOS",130.16],["522-32","171","USAR VEICULO PARA ARREMESSAR SOBRE OS VEICULOS AGUA OU DETRITOS",130.16],["523-11","172","ATIRAR DO VEICULO OBJETOS OU SUBSTANCIAS",130.16],["523-12","172","ABANDONAR NA VIA OBJETOS OU SUBSTANCIAS",130.16],["524-00","173","DISPUTAR CORRIDA",2934.7],["525-81","174","PROMOVER NA VIA COMPETICAO ESPORTIVA SEM PERMISSAO",2934.7],["525-82","174","PROMOVER NA VIA EVENTOS ORGANIZADOS SEM PERMISSAO",2934.7],["525-83","174","PROMOVER NA VIA EXIBICAO E DEMONSTRACAO DE PERICIA EM MANOBRA DE VEICULO",2934.7],["526-61","174","PARTICIPAR NA VIA COMO CONDUTOR EM COMPETICAO ESPORTIVA, SEM PERMISSAO",2934.7],["526-62","174","PARTICIPAR NA VIA COMO CONDUTOR EM EVENTO ORGANIZADO, SEM PERMISSAO",2934.7],["526-63","174","PARTICIPAR COMO CONDUTOR EXIB/DEMONST PERICIA EM MANOBRA DE VEIC, S/ PERMISSAO",2934.7],["527-41","175","UTILIZAR-SE DE VEICULO PARA DEMONSTRAR OU EXIBIR MANOBRA PERIGOSA",2934.7],["527-42","175","UTILIZAR-SE DE VEICULO PARA DEMONSTRAR OU EXIBIR ARRANCADA BRUSCA",2934.7],["527-43","175","UTILIZAR-SE DE VEICULO PARA DEMONSTRAR OU EXIBIR DERRAPAGEM OU FRENAGEM",2934.7],["528-20","176*I","DEIXAR O COND ENVOLVIDO EM ACIDENTE, DE PRESTAR OU PROVIDENCIAR SOCORRO A VITIMA",1467.35],["529-00","176*II","DEIXAR O COND ENVOLVIDO EM ACID, DE ADOTAR PROVID P/ EVITAR PERIGO P/O TRANSITO",1467.35],["530-40","176*III","DEIXAR O COND ENVOLVIDO EM ACIDENTE, DE PRESERVAR LOCAL P/ TRAB POLICIA/PERICIA",1467.35],["531-20","176*IV","DEIXAR O COND ENVOLVIDO EM ACID, DE REMOVER O VEIC LOCAL QDO DETERM POLIC/AGENTE",1467.35],["532-00","176*V","DEIXAR O COND ENVOLVIDO EM ACID, DE IDENTIFICAR-SE POLICIAL E PRESTAR INF P/O BO",1467.35],["533-90","177","DEIXAR O COND DE PRESTAR SOCORRO VITIMA ACID DE TRANSITO, QDO SOLICIT P/ AGENTE",195.23],["534-70","178","DEIXAR O CONDUTOR ENVOLVIDO EM ACIDENTE S/ VITIMA, DE REMOVER O VEICULO DO LOCAL",130.16],["535-50","179*I","FAZER OU DEIXAR QUE SE FACA REPARO EM VEIC, EM RODOVIA E VIA DE TRANSITO RAPIDO",195.23],["536-30","179*II","FAZER/DEIXAR QUE SE FACA REPARO EM VEIC NAS VIAS (Q NAO RODOVIA/TRANSITO RAPIDO)",88.38],["537-10","180","TER SEU VEICULO IMOBILIZADO NA VIA POR FALTA DE COMBUSTIVEL",130.16],["538-00","181*I","ESTACIONAR NAS ESQUINAS E A MENOS DE 5M DO ALINHAMENTO DA VIA TRANSVERSAL",130.16],["539-80","181*II","ESTACIONAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) DE 50CM A 1M",88.38],["540-10","181*III","ESTACIONAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) A MAIS DE 1M",195.23],["541-00","181*IV","ESTACIONAR EM DESACORDO COM AS POSICOES ESTABELECIDAS NO CTB",130.16],["542-81","181*V","ESTACIONAR NA PISTA DE ROLAMENTO DAS ESTRADAS",293.47],["542-82","181*V","ESTACIONAR NA PISTA DE ROLAMENTO DAS RODOVIAS",293.47],["542-83","181*V","ESTACIONAR NA PISTA DE ROLAMENTO DAS VIAS DE TRANSITO RAPIDO",293.47],["542-84","181*V","ESTACIONAR NA PISTA DE ROLAMENTO DAS VIAS DOTADAS DE ACOSTAMENTO",293.47],["543-60","181*VI","ESTACIONAR JUNTO/SOBRE HIDR DE INCENDIO, REG DE AGUA/TAMPA DE POCO VISIT GAL SUB",130.16],["544-40","181*VII","ESTACIONAR O VEICULO NOS ACOSTAMENTOS",88.38],["545-21","181*VIII","ESTACIONAR NO PASSEIO",195.23],["545-22","181*VIII","ESTACIONAR SOBRE FAIXA DESTINADA A PEDESTRE",195.23],["545-23","181*VIII","ESTACIONAR SOBRE CICLOVIA OU CICLOFAIXA",195.23],["545-24","181*VIII","ESTACIONAR NAS ILHAS OU REFUGIOS",195.23],["545-25","181*VIII","ESTACIONAR AO LADO OU SOBRE CANTEIRO CENTRAL",195.23],["545-26","181*VIII","STACIONAR AO LADO/SOBRE DIVISORES DE PISTA DE ROLAMENTO/MARCAS DE CANALIZACAO",195.23],["545-27","181*VIII","ESTACIONAR AO LADO OU SOBRE GRAMADO OU JARDIM PUBLICO",195.23],["546-00","181*IX","ESTACIONAR EM GUIA DE CALCADA REBAIXADA DESTINADA A ENTRADA/SAIDA DE VEICULOS",130.16],["547-90","181*X","ESTACIONAR IMPEDINDO A MOVIMENTACAO DE OUTRO VEICULO",130.16],["548-70","181*XI","ESTACIONAR AO LADO DE OUTRO VEICULO EM FILA DUPLA",195.23],["549-50","181*XII","ESTACIONAR NA AREA DE CRUZAMENTO DE VIAS",195.23],["550-90","181*XIII","ESTACIONAR NO PONTO DE EMBARQUE/DESEMBARQUE DE PASSAGEIROS TRANSPORTE COLETIVO",130.16],["551-71","181*XIV","ESTACIONAR NOS VIADUTOS",195.23],["551-72","181*XIV","ESTACIONAR NAS PONTES",195.23],["551-73","181*XIV","ESTACIONAR NOS TUNEIS",195.23],["552-50","181*XV","ESTACIONAR VEICULO NA CONTRAMAO DE DIRECAO",130.16],["553-30","181*XVI","ESTACIONAR ACLIVE/DECLIVE N FREADO E SEM CALCO SEGURANCA, PBT SUPERIOR A 3500KG",195.23],["554-11","181*XVII","ESTACIONAR EM DESACORDO COM A REGULAMENTACAO ESPECIFICADA PELA SINALIZACAO",195.23],["554-12","181*XVII","ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO",195.23],["554-13","181*XVII","ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - PONTO OU VAGA DE TAXI",195.23],["554-14","181*XVII","ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - VAGA DE CARGA/DESCARGA",195.23],["554-15","181*XVII","ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - VAGA PORTADOR NECESSID ESPECIAIS",195.23],["554-16","181*XVII","ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - VAGA IDOSO",195.23],["555-00","181*XVIII","ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMENTE PELA SINALIZACAO",130.16],["556-80","181*XX","ESTACIONAR LOCAL/HORARIO DE ESTACIONAMENTO E PARADA PROIBIDOS PELA SINALIZACAO 181*XIX CON 5 195,23 554- ESTACIONAR NAS VAGAS RESERVADAS ÀS PESSOAS COM DEFICIÊNCIA OU IDOSOS, SEM CREDENCIAL QUE COMPROVE TAL CONDIÇÃO",293.47],["557-60","182*I","PARAR NAS ESQUINAS E A MENOS 5M DO BORDO DO ALINHAMENTO DA VIA TRANSVERSAL",130.16],["558-40","182*II","PARAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) DE 50CM A 1M",88.38],["559-20","182*III","PARAR AFASTADO DA GUIA DA CALCADA (MEIO-FIO) A MAIS DE 1M",130.16],["560-60","182*IV","PARAR EM DESACORDO COM AS POSICOES ESTABELECIDAS NO CTB",88.38],["561-41","182*V","PARAR NA PISTA DE ROLAMENTO DAS ESTRADAS",195.23],["561-42","182*V","PARAR NA PISTA DE ROLAMENTO DAS RODOVIAS",195.23],["561-43","182*V","PARAR NA PISTA DE ROLAMENTO DAS VIAS DE TRANSITO RAPIDO",195.23],["561-44","182*V","PARAR NA PISTA DE ROLAMENTO DAS DEMAIS VIAS DOTADAS ACOSTAMENTO",195.23],["562-21","182*VI","PARAR NO PASSEIO/CALCADA",88.38],["562-22","182*VI","PARAR SOBRE FAIXA DESTINADA A PEDESTRES",88.38],["562-23","182*VI","PARAR NAS ILHAS OU REFUGIOS",88.38],["562-24","182*VI","PARAR NOS CANTEIROS CENTRAIS",88.38],["562-25","182*VI","PARAR NOS DIVISORES DE PISTA DE ROLAMENTO E MARCAS DE CANALIZACAO",88.38],["563-00","182*VII","PARAR NA AREA DE CRUZAMENTO DE VIAS",130.16],["564-91","182*VIII","PARAR NOS VIADUTOS",130.16],["564-92","182*VIII","PARAR NAS PONTES",130.16],["564-93","182*VIII","PARAR NOS TUNEIS",130.16],["565-70","182*IX","PARAR NA CONTRA MAO DE DIRECAO",130.16],["566-50","182*X","PARAR EM LOCAL/HORARIO PROIBIDOS ESPECIFICAMENTE PELA SINALIZACAO",130.16],["567-31","183","PARAR SOBRE FAIXA DE PEDESTRES NA MUDANCA DE SINAL LUMINOSO",130.16],["567-32","183","PARAR SOBRE FAIXA DE PEDESTRES NA MUDANCA DE SINAL LUMINOSO (FISC ELETRÈNICA)",130.16],["568-10","184*I","TRANSITAR NA FAIXA/PISTA DA DIREITA REGUL CIRCULACAO EXCLUSIVA DETERM VEICULO",88.38],["569-00","184*II","TRANSITAR NA FAIXA/PISTA DA ESQUERDA REGUL CIRCULACAO EXCLUSIVA DETERM VEICULO",195.23],["570-30","185*I","DEIXAR DE CONSERVAR O VEICULO NA FAIXA A ELE DESTINADA PELA SINALIZACAO DE REGULAMENTACAO",130.16],["571-10","185*II","DEIXAR DE CONSERVAR NAS FAIXAS DA DIREITA O VEICULO LENTO E DE MAIOR PORTE",130.16],["572-00","186*I","TRANSITAR PELA CONTRAMAO DE DIRECAO EM VIA COM DUPLO SENTIDO DE CIRCULACAO",195.23],["573-80","186*II","TRANSITAR PELA CONTRAMAO DE DIRECAO EM VIA C/ SINALIZACAO DE REGUL SENTIDO UNICO",293.47],["574-61","187*I","TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE",130.16],["574-62","187*I","TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGULAMENTACAO - RODIZIO",130.16],["574-63","187*I","TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGULAMENTACAO - VEICULO DE CARGA",130.16],["576-20","188","TRANSITAR AO LADO DE OUTRO VEICULO, INTERROMPENDO OU PERTURBANDO O TRANSITO",130.16],["577-01","189","DEIXAR DE DAR PASSAGEM A VEIC PRECEDIDO DE BATEDORES DEVIDAMENTE IDENTIFICADOS",293.47],["577-02","189","DEIXAR DE DAR PASSAGEM A VEIC SOCORRO DE INCENDIO EM SERV URGENCIA DEVID IDENTIF",293.47],["577-03","189","DEIXAR DE DAR PASSAGEM A VEIC DE POLICIA EM SERVICO DE URGENCIA DEVID IDENTIF",293.47],["577-04","189","DEIXAR DE DAR PASSAGEM A VEIC DE OPERACAO E FISCALIZACAO DE TRANSITO DEVID IDENT",293.47],["577-05","189","DEIXAR DE DAR PASSAGEM A AMBULANCIA EM SERVICO DE URGENCIA DEVID IDENTIFICADA",293.47],["578-90","190","SEGUIR VEICULO EM SERV URGENCIA DEVID IDENTIFIC P/ ALARME SONORO/ILUM VERMELHA",195.23],["579-70","191","FORCAR PASSAGEM ENTRE VEICS TRANS SENT OPOSTOS NA IMINENCIA REALIZ ULTRAPASSAGEM",2934.7],["580-00","192","DEIXAR GUARDAR DIST SEGURANCA LAT/FRONT ENTRE SEU VEIC E DEMAIS E AO BORDO PISTA",195.23],["581-91","193","TRANSITAR COM O VEICULO EM CALCADAS, PASSEIOS",880.41],["581-92","193","TRANSITAR COM O VEICULO EM CICLOVIAS, CICLOFAIXAS",880.41],["581-93","193","TRANSITAR COM O VEICULO EM AJARDINAMENTOS, GRAMADOS, JARDINS PUBLICOS",880.41],["581-94","193","TRANSITAR COM O VEICULO EM CANTEIROS CENTRAIS",880.41],["581-95","193","TRANSITAR COM O VEICULO EM ILHAS, REFUGIOS",880.41],["581-96","193","TRANSITAR COM O VEICULO EM DIVISORES DE PISTA DE ROLAMENTO, MARCA DE CALIZACAO",880.41],["581-97","193","TRANSITAR COM O VEICULO EM ACOSTAMENTOS",880.41],["581-98","193","TRANSITAR COM O VEICULO EM PASSARELAS",880.41],["582-70","194","TRANSITAR EM MARCHA RE, SALVO NA DISTANCIA NECESSARIA A PEQUENAS MANOBRAS",195.23],["583-50","195","DESOBEDECER AS ORDENS EMANADAS DA AUTORID COMPET DE TRANSITO OU DE SEUS AGENTES",195.23],["584-31","196","DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, INICIO DA MARCHA",195.23],["584-32","196","DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, MANOBRA DE PARAR",195.23],["584-33","196","DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, MUDANCA DIRECAO",195.23],["584-34","196","DEIXAR DE INDICAR C/ ANTEC, MED GESTO DE BRACO/LUZ INDICADORA, MUDANCA DE FAIXA",195.23],["585-11","197","DEIXAR DE DESLOCAR C/ANTECEDENCIA VEIC P/ FAIXA MAIS A ESQUERDA QDO FOR MANOBRAR",130.16],["585-12","197","DEIXAR DE DESLOCAR C/ANTECEDENCIA VEIC P/ FAIXA MAIS A DIREITA QDO FOR MANOBRAR",130.16],["586-00","198","DEIXAR DE DAR PASSAGEM PELA ESQUERDA, QUANDO SOLICITADO.",130.16],["587-80","199","ULTRAPASSAR PELA DIREITA, SALVO QUANDO O VEICULO DA FRENTE DER SINAL P/ ENTRAR ESQUERDA",130.16],["588-60","200","ULTRAP PELA DIREITA VEIC DE TRANSP COLETIVO PARADO PARA EMB/DESEMB PASSAGEIROS",293.47],["589-40","201","DEIXAR DE GUARDAR A DISTANCIA LATERAL DE 1,50M AO PASSAR/ULTRAPASSAR BICICLETA",130.16],["590-80","202*I","ULTRAPASSAR PELO ACOSTAMENTO.",1467.35],["591-61","202*II","ULTRAPASSAR EM INTERSECOES",1467.35],["591-62","202*II","ULTRAPASSAR EM PASSAGEM DE NIVEL",1467.35],["592-41","203*I","ULTRAPASSAR PELA CONTRAMAO NAS CURVAS SEM VISIBILIDADE SUFICIENTE",1467.35],["592-42","203*I","ULTRAPASSAR PELA CONTRAMAO NOS ACLIVES OU DECLIVES, SEM VISIBILIDADE SUFICIENTE",1467.35],["593-20","203*II","ULTRAPASSAR PELA CONTRAMAO NAS FAIXAS DE PEDESTRE.",1467.35],["594-01","203*III","ULTRAPASSAR PELA CONTRAMAO NAS PONTES",1467.35],["594-02","203*III","ULTRAPASSAR PELA CONTRAMAO NOS VIADUTOS",1467.35],["594-03","203*III","ULTRAPASSAR PELA CONTRAMAO NOS TUNEIS",1467.35],["595-91","203*IV","ULTRAPASSAR PELA CONTRAMAO VEICULO PARADO EM FILA JUNTO SINAL LUMINOSO",1467.35],["595-92","203*IV","ULTRAPASSAR PELA CONTRAMAO VEICULO PARADO EM FILA JUNTO A CANCELA/PORTEIRA",1467.35],["595-93","203*IV","ULTRAPASSAR PELA CONTRAMAO VEICULO PARADO EM FILA JUNTO A CRUZAMENTO",1467.35],["595-94","203*IV","ULTRAPASSAR PELA CONTRAMAO VEIC PARADO EM FILA JUNTO QQ IMPEDIMENTO A CIRCULACAO",1467.35],["596-70","203*V","ULTRAPASSAR PELA CONTRAMAO LINHA DE DIVISAO DE FLUXOS OPOSTOS, CONTINUA AMARELA",1467.35],["597-50","204","DEIXAR DE PARAR NO ACOSTAMENTO A DIREITA, P/ CRUZAR PISTA OU ENTRAR A ESQUERDA",195.23],["598-30","205","ULTRAPASSAR VEICULO EM MOVIMENTO QUE INTEGRE CORTEJO/DESFILE/FORMACAO MILITAR",88.38],["599-10","206*I","EXECUTAR OPERACAO DE RETORNO EM LOCAIS PROIBIDOS PELA SINALIZACAO",293.47],["600-91","206*II","EXECUTAR OPERACAO DE RETORNO NAS CURVAS",293.47],["600-92","206*II","EXECUTAR OPERACAO DE RETORNO NOS ACLIVES OU DECLIVES",293.47],["600-93","206*II","EXECUTAR OPERACAO DE RETORNO NAS PONTES",293.47],["600-94","206*II","EXECUTAR OPERACAO DE RETORNO NOS VIADUTOS",293.47],["600-95","206*II","EXECUTAR OPERACAO DE RETORNO NOS TUNEIS",293.47],["601-71","206*III","EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE CALCADA, PASSEIO",293.47],["601-72","206*III","EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE ILHA, REFUGIO",293.47],["601-73","206*III","EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE AJARDINAMENTO",293.47],["601-74","206*III","EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE CANTEIRO DE DIVISOR DE PISTA",293.47],["601-75","206*III","EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE FAIXA DE PEDESTRES",293.47],["601-76","206*III","EXECUTAR OPERACAO DE RETORNO PASSANDO POR CIMA DE FAIXA DE VEIC NAO MOTORIZADOS",293.47],["602-50","206*IV","EXECUTAR RETORNO NAS INTERSECOES, ENTRANDO NA CONTRAMAO DA VIA TRANSVERSAL",293.47],["603-30","206*V","EXECUTAR RETORNO C/PREJUIZO DA CIRCULACAO/SEGURANCA AINDA QUE EM LOCAL PERMITIDO",293.47],["604-11","207","EXECUTAR OPERACAO DE CONVERSAO A DIREITA EM LOCAL PROIBIDO PELA SINALIZACAO",195.23],["604-12","207","EXECUTAR OPERACAO DE CONVERSAO A ESQUERDA EM LOCAL PROIBIDO PELA SINALIZACAO",195.23],["605-01","208","AVANCAR O SINAL VERMELHO DO SEMAFORO",293.47],["605-02","208","AVANCAR O SINAL DE PARADA OBRIGATORIA",293.47],["605-03","208","AVANCAR O SINAL VERMELHO DO SEMAFORO - FISCALIZACAO ELETRONICA",293.47],["606-81","209","TRANSPOR BLOQUEIO VIARIO COM OU SEM SINALIZACAO OU DISPOSITIVOS AUXILIARES",195.23],["606-82","209","DEIXAR DE ADENTRAR AS AREAS DESTINADAS A PESAGEM DE VEICULOS",195.23],["606-83","209","EVADIR-SE PARA NAO EFETUAR O PAGAMENTO DO PEDAGIO",195.23],["607-60","210","TRANSPOR BLOQUEIO VIARIO POLICIAL",293.47],["608-41","211","ULTRAPASSAR VEICULOS MOTORIZADOS EM FILA, PARADOS EM RAZAO DE SINAL LUMINOSO",195.23],["608-42","211","ULTRAPASSAR VEICULOS MOTORIZADOS EM FILA, PARADOS EM RAZAO DE CANCELA",195.23],["608-43","211","ULTRAPASSAR VEIC MOTORIZADOS EM FILA PARADOS EM RAZAO DE BLOQUEIO VIARIO PARCIAL",195.23],["608-44","211","ULTRAPASSAR VEICULOS MOTORIZADOS EM FILA, PARADOS EM RAZAO DE QUALQUER OBSTACULO",195.23],["609-20","212","DEIXAR DE PARAR O VEICULO ANTES DE TRANSPOR LINHA FERREA.",293.47],["610-60","213*I","DEIXAR DE PARAR SEMPRE QUE A MARCHA FOR INTERCEPTADA POR AGRUPAMENTO DE PESSOAS",293.47],["611-40","213*II","DEIXAR DE PARAR SEMPRE QUE A MARCHA FOR INTERCEPTADA POR AGRUPAMENTO DE VEICULOS",195.23],["612-20","214*I","DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC N MOTORIZADO NA FAIXA A ELE DESTINADA",293.47],["613-00","214*II","DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC N MOT QUE N HAJA CONCLUIDO A TRAVESSIA",293.47],["614-90","214*III","DEIXAR DE DAR PREFERENCIA A PEDESTRE PORT DEFICIENCIA FIS/CRIANCA/IDOSO/GESTANTE",293.47],["615-70","214*IV","DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC N MOT QDO INICIADA TRAVESSIA S/SINALIZ",195.23],["616-50","214*V","DEIXAR DE DAR PREFERENCIA A PEDESTRE/VEIC NAO MOT ATRAVESSANDO A VIA TRANSVERSAL",195.23],["617-31","215*I*A","DEIXAR DE DAR PREFERENCIA EM INTERSECAO N SINALIZ, A VEIC CIRCULANDO POR RODOVIA",195.23],["617-32","215*I*A","DEIXAR DE DAR PREFERENCIA EM INTERSECAO N SINALIZ, VEIC CIRCULANDO POR ROTATORIA",195.23],["617-33","215*I*B","DEIXAR DE DAR PREFER EM INTERSECAO NAO SINALIZADA, A VEICULO QUE VIER DA DIREITA",195.23],["618-10","215*II","DEIXAR DE DAR PREFERENCIA EM INTERSECOES COM SINALIZACAO DE \"DE A PREFERENCIA\"",195.23],["619-00","216","ENTRAR/SAIR AREA LINDEIRA SEM PRECAUCAO COM A SEGURANCA DE PEDESTRES E VEICULOS",130.16],["625-40","219","TRANSITAR EM VELOCIDADE INFERIOR A METADE DA MAXIMA DA VIA, SALVO FAIXA DIREITA",130.16],["626-20","220*I","DEIXAR DE REDUZIR A VELOC QDO SE APROXIMAR DE PASSEATA/AGLOMERACAO/DESFILE/ETC",293.47],["627-00","220*II","DEIXAR DE REDUZIR A VELOC ONDE O TRANSITO ESTEJA SENDO CONTROLADO PELO AGENTE",195.23],["628-91","220*III","DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO AO APROXIMAR-SE DA GUIA DA CALCADA",195.23],["628-92","220*III","DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO AO APROXIMAR-SE DO ACOSTAMENTO",195.23],["629-70","220*IV","DEIXAR DE REDUZIR VELOCIDADE DO VEICULO AO APROXIMAR-SE INTERSECAO N SINALIZADA",195.23],["630-00","220*V","DEIXAR REDUZIR VELOCIDADE NAS VIAS RURAIS CUJA FAIXA DOMINIO NAO ESTEJA CERCADA",195.23],["631-90","220*VI","DEIXAR DE REDUZIR A VELOCIDADE NOS TRECHOS EM CURVA DE PEQUENO RAIO",195.23],["632-70","220*VII","DEIXAR DE REDUZIR VELOC AO APROXIMAR LOCAL SINALIZ ADVERT DE OBRAS/TRABALHADORES",195.23],["633-50","220*VIII","DEIXAR DE REDUZIR A VELOCIDADE SOB CHUVA/NEBLINA/CERRACAO/VENTOS FORTES",195.23],["634-30","220*IX","DEIXAR DE REDUZIR A VELOCIDADE QUANDO HOUVER MA VISIBILIDADE",195.23],["635-10","220*X","DEIXAR DE REDUZIR VELOC QDO PAVIMENTO SE APRESENTAR ESCORREG/DEFEITUOSO/AVARIADO",195.23],["636-00","220*XI","DEIXAR DE REDUZIR A VELOCIDADE + APROXIMACAO DE ANIMAIS NA PISTA",195.23],["637-80","220*XII","DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO DE FORMA COMPATIVEL COM A SEGURANCA, EM DECLIVE.",195.23],["638-60","220*XIII","DEIXAR DE REDUZIR A VELOCIDADE DO VEICULO DE FORMA COMPATIVEL C/ SEGURANCA AO ULTRAPASSAR CICLISTA",195.23],["639-41","220*XIV","DEIXAR DE REDUZIR A VELOCIDADE NAS PROXIMIDADES DE ESCOLAS",293.47],["639-42","220*XIV","DEIXAR DE REDUZIR A VELOCIDADE NAS PROXIMIDADES DE HOSPITAIS",293.47],["639-43","220*XIV","DEIXAR DE REDUZIR VELOC.NA PROXIM.ESTACAO EMBARQUE/DESEMBARQUE PASSAGEIROS",293.47],["639-44","220*XIV","DEIXAR DE REDUZIR VELOC.ONDE HAJA INTENSA MOVIMENTACAO DE PEDESTRES",293.47],["640-80","221","PORTAR NO VEICULO PLACAS DE IDENTIFICACAO EM DESACORDO COM AS ESPECIF/MODELO CONTRAN",130.16],["641-60","221 pr UNICO","CONFEC/DISTRIBUIR/COLOCAR VEIC PROPRIO/TERCEIRO PLACA IDENTIF DESACORDO CONTRAN",130.16],["642-40","222","DEIXAR DE MANTER LIGADO EM EMERG SIST ILUM VERMELHA INTERMITENTE AINDA Q PARADO",130.16],["643-21","223","TRANSITAR COM FAROL DESREGULADO PERTURBANDO A VISAO DE OUTRO CONDUTOR",195.23],["643-22","223","TRANSITAR COM O FACHO DE LUZ ALTA PERTURBANDO A VISAO DE OUTRO CONDUTOR",195.23],["644-00","224","FAZER USO DO FACHO DE LUZ ALTA DOS FAROIS EM VIAS PROVIDAS DE ILUMINACAO PUBLICA",88.38],["645-91","225*I","DEIXAR DE SINALIZAR VIA P/ TORNAR VISIVEL LOCAL QDO TIVER REMOVER VEIC DA PISTA",195.23],["645-92","225*I","DEIXAR DE SINALIZAR A VIA P/ TORNAR VISIVEL O LOCAL QDO PERMANECER ACOSTAMENTO",195.23],["646-70","225*II","DEIXAR DE SINALIZAR A VIA P/ TORNAR VISIVEL O LOCAL QDO A CARGA FOR DERRAMADA",195.23],["647-50","226","DEIXAR DE RETIRAR QUALQUER OBJETO UTILIZADO PARA SINALIZACAO TEMPORARIA DA VIA",130.16],["648-30","227*I","USAR BUZINA QUE NAO A DE TOQUE BREVE COMO ADVERTENCIA A PEDESTRE OU CONDUTORES",88.38],["649-10","227*II","USAR BUZINA PROLONGADA E SUCESSIVAMENTE A QUALQUER PRETEXTO.",88.38],["650-50","227*III","USAR BUZINA ENTRE AS VINTE E DUAS E AS SEIS HORAS",88.38],["651-30","227*IV","USAR BUZINA EM LOCAIS E HORARIOS PROIBIDOS PELA SINALIZACAO",88.38],["652-10","227*V","USAR BUZINA EM DESACORDO COM OS PADROES E FREQUENCIAS ESTABELECIDAS PELO CONTRAN",88.38],["653-00","228","USAR NO VEICULO EQUIPAMENTO C/ SOM EM VOLUME/FREQUENCIA NAO AUTORIZADOS PELO CONTRAN",195.23],["654-81","229","USAR NO VEIC ALARME Q PERTURBE O SOSSEGO PUBLICO, EM DESACORDO NORMAS DO CONTRAN",130.16],["654-82","229","USAR NO VEIC APARELHO PRODUZA SOM/RUIDO PERTURBE SOSSEGO PUBLIC DESAC C/ CONTRAN",130.16],["655-61","230*I","CONDUZIR O VEICULO COM O LACRE DE IDENTIFICACAO VIOLADO/FALSIFICADO",293.47],["655-62","230*I","CONDUZIR O VEICULO COM A INSCRICAO DO CHASSI VIOLADA/FALSIFICADA",293.47],["655-63","230*I","CONDUZIR O VEICULO COM O SELO VIOLADO/FALSIFICADO",293.47],["655-64","230*I","CONDUZIR O VEICULO COM A PLACA VIOLADA/FALSIFICADA",293.47],["655-65","230*I","CONDUZIR O VEICULO COM QUALQUER OUTRO ELEM DE IDENTIFICACAO VIOLADO/FALSIFICADO",293.47],["656-40","230*II","CONDUZIR O VEICULO TRANSPORTANDO PASSAGEIROS EM COMPARTIMENTO DE CARGA",293.47],["657-20","230*III","CONDUZIR O VEICULO COM DISPOSITIVO ANTI-RADAR",293.47],["658-00","230*IV","CONDUZIR O VEICULO SEM QUALQUER UMA DAS PLACAS DE IDENTIFICACAO",293.47],["659-91","230*V","CONDUZIR O VEICULO QUE NAO ESTEJA REGISTRADO",293.47],["659-92","230*V","CONDUZIR O VEICULO REGISTRADO QUE NAO ESTEJA DEVIDAMENTE LICENCIADO",293.47],["660-20","230*VI","CONDUZIR O VEICULO COM QUALQUER UMA DAS PLACAS SEM LEGIBILIDADE E VISIBILIDADE",293.47],["661-01","230*VII","CONDUZIR O VEICULO COM A COR ALTERADA",195.23],["661-02","230*VII","CONDUZIR O VEICULO COM CARACTERISTICA ALTERADA",195.23],["662-90","230*VIII","CONDUZIR VEICULO SEM TER SIDO SUBMETIDO A INSPECAO DE SEG VEICULAR, QDO OBRIGATORIA",195.23],["663-71","230*IX","CONDUZIR O VEICULO SEM EQUIPAMENTO OBRIGATORIO",195.23],["663-72","230*IX","CONDUZIR O VEICULO COM EQUIPAMENTO OBRIGATORIO INEFICIENTE/INOPERANTE",195.23],["664-50","230*X","CONDUZIR VEICULO COM EQUIPAMENTO OBRIGATORIO EM DESACORDO COM O ESTABELECIDO PELO CONTRAN",195.23],["665-31","230*XI","CONDUZIR O VEICULO COM DESCARGA LIVRE",195.23],["665-32","230*XI","CONDUZIR O VEICULO COM SILENCIADOR DE MOTOR DEFEITUOSO/DEFICIENTE/INOPERANTE",195.23],["666-10","230*XII","CONDUZIR O VEICULO COM EQUIPAMENTO OU ACESSORIO PROIBIDO.",195.23],["667-00","230*XIII","CONDUZIR O VEICULO COM O EQUIPAMENTO DO SISTEMA DE ILUMINACAO E DE SINALIZACAO ALTERADOS",195.23],["668-80","230*XIV","CONDUZIR VEIC C/ REGISTRADOR INSTAN INALT DE VELOCIDADE/TEMPO VICIADO/DEFEITUOSO",195.23],["669-61","230*XV","CONDUZIR C/ INSCR/ADESIVO/LEGENDA/SIMBOLO AFIXADO PARA-BRISA E EXTENSAO TRASEIRA",195.23],["669-62","230*XV","CONDUZIR C/ INSCR/ADESIVO/LEGENDA/SIMBOLO PINTADO PARA-BRISA E EXTENSAO TRASEIRA",195.23],["670-01","230*XVI","CONDUZIR O VEICULO COM VIDROS TOTALMENTE COBERTOS POR PELICULA, PAINEIS/PINTURA",195.23],["670-02","230*XVI","CONDUZIR O VEICULO C/ VIDROS PARCIALMENTE COBERTOS POR PELICULA, PAINEIS/PINTURA",195.23],["671-80","230*XVII","CONDUZIR O VEICULO COM CORTINAS OU PERSIANAS FECHADAS",195.23],["672-61","230*XVIII","CONDUZIR O VEICULO EM MAU ESTADO DE CONSERVACAO",195.23],["672-62","230*XVIII","CONDUZIR O VEICULO REPROVADO NA AVALIACAO DE INSPECAO DE SEGURANCA",195.23],["672-63","230*XVIII","CONDUZIR O VEICULO REPROVADO NA AVALIACAO DE EMISSAO DE POLUENTES E RUIDO",195.23],["673-40","230*XIX","CONDUZIR O VEICULO SEM ACIONAR O LIMPADOR DE PARA-BRISAS SOB CHUVA.",195.23],["674-20","230*XX","CONDUZIR O VEICULO SEM PORTAR A AUTORIZACAO PARA CONDUCAO DE ESCOLARES",195.23],["675-00","230*XXI","CONDUZIR O VEIC DE CARGA C/ FALTA INSCRICAO DA TARA E DEMAIS PREVISTAS NO CTB",130.16],["676-91","230*XXII","CONDUZIR O VEICULO COM DEFEITO NO SISTEMA DE ILUMINACAO",130.16],["676-92","230*XXII","CONDUZIR O VEICULO COM DEFEITO NO SISTEMA DE SINALIZACAO",130.16],["676-93","230*XXII","CONDUZIR O VEICULO COM LAMPADAS QUEIMADAS",130.16],["677-70","231*I","TRANSITAR COM O VEICULO DANIFICANDO A VIA, SUAS INSTALACOES E EQUIPAMENTOS",293.47],["678-51","231*II*A","TRANSITAR COM VEICULO DERRAMANDO A CARGA QUE ESTEJA TRANSPORTANDO",293.47],["678-52","231*II*A","TRANSITAR COM VEICULO LANCANDO A CARGA QUE ESTEJA TRANSPORTANDO",293.47],["678-53","231*II*A","TRANSITAR COM VEICULO ARRASTANDO A CARGA QUE ESTEJA TRANSPORTANDO",293.47],["679-30","231*II*B","TRANSITAR COM O VEICULO DERRAMANDO/LANCANDO COMBUSTIVEL/LUBRIF QUE ESTEJA UTILIZANDO",293.47],["680-70","231*II*C","TRANSITAR C/ VEIC DERRAMANDO/LANCANDO/ARRASTANDO QQ OBJETO COM RISCO DE ACIDENTE",293.47],["681-50","231*III","TRANSITAR COM VEICULO PRODUZINDO FUMACA, GASES OU PARTICULASEM DESAC C/ CONTRAN",195.23],["682-31","231*IV","TRANSITAR C/ VEIC E/OU CARGA C/ DIMENSOES SUPERIORES LIMITE LEGAL S/ AUTORIZACAO",195.23],["682-32","231*IV","TRANSITAR C/ VEIC E/OU CARGA C/ DIMENSOES SUPERIORES EST P/SINALIZACAO S/AUTORIZ",195.23],["683-10","231*V","TRANSITAR COM O VEICULO COM EXCESSO DE PESO",130.16],["684-01","231*VI","TRANSITAR EM DESACORDO C/ AUTORIZACAO EXPEDIDA P/VEICULO C/ DIMENSOES EXCEDENTES",195.23],["684-02","231*VI","TRANSITAR COM AUTORIZACAO VENCIDA, EXPEDIDA P/ VEICULO C/ DIMENSOES EXCEDENTES",195.23],["685-80","231*VII","TRANSITAR COM O VEICULO COM LOTACAO EXCEDENTE",130.16],["686-61","231*VIII","TRANSITAR EFETUANDO TRANSPORTE REMUNERADO DE PESSOAS QDO N LICENCIADO P/ESSE FIM",130.16],["686-62","231*VIII","TRANSITAR EFETUANDO TRANSPORTE REMUNERADO DE BENS QDO NAO LICENCIADO P/ ESSE FIM",130.16],["687-41","231*IX","TRANSITAR COM O VEICULO DESLIGADO EM DECLIVE",130.16],["687-42","231*IX","TRANSITAR COM O VEICULO DESENGRENADO EM DECLIVE",130.16],["688-20","231*X","TRANSITAR COM O VEICULO EXCEDENDO A CAPACIDADE MAXIMA DE TRACAO - MEDIA",130.16],["689-00","231*X","TRANSITAR COM O VEICULO EXCEDENDO A CAPACIDADE MAXIMA DE TRACAO - GRAVE",195.23],["690-40","231*X","TRANSITAR COM O VEICULO EXCEDENDO A CAPACIDADE MAXIMA DE TRACAO - GRAVISSIMA",293.47],["691-20","232","CONDUZIR VEICULO SEM OS DOCUMENTOS DE PORTE OBRIGATORIO REFERIDOS NO CTB",88.38],["692-00","233","DEIXAR DE EFETUAR REGISTRO DE VEICULO NO PRAZO DE TRINTA DIAS",195.23],["693-91","234","FALSIFICAR DOCUMENTO DE HABILITACAO",293.47],["693-92","234","ADULTERAR DOCUMENTO DE HABILITACAO",293.47],["693-93","234","FALSIFICAR DOCUMENTO DE IDENTIFICACAO DO VEICULO",293.47],["693-94","234","ADULTERAR DOCUMENTO DE IDENTIFICACAO DO VEICULO",293.47],["694-71","235","CONDUZIR PESSOAS NAS PARTES EXTERNAS DO VEICULO",195.23],["694-72","235","CONDUZIR ANIMAIS NAS PARTES EXTERNAS DO VEICULO",195.23],["694-73","235","CONDUZIR CARGA NAS PARTES EXTERNAS DO VEICULO",195.23],["695-50","236","REBOCAR OUTRO VEICULO COM CABO FLEXIVEL OU CORDA",130.16],["696-31","237","TRANSITAR C/ VEIC EM DESACORDO C/ ESPECIFICACOES NECESSARIAS A SUA IDENTIFICACAO",195.23],["696-32","237","TRANSITAR COM VEICULO COM FALTA DE INSCRICAO NECESSARIA A SUA IDENTIFICACAO",195.23],["696-33","237","TRANSITAR COM VEICULO COM FALTA DE SIMBOLOGIA NECESSARIA A SUA IDENTIFICACAO",195.23],["697-10","238","RECUSAR-SE A ENTREGAR CNH/CRV/CRLV/ OUTROS DOCUMENTOS",293.47],["698-00","239","RETIRAR DO LOCAL VEICULO LEGALMENTE RETIDO PARA REGULARIZACAO, SEM PERMISSAO",293.47],["699-80","240","DEIXAR RESPONSAVEL DE PROMOVER BAIXA REGISTRO DE VEIC IRRECUPERAVEL/DESMONTADO",195.23],["700-51","241","DEIXAR DE ATUALIZAR O CADASTRO DE REGISTRO DO VEICULO",88.38],["700-52","241","DEIXAR DE ATUALIZAR O CADASTRO DE HABILITACAO DO CONDUTOR",88.38],["701-31","242","FAZER FALSA DECLARACAO DE DOMICILIO PARA FINS DE REGISTRO/LICENCIAMENTO",293.47],["701-32","242","FAZER FALSA DECLARACAO DE DOMICILIO PARA FINS DE HABILITACAO",293.47],["702-10","243","DEIXAR SEGURADORA DE COMUNICAR OCORRENCIA PERDA TOTAL VEIC E DEVOLVER PLACAS/DOC",195.23],["703-01","244*I","CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR SEM CAPACETE DE SEGURANCA",293.47],["703-02","244*I","CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR C/ CAPACETE S/ VISEIRA/OCULOS PROTECAO",293.47],["703-03","244*I","CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR SEM VESTUARIO APROVADO PELO CONTRAN",293.47],["704-81","244*II","CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE",293.47],["704-82","244*II","CONDUZIR MOTOCICLETA/ MOTONETA/CICLOMOTOR TRANSP.PASSAG S/VISEIRA/OCULOS PROTECAO",293.47],["704-83","244 *II","CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR TRANSPORTANDO PAS. FORA DO ASSENTO",293.47],["705-61","244*III","CONDUZIR MOTOC/MOTON/CICLOMOTOR FAZENDO MALABARISMO/EQUILIBRANDOSE EM UMA RODA",293.47],["705-62","244*III c/c pr1","CONDUZIR CICLO FAZENDO MALABARISMO OU EQUILIBRANDO-SE EM UMA RODA",130.16],["706-40","244*IV","CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR COM OS FAROIS APAGADOS",293.47],["707-21","244*V","CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR TRANSPORTANDO CRIANCA MENOR DE 7 ANOS",293.47],["707-22","244*V","CONDUZIR MOTOC/MOTON/CICLOM TRANSP CRIANCA S/ CONDICAO CUIDAR PROPRIA SEGURANCA",293.47],["708-00","244 VI","CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR REBOCANDO OUTRO VEICULO",130.16],["709-91","244*VII","CONDUZIR MOTOCICLETA/MOTONETA/CICLOMOTOR SEM SEGURAR O GUIDOM COM AMBAS AS MAOS",130.16],["709-92","244*VII c/c pr1","CONDUZIR CICLO SEM SEGURAR O GUIDOM COM AMBAS AS MAOS",130.16],["710-21","244*VIII","CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO CARGA INCOMPATIVEL",130.16],["710-22","244*VIII c/c pr1","CONDUZIR CICLO TRANSPORTANDO CARGA INCOMPATIVEL",130.16],["711-00","244*1 pr 1 A","CONDUZIR CICLO TRANSPORTANDO PASSAGEIRO FORA DA GARUPA/ASSENTO A ELE DESTINADO",130.16],["712-91","244 pr1*B","CONDUZIR CICLO EM VIA DE TRANSITO RAPIDO/RODOVIA SEM ACOSTAMENTO/FAIXA PROPRIA",130.16],["712-92","244 pr1 *B c/c pr2","CONDUZIR CICLOMOTOR VIA DE TRANSITO RAPIDO/RODOVIA S/ ACOSTAMENTO/FAIXA PROPRIA",130.16],["713-70","244 pr1*C","CONDUZIR CICLO TRANSPORTANDO CRIANCA S/ CONDICAO DE CUIDAR PROPRIA SEGURANCA",130.16],["714-50","245","UTILIZAR A VIA PARA DEPOSITO DE MERCADORIAS, MATERIAIS OU EQUIPAMENTOS",195.23],["715-31","246","DEIXAR DE SINALIZAR OBSTACULO A CIRCULACAO/SEGURANCA CALCADA/PISTAS/ AGRAVAMENTO",293.47],["715-32","246","OBSTACULIZAR A VIA INDEVIDAMENTE-S/AGRAVAMENTO",293.47],["716-11","246","DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 2X",586.94],["716-12","246","OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 2X",586.94],["717-01","246","DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 3X",880.41],["717-02","246","OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 3X",880.41],["718-81","246","DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 4X",1173.88],["718-82","246","OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 4X",1173.88],["719-61","246","DEIXAR DE SINALIZAR OBSTACULO CIRCULACAO/SEGURANCA CALCADA/PISTA AGRAVAMENTO 5X",1467.35],["719-62","246","OBSTACULIZAR A VIA INDEVIDAMENTE-AGRAVAMENTO 5X",1467.35],["720-01","247","DEIXAR DE CONDUZIR PELO BORDO PISTA EM FILA UNICA VEIC TRACAO/PROPULSAO HUMANA",130.16],["720-02","247","DEIXAR DE CONDUZIR PELO BORDO DA PISTA EM FILA UNICA VEICULO DE TRACAO ANIMAL",130.16],["721-80","248","TRANSPORTAR EM VEIC DESTINADO TRANSP PASSAGEIROS CARGA EXCEDENTE DESAC ART.109",195.23],["722-61","249","DEIXAR DE MANTER ACESAS A NOITE AS LUZES POSICAO QDO O VEICULO ESTIVER PARADO",130.16],["722-62","249","DEIXAR DE MANTER ACESAS A NOITE AS LUZES DE POSICAO VEIC FAZENDO CARGA/DESCARGA",130.16],["723-40","250*I*A","EM MOVIMENTO, DEIXAR DE MANTER ACESA A LUZ BAIXA DURANTE A NOITE",130.16],["724-20","250*I*B","EM MOVIMENTO DE DIA, DEIXAR DE MANTER ACESA LUZ BAIXA TUNEL COM ILUMINACAO PUBL",130.16],["725-00","250*I*C","EM MOV, DEIXAR DE MANTER ACESA LUZ BAIXA VEIC TRANSP COLETIVO FAIXA/PISTA EXCL",130.16],["726-90","250*I*D","EM MOVIMENTO, DEIXAR DE MANTER ACESA LUZ BAIXA DO CICLOMOTOR",130.16],["727-70","250*II","EM MOV DEIXAR DE MANTER ACESAS LUZES DE POSICAO SOB CHUVA FORTE/NEBLINA/CERRACAO",130.16],["728-50","250*III","EM MOVIMENTO, DEIXAR DE MANTER A PLACA TRASEIRA ILUMINADA A NOITE",130.16],["729-30","251*I","UTILIZAR O PISCA-ALERTA, EXCETO EM IMOBILIZACOES OU SITUACOES DE EMERGENCIA",130.16],["730-70","251*II","UTILIZAR LUZ ALTA E BAIXA INTERMITENTE, EXCETO QUANDO PERMITIDO PELO CTB",130.16],["731-50","252*I","DIRIGIR O VEICULO COM O BRACO DO LADO DE FORA",130.16],["732-31","252*II","DIRIGIR O VEICULO TRANSPORT PESSOAS A SUA ESQUERDA OU ENTRE OS BRACOS E PERNAS",130.16],["732-32","252*II","DIRIGIR O VEICULO TRANSPORT ANIMAIS A SUA ESQUERDA OU ENTRE OS BRACOS E PERNAS",130.16],["732-33","252*II","DIRIGIR O VEICULO TRANSPORT VOLUME A SUA ESQUERDA OU ENTRE OS BRACOS E PERNAS",130.16],["733-10","252*III","DIRIGIR O VEICULO COM INCAPACIDADE FISICA OU MENTAL TEMPORARIA",130.16],["734-00","252*IV","DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS",130.16],["735-80","252*V","DIRIGIR O VEICULO COM APENAS UMA DAS MAOS, EXCETO QUANDO PERMITIDO PELO CTB",130.16],["736-61","252*VI","DIRIGIR O VEICULO UTILIZANDO-SE DE FONES NOS OUVIDOS CONEC A APARELHAGEM SONORA",130.16],["736-62","252*VI","DIRIGIR VEICULO UTILIZANDO-SE DE TELEFONE CELULAR",130.16],["737-40","253","BLOQUEAR A VIA COM VEICULO",293.47],["738-20","254*I","E PROIB AO PEDESTRE PERMANECER/ANDAR PISTA, EXCETO P/ CRUZA-LAS ONDE PERMITIDO",44.19],["739-01","254*II","E PROIBIDO AO PEDESTRE CRUZAR PISTA DE ROLAMENTO DE VIADUTO EXC ONDE PERMITIDO",44.19],["739-02","254*II","E PROIBIDO AO PEDESTRE CRUZAR PISTA DE ROLAMENTO DE PONTE EXCETO ONDE PERMITIDO",44.19],["739-03","254*II","E PROIBIDO AO PEDESTRE CRUZAR PISTA DE ROLAMENTO DE TUNEIS EXCETO ONDE PERMITIDO",44.19],["740-40","254*III","E PROIB AO PEDESTRE ATRAVESSAR VIA AREA CRUZAMENTO EXC ONDE PERMITIDO P/ SINALIZ",44.19],["741-20","254*IV","E PROIB PEDESTRE UTILIZAR VIA EM AGRUPAM QUE PERTURBE TRANS/PRAT ESPORTE/DESFILE",44.19],["742-01","254*V","E PROIBIDO AO PEDESTRE ANDAR FORA DA FAIXA PROPRIA",44.19],["742-02","254*V","E PROIBIDO AO PEDESTRE ANDAR FORA DA PASSARELA",44.19],["742-03","254*V","E PROIBIDO AO PEDESTRE ANDAR FORA DA PASSAGEM AEREA",44.19],["742-04","254*V","E PROIBIDO AO PEDESTRE ANDAR FORA DA PASSAGEM SUBTERRANEA",44.19],["743-90","254*VI","E PROIBIDO AO PEDESTRE DESOBEDECER A SINALIZACAO DE TRANSITO ESPECIFICA",44.19],["744-71","255","CONDUZIR BICICLETA EM PASSEIOS ONDE NAO SEJA PERMITIDA A CIRCULACAO DESTA",130.16],["744-72","255","CONDUZIR BICICLETA DE FORMA AGRESSIVA",130.16],["745-50","218*I","TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%",130.16],["746-30","218*II","TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%",195.23],["747-10","218*III","TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 50%",880.41],["748-01","93 c/c 95 pr4","APROVAR PROJ EDIFICACAO POLO ATRATIVO TRANSITO S/ ANUENCIA ORGAO/ENTID TRANSITO",null],["748-02","93 c/c 95 pr4","APROVAR PROJ EDIFICACAO POLO ATRATIVO TRANS S/ ESTACION/INDICACAO VIAS DE ACESSO",null],["749-80","94","N SINALIZAR DEVIDA/IMED OBSTACULO AA CIRCULACAO/SEGURANCA VEICULO/PEDESTRE PISTA/CALCADA",null],["750-10","94 pr UNICO","UTILIZAR ONDULACAO TRANSVERSAL/SONORIZADOR FORA PADRAO/CRITERIO ESTAB P/ CONTRAN",null],["751-01","95","INICIAR OBRA PERTURBE/INTERROMPA CIRCULACAO/SEGURANCA VEIC/PEDESTRES S/PERMISSAO",null],["751-02","95","INICIAR EVENTO PERTURBE/INTERROMPA CIRCULAC/SEGURANCA VEIC/PEDESTRES S/PERMISSAO",null],["752-81","95 pr1","NAO SINALIZAR A EXECUCAO OU MANUTENCAO DA OBRA",null],["752-82","95 pr1","NAO SINALIZAR A EXECUCAO OU MANUTENCAO DO EVENTO",null],["753-60","95 pr2","NAO AVISAR COMUNIDADE C/ 48H ANTEC INTERDICAO VIA INDICANDO CAMINHO ALTERNATIVO",null],["754-41","330 pr5","FALTA DE ESCRITURACAO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",null],["754-42","330 pr5","ATRASO ESCRITURACAO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",null],["754-43","330 pr5","FRAUDE ESCRITURACAO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",null],["754-44","330 pr5","RECUSA DA EXIBICAO DO LIVRO REGISTRO ENTRADA/SAIDA E DE USO PLACA DE EXPERIENCIA",null],["758-70","184*III","TRANSITAR COM O VEÍCULO NA FAIXA OU VIA DE TRÂNSITO EXCLUSIVO",293.47],["901-60","45*I*A","TRANSPORTAR PRODUTO CUJO DESLOC. RODOV. SEJA PROIBIDO PELO MINISTERIO DO TRANSP.",654.54],["902-40","45*I*B","TRANSPORTAR PRODUTO PERIGOSO A GRANEL QUE NAO CONSTE DO CERTIFIC. DE CAPACITACAO",656.54],["903-20","45*I*C","TRANSPORTAR PRODUTO PERIGOSO A GRANEL DESPROV. DE CERTIFICADO DE CAPACIT. VALIDO",656.54],["904-01","45*I*D","TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, PESSOAS/EMBALAGENS DESTIN. A ESTES BENS",656.54],["904-02","45*I*D","TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, ANIMAIS/EMBALAGENS DESTIN. A ESTES BENS",656.54],["904-03","45*I*D","TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, ALIMENTOS DEST. AO CONSUMO HUMANO/ANIMAL",656.54],["904-04","45*I*D","TRANSPORTAR JUNTO C/ PRODUTO PERIGOSO, MEDICAM. DEST. AO CONSUMO HUMANO/ANIMAL",656.54],["905-90","45*I*E","TRANSPORTAR PRODUTOS INCOMPATIVEIS ENTRE SI, APESAR DE ADVERTIDO PELO EXPEDIDOR",656.54],["906-71","45*II*A","NAO DAR MANUTENCAO AO VEICULO",328.27],["906-72","45*II*A","NAO DAR MANUTENCAO AO EQUIPAMENTO",328.27],["907-51","45*II*B","ESTACIONAR COM INOBSERVANCIA AO ARTIGO 14",328.27],["907-52","45*II*B","PARAR COM INOBSERVANCIA AO ARTIGO 14",328.27],["908-30","45*II*C","TRANSPORTAR PRODUTOS CUJAS AS EMBALAGENS SE ENCONTREM EM MAS CONDICOES",328.27],["909-11","45*II*D","NAO ADOTAR EM ACIDENTE PROVIDENCIAS CONSTANTES DA FICHA DE EMERGENCIA/ENVELOPE",328.27],["909-12","45*II*D","NAO ADOTAR EM AVARIA AS PROVIDENCIAS CONSTANTES DA FICHA DE EMERGENCIA/ENVELOPE",328.27],["910-51","45*II*E","TRANSPORTAR PRODUTO A GRANEL SEM UTILIZAR O TACOGRAFO",328.27],["910-52","45*II*E","TRANSPORTAR PRODUTO A GRANEL E NAO APRESENTAR DISCO A AUTORIDADE COMPETENTE",328.27],["911-30","45*III*A","TRANSPORTAR CARGA MAL ESTIVADA",131.3],["912-11","45*III*B","TRANSPORTAR PRODUTO PERIGOSO EM VEICULO DESPROVIDO DE EQUIPAMENTO P/ EMERGENCIA",131.3],["912-12","45*III*B","TRANSPORTAR PRODUTO PERIGOSO EM VEICULO DESPROVIDO DE EQUIP. DE PROTECAO INDIV.",131.3],["913-00","45*III*C","TRANSPORTAR PROD. PERIG. DESACOMP. DE CERTIFIC. DE CAPAC. P/ TRANSPORTE A GRANEL",131.3],["914-80","45*III*D","TRANSPORTAR PROD. PERIG. DESACOMP. DE DECLARACAO DE RESPONSABILIDADE DO EXPEDID.",131.3],["915-61","45*III*E","TRANSPORTAR PRODUTO PERIGOSO DESACOMPANHADO DE FICHA DE EMERGENCIA",131.3],["915-62","45*III*E","TRANSPORTAR PRODUTO PERIGOSO DESACOMPANHADO DE ENVELOPE PARA O TRANSPORTE",131.3],["916-41","45*III*F","TRANSPORTAR PRODUTO PERIGOSO S/ UTILIZAR NAS EMBALAGENS ROTULOS E PAINEIS",130.88],["916-42","45*III*F","TRANSPORTAR PRODUTO PERIGOSO S/ UTILIZAR NO VEICULO ROTULOS E PAINEIS DE SEGUR.",130.88],["917-20","450*III*G","CIRCULAR S/ PERMISSAO EM VIAS PUBLICAS TRANSPORTANDO PRODUTO PERIGOSO",131.3],["918-01","45*III*H","NAO DAR IMEDIATA CIENCIA DA IMOBILIZACAO DO VEICULO EM CASO DE EMERGENCIA",null],["918-02","45*III*H","NAO DAR IMEDIATA CIENCIA DA IMOBILIZACAO DO VEICULO EM CASO DE ACIDENTE",null],["918-03","45*III*H","NAO DAR IMEDIATA CIENCIA DA IMOBILIZACAO DO VEICULO EM CASO DE AVARIA",null],["919-90","46*I*A","EMBARCAR NO VEICULO PRODUTOS INCOMPATIVEIS ENTRE SI",656.54],["920-21","46*I*B","EMBARCAR PRODUTO PERIGOSO NAO CTE. DO CERTIFICADO DE CAPACITACAO DO VEICULO",656.54],["920-22","46*I*B","EMBARCAR PRODUTO PERIGOSO NAO CTE. DO CERTIFICADO DE CAPACITACAO DO EQUIPAMENTO",656.54],["921-00","46*I*C","NAO LANCAR NO DOCUMENTO FISCAL, AS INFORMACOES DE QUE TRATA O ITEM II DO ART. 22",656.54],["922-91","46*I*D","EXPEDIR PRODUTO PERIGOSO MAL ACONDICIONADO",656.54],["922-92","46*I*D","EXPEDIR PRODUTO PERIGOSO COM A EMBALAGEM EM MAS CONDICOES",656.54],["923-70","46*I*E","NAO COMPARECER AO LOCAL DO ACIDENTE QUANDO EXPRES. CONVOCADO PELA AUTORID. COMP.",656.54],["924-51","46*II*A","EMBARCAR PRODUTO PERIGOSO EM VEICULO QUE NAO DISPONHA DE EQUIPAM. DE EMERGENCIA",328.27],["924-52","46*II*A","EMBARCAR PRODUTO PERIGOSO EM VEICULO QUE NAO DISPONHA DE EQUIPAM. DE PROT. IND.",328.27],["925-31","46*II*B","NAO FORNECER AO TRANSPORT A FICHA DE EMERGENCIA",328.27],["925-32","46*II*B","NAO FORNECER AO TRANSPORT O ENVELOPE PARA O TRANSPORTE",328.27],["926-10","46*II*C","EMBARCAR PRODUTO PERIGOSO EM VEIC. QUE NAO ESTEJA UTILIZANDO ROTULOS E PAINEIS",328.27],["927-00","46*II*D","EXPEDIR CARGA FRACIONADA C/ EMBALAGEM EXTERNA DESPROVIDA DOS ROTULOS DE RISCO",328.27],["928-80","46*II*E","EMBARCAR PRODUTO PERIGOSO EM VEICULO OU EQUIPAMENTO S/ CONDICOES DE MANUTENCAO",328.27],["929-61","46*II*F","NAO PRESTAR OS NECESSARIOS ESCLARECIMENTOS TECNICOS EM SITUACAO DE EMERGENCIA",328.27],["929-62","46*II*F","NAO PRESTAR OS NECESSARIOS ESCLARECIMENTOS TECNICOS EM SITUACAO DE ACIDENTE",328.27]];
+/* ---------- estado ---------- */
+const ICON={
+ painel:'<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
+ veiculos:'<path d="M5 17h14M6 17v2M18 17v2M4 13l2-6h12l2 6v4H4z"/><circle cx="8" cy="14.5" r=".6"/><circle cx="16" cy="14.5" r=".6"/>',
+ debitos:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
+ oficios:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+ lixeira:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+ usuarios:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>'
+};
+const S={
+  perfil:'admin', view:'painel',
+  V:DADOS.V.map((v,i)=>({...v,id:i+1,exc:false})),
+  D:DADOS.D.map(d=>{const v=DADOS.V.find(x=>x.p===d.p);return v&&v.sit.includes('TRANSF')?{...d,st:'Pago',pt:true}:{...d}}),
+  O:DADOS.O.map(o=>({...o,sei:''})),
+  U:[{email:'kimduarte.17@gmail.com',perfil:'admin'}],
+  fV:{q:'',sit:''}, fD:{q:'',tipo:'',st:''}
+};
+const EU='kimduarte.17@gmail.com';
+const INF_COD=new Map(TABELA_INF.map(r=>[r[0],r]));
+const INF_ART=new Map();TABELA_INF.forEach(r=>{const k=r[1].toUpperCase();if(!INF_ART.has(k))INF_ART.set(k,[]);INF_ART.get(k).push(r)});
+const UFS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+/* No site real, os órgãos vêm da tabela de órgãos autuadores por UF. */
+const orgaos=()=>[...new Set(['PRF',...UFS.flatMap(u=>[`DETRAN-${u}`,`SEFAZ-${u}`,`DER-${u}`]),...S.D.map(d=>d.org)])];
+const HOJE=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const MES_EXT=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const mesAtual=()=>{const d=new Date();return `${['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][d.getMonth()]}/${d.getFullYear()}`};
+const dataExt=()=>{const d=new Date();return `${d.getDate()} de ${MES_EXT[d.getMonth()]} de ${d.getFullYear()}`};
+const proxId=a=>a.reduce((m,x)=>Math.max(m,x.id),0)+1;
+const ST_INF=['Pendente','Enviado','Recebido','Cancelada','Negada','Paga'];
+const ST_GEN=['Pendente','Enviado','Pago','Baixado'];
+const ABERTO=s=>['Pendente','Enviado','Recebido','Negada'].includes(s);
+const SITS=['EM CIRCULAÇÃO','EM CIRCULAÇÃO COMUNICADO DE VENDA','TRANSFERIDO P/ OUTRA UF'];
+const pode={
+  escrever:()=>['admin','usuario'].includes(S.perfil),
+  excluir:()=>S.perfil==='admin',
+  admin:()=>S.perfil==='admin'
+};
+
+/* ---------- utilitários ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const brl=v=>v==null?'—':v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const placa=p=>`<span class="placa"><span>${esc(p)}</span></span>`;
+const veic=p=>S.V.find(v=>v.p===p&&!v.exc);
+function sitPill(s){if(!s)return '<span class="pill p-neutro">—</span>';if(s.includes('TRANSF'))return '<span class="pill p-ok">Transferido</span>';if(s.includes('COMUNICADO'))return '<span class="pill p-azul">Comunicado de venda</span>';return '<span class="pill p-aviso">Em circulação</span>'}
+function stPill(s){const m={Pendente:'p-aviso',Enviado:'p-azul',Recebido:'p-roxo',Cancelada:'p-ok',Baixado:'p-ok',Negada:'p-erro',Paga:'p-ok',Pago:'p-ok','Pago na transferência':'p-ok'};return `<span class="pill ${m[s]||'p-neutro'}">${esc(s)}</span>`}
+function tipoPill(t){const m={'Infração':'p-erro','IPVA':'p-roxo','Licenciamento':'p-azul','Taxas':'p-neutro','Outra':'p-neutro'};return `<span class="pill ${m[t]}">${esc(t)}</span>`}
+function ref(d){if(d.t==='Infração')return `<span class="mono">${esc(d.ait)}</span><span class="sub">cód. ${esc(d.cod||'—')} · art. ${esc(d.art||'—')}</span>`;return d.ex?`Exercício ${esc(d.ex)}`:'<span class="suave">exercício não informado</span>'}
+function toast(m){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+function debitosAbertos(p){return S.D.filter(d=>d.p===p&&ABERTO(d.st))}
+const soma=a=>a.reduce((s,d)=>s+(d.v||0),0);
+const pagosTransf=p=>S.D.filter(d=>d.p===p&&d.pt);
+const stTxt=d=>d.pt?'Pago na transferência':d.st;
+const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const dataBR=iso=>{if(!iso)return '';const [a,m,d]=iso.split('-');return `${d}/${m}/${a}`};
+const semRegistro=v=>pagosTransf(v.p).length&&!(v.pag&&v.pag.data&&v.pag.comps.length);
+const anexosHTML=(cs,rm)=>cs.map((c,i)=>`<span class="anexo">📎 ${esc(c.nome)} <small>${esc(c.tam)}</small>${rm?`<button type="button" class="fechar" data-rmc="${i}" aria-label="Remover ${esc(c.nome)}">×</button>`:''}</span>`).join('');
+function camposPag(v){const g=v.pag||{data:'',comps:[],sei:'',obs:''};
+  return `<div class="form">${campo('pgd','Data do pagamento',{tipo:'date',val:g.data,ob:true})}${campo('pgs','Nº SEI do comprovante',{val:g.sei,mono:true,dica:'Opcional.'})}
+   <div class="campo todo"><label for="pgf">Comprovantes <span class="ob">*</span></label><input id="pgf" type="file" accept=".pdf,image/*" multiple><span class="erro" id="pgf-e"></span>
+   <span class="dica">PDF ou foto da guia paga (DUA, GRU, boleto). Pode anexar mais de um: IPVA e licenciamento costumam vir em guias separadas.</span>
+   <div id="pgl" class="anexos"></div></div>
+   ${campo('pgo','Observação',{val:g.obs,todo:true})}</div>`}
+function ligaPag(v){const comps=(v.pag?v.pag.comps:[]).slice();
+  const pinta=()=>{$('#pgl').innerHTML=anexosHTML(comps,true);
+    document.querySelectorAll('[data-rmc]').forEach(b=>b.onclick=()=>{comps.splice(+b.dataset.rmc,1);pinta()})};
+  $('#pgf').onchange=e=>{[...e.target.files].forEach(f=>comps.push({nome:f.name,tam:f.size>1048576?(f.size/1048576).toFixed(1)+' MB':Math.max(1,Math.round(f.size/1024))+' KB'}));e.target.value='';pinta()};
+  pinta();
+  return ()=>{const d=$('#pgd').value;let ok=true;
+    $('#pgd-e').textContent=d?'':'Informe a data em que a guia foi paga.';$('#pgd').classList.toggle('inv',!d);if(!d)ok=false;
+    if(d&&d>HOJE()){$('#pgd-e').textContent='A data não pode ser futura.';ok=false}
+    $('#pgf-e').textContent=comps.length?'':'Anexe ao menos um comprovante.';if(!comps.length)ok=false;
+    if(!ok)return null;return {data:d,comps,sei:$('#pgs').value.trim(),obs:$('#pgo').value.trim()}}}
+function formPag(v){
+  modal({titulo:`Pagamento da transferência · ${esc(v.p)}`,sub:`${brl(soma(pagosTransf(v.p)))} em ${pagosTransf(v.p).length} débito${pagosTransf(v.p).length>1?'s':''}`,corpo:camposPag(v),
+   pe:`<button class="btn" data-fechar>Cancelar</button><button class="btn pri" id="pgsalv">Salvar pagamento</button>`,
+   aoAbrir(){const ler=ligaPag(v);$('#pgsalv').onclick=()=>{const r=ler();if(!r)return;v.pag=r;fechar();render();toast(`Pagamento de ${v.p} registrado em ${dataBR(r.data)}`)}}});
+}
+
+/* ---------- modal ---------- */
+function modal({titulo,sub='',corpo,pe='',largo=false,aoAbrir}){
+  $('#camada').innerHTML=`<div class="fundo-modal" id="fm"><div class="modal ${largo?'largo':''}" role="dialog" aria-modal="true" aria-labelledby="mt">
+   <div class="modal-cab"><div><h2 id="mt">${titulo}</h2>${sub?`<p class="suave">${sub}</p>`:''}</div><button class="fechar" aria-label="Fechar" data-fechar>×</button></div>
+   <div class="modal-corpo">${corpo}</div>${pe?`<div class="modal-pe">${pe}</div>`:''}</div></div>`;
+  $('#fm').addEventListener('click',e=>{if(e.target.id==='fm'||e.target.closest('[data-fechar]'))fechar()});
+  aoAbrir&&aoAbrir();
+  const f=$('#fm').querySelector('input,select,textarea,button:not(.fechar)');f&&f.focus();
+}
+function fechar(){$('#camada').innerHTML=''}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')fechar()});
+
+/* ---------- casca ---------- */
+function casca(){
+  const abertos=S.D.filter(d=>ABERTO(d.st)).length;
+  const itens=[['painel','Painel geral'],['veiculos','Veículos',S.V.filter(v=>!v.exc).length],['debitos','Débitos',abertos],['oficios','Ofícios','novo']];
+  if(pode.excluir())itens.push(['lixeira','Lixeira',S.V.filter(v=>v.exc).length]);
+  if(pode.admin())itens.push(['usuarios','Usuários']);
+  if(!itens.some(i=>i[0]===S.view))S.view='painel';
+  return `<div class="app"><aside class="lat"><div class="marca"><b>Passivo Veicular</b><span>SGP · COLOG</span></div>
+   <nav class="menu" aria-label="Telas">${itens.map(([k,n,c])=>`<button class="item" data-ir="${k}" ${S.view===k?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>${n}${c==='novo'?'<span class="novo">NOVO</span>':c!=null?`<span class="cont">${c}</span>`:''}</button>`).join('')}</nav>
+   <div class="quem"><span>${EU}</span><span class="perfil">${{admin:'Admin',usuario:'Usuário',visitante:'Visitante'}[S.perfil]}</span></div></aside>
+   <main id="tela">${TELAS[S.view]()}</main></div>`;
+}
+function render(){
+  if(S.perfil==='sem_acesso'){$('#raiz').innerHTML=`<div class="cartao bloqueio"><div class="cad" aria-hidden="true">🔒</div><h1 style="font-size:20px">Você ainda não tem acesso</h1><p class="suave">Sua conta entrou, mas não está cadastrada no Passivo Veicular. Peça a um administrador para cadastrar exatamente este e-mail:</p><div class="email">pessoa.exemplo@gmail.com</div><p class="suave" style="font-size:12.5px">É o e-mail que o login identificou. Se ele for diferente do que foi cadastrado, o acesso não funciona.</p></div>`;return}
+  $('#raiz').innerHTML=casca();
+  const pos=TELAS_POS[S.view];pos&&pos();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ir]');if(b){S.view=b.dataset.ir;render();window.scrollTo(0,0)}});
+$('#ver-como').addEventListener('change',e=>{S.perfil=e.target.value;fechar();render();toast('Vendo como '+e.target.selectedOptions[0].text)});
+
+/* ---------- PAINEL ---------- */
+function barras(itens,cor){if(!itens.length)return '<p class="suave" style="font-size:13px">Nada registrado ainda.</p>';const max=Math.max(...itens.map(x=>x[1]),1);return `<div class="barras">${itens.map(([n,v,s])=>`<div class="barra"><span>${esc(n)} <small>${esc(s||'')}</small></span><span class="v">${brl(v)}</span><div class="tr"><i style="width:${Math.max(v/max*100,.8)}%;background:${cor||'var(--azul)'}"></i></div></div>`).join('')}</div>`}
+function painel(){
+  const ativos=S.V.filter(v=>!v.exc);
+  const ab=S.D.filter(d=>ABERTO(d.st)&&veic(d.p));
+  const pt=S.D.filter(d=>d.pt&&veic(d.p));
+  const vPt=[...new Set(pt.map(d=>d.p))];
+  const transfT=ativos.filter(v=>v.sit.includes('TRANSF'));
+  const comDeb=new Set(ab.map(d=>d.p)).size;
+  const porV=vPt.map(p=>soma(pt.filter(d=>d.p===p)));
+  const semReg=ativos.filter(semRegistro);
+  const comData=ativos.filter(v=>v.pag&&v.pag.data&&pagosTransf(v.p).length);
+  const per={};comData.forEach(v=>{const [a,m]=v.pag.data.split('-');const k=S.per==='ano'?a:`${a}-${m}`;per[k]=(per[k]||0)+soma(pagosTransf(v.p))});
+  const perL=Object.keys(per).sort().map(k=>[S.per==='ano'?k:`${MESES[+k.slice(5)-1]}/${k.slice(0,4)}`,per[k],'']);
+  const instPt={};pt.forEach(d=>{const k=veic(d.p).inst||'Sem instituição';instPt[k]=(instPt[k]||0)+(d.v||0)});
+  const porTipo=['IPVA','Licenciamento','Infração','Taxas','Outra'].map(t=>[t==='Infração'?'Multas':t,soma(ab.filter(d=>d.t===t)),ab.filter(d=>d.t===t).length+' débitos']).filter(x=>x[1]>0);
+  const inst={};ab.forEach(d=>{const k=veic(d.p).inst||'Sem instituição';inst[k]=(inst[k]||0)+(d.v||0)});
+  const rank=Object.entries(inst).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const inf=S.D.filter(d=>d.t==='Infração');
+  const semValor=S.D.filter(d=>d.v==null&&ABERTO(d.st));
+  const semVeic=S.D.filter(d=>!veic(d.p));
+  const aguard=S.O.filter(o=>o.st==='Aguardando resposta');
+  return `<div class="cab"><div><h1>Painel geral</h1><p>${ativos.length} veículos no passivo${ativos.length?` · ${new Set(ativos.map(v=>v.uf)).size} UF`:''}</p></div>
+   <div class="acoes"><button class="btn" id="rel">Gerar relatório de pendências</button></div></div>
+  <div class="kpis">
+   <div class="kpi"><b>${ativos.length}</b><span>veículos no passivo</span></div>
+   <div class="kpi"><b>${transfT.length}</b><span>já transferidos · ${vPt.length} com custo</span></div>
+   <div class="kpi"><b>${brl(soma(ab))}</b><span>em aberto em ${comDeb} veículos${semValor.length?` · ${semValor.length} sem valor`:''}</span></div>
+   <div class="kpi"><b style="color:var(--ok)">${brl(soma(pt))}</b><span>pagos para regularizar</span></div>
+  </div>
+  <div class="cartao painel esforco"><div class="esf-cab"><div><h2>Esforço de regularização</h2><p class="suave" style="font-size:13px">O que foi pago para a transferência dos veículos sair. Em veículo transferido, todo débito lançado conta como pago.</p></div><button class="btn min" data-ir-f="pagos">Ver os ${vPt.length} veículos</button></div>
+   <div class="esf-num">
+    <div><b>${brl(soma(pt))}</b><span>pago no total</span></div>
+    <div><b>${vPt.length} <small>de ${transfT.length}</small></b><span>transferências com custo; ${transfT.length-vPt.length} saíram sem custo</span></div>
+    <div><b>${brl(vPt.length?soma(pt)/vPt.length:0)}</b><span>média por veículo com custo</span></div>
+    <div><b>${brl(porV.length?Math.max(...porV):0)}</b><span>maior valor num só veículo</span></div>
+   </div>
+   <div class="grade2">
+    <div><h3 class="h3p">Pago por tipo</h3>${barras(['IPVA','Licenciamento','Infração','Taxas','Outra'].map(t=>[t==='Infração'?'Multas':t,soma(pt.filter(d=>d.t===t))]).filter(x=>x[1]>0),'var(--ok)')}</div>
+    <div><h3 class="h3p">Pago por instituição</h3>${barras(Object.entries(instPt).sort((a,b)=>b[1]-a[1]),'var(--ok)')}</div>
+   </div>
+   <div class="per"><div class="per-cab"><h3 class="h3p" style="margin:0">Pago ao longo do tempo</h3><span class="suave" style="font-size:12.5px">${comData.length} de ${vPt.length} com data registrada</span>
+    <div class="ferr" style="margin-left:auto"><button class="chip" data-per="mes" aria-pressed="${S.per!=='ano'}">Por mês</button><button class="chip" data-per="ano" aria-pressed="${S.per==='ano'}">Por ano</button></div></div>
+    ${perL.length?barras(perL,'var(--ok)'):`<p class="suave vazio-per">Nenhum pagamento com data registrada ainda. Ao registrar a data e o comprovante na ficha de cada veículo, este gráfico se monta sozinho.</p>`}
+    ${perL.length&&comData.length<vPt.length?`<p class="suave" style="font-size:12.5px">${brl(soma(pt)-perL.reduce((s,x)=>s+x[1],0))} pagos ainda sem data não aparecem aqui.</p>`:''}</div>
+   </div>
+  <div class="grade3">
+   <div class="cartao painel"><h2>Precisa de atenção</h2><div class="atencao">
+     <button data-ir-f="semreg"><span class="pill p-aviso">${semReg.length}</span><span><span class="t">Pagamentos sem data ou comprovante</span><small>Transferências pagas que ainda não têm a guia registrada.</small></span><span aria-hidden="true">›</span></button>
+     <button data-ir-f="semvalor"><span class="pill p-aviso">${semValor.length}</span><span><span class="t">Débitos sem valor</span><small>Multas pedidas ao órgão, sem valor cadastrado.</small></span><span aria-hidden="true">›</span></button>
+     <button data-ir-f="semveic"><span class="pill p-aviso">${semVeic.length}</span><span><span class="t">Débitos de veículo não cadastrado</span><small>A placa não está na lista do passivo.</small></span><span aria-hidden="true">›</span></button>
+     <button data-ir="oficios"><span class="pill p-azul">${aguard.length}</span><span><span class="t">Ofícios aguardando resposta</span><small>Enviados aos órgãos, sem retorno registrado.</small></span><span aria-hidden="true">›</span></button>
+   </div></div>
+   <div class="cartao painel"><h2>Situação das infrações</h2><div class="status-grade">${ST_INF.map(s=>`<div>${stPill(s)}<b>${inf.filter(d=>d.st===s).length}</b></div>`).join('')}</div></div>
+  </div>
+  <div class="grade2">
+   <div class="cartao painel"><h2>Em aberto por tipo</h2>${barras(porTipo)}</div>
+   <div class="cartao painel"><h2>Em aberto por instituição</h2>${barras(rank)}</div>
+  </div>`;
+}
+function painelPos(){
+  $('#rel').onclick=relatorio;
+  document.querySelectorAll('[data-per]').forEach(b=>b.onclick=()=>{S.per=b.dataset.per;render()});
+  document.querySelectorAll('[data-ir-f]').forEach(b=>b.onclick=()=>{
+    const f=b.dataset.irF;
+    if(f==='pagos'){S.fV={q:'',sit:'TRANSF',comPago:true};S.view='veiculos'}
+    else if(f==='semreg'){S.fV={q:'',sit:'',semReg:true};S.view='veiculos'}
+    else{S.fD={q:'',tipo:'',st:'',especial:f};S.view='debitos'}
+    render();
+  });
+}
+function cabecalhoDoc(){return `<div class="c">MINISTÉRIO DA JUSTIÇA E SEGURANÇA PÚBLICA</div><div class="c">SECRETARIA NACIONAL DE SEGURANÇA PÚBLICA</div><div class="c">DIRETORIA DE GESTÃO DE FUNDO NACIONAL DE SEGURANÇA PÚBLICA</div><div class="c">COORDENAÇÃO DE LOGÍSTICA</div><div class="c n">Esplanada dos Ministérios, Bloco T, Edifício Sede. Brasília/DF - CEP: 70.064-900</div>`}
+function relatorio(){
+  const ativos=S.V.filter(v=>!v.exc);
+  const tipos=['Licenciamento','IPVA','Infração'];const f2=x=>x?x.toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
+  const linhas=ativos.map((v,i)=>{const ab=debitosAbertos(v.p);const t=tipos.map(tp=>soma(ab.filter(d=>d.t===tp)));return `<tr><td>${i+1}</td><td>${esc(v.uf)}</td><td>${esc(v.p)}</td><td>${esc(v.mod)}</td><td>${esc(v.ano)}</td><td>${esc(v.sit)}</td><td>${esc(v.inst)}</td>${t.map(x=>`<td style="text-align:right">${f2(x)}</td>`).join('')}<td style="text-align:right"><b>${f2(soma(ab))}</b></td><td style="text-align:right">${f2(soma(pagosTransf(v.p)))}</td><td>${v.pag?dataBR(v.pag.data):''}</td></tr>`}).join('');
+  modal({titulo:'Relatório de pendências — ES',sub:'Gerado a partir dos débitos. O total é sempre calculado, nunca digitado.',largo:true,
+   corpo:`<div class="doc">${cabecalhoDoc()}<div class="tit">VEÍCULOS COM PENDÊNCIAS DE TRANSFERÊNCIA</div><div class="data" style="margin-top:4px">Brasília-DF, ${dataExt()}.</div>
+   <table><thead><tr><th>ORDEM</th><th>UF</th><th>PLACA</th><th>MODELO</th><th>ANO</th><th>SITUAÇÃO DETRAN</th><th>INSTITUIÇÃO</th><th>LICENCIAMENTO</th><th>IPVA</th><th>MULTAS</th><th>TOTAL EM ABERTO</th><th>PAGO NA TRANSFERÊNCIA</th><th>DATA DO PAGAMENTO</th></tr></thead><tbody>${linhas}</tbody>
+   <tfoot><tr><td colspan="10" style="text-align:right"><b>TOTAL</b></td><td style="text-align:right"><b>${f2(soma(S.D.filter(d=>ABERTO(d.st)&&veic(d.p))))}</b></td><td style="text-align:right"><b>${f2(soma(S.D.filter(d=>d.pt&&veic(d.p))))}</b></td><td></td></tr></tfoot></table></div>`,
+   pe:`<span class="suave" style="margin-right:auto;align-self:center;font-size:12.5px">No site real, este botão baixa o arquivo em Excel ou PDF.</span><button class="btn" data-fechar>Fechar</button>`});
+}
+
+/* ---------- VEÍCULOS ---------- */
+function veiculos(){
+  const f=S.fV,q=f.q.trim().toUpperCase();
+  let l=S.V.filter(v=>!v.exc);
+  if(f.sit==='EM CIRCULAÇÃO')l=l.filter(v=>v.sit==='EM CIRCULAÇÃO');else if(f.sit)l=l.filter(v=>v.sit.includes(f.sit));
+  if(f.comDeb)l=l.filter(v=>debitosAbertos(v.p).length);
+  if(f.comPago)l=l.filter(v=>pagosTransf(v.p).length);
+  if(f.semReg)l=l.filter(semRegistro);
+  if(q)l=l.filter(v=>[v.p,v.ch,v.mod,v.inst,v.ente,v.doc].join(' ').toUpperCase().includes(q));
+  const chips=[['','Todos'],['EM CIRCULAÇÃO','Em circulação'],['COMUNICADO','Comunicado de venda'],['TRANSF','Transferido']];
+  return `<div class="cab"><div><h1>Veículos</h1><p>Cadastro dos veículos doados com passivo pendente</p></div>
+   <div class="acoes">${pode.escrever()?'<button class="btn pri" id="novo-v">+ Cadastrar veículo</button>':''}</div></div>
+  <div class="ferr"><input class="busca" id="bq" type="search" placeholder="Placa, chassi, modelo, instituição…" value="${esc(f.q)}" aria-label="Buscar veículos">
+   ${chips.map(([k,n])=>`<button class="chip" data-sit="${k}" aria-pressed="${f.sit===k}">${n}</button>`).join('')}
+   <button class="chip" id="so-deb" aria-pressed="${!!f.comDeb}">Só com débito em aberto</button><button class="chip" id="so-pago" aria-pressed="${!!f.comPago}">Só com valor pago</button><button class="chip" id="sem-reg" aria-pressed="${!!f.semReg}">Pago sem registro</button></div>
+  <div class="cartao"><div class="tabela"><table><thead><tr><th>Placa</th><th>Modelo</th><th>Situação DETRAN</th><th>Ente / instituição</th><th>Doc. doação</th><th class="r">Débitos</th></tr></thead><tbody>
+  ${l.map(v=>{const ab=debitosAbertos(v.p);return `<tr class="clic" data-v="${v.id}" tabindex="0"><td>${placa(v.p)}</td><td>${esc(v.mod)}<span class="sub">${esc(v.ano)}</span></td><td>${sitPill(v.sit)}</td><td>${esc(v.ente||'—')}<span class="sub">${esc(v.inst||'sem instituição')}</span></td><td class="mono">${esc(v.doc||'—')}</td><td class="r">${ab.length?`<b>${brl(soma(ab))}</b><span class="sub">em aberto · ${ab.length}</span>`:pagosTransf(v.p).length?`<b style="color:var(--ok)">${brl(soma(pagosTransf(v.p)))}</b><span class="sub" ${v.pag?'':'style="color:var(--aviso)"'}>${v.pag?`pago em ${dataBR(v.pag.data)} · 📎 ${v.pag.comps.length}`:'pago · sem data e comprovante'}</span>`:'<span class="suave">—</span>'}</td></tr>`}).join('')||`<tr><td colspan="6" class="vazio">Nenhum veículo encontrado com esse filtro.</td></tr>`}
+  </tbody></table></div><div class="rodape-tab"><span>${l.length} de ${S.V.filter(v=>!v.exc).length} veículos</span><span>Em aberto: <b class="num">${brl(soma(l.flatMap(v=>debitosAbertos(v.p))))}</b> · Pago na transferência: <b class="num">${brl(soma(l.flatMap(v=>pagosTransf(v.p))))}</b></span></div></div>`;
+}
+function veiculosPos(){
+  const bq=$('#bq');bq.oninput=()=>{S.fV.q=bq.value;const p=bq.selectionStart;render();const n=$('#bq');n.focus();n.setSelectionRange(p,p)};
+  document.querySelectorAll('[data-sit]').forEach(b=>b.onclick=()=>{S.fV.sit=b.dataset.sit;render()});
+  $('#so-deb').onclick=()=>{S.fV.comDeb=!S.fV.comDeb;render()};
+  $('#so-pago').onclick=()=>{S.fV.comPago=!S.fV.comPago;render()};
+  $('#sem-reg').onclick=()=>{S.fV.semReg=!S.fV.semReg;render()};
+  document.querySelectorAll('[data-v]').forEach(r=>{r.onclick=()=>detalheV(+r.dataset.v);r.onkeydown=e=>{if(e.key==='Enter')detalheV(+r.dataset.v)}});
+  const nv=$('#novo-v');nv&&(nv.onclick=()=>formV());
+}
+function detalheV(id){
+  const v=S.V.find(x=>x.id===id),ds=S.D.filter(d=>d.p===v.p);
+  modal({titulo:`${placa(v.p)} <span style="margin-left:6px">${esc(v.mod)}</span>`,sub:`${esc(v.ano)} · ${sitPill(v.sit)}`,largo:true,
+   corpo:`<dl class="dados">${[['Chassi',v.ch,1],['RENAVAM',v.ren,1],['UF',v.uf],['Ente',v.ente],['Instituição',v.inst],['Doc. de doação / SEI',v.doc,1]].map(([k,x,m])=>`<div><dt>${k}</dt><dd class="${m?'mono':''}">${esc(x||'—')}</dd></div>`).join('')}</dl>
+   <div class="cartao"><div class="tabela"><table><thead><tr><th>Tipo</th><th>Órgão</th><th>Referência</th><th>Status</th><th class="r">Valor</th></tr></thead><tbody>
+   ${ds.map(d=>`<tr><td>${tipoPill(d.t)}</td><td>${esc(d.org)}</td><td>${ref(d)}</td><td>${stPill(stTxt(d))}</td><td class="r">${d.v==null?'<span class="pill p-aviso">sem valor</span>':brl(d.v)}</td></tr>`).join('')||'<tr><td colspan="5" class="vazio">Nenhum débito lançado para este veículo.</td></tr>'}
+   </tbody></table></div></div>
+   ${pagosTransf(v.p).length?`<div class="cartao pag-cartao"><div><h3>Pagamento da transferência</h3>${v.pag?`<p>Pago em <b>${dataBR(v.pag.data)}</b> · ${brl(soma(pagosTransf(v.p)))}${v.pag.sei?` · SEI <span class="mono">${esc(v.pag.sei)}</span>`:''}</p><div class="anexos">${anexosHTML(v.pag.comps)}</div>${v.pag.obs?`<p class="suave">${esc(v.pag.obs)}</p>`:''}`:`<p class="suave">${brl(soma(pagosTransf(v.p)))} pagos, mas sem data nem comprovante registrados.</p>`}</div>${pode.escrever()?`<button class="btn ${v.pag?'':'pri'} min" id="pgb">${v.pag?'Editar':'Registrar data e comprovante'}</button>`:''}</div>`:''}`,
+   pe:`${pode.excluir()?'<button class="btn perigo" id="exc" style="margin-right:auto">Mover para a lixeira</button>':''}${pode.escrever()?'<button class="btn" id="edt">Editar</button><button class="btn pri" id="nd">+ Débito para este veículo</button>':'<button class="btn" data-fechar>Fechar</button>'}`,
+   aoAbrir(){
+     const e=$('#exc');e&&(e.onclick=()=>confirmar(`Mover ${v.p} para a lixeira?`,'O veículo sai das listas e do painel, mas pode ser restaurado pela Lixeira.','Mover para a lixeira',()=>{v.exc=true;v.excPor=EU;v.excEm=new Date().toLocaleString('pt-BR');render();toast(`${v.p} movido para a lixeira`)}));
+     const ed=$('#edt');ed&&(ed.onclick=()=>formV(v));
+     const n=$('#nd');n&&(n.onclick=()=>formD({p:v.p}));
+     const pg=$('#pgb');pg&&(pg.onclick=()=>formPag(v));
+   }});
+}
+function confirmar(tit,txt,btn,ok){
+  modal({titulo:tit,corpo:`<p>${txt}</p>`,pe:`<button class="btn" data-fechar>Cancelar</button><button class="btn perigo" id="ok">${btn}</button>`,aoAbrir(){$('#ok').onclick=()=>{ok();fechar()}}});
+}
+function campo(id,rot,{tipo='text',val='',ob=false,op=null,dica='',todo=false,mono=false,lista=null}={}){
+  const inp=op?`<select id="${id}">${op.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}</select>`
+    :`<input id="${id}" type="${tipo}" value="${esc(val)}" ${mono?'class="mono"':''} ${lista?`list="${lista}"`:''} autocomplete="off">`;
+  return `<div class="campo ${todo?'todo':''}"><label for="${id}">${rot}${ob?' <span class="ob">*</span>':''}</label>${inp}<span class="erro" id="${id}-e"></span>${dica?`<span class="dica">${dica}</span>`:''}</div>`;
+}
+const RX_PLACA=/^[A-Z]{3}\d[A-Z0-9]\d{2}$/;
+function formV(v){
+  const ed=!!v;v=v||{p:'',ch:'',ren:'',mod:'',ano:'',sit:SITS[0],uf:'',ente:'',inst:'',doc:''};
+  const ind=`<div class="form">${campo('fp','Placa',{val:v.p,ob:true,mono:true,dica:'Padrão antigo ou Mercosul: ABC1234 / ABC1D23'})}${campo('fch','Chassi',{val:v.ch,ob:true,mono:true,dica:'17 caracteres'})}
+   ${campo('fr','RENAVAM',{val:v.ren,mono:true})}${campo('fmod','Marca / modelo',{val:v.mod,ob:true})}${campo('fa','Ano fab./modelo',{val:v.ano,dica:'Ex.: 2023/2024'})}
+   ${campo('fs','Situação no DETRAN',{op:SITS,val:v.sit})}${campo('fu','UF',{op:['',...UFS],val:v.uf,ob:true})}${campo('fe','Ente',{val:v.ente,dica:'Estado ou município donatário'})}
+   ${campo('fi','Instituição',{val:v.inst})}${campo('fd','Doc. de doação / nº SEI',{val:v.doc,mono:true})}</div>`;
+  const lote=`<div class="aviso i"><b>Cole várias linhas de uma vez</b><span>Uma linha por veículo, colunas separadas por tabulação ou ponto e vírgula: placa; chassi; modelo; ano; UF. Dá para copiar direto da planilha.</span></div>
+   <div class="campo"><label for="lt">Veículos</label><textarea id="lt" placeholder="ABC1D23;9BWZZZ377VT004251;VW/GOL 1.0;2023/2024;GO"></textarea></div><div id="lt-r"></div>`;
+  modal({titulo:ed?`Editar ${esc(v.p)}`:'Cadastrar veículo',largo:true,
+   corpo:`${ed?'':'<div class="abas-m" role="tablist"><button role="tab" aria-selected="true" data-m="i">Individual</button><button role="tab" aria-selected="false" data-m="l">Em lote</button></div>'}<div id="mc">${ind}</div>`,
+   pe:`<button class="btn" data-fechar>Cancelar</button><button class="btn pri" id="salv">${ed?'Salvar alterações':'Cadastrar'}</button>`,
+   aoAbrir(){
+     let modo='i';
+     document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{modo=b.dataset.m;document.querySelectorAll('[data-m]').forEach(x=>x.setAttribute('aria-selected',x===b));$('#mc').innerHTML=modo==='i'?ind:lote;$('#salv').textContent=modo==='i'?'Cadastrar':'Conferir linhas';if(modo==='l')$('#lt').oninput=()=>{$('#salv').textContent='Conferir linhas'}});
+     $('#salv').onclick=()=>{
+       if(modo==='l')return lotePreview();
+       const g=id=>$('#'+id).value.trim();
+       const p=g('fp').toUpperCase().replace(/[^A-Z0-9]/g,''),ch=g('fch').toUpperCase();
+       let ok=true;const err=(id,m)=>{$('#'+id+'-e').textContent=m;$('#'+id).classList.toggle('inv',!!m);if(m)ok=false};
+       err('fp',!RX_PLACA.test(p)?'Placa inválida. Use 7 caracteres, como ABC1234 ou ABC1D23.':S.V.some(x=>x.p===p&&!x.exc&&x!==v)?'Já existe um veículo ativo com essa placa.':'');
+       err('fch',ch.length!==17?`O chassi tem ${ch.length} caracteres; precisa ter 17.`:S.V.some(x=>x.ch===ch&&!x.exc&&x!==v)?'Já existe um veículo ativo com esse chassi.':'');
+       err('fmod',g('fmod')?'':'Informe a marca e o modelo.');
+       err('fu',g('fu')?'':'Escolha a UF.');
+       if(!ok)return;
+       const novo={p,ch,ren:g('fr'),mod:g('fmod').toUpperCase(),ano:g('fa'),sit:g('fs'),uf:g('fu'),ente:g('fe'),inst:g('fi'),doc:g('fd')};
+       if(ed){const virou=!v.sit.includes('TRANSF')&&novo.sit.includes('TRANSF');const volt=v.sit.includes('TRANSF')&&!novo.sit.includes('TRANSF');
+         if(v.p!==p)S.D.forEach(d=>{if(d.p===v.p)d.p=p});Object.assign(v,novo);
+         const ab=debitosAbertos(p);
+         if(volt){S.D.forEach(d=>{if(d.p===p&&d.pt){d.pt=false;d.st='Pendente'}});delete v.pag}
+         if(virou&&ab.length){fechar();render();modal({titulo:`${esc(p)} foi transferido`,corpo:`<p>Este veículo tem ${ab.length} débito${ab.length>1?'s':''} em aberto, somando <b>${brl(soma(ab))}</b>. Se foram pagos para a transferência sair, registre a data e o comprovante: o valor passa a contar no esforço de regularização.</p>${camposPag(v)}`,
+           pe:`<button class="btn" data-fechar>Não foram pagos</button><button class="btn pri" id="ok">Marcar como pagos</button>`,aoAbrir(){const ler=ligaPag(v);$('#ok').onclick=()=>{const r=ler();if(!r)return;v.pag=r;ab.forEach(d=>{d.st=d.t==='Infração'?'Paga':'Pago';d.pt=true});fechar();render();toast(`${brl(soma(ab))} pagos em ${dataBR(r.data)}`)}}});return}
+         toast('Alterações salvas')}
+       else{S.V.unshift({...novo,id:S.V.length+1,exc:false});toast(`${p} cadastrado`)}
+       fechar();render();
+     };
+     function lotePreview(){
+       const linhas=$('#lt').value.split('\n').map(l=>l.trim()).filter(Boolean);
+       if($('#salv').dataset.pronto==='1'){const ok=JSON.parse($('#salv').dataset.v);ok.forEach(n=>S.V.unshift({...n,id:S.V.length+1,exc:false,ren:'',sit:SITS[0],ente:'',inst:'',doc:''}));fechar();render();toast(`${ok.length} veículos cadastrados`);return}
+       const vistos=new Set(),bons=[],ruins=[];
+       linhas.forEach((l,i)=>{const [p0='',ch0='',mod='',ano='',uf0='']=l.split(/\t|;/).map(s=>s.trim());const uf=uf0.toUpperCase();const p=p0.toUpperCase().replace(/[^A-Z0-9]/g,''),ch=ch0.toUpperCase();
+         const m=!RX_PLACA.test(p)?'placa inválida':ch.length!==17?'chassi sem 17 caracteres':S.V.some(x=>!x.exc&&(x.p===p||x.ch===ch))?'já cadastrado':vistos.has(p)?'repetido na colagem':!UFS.includes(uf)?'UF ausente ou inválida':'';
+         vistos.add(p);if(m)ruins.push(`Linha ${i+1} (${esc(p0||'vazia')}): ${m}`);else bons.push({p,ch,mod:mod.toUpperCase(),ano,uf})});
+       $('#lt-r').innerHTML=(bons.length?`<div class="aviso o"><b>${bons.length} prontos para cadastrar</b></div>`:'')+(ruins.length?`<div class="aviso a" style="margin-top:8px"><b>${ruins.length} com problema — ficam de fora</b>${ruins.map(r=>`<span>${r}</span>`).join('')}</div>`:'')+(!linhas.length?'<div class="aviso a">Cole ao menos uma linha.</div>':'');
+       if(bons.length){$('#salv').textContent=`Cadastrar ${bons.length}`;$('#salv').dataset.pronto='1';$('#salv').dataset.v=JSON.stringify(bons)}
+     }
+   }});
+}
+
+/* ---------- DÉBITOS ---------- */
+function debitos(){
+  const f=S.fD,q=f.q.trim().toUpperCase();
+  let l=S.D.slice();
+  if(f.especial==='semvalor')l=l.filter(d=>d.v==null&&ABERTO(d.st));
+  if(f.especial==='semveic')l=l.filter(d=>!veic(d.p));
+  if(f.tipo)l=l.filter(d=>d.t===f.tipo);
+  if(f.st)l=l.filter(d=>d.st===f.st);
+  if(q)l=l.filter(d=>[d.p,d.org,d.ait,d.cod,d.t,d.ex].join(' ').toUpperCase().includes(q));
+  const tipos=['','Infração','IPVA','Licenciamento','Taxas','Outra'];
+  const esp={semvalor:'Mostrando só débitos sem valor',semveic:'Mostrando só débitos de veículo não cadastrado'}[f.especial];
+  return `<div class="cab"><div><h1>Débitos</h1><p>Infrações, IPVA, licenciamento e taxas — um por linha</p></div>
+   <div class="acoes">${pode.escrever()?'<button class="btn pri" id="novo-d">+ Novo débito</button>':''}</div></div>
+  ${esp?`<div class="aviso a" style="display:flex;justify-content:space-between;align-items:center;gap:10px">${esp}<button class="btn min" id="limpa">Ver todos</button></div>`:''}
+  <div class="ferr"><input class="busca" id="bq" type="search" placeholder="Placa, AIT, órgão, código…" value="${esc(f.q)}" aria-label="Buscar débitos">
+   ${tipos.map(t=>`<button class="chip" data-tipo="${t}" aria-pressed="${f.tipo===t}">${t||'Todos'}</button>`).join('')}
+   <select class="sel" id="fst" aria-label="Status"><option value="">Qualquer status</option>${[...new Set([...ST_INF,...ST_GEN])].map(s=>`<option ${f.st===s?'selected':''}>${s}</option>`).join('')}</select></div>
+  <div class="cartao"><div class="tabela"><table><thead><tr><th>Placa</th><th>Tipo</th><th>Órgão</th><th>Referência</th><th>Ofício</th><th>Status</th><th class="r">Valor</th></tr></thead><tbody>
+  ${l.map(d=>{const v=veic(d.p);const o=S.O.find(o=>o.id===d.of);const sts=d.t==='Infração'?ST_INF:ST_GEN;
+    return `<tr><td>${placa(d.p)}${v?'':'<span class="sub" style="color:var(--aviso)">não cadastrado</span>'}</td><td>${tipoPill(d.t)}</td><td>${esc(d.org)}</td><td>${ref(d)}</td>
+    <td>${o?`<button class="btn min" data-of="${o.id}">${esc(o.org)} · ${esc(o.data)}</button>`:'<span class="suave">—</span>'}</td>
+    <td>${d.pt?stPill('Pago na transferência'):pode.escrever()?`<select class="sel" data-st="${d.id}" aria-label="Status do débito">${sts.map(s=>`<option ${s===d.st?'selected':''}>${s}</option>`).join('')}</select>`:stPill(d.st)}</td>
+    <td class="r">${d.v==null?'<span class="pill p-aviso">sem valor</span>':brl(d.v)}</td></tr>`}).join('')||'<tr><td colspan="7" class="vazio">Nenhum débito com esse filtro.</td></tr>'}
+  </tbody></table></div><div class="rodape-tab"><span>${l.length} débitos</span><span>Soma: <b class="num">${brl(soma(l))}</b></span></div></div>`;
+}
+function debitosPos(){
+  const bq=$('#bq');bq.oninput=()=>{S.fD.q=bq.value;const p=bq.selectionStart;render();const n=$('#bq');n.focus();n.setSelectionRange(p,p)};
+  document.querySelectorAll('[data-tipo]').forEach(b=>b.onclick=()=>{S.fD.tipo=b.dataset.tipo;render()});
+  $('#fst').onchange=e=>{S.fD.st=e.target.value;render()};
+  const lp=$('#limpa');lp&&(lp.onclick=()=>{S.fD.especial='';render()});
+  document.querySelectorAll('[data-st]').forEach(s=>s.onchange=()=>{const d=S.D.find(x=>x.id===+s.dataset.st);d.st=s.value;toast(`${d.p}: status alterado para ${s.value}`);render()});
+  document.querySelectorAll('[data-of]').forEach(b=>b.onclick=()=>verOficio(+b.dataset.of));
+  const n=$('#novo-d');n&&(n.onclick=()=>formD({}));
+}
+function formD(pre){
+  modal({titulo:'Novo débito',largo:true,corpo:`
+   <div class="form">${campo('dp','Placa',{val:pre.p||'',ob:true,mono:true})}${campo('dt','Tipo de débito',{op:['Infração','IPVA','Licenciamento','Taxas','Outra'],val:'Infração'})}
+   <div class="campo todo" id="dv"></div></div>
+   <div class="form" id="dcampos"></div>
+   <datalist id="lorg">${orgaos().map(o=>`<option value="${o}">`).join('')}</datalist>
+   <datalist id="lcod">${TABELA_INF.map(r=>`<option value="${r[0]}">${esc(r[1])} — ${esc(r[2])}</option>`).join('')}</datalist>
+   <datalist id="lart">${[...INF_ART.keys()].map(a=>`<option value="${esc(INF_ART.get(a)[0][1])}">${INF_ART.get(a).length>1?INF_ART.get(a).length+' códigos':esc(INF_ART.get(a)[0][0])}</option>`).join('')}</datalist>`,
+   pe:`<button class="btn" data-fechar>Cancelar</button><button class="btn pri" id="dsalv">Cadastrar débito</button>`,
+   aoAbrir(){
+     const olhaPlaca=()=>{const p=$('#dp').value.toUpperCase().replace(/[^A-Z0-9]/g,'');const v=veic(p);
+       $('#dv').innerHTML=!p?'':v?`<div class="aviso o"><b>${esc(v.p)} · ${esc(v.mod)} ${esc(v.ano)}</b><span>${esc(v.inst||v.ente||'')} · ${v.sit.includes('TRANSF')?'Transferido':v.sit.includes('COMUNICADO')?'Comunicado de venda':'Em circulação'}</span></div>`
+       :`<div class="aviso a"><b>Veículo não cadastrado</b><span>Dá para cadastrar o débito assim mesmo; ele aparece em “Precisa de atenção” no painel.</span></div>`};
+     $('#dp').oninput=olhaPlaca;olhaPlaca();
+     const troca=()=>{const t=$('#dt').value;
+       $('#dcampos').innerHTML=t==='Infração'
+       ?`${campo('dait','Nº do AIT',{ob:true,mono:true})}${campo('dorg','Órgão autuador',{lista:'lorg',ob:true})}
+         ${campo('dcod','Código da infração',{lista:'lcod',mono:true,ob:true,dica:'Ex.: 745-50. Preenche artigo, descrição e valor.'})}${campo('dart','Artigo (CTB)',{lista:'lart',mono:true,ob:true,dica:'Ex.: 218*I. Preenche código, descrição e valor.'})}
+         <div class="campo todo" id="descolha"></div>
+         ${campo('ddesc','Descrição',{todo:true})}${campo('ddata','Data da infração',{tipo:'date'})}${campo('dval','Valor (R$)',{dica:'Opcional em infração. Pode ajustar se houver desconto.'})}${campo('dst','Status do cancelamento',{op:ST_INF})}`
+       :`${campo('dorg','Órgão / autoridade',{lista:'lorg',ob:true,val:(()=>{const u=veic($('#dp').value.toUpperCase().replace(/[^A-Z0-9]/g,''))?.uf;return u?(t==='IPVA'?`SEFAZ-${u}`:t==='Licenciamento'?`DETRAN-${u}`:''):''})()})}${campo('dex','Exercício / ano',{dica:'Ex.: 2025'})}
+         ${campo('dven','Vencimento',{tipo:'date'})}${campo('dval','Valor (R$)',{ob:true})}${campo('dst','Status',{op:ST_GEN})}`;
+       const c=$('#dcod'),a=$('#dart');
+       const msg=(id,t,ok)=>{const e=$('#'+id+'-e');e.textContent=t;e.style.color=ok?'var(--ok)':'';$('#'+id).classList.remove('inv')};
+       let auto=null;
+       const limpaAuto=()=>{if(!auto)return;$('#ddesc').value='';$('#dval').value='';$('#dval-e').textContent='';auto=null};
+       const aplica=r=>{auto=r[0];c.value=r[0];a.value=r[1];$('#ddesc').value=r[2];$('#dval').value=r[3]==null?'':r[3].toLocaleString('pt-BR',{minimumFractionDigits:2});
+         $('#descolha').innerHTML='';msg('dcod','✓ Artigo, descrição e valor preenchidos pela tabela',true);msg('dart','',true);
+         if(r[3]==null)$('#dval-e').textContent='Esta infração não tem valor fixo na tabela — digite o valor do auto.'};
+       c&&(c.oninput=()=>{const v=c.value.trim();const r=INF_COD.get(v);
+         if(r)return aplica(r);
+         if(auto){limpaAuto();a.value=''}
+         $('#descolha').innerHTML='';
+         msg('dcod',/^\d{3}-\d{2}$/.test(v)?'Código não está na tabela de infrações. Confira o auto; se estiver certo, preencha o artigo à mão.':'',false)});
+       a&&(a.oninput=()=>{const v=a.value.trim().toUpperCase();const rs=INF_ART.get(v)||[];
+         if(rs.length===1)return aplica(rs[0]);
+         if(auto){limpaAuto();c.value='';msg('dcod','',false)}
+         if(rs.length>1){msg('dart',`${rs.length} infrações com este artigo — escolha abaixo:`,false);
+           $('#descolha').innerHTML=`<div class="escolha">${rs.map(r=>`<button type="button" class="btn min" data-esc="${r[0]}"><span class="mono">${r[0]}</span> ${esc(r[2])}${r[3]!=null?` · ${brl(r[3])}`:''}</button>`).join('')}</div>`;
+           document.querySelectorAll('[data-esc]').forEach(b=>b.onclick=()=>aplica(INF_COD.get(b.dataset.esc)));return}
+         $('#descolha').innerHTML='';msg('dart','',false)});
+     };
+     $('#dt').onchange=troca;troca();
+     $('#dsalv').onclick=()=>{
+       const g=id=>($('#'+id)?.value||'').trim();const t=g('dt');let ok=true;
+       const err=(id,m)=>{const e=$('#'+id+'-e');if(!e)return;e.style.color='';e.textContent=m;$('#'+id).classList.toggle('inv',!!m);if(m)ok=false};
+       const p=g('dp').toUpperCase().replace(/[^A-Z0-9]/g,'');
+       err('dp',RX_PLACA.test(p)?'':'Placa inválida.');
+       if(t==='Infração'){err('dait',g('dait')?'':'Informe o número do auto.');if(S.D.some(d=>d.ait&&d.ait===g('dait').toUpperCase()))err('dait','Esse AIT já está cadastrado.');
+         err('dcod',/^\d{3}-\d{2}$/.test(g('dcod'))?'':'O código da infração é obrigatório, no formato 000-00.');
+         err('dart',g('dart')?'':'O artigo da infração é obrigatório.')}
+       err('dorg',g('dorg')?'':'Informe o órgão.');
+       const vs=g('dval');const v=vs?parseFloat(vs.replace(/\./g,'').replace(',','.')):null;
+       if(vs&&isNaN(v))err('dval','Valor inválido. Use o formato 1.234,56.');else if(t!=='Infração'&&v==null)err('dval','O valor é obrigatório para este tipo.');else if(t!=='Infração'||vs)err('dval','');
+       if(!ok)return;
+       const id=proxId(S.D);
+       S.D.push({id,p,t,org:g('dorg'),ait:t==='Infração'?g('dait').toUpperCase():undefined,cod:g('dcod')||undefined,art:g('dart')||undefined,desc:g('ddesc')||undefined,ex:g('dex')||undefined,v,st:g('dst')});
+       fechar();render();toast(`Débito cadastrado para ${p}`);
+     };
+   }});
+}
+
+/* ---------- OFÍCIOS ---------- */
+function oficios(){
+  const aguard=S.O.filter(o=>o.st==='Aguardando resposta').length;
+  return `<div class="cab"><div><h1>Ofícios</h1><p>Pedidos de cancelamento ou baixa enviados aos órgãos — substituem as abas por órgão das planilhas</p></div>
+   <div class="acoes">${pode.escrever()?'<button class="btn pri" id="novo-o">+ Novo ofício</button>':''}</div></div>
+  <div class="aviso i"><b>Tela nova, proposta para o site.</b><span>Na planilha, cada remessa era uma aba com a numeração recomeçando em 1. Aqui cada ofício guarda a data, o nº SEI, os débitos que foram nele e a resposta do órgão. ${aguard} aguardando resposta.</span></div>
+  <div class="oficios">${S.O.slice().reverse().map(o=>{const it=o.itens.map(i=>S.D.find(d=>d.id===i));return `<button class="oficio" data-of="${o.id}">
+   <span class="lin"><span class="org" style="color:var(--texto)">${esc(o.org)}</span><span>${esc(o.data)}</span></span>
+   <span class="lin"><span>${it.length} débito${it.length>1?'s':''} · ${it.map(d=>d.p).filter((x,i,a)=>a.indexOf(x)===i).join(', ')}</span></span>
+   <span class="lin"><span>${o.st==='Aguardando resposta'?'<span class="pill p-azul">Aguardando resposta</span>':'<span class="pill p-ok">Respondido</span>'}</span><b class="num" style="color:var(--texto)">${brl(soma(it))}</b></span>
+   ${o.sei?`<span class="lin mono">SEI ${esc(o.sei)}</span>`:''}</button>`}).join('')}</div>`;
+}
+function oficiosPos(){
+  document.querySelectorAll('[data-of]').forEach(b=>b.onclick=()=>verOficio(+b.dataset.of));
+  const n=$('#novo-o');n&&(n.onclick=novoOficio);
+}
+function docOficio(org,itens,data){
+  const inf=itens.every(d=>d.t==='Infração');
+  return `<div class="doc">${cabecalhoDoc()}<div class="c" style="margin-top:8px">VIATURAS POLICIAIS DO MINISTÉRIO DA JUSTIÇA</div>
+   <div class="tit">PLANILHA DE SOLICITAÇÃO DE ${inf?'CANCELAMENTO/PRESCRIÇÃO DE INFRAÇÃO':'BAIXA DE DÉBITOS'} ${esc(org.toUpperCase())}</div>
+   <table><thead><tr><th>ORD</th><th>PLACA</th><th>RENAVAM</th><th>CHASSI</th><th>MODELO</th><th>ANO</th>${inf?'<th>AIT</th><th>CÓDIGO</th><th>ARTIGO</th>':'<th>DÉBITO</th><th>VALOR</th>'}</tr></thead><tbody>
+   ${itens.map((d,i)=>{const v=S.V.find(x=>x.p===d.p)||{};return `<tr><td>${i+1}</td><td>${esc(d.p)}</td><td>${esc(v.ren||'')}</td><td>${esc(v.ch||'')}</td><td>${esc(v.mod||'')}</td><td>${esc(v.ano||'')}</td>${inf?`<td>${esc(d.ait)}</td><td>${esc(d.cod||'')}</td><td>${esc(d.art||'')}</td>`:`<td>${esc(d.t)}${d.ex?' '+esc(d.ex):''}</td><td style="text-align:right">${d.v!=null?d.v.toLocaleString('pt-BR',{minimumFractionDigits:2}):''}</td>`}</tr>`}).join('')}
+   </tbody></table><div class="data">Brasília-DF, ${esc(data)}.</div></div>`;
+}
+function verOficio(id){
+  const o=S.O.find(x=>x.id===id),it=o.itens.map(i=>S.D.find(d=>d.id===i));
+  const [m,a]=o.data.split('/');const mesExt=Object.fromEntries(['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'].map((x,i)=>[x,MES_EXT[i]]));
+  modal({titulo:`Ofício · ${esc(o.org)}`,sub:`${esc(o.data)} · ${it.length} débito${it.length>1?'s':''}`,largo:true,
+   corpo:`<div class="abas-m" role="tablist"><button role="tab" aria-selected="true" data-oa="r">Resposta</button><button role="tab" aria-selected="false" data-oa="d">Planilha do ofício</button></div><div id="oc"></div>`,
+   pe:`<button class="btn" data-fechar>Fechar</button>${pode.escrever()?'<button class="btn pri" id="osalv">Salvar resposta</button>':''}`,
+   aoAbrir(){
+     const resp=()=>`<div class="form">${campo('osei','Nº SEI do ofício',{val:o.sei,mono:true,dica:'Não constava na planilha.'})}${campo('ost','Situação',{op:['Aguardando resposta','Respondido'],val:o.st})}</div>
+      <div class="cartao"><div class="tabela"><table><thead><tr><th>Placa</th><th>Referência</th><th class="r">Valor</th><th>Resultado</th></tr></thead><tbody>
+      ${it.map(d=>{const sts=d.t==='Infração'?ST_INF:ST_GEN;return `<tr><td>${placa(d.p)}</td><td>${ref(d)}</td><td class="r">${d.v==null?'<span class="pill p-aviso">sem valor</span>':brl(d.v)}</td><td>${pode.escrever()?`<select class="sel" data-ost="${d.id}" aria-label="Resultado">${sts.map(s=>`<option ${s===d.st?'selected':''}>${s}</option>`).join('')}</select>`:stPill(d.st)}</td></tr>`}).join('')}
+      </tbody></table></div></div>`;
+     const pinta=k=>{$('#oc').innerHTML=k==='r'?resp():docOficio(o.org,it,`${mesExt[m]||m} de ${a}`)+'<p class="suave" style="font-size:12.5px">No site real, este documento é baixado em Excel ou PDF para anexar ao SEI.</p>'};
+     document.querySelectorAll('[data-oa]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-oa]').forEach(x=>x.setAttribute('aria-selected',x===b));pinta(b.dataset.oa)});
+     pinta('r');
+     const s=$('#osalv');s&&(s.onclick=()=>{if($('#osei')){o.sei=$('#osei').value.trim();o.st=$('#ost').value;document.querySelectorAll('[data-ost]').forEach(x=>{S.D.find(d=>d.id===+x.dataset.ost).st=x.value})}fechar();render();toast('Resposta do ofício salva')});
+   }});
+}
+function novoOficio(){
+  const pend=S.D.filter(d=>d.st==='Pendente');
+  const orgs=[...new Set(pend.map(d=>d.org))].sort();
+  if(!orgs.length){modal({titulo:'Novo ofício',corpo:'<p>Não há débitos pendentes para pedir. Cadastre um débito ou mude o status de algum para “Pendente”.</p>',pe:'<button class="btn" data-fechar>Fechar</button>'});return}
+  modal({titulo:'Novo ofício',sub:'Escolha o órgão e marque os débitos pendentes que vão no pedido.',largo:true,
+   corpo:`<div class="form">${campo('oorg','Órgão destinatário',{op:orgs})}${campo('osei2','Nº SEI',{mono:true,dica:'Pode preencher depois.'})}</div><div id="olista"></div>`,
+   pe:`<button class="btn" data-fechar>Cancelar</button><button class="btn" id="oprev">Ver planilha</button><button class="btn pri" id="ocriar">Registrar envio</button>`,
+   aoAbrir(){
+     const lista=()=>{const org=$('#oorg').value;const it=pend.filter(d=>d.org===org);
+       $('#olista').innerHTML=`<div class="ferr" style="justify-content:space-between"><b>${it.length} pendente${it.length>1?'s':''} para ${esc(org)}</b><button class="btn min" id="otodos">Marcar todos</button></div>
+       <div class="sel-lista">${it.map(d=>`<label><input type="checkbox" value="${d.id}" checked>${placa(d.p)}<span>${tipoPill(d.t)} <span class="suave">${d.t==='Infração'?esc(d.ait):esc(veic(d.p)?.inst||veic(d.p)?.ente||'')}</span></span><b class="num">${brl(d.v)}</b></label>`).join('')}</div>`;
+       $('#otodos').onclick=()=>document.querySelectorAll('#olista input').forEach(c=>c.checked=true)};
+     $('#oorg').onchange=lista;lista();
+     const marcados=()=>[...document.querySelectorAll('#olista input:checked')].map(c=>S.D.find(d=>d.id===+c.value));
+     $('#oprev').onclick=()=>{const it=marcados();if(!it.length)return toast('Marque ao menos um débito');const org=$('#oorg').value;
+       $('#olista').insertAdjacentHTML('beforeend','<div id="oprevdoc" style="margin-top:12px"></div>');$('#oprevdoc').innerHTML=docOficio(org,it,dataExt().replace(/^\d+ de /,''))};
+     $('#ocriar').onclick=()=>{const it=marcados();if(!it.length)return toast('Marque ao menos um débito');const id=proxId(S.O);
+       S.O.push({id,org:$('#oorg').value,data:mesAtual(),itens:it.map(d=>d.id),st:'Aguardando resposta',sei:$('#osei2').value.trim()});
+       it.forEach(d=>{d.st='Enviado';d.of=id});fechar();S.view='oficios';render();toast(`Ofício registrado com ${it.length} débitos`)};
+   }});
+}
+
+/* ---------- LIXEIRA ---------- */
+function lixeira(){
+  const l=S.V.filter(v=>v.exc);
+  return `<div class="cab"><div><h1>Lixeira</h1><p>Veículos excluídos. Nada é apagado de verdade — dá para restaurar.</p></div></div>
+  <div class="cartao"><div class="tabela"><table><thead><tr><th>Placa</th><th>Modelo</th><th>Excluído por</th><th>Quando</th><th></th></tr></thead><tbody>
+  ${l.map(v=>`<tr><td>${placa(v.p)}</td><td>${esc(v.mod)}</td><td>${esc(v.excPor)}</td><td class="num">${esc(v.excEm)}</td><td class="r"><button class="btn min" data-rest="${v.id}">Restaurar</button></td></tr>`).join('')||'<tr><td colspan="5" class="vazio">A lixeira está vazia. Para testar, abra um veículo e use “Mover para a lixeira”.</td></tr>'}
+  </tbody></table></div></div>`;
+}
+function lixeiraPos(){document.querySelectorAll('[data-rest]').forEach(b=>b.onclick=()=>{const v=S.V.find(x=>x.id===+b.dataset.rest);if(S.V.some(x=>!x.exc&&(x.p===v.p||x.ch===v.ch)))return toast(`Já existe um veículo ativo com a placa ou o chassi de ${v.p}`);v.exc=false;render();toast(`${v.p} restaurado`)})}
+
+/* ---------- USUÁRIOS ---------- */
+function usuarios(){
+  return `<div class="cab"><div><h1>Usuários</h1><p>Quem pode entrar e o que pode fazer. O login é pela Conta do Google.</p></div></div>
+  <div class="grade3">
+  <div class="cartao"><div class="tabela"><table><thead><tr><th>E-mail</th><th>Perfil</th><th></th></tr></thead><tbody>
+  ${S.U.map((u,i)=>`<tr><td class="mono" style="overflow-wrap:anywhere">${esc(u.email)}${u.email===EU?' <span class="pill p-neutro">você</span>':''}</td><td>${u.email===EU?'<span class="pill p-azul">Admin</span>':`<select class="sel" data-up="${i}" aria-label="Perfil"><option value="admin" ${u.perfil==='admin'?'selected':''}>Admin</option><option value="usuario" ${u.perfil==='usuario'?'selected':''}>Usuário</option><option value="visitante" ${u.perfil==='visitante'?'selected':''}>Visitante</option></select>`}</td><td class="r">${u.email===EU?'':`<button class="btn min perigo" data-ur="${i}">Remover</button>`}</td></tr>`).join('')}
+  </tbody></table></div></div>
+  <div class="cartao painel"><h2>Cadastrar pessoa</h2>
+   <div class="form" style="grid-template-columns:1fr">${campo('ue','E-mail do Google',{tipo:'email',ob:true})}${campo('upf','Perfil',{op:['Usuário','Admin','Visitante']})}</div>
+   <button class="btn pri" id="uadd">Cadastrar</button>
+   <dl style="display:grid;gap:8px;font-size:12.5px" class="suave">
+    <div><b style="color:var(--texto)">Admin</b> — tudo, inclusive excluir, lixeira e esta tela.</div>
+    <div><b style="color:var(--texto)">Usuário</b> — cadastra e edita; não exclui.</div>
+    <div><b style="color:var(--texto)">Visitante</b> — só consulta.</div></dl></div></div>`;
+}
+function usuariosPos(){
+  document.querySelectorAll('[data-up]').forEach(s=>s.onchange=()=>{S.U[+s.dataset.up].perfil=s.value;toast('Perfil alterado')});
+  document.querySelectorAll('[data-ur]').forEach(b=>b.onclick=()=>{const u=S.U[+b.dataset.ur];confirmar(`Remover ${esc(u.email)}?`,'A pessoa perde o acesso na hora. Os registros que ela fez continuam.','Remover acesso',()=>{S.U.splice(+b.dataset.ur,1);render();toast('Acesso removido')})});
+  $('#uadd').onclick=()=>{const e=$('#ue').value.trim().toLowerCase();const er=$('#ue-e');
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){er.textContent='E-mail inválido.';return}
+    if(S.U.some(u=>u.email===e)){er.textContent='Esse e-mail já está cadastrado.';return}
+    S.U.push({email:e,perfil:{'Usuário':'usuario','Admin':'admin','Visitante':'visitante'}[$('#upf').value]});render();toast(`${e} cadastrado`)};
+}
+
+const TELAS={painel,veiculos,debitos,oficios,lixeira,usuarios};
+const TELAS_POS={painel:painelPos,veiculos:veiculosPos,debitos:debitosPos,oficios:oficiosPos,lixeira:lixeiraPos,usuarios:usuariosPos};
+render();
+</script>
